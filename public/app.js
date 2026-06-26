@@ -532,6 +532,28 @@ function normalize(value) {
   return value.trim().toLowerCase().replace(/\s/g, "");
 }
 
+function escapeHtml(value) {
+  return String(value ?? "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
+function escapeAttr(value) {
+  return escapeHtml(value);
+}
+
+function safeImageUrl(value) {
+  try {
+    const url = new URL(value);
+    return ["http:", "https:"].includes(url.protocol) ? url.href : "";
+  } catch {
+    return "";
+  }
+}
+
 function getInputs() {
   return [...inputList.querySelectorAll("input")]
     .map((input) => input.value.trim())
@@ -786,7 +808,7 @@ function renderSuggestionButtons(input, box, matches) {
     button.className = "suggestion";
     button.type = "button";
     const sourceLabel = item.source === "tmdb" ? "TMDb" : "Local";
-    button.innerHTML = `<span>${item.title}</span><small>${item.year || "연도 미상"} · ${item.genres[0]} · ${sourceLabel}</small>`;
+    button.innerHTML = `<span>${escapeHtml(item.title)}</span><small>${escapeHtml(item.year || "연도 미상")} · ${escapeHtml(item.genres[0])} · ${sourceLabel}</small>`;
     button.addEventListener("mousedown", () => {
       upsertCatalogItem(item);
       input.value = item.title;
@@ -932,18 +954,18 @@ function renderTaste(seeds) {
     .slice(0, 3)
     .map(([genre, count]) => `
       <div class="metric">
-        <strong>${genre}</strong>
+        <strong>${escapeHtml(genre)}</strong>
         ${Math.round((count / maxGenre) * 100)}%
         <div class="bar"><span style="width: ${(count / maxGenre) * 100}%"></span></div>
       </div>
     `)
     .join("");
 
-  const directorText = directors[0] ? `감독 선호: ${directors.map(([name, count]) => `${name} ${count}편`).join(", ")}` : "";
-  const actorText = actors[0] ? `배우 선호: ${actors.map(([name]) => name).join(", ")}` : "";
+  const directorText = directors[0] ? `감독 선호: ${directors.map(([name, count]) => `${escapeHtml(name)} ${count}편`).join(", ")}` : "";
+  const actorText = actors[0] ? `배우 선호: ${actors.map(([name]) => escapeHtml(name)).join(", ")}` : "";
   tasteSummary.insertAdjacentHTML("beforeend", `<p>${directorText}<br>${actorText}</p>`);
 
-  keywordCloud.innerHTML = keywords.map(([keyword]) => `<span class="keyword">${keyword}</span>`).join("");
+  keywordCloud.innerHTML = keywords.map(([keyword]) => `<span class="keyword">${escapeHtml(keyword)}</span>`).join("");
 }
 
 function renderDataNote(unknownInputs) {
@@ -969,16 +991,16 @@ function renderDNA(seeds) {
       <h3>당신의 취향 DNA</h3>
       ${dnaRows.map((row) => `
         <div class="dna-row">
-          <span>${row.label}</span>
+          <span>${escapeHtml(row.label)}</span>
           <div class="bar"><span style="width: ${row.value}%"></span></div>
           <strong>${row.value}%</strong>
         </div>
       `).join("")}
       <div class="peer-card">
         <h3>비슷한 익명 취향군</h3>
-        <span class="peer-code">${state.activePeerCode}</span>
+        <span class="peer-code">${escapeHtml(state.activePeerCode)}</span>
         <ul class="peer-list">
-          ${peerTitles.map((title) => `<li>높게 반응한 작품: ${title}</li>`).join("") || "<li>추천 결과를 만들면 익명 취향군 반응이 표시됩니다.</li>"}
+          ${peerTitles.map((title) => `<li>높게 반응한 작품: ${escapeHtml(title)}</li>`).join("") || "<li>추천 결과를 만들면 익명 취향군 반응이 표시됩니다.</li>"}
         </ul>
       </div>
     </div>
@@ -986,14 +1008,14 @@ function renderDNA(seeds) {
       <div class="report-hero">
         <div>
           <p class="eyebrow">AI 취향 리포트</p>
-          <h3 class="report-type">${state.activeReport.typeName}</h3>
+          <h3 class="report-type">${escapeHtml(state.activeReport.typeName)}</h3>
         </div>
         <div class="report-score">${state.activeReport.score}<span>점</span></div>
       </div>
       <ul class="report-list">
-        ${state.activeReport.lines.map((line) => `<li>${line}</li>`).join("")}
+        ${state.activeReport.lines.map((line) => `<li>${escapeHtml(line)}</li>`).join("")}
       </ul>
-      <p class="report-copy-text">${state.activeReport.shareText.replace(/\n/g, "<br>")}</p>
+      <p class="report-copy-text">${escapeHtml(state.activeReport.shareText).replace(/\n/g, "<br>")}</p>
       <div class="report-actions">
         <button class="mini-button" type="button" data-action="copy-report">리포트 복사</button>
         <button class="mini-button" type="button" data-action="share-report">공유 문구 만들기</button>
@@ -1125,7 +1147,7 @@ function buildAnonymousPeerCode(seeds) {
 
 function renderEmpty(message) {
   state.activeReport = undefined;
-  tasteSummary.innerHTML = `<p>${message}</p>`;
+  tasteSummary.innerHTML = `<p>${escapeHtml(message)}</p>`;
   dataNote.classList.remove("visible");
   dataNote.textContent = "";
   dnaPanel.innerHTML = "";
@@ -1150,29 +1172,35 @@ function renderCard(item) {
   const similarity = Math.min(98, Math.max(55, Math.round(item.similarity)));
   const favorite = state.favorites.has(item.title);
   const compared = state.compared.has(item.title);
+  const title = escapeHtml(item.title);
+  const titleAttr = escapeAttr(item.title);
+  const poster = safeImageUrl(item.poster);
+  const posterMarkup = poster
+    ? `<img src="${escapeAttr(poster)}" alt="${title} 포스터" loading="lazy" />`
+    : `<div class="poster-fallback">${title}</div>`;
   return `
     <article class="media-card">
-      <button class="poster-button" type="button" data-action="detail" data-title="${item.title}" aria-label="${item.title} 상세 보기">
-        ${item.poster ? `<img src="${item.poster}" alt="${item.title} 포스터" loading="lazy" onerror="this.replaceWith(Object.assign(document.createElement('div'), { className: 'poster-fallback', textContent: '${item.title}' }))" />` : `<div class="poster-fallback">${item.title}</div>`}
+      <button class="poster-button" type="button" data-action="detail" data-title="${titleAttr}" aria-label="${title} 상세 보기">
+        ${posterMarkup}
         <span class="score-badge">${similarity}%</span>
       </button>
       <div class="card-body">
         <div class="card-title">
-          <h3>${item.title}</h3>
-          <button class="icon-button ${favorite ? "active" : ""}" type="button" data-action="favorite" data-title="${item.title}" aria-label="찜하기" title="찜하기">★</button>
+          <h3>${title}</h3>
+          <button class="icon-button ${favorite ? "active" : ""}" type="button" data-action="favorite" data-title="${titleAttr}" aria-label="찜하기" title="찜하기">★</button>
         </div>
-        <p class="meta-line">${item.year} · ${item.country} · ${item.rating.toFixed(1)} · ${item.runtime}분</p>
-        <p class="credit-line"><strong>감독</strong> ${item.director}</p>
-        <p class="credit-line"><strong>배우</strong> ${item.actors.slice(0, 3).join(", ")}</p>
-        <div class="chip-row">${item.genres.map((genre) => `<span class="chip">${genre}</span>`).join("")}</div>
-        <p class="reason">${buildReason(item, similarity)}</p>
-        <p class="source-line">추천 출처: ${state.activePeerCode}의 집계 신호</p>
-        <p class="synopsis">${item.synopsis}</p>
+        <p class="meta-line">${escapeHtml(item.year)} · ${escapeHtml(item.country)} · ${item.rating.toFixed(1)} · ${escapeHtml(item.runtime)}분</p>
+        <p class="credit-line"><strong>감독</strong> ${escapeHtml(item.director)}</p>
+        <p class="credit-line"><strong>배우</strong> ${item.actors.slice(0, 3).map(escapeHtml).join(", ")}</p>
+        <div class="chip-row">${item.genres.map((genre) => `<span class="chip">${escapeHtml(genre)}</span>`).join("")}</div>
+        <p class="reason">${escapeHtml(buildReason(item, similarity))}</p>
+        <p class="source-line">추천 출처: ${escapeHtml(state.activePeerCode)}의 집계 신호</p>
+        <p class="synopsis">${escapeHtml(item.synopsis)}</p>
         <div class="ott-row">${renderOttLinks(item)}</div>
         <div class="card-actions">
-          <button class="mini-button ${compared ? "active" : ""}" type="button" data-action="compare" data-title="${item.title}">비교</button>
-          <button class="mini-button" type="button" data-action="exclude" data-title="${item.title}">이미 봤어요</button>
-          <button class="mini-button" type="button" data-action="dislike" data-title="${item.title}">관심없음</button>
+          <button class="mini-button ${compared ? "active" : ""}" type="button" data-action="compare" data-title="${titleAttr}">비교</button>
+          <button class="mini-button" type="button" data-action="exclude" data-title="${titleAttr}">이미 봤어요</button>
+          <button class="mini-button" type="button" data-action="dislike" data-title="${titleAttr}">관심없음</button>
         </div>
       </div>
     </article>
@@ -1189,7 +1217,7 @@ function renderOttLinks(item) {
   return item.ott.map((ott) => {
     const service = ottCatalog[ott] || { className: "ott-default", url: "https://www.google.com/search?q=" };
     const href = `${service.url}${encodeURIComponent(`${item.title} ${ott}`)}`;
-    return `<a class="ott-link ${service.className}" href="${href}" target="_blank" rel="noopener noreferrer">${ott}</a>`;
+    return `<a class="ott-link ${escapeAttr(service.className)}" href="${escapeAttr(href)}" target="_blank" rel="noopener noreferrer">${escapeHtml(ott)}</a>`;
   }).join("");
 }
 
@@ -1230,19 +1258,21 @@ function toggleSet(set, value) {
 }
 
 function showDetail(item) {
+  const title = escapeHtml(item.title);
+  const poster = safeImageUrl(item.poster);
   $("#detailContent").innerHTML = `
     <div class="detail-layout">
-      ${item.poster ? `<img src="${item.poster}" alt="${item.title} 포스터" />` : `<div class="detail-poster-fallback">${item.title}</div>`}
+      ${poster ? `<img src="${escapeAttr(poster)}" alt="${title} 포스터" />` : `<div class="detail-poster-fallback">${title}</div>`}
       <div>
         <p class="eyebrow">${mediaTypeLabel(item.type)}</p>
-        <h2>${item.title}</h2>
-        <p class="meta-line">${item.year} · ${item.country} · ${item.runtime}분 · 평점 ${item.rating.toFixed(1)}</p>
-        <p><strong>감독</strong><br>${item.director}</p>
-        <p><strong>주연</strong><br>${item.actors.join(", ")}</p>
+        <h2>${title}</h2>
+        <p class="meta-line">${escapeHtml(item.year)} · ${escapeHtml(item.country)} · ${escapeHtml(item.runtime)}분 · 평점 ${item.rating.toFixed(1)}</p>
+        <p><strong>감독</strong><br>${escapeHtml(item.director)}</p>
+        <p><strong>주연</strong><br>${item.actors.map(escapeHtml).join(", ")}</p>
         <p><strong>OTT</strong></p>
         <div class="ott-row">${renderOttLinks(item)}</div>
-        <p class="synopsis">${item.synopsis}</p>
-        <div class="keyword-cloud">${item.keywords.map((keyword) => `<span class="keyword">${keyword}</span>`).join("")}</div>
+        <p class="synopsis">${escapeHtml(item.synopsis)}</p>
+        <div class="keyword-cloud">${item.keywords.map((keyword) => `<span class="keyword">${escapeHtml(keyword)}</span>`).join("")}</div>
       </div>
     </div>
   `;
@@ -1262,8 +1292,8 @@ function showCompare() {
 
   $("#compareContent").innerHTML = `
     <table class="compare-table">
-      <thead><tr><th>항목</th>${items.map((item) => `<th>${item.title}</th>`).join("")}</tr></thead>
-      <tbody>${rows.map((row) => `<tr>${row.map((cell) => `<td>${cell}</td>`).join("")}</tr>`).join("")}</tbody>
+      <thead><tr><th>항목</th>${items.map((item) => `<th>${escapeHtml(item.title)}</th>`).join("")}</tr></thead>
+      <tbody>${rows.map((row) => `<tr>${row.map((cell) => `<td>${escapeHtml(cell)}</td>`).join("")}</tr>`).join("")}</tbody>
     </table>
   `;
   $("#compareDialog").showModal();
@@ -1271,7 +1301,7 @@ function showCompare() {
 
 function fillCountries() {
   const countries = [...new Set(catalog.map((item) => item.country))].sort();
-  $("#countryFilter").insertAdjacentHTML("beforeend", countries.map((country) => `<option value="${country}">${country}</option>`).join(""));
+  $("#countryFilter").insertAdjacentHTML("beforeend", countries.map((country) => `<option value="${escapeAttr(country)}">${escapeHtml(country)}</option>`).join(""));
 }
 
 function exportResults() {
