@@ -520,13 +520,12 @@ const state = {
 const $ = (selector) => document.querySelector(selector);
 const inputList = $("#inputList");
 const template = $("#inputRowTemplate");
-const landingInputList = $("#landingInputList");
-const landingTemplate = $("#landingInputTemplate");
 const recommendationGrid = $("#recommendationGrid");
 const tasteSummary = $("#tasteSummary");
 const dnaPanel = $("#dnaPanel");
 const dataNote = $("#dataNote");
 const keywordCloud = $("#keywordCloud");
+const sampleInputs = ["인터스텔라", "인셉션", "테넷"];
 
 function normalize(value) {
   return value.trim().toLowerCase().replace(/\s/g, "");
@@ -621,35 +620,6 @@ function addInputRow(value = "") {
   inputList.appendChild(node);
 }
 
-function addLandingInput(value = "") {
-  const node = landingTemplate.content.firstElementChild.cloneNode(true);
-  const input = node.querySelector("input");
-  const suggestions = node.querySelector(".suggestions");
-  input.value = value;
-  input.addEventListener("input", () => {
-    showSuggestions(input, suggestions);
-    updateLandingCount();
-  });
-  input.addEventListener("focus", () => showSuggestions(input, suggestions));
-  input.addEventListener("blur", () => {
-    setTimeout(() => suggestions.classList.remove("open"), 130);
-  });
-  input.addEventListener("keydown", (event) => {
-    if (event.key === "Enter") {
-      event.preventDefault();
-      startFromLanding();
-    }
-  });
-  landingInputList.appendChild(node);
-}
-
-function getLandingInputs() {
-  return [...landingInputList.querySelectorAll("input")]
-    .map((input) => input.value.trim())
-    .filter(Boolean)
-    .slice(0, 5);
-}
-
 function matchCatalogItem(inputValue) {
   const input = normalize(inputValue);
   if (!input) return undefined;
@@ -717,31 +687,11 @@ async function enrichInputValues(values) {
   return enriched;
 }
 
-function updateLandingCount() {
-  $("#landingCount").textContent = `${getLandingInputs().length}/5`;
-  $("#landingError").textContent = "";
-}
-
-async function startFromLanding() {
-  const values = await enrichInputValues(getLandingInputs());
-  if (values.length < 1) {
-    $("#landingError").textContent = "최소 1개 이상의 작품을 입력해 주세요.";
-    return;
-  }
-
-  $("#landingPage").classList.add("hidden");
-  $("#mainApp").classList.remove("hidden");
+function loadSampleInputs() {
   inputList.innerHTML = "";
-  values.forEach(addInputRow);
+  sampleInputs.forEach(addInputRow);
   ensureRows();
-  recommend();
-  window.scrollTo({ top: 0, behavior: "smooth" });
-}
-
-function goHome() {
-  $("#mainApp").classList.add("hidden");
-  $("#landingPage").classList.remove("hidden");
-  window.scrollTo({ top: 0, behavior: "smooth" });
+  inputList.querySelector("input")?.focus();
 }
 
 function compactRows(sourceInput) {
@@ -817,11 +767,6 @@ function renderSuggestionButtons(input, box, matches) {
       if (mainRow) {
         ensureRows();
         const next = mainRow.nextElementSibling?.querySelector("input");
-        if (next) next.focus();
-      } else {
-        updateLandingCount();
-        const landingInputs = [...landingInputList.querySelectorAll("input")];
-        const next = landingInputs[landingInputs.indexOf(input) + 1];
         if (next) next.focus();
       }
     });
@@ -1319,13 +1264,12 @@ function exportResults() {
 }
 
 function wireEvents() {
-  $("#startAnalyzeButton").addEventListener("click", startFromLanding);
-  $("#homeButton").addEventListener("click", goHome);
+  $("#sampleButton").addEventListener("click", loadSampleInputs);
   $("#recommendButton").addEventListener("click", recommend);
   $("#restoreButton").addEventListener("click", () => {
     const recent = JSON.parse(localStorage.getItem("sceneSenseRecentInputs") || "[]");
     inputList.innerHTML = "";
-    (recent.length ? recent : ["인터스텔라", "인셉션", "테넷"]).forEach(addInputRow);
+    (recent.length ? recent : sampleInputs).forEach(addInputRow);
     ensureRows();
   });
   $("#clearAllButton").addEventListener("click", () => {
@@ -1370,12 +1314,10 @@ function init() {
 
   refreshApiStatus();
   fillCountries();
-  for (let index = 0; index < 5; index++) addLandingInput();
-  ["인터스텔라", "인셉션", "테넷"].forEach(addInputRow);
+  sampleInputs.forEach(addInputRow);
   ensureRows();
   wireEvents();
-  updateLandingCount();
-  renderEmpty("대문페이지에서 작품을 입력하면 취향 DNA와 추천 결과가 표시됩니다.");
+  renderEmpty("작품을 입력하고 추천받기를 누르면 취향 DNA와 추천 결과가 여기에 표시됩니다.");
 }
 
 init();

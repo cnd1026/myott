@@ -1,42 +1,15 @@
 import Script from "next/script";
 
 const pageMarkup = String.raw`
-<section class="landing-page" id="landingPage" aria-labelledby="landingTitle">
-  <div class="landing-visual" aria-hidden="true">
-    <img src="https://image.tmdb.org/t/p/w500/gEU2QniE6E77NI6lCU6MxlNBvIx.jpg" alt="" />
-    <img src="https://image.tmdb.org/t/p/w500/edv5CZvWj09upOsy2Y6IwDhK8bt.jpg" alt="" />
-    <img src="https://image.tmdb.org/t/p/w500/x2FJsf1ElAgr63Y3PNPtJrcmpoe.jpg" alt="" />
-    <img src="https://image.tmdb.org/t/p/w500/q719jXXEzOoYaps6babgKnONONX.jpg" alt="" />
-    <img src="https://image.tmdb.org/t/p/w500/apbrbWs8M9lyOpJYU5WXrpFbk1Z.jpg" alt="" />
-  </div>
-  <div class="landing-content">
-    <p class="eyebrow">MovieMind DNA</p>
-    <h1 id="landingTitle">좋아한 작품으로 취향 DNA를 분석하세요</h1>
-    <p class="landing-copy">영화, 드라마, 애니를 1개부터 5개까지 입력하면 당신의 취향 구조와 익명 취향군 기반 추천을 만들어드립니다.</p>
-
-    <div class="landing-card">
-      <div class="section-heading compact">
-        <div>
-          <p class="eyebrow">START</p>
-          <h2>처음 입력</h2>
-        </div>
-        <span class="input-limit" id="landingCount">0/5</span>
-      </div>
-      <div class="landing-input-list" id="landingInputList"></div>
-      <p class="landing-error" id="landingError" aria-live="polite"></p>
-      <button class="primary-button" id="startAnalyzeButton" type="button">취향 DNA 분석하기</button>
-    </div>
-  </div>
-</section>
-
-<div class="app-shell hidden" id="mainApp">
+<div class="app-shell" id="mainApp">
   <header class="topbar">
     <div>
-      <p class="eyebrow">AI 영화/드라마 취향 분석</p>
+      <p class="eyebrow">MovieMind DNA</p>
       <h1>SceneSense</h1>
+      <p class="topbar-copy">좋아했던 작품을 입력하고 추천 버튼을 누르면 취향 분석과 추천 결과를 한 화면에서 확인할 수 있습니다.</p>
     </div>
     <div class="topbar-actions">
-      <button class="ghost-button" id="homeButton" type="button">처음으로</button>
+      <button class="ghost-button" id="sampleButton" type="button">샘플 입력</button>
       <button class="icon-button" id="themeToggle" type="button" aria-label="다크모드 전환" title="다크모드 전환">
         <span id="themeIcon">◐</span>
       </button>
@@ -162,13 +135,6 @@ const pageMarkup = String.raw`
       <input type="text" autocomplete="off" placeholder="작품 제목 입력" />
       <div class="suggestions" role="listbox"></div>
     </div>
-  </div>
-</template>
-
-<template id="landingInputTemplate">
-  <div class="landing-input-wrap">
-    <input type="text" autocomplete="off" placeholder="좋아한 작품 입력" />
-    <div class="suggestions" role="listbox"></div>
   </div>
 </template>
 `;

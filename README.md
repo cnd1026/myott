@@ -20,6 +20,13 @@ pnpm dev
 - TMDb 검색 API: `app/api/search/route.js`
 - TMDb 상태 API: `app/api/status/route.js`
 
+## Current Sprint
+
+- 추천 페이지 UI를 한 페이지에서 완성합니다.
+- 사용자 흐름은 들어오기, 작품 입력, 추천 버튼, 결과 확인 순서로 검증합니다.
+- 실제 TMDb 데이터가 없어도 로컬 더미 카탈로그로 추천 결과를 확인할 수 있게 유지합니다.
+- 작업이 끝나면 `CHANGELOG.md`와 `docs/dev-log.md`를 함께 업데이트합니다.
+
 ## TMDb API 연결
 
 1. TMDb에서 API 키를 발급받습니다.
@@ -42,3 +49,10 @@ TMDB_BEARER_TOKEN=your_tmdb_v4_read_access_token_here
 - API 키가 없거나 검색에 실패하면 기존 로컬 데모 DB로 fallback합니다.
 - 입력한 제목이 TMDb/로컬 DB에 없으면 앱 화면에 안내가 표시됩니다.
 - TMDb 키는 Next.js API Route에서만 읽으며 브라우저 번들에는 노출하지 않습니다.
+
+## 개발 기록 규칙
+
+- 기능, 구조, 배포 설정, 외부 서비스 연동처럼 프로젝트 흐름에 영향을 주는 변경을 하면 `CHANGELOG.md`와 `docs/dev-log.md`를 함께 업데이트합니다.
+- `CHANGELOG.md`에는 날짜별로 변경 내용, 이유, 다음 작업을 간단히 기록합니다.
+- `docs/dev-log.md`에는 날짜별로 오늘 작업, 결정한 것, 아쉬운 점, 다음 개선을 기록합니다.
+- 단순 오타 수정처럼 의미 있는 작업 흐름 변화가 없는 경우에는 기록을 생략할 수 있습니다.
