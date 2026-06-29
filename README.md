@@ -1,6 +1,20 @@
 # SceneSense / MovieMind DNA
 
-AI 취향 분석형 영화/드라마/애니 추천 웹앱입니다.
+SceneSense / MovieMind DNA는 좋아했던 영화, 드라마, 애니를 바탕으로 취향을 분석하고 추천 결과를 보여주는 웹앱입니다. 현재는 추천 페이지의 기본 UX를 먼저 완성하고 있으며, 외부 데이터 연동 전에도 더미 데이터로 전체 흐름을 확인할 수 있도록 개발 중입니다.
+
+## 🚀 Current Sprint
+
+### Sprint 2
+
+- [x] Task 2-1 추천 UI
+- [ ] Task 2-2 README 개선
+- [ ] Task 2-3 CHANGELOG 및 개발일지
+
+## Current Goal
+
+- 추천 페이지 UX 완성
+- 한 페이지 구조 유지
+- 다음 단계: TMDB API 연동 준비
 
 ## 실행
 
@@ -19,14 +33,6 @@ pnpm dev
 - 클라이언트 추천 로직: `public/app.js`
 - TMDb 검색 API: `app/api/search/route.js`
 - TMDb 상태 API: `app/api/status/route.js`
-
-## Current Sprint
-
-- Task 2-1: 추천 페이지의 기본 UI를 구현합니다.
-- 영화, 드라마, 애니 체크박스와 작품 입력창 3개를 한 페이지에 배치합니다.
-- 추천받기 버튼을 누르면 페이지 이동 없이 아래에 더미 결과를 표시합니다.
-- 이번 범위에서는 TMDb API와 Supabase를 연결하지 않습니다.
-- 작업이 끝나면 `CHANGELOG.md`와 `docs/dev-log.md`를 함께 업데이트합니다.
 
 ## TMDb API 연결
 
