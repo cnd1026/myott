@@ -142,6 +142,14 @@ const pageMarkup = String.raw`
       </div>
     </section>
   </div>
+
+  <div class="detail-overlay hidden" id="detailOverlay" aria-hidden="true">
+    <div class="detail-backdrop" data-close-detail></div>
+    <section class="detail-layer" role="dialog" aria-modal="true" aria-labelledby="detailTitle">
+      <button class="close-button detail-close" type="button" data-close-detail aria-label="상세 정보 닫기">×</button>
+      <div id="detailContent"></div>
+    </section>
+  </div>
 </main>
 `;
 
