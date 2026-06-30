@@ -325,6 +325,10 @@ input[type="text"]:focus {
   align-items: end;
 }
 
+.quick-pick-overlay.hidden {
+  display: none;
+}
+
 .quick-pick-backdrop {
   position: absolute;
   inset: 0;
