@@ -83,7 +83,8 @@ const pageMarkup = String.raw`
       </section>
 
       <div class="form-actions">
-        <button class="primary-button" type="submit">추천받기</button>
+        <button class="secondary-button" id="quickPickButton" type="button">추천 옵션</button>
+        <button class="primary-button" id="recommendButton" type="submit" disabled>추천받기</button>
       </div>
     </form>
   </section>
@@ -99,6 +100,47 @@ const pageMarkup = String.raw`
     <div class="empty-state" id="emptyState">작품을 입력하고 추천받기를 누르면 더미 추천 결과가 여기에 표시됩니다.</div>
     <div class="result-grid" id="resultGrid"></div>
   </section>
+
+  <div class="quick-pick-overlay hidden" id="quickPickOverlay" aria-hidden="true">
+    <div class="quick-pick-backdrop" data-close-quick-pick></div>
+    <section class="quick-pick-sheet" role="dialog" aria-modal="true" aria-labelledby="quickPickTitle">
+      <div class="sheet-handle" aria-hidden="true"></div>
+      <div class="sheet-heading">
+        <div>
+          <p class="eyebrow">Quick Pick</p>
+          <h2 id="quickPickTitle">추천 옵션</h2>
+        </div>
+        <button class="close-button" type="button" data-close-quick-pick aria-label="추천 옵션 닫기">×</button>
+      </div>
+
+      <div class="quick-pick-groups">
+        <fieldset class="quick-group">
+          <legend>장르</legend>
+          <label class="check-option"><input type="checkbox" name="quickPick" value="genre-sf" /><span>SF</span></label>
+          <label class="check-option"><input type="checkbox" name="quickPick" value="genre-romance" /><span>로맨스</span></label>
+          <label class="check-option"><input type="checkbox" name="quickPick" value="genre-thriller" /><span>스릴러</span></label>
+        </fieldset>
+        <fieldset class="quick-group">
+          <legend>국가</legend>
+          <label class="check-option"><input type="checkbox" name="quickPick" value="country-kr" /><span>한국</span></label>
+          <label class="check-option"><input type="checkbox" name="quickPick" value="country-us" /><span>미국</span></label>
+          <label class="check-option"><input type="checkbox" name="quickPick" value="country-jp" /><span>일본</span></label>
+        </fieldset>
+        <fieldset class="quick-group">
+          <legend>분위기</legend>
+          <label class="check-option"><input type="checkbox" name="quickPick" value="mood-light" /><span>가볍게</span></label>
+          <label class="check-option"><input type="checkbox" name="quickPick" value="mood-moving" /><span>여운 있게</span></label>
+          <label class="check-option"><input type="checkbox" name="quickPick" value="mood-tense" /><span>긴장감</span></label>
+        </fieldset>
+        <fieldset class="quick-group">
+          <legend>러닝타임</legend>
+          <label class="check-option"><input type="checkbox" name="quickPick" value="runtime-short" /><span>60분 이하</span></label>
+          <label class="check-option"><input type="checkbox" name="quickPick" value="runtime-medium" /><span>2시간 이하</span></label>
+          <label class="check-option"><input type="checkbox" name="quickPick" value="runtime-long" /><span>긴 작품</span></label>
+        </fieldset>
+      </div>
+    </section>
+  </div>
 </main>
 `;
 

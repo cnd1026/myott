@@ -47,6 +47,9 @@ const form = document.querySelector("#recommendationForm");
 const resultGrid = document.querySelector("#resultGrid");
 const emptyState = document.querySelector("#emptyState");
 const resultCount = document.querySelector("#resultCount");
+const quickPickButton = document.querySelector("#quickPickButton");
+const quickPickOverlay = document.querySelector("#quickPickOverlay");
+const recommendButton = document.querySelector("#recommendButton");
 
 function escapeHtml(value) {
   return String(value)
@@ -65,6 +68,24 @@ function enteredTitles() {
   return [...document.querySelectorAll('input[name="title"]')]
     .map((input) => input.value.trim())
     .filter(Boolean);
+}
+
+function selectedQuickPicks() {
+  return [...document.querySelectorAll('input[name="quickPick"]:checked')].map((input) => input.value);
+}
+
+function updateRecommendButton() {
+  recommendButton.disabled = enteredTitles().length === 0 && selectedQuickPicks().length === 0;
+}
+
+function openQuickPick() {
+  quickPickOverlay.classList.remove("hidden");
+  quickPickOverlay.setAttribute("aria-hidden", "false");
+}
+
+function closeQuickPick() {
+  quickPickOverlay.classList.add("hidden");
+  quickPickOverlay.setAttribute("aria-hidden", "true");
 }
 
 function renderResults(items, titles) {
@@ -97,8 +118,26 @@ function renderResults(items, titles) {
 
 form.addEventListener("submit", (event) => {
   event.preventDefault();
+  if (recommendButton.disabled) return;
   const types = selectedTypes();
   const titles = enteredTitles();
   const results = dummyRecommendations.filter((item) => types.includes(item.type));
   renderResults(results, titles);
 });
+
+quickPickButton.addEventListener("click", openQuickPick);
+
+document.querySelectorAll("[data-close-quick-pick]").forEach((button) => {
+  button.addEventListener("click", closeQuickPick);
+});
+
+document.querySelectorAll('input[name="title"], input[name="quickPick"]').forEach((input) => {
+  input.addEventListener("input", updateRecommendButton);
+  input.addEventListener("change", updateRecommendButton);
+});
+
+document.addEventListener("keydown", (event) => {
+  if (event.key === "Escape") closeQuickPick();
+});
+
+updateRecommendButton();
