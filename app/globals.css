@@ -247,6 +247,7 @@ input[type="text"]:focus {
   display: flex;
   gap: 10px;
   justify-content: flex-start;
+  padding-top: 2px;
 }
 
 .section-heading {
@@ -332,13 +333,15 @@ input[type="text"]:focus {
 
 .quick-pick-sheet {
   position: relative;
+  display: grid;
+  grid-template-rows: auto 1fr;
   width: min(760px, calc(100% - 24px));
   max-height: min(82vh, 720px);
   margin: 0 auto 12px;
-  overflow: auto;
+  overflow: hidden;
   border: 1px solid var(--line);
   border-radius: 8px;
-  padding: 12px 18px 20px;
+  padding: 12px 18px 18px;
   background: var(--surface);
   box-shadow: 0 24px 70px rgba(10, 18, 24, 0.26);
 }
@@ -352,11 +355,17 @@ input[type="text"]:focus {
 }
 
 .sheet-heading {
+  position: sticky;
+  top: 0;
+  z-index: 1;
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
   gap: 16px;
   margin-bottom: 16px;
+  padding-bottom: 12px;
+  background: var(--surface);
+  border-bottom: 1px solid var(--line);
 }
 
 .sheet-heading h2 {
@@ -364,11 +373,19 @@ input[type="text"]:focus {
   font-size: 26px;
 }
 
+.sheet-count {
+  margin: 6px 0 0;
+  color: var(--muted);
+  font-size: 14px;
+  font-weight: 800;
+}
+
 .close-button {
+  flex: 0 0 auto;
   display: grid;
   place-items: center;
-  width: 40px;
-  height: 40px;
+  width: 44px;
+  height: 44px;
   border: 1px solid var(--line);
   border-radius: 8px;
   background: #fff;
@@ -381,6 +398,9 @@ input[type="text"]:focus {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 14px;
+  min-height: 0;
+  overflow: auto;
+  padding-right: 2px;
 }
 
 .quick-group {
@@ -432,7 +452,14 @@ input[type="text"]:focus {
   }
 
   .form-actions {
+    position: sticky;
+    bottom: 0;
+    z-index: 5;
     flex-direction: column;
+    margin: 0 -18px -18px;
+    padding: 12px 18px 18px;
+    background: linear-gradient(180deg, rgba(255, 255, 255, 0.92), #fff 34%);
+    border-top: 1px solid var(--line);
   }
 
   .quick-pick-sheet {
@@ -444,6 +471,10 @@ input[type="text"]:focus {
     border-left: 0;
     border-radius: 8px 8px 0 0;
     padding: 10px 14px 18px;
+  }
+
+  .sheet-heading {
+    align-items: center;
   }
 
   .quick-pick-groups,

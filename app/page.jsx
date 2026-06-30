@@ -109,6 +109,7 @@ const pageMarkup = String.raw`
         <div>
           <p class="eyebrow">Quick Pick</p>
           <h2 id="quickPickTitle">추천 옵션</h2>
+          <p class="sheet-count" id="quickPickCount">필터 0개 선택됨</p>
         </div>
         <button class="close-button" type="button" data-close-quick-pick aria-label="추천 옵션 닫기">×</button>
       </div>

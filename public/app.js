@@ -49,6 +49,7 @@ const emptyState = document.querySelector("#emptyState");
 const resultCount = document.querySelector("#resultCount");
 const quickPickButton = document.querySelector("#quickPickButton");
 const quickPickOverlay = document.querySelector("#quickPickOverlay");
+const quickPickCount = document.querySelector("#quickPickCount");
 const recommendButton = document.querySelector("#recommendButton");
 
 function escapeHtml(value) {
@@ -75,7 +76,10 @@ function selectedQuickPicks() {
 }
 
 function updateRecommendButton() {
-  recommendButton.disabled = enteredTitles().length === 0 && selectedQuickPicks().length === 0;
+  const quickPickTotal = selectedQuickPicks().length;
+  recommendButton.disabled = enteredTitles().length === 0 && quickPickTotal === 0;
+  quickPickButton.textContent = quickPickTotal ? `추천 옵션 (${quickPickTotal})` : "추천 옵션";
+  quickPickCount.textContent = `필터 ${quickPickTotal}개 선택됨`;
 }
 
 function openQuickPick() {
