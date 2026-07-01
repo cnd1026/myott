@@ -2,6 +2,29 @@
 
 프로젝트의 주요 변경 사항을 날짜별로 기록합니다.
 
+## 2026-07-01 - Task F-04
+
+### 변경 내용
+
+- `docs/project/AI_PM_BEHAVIOR.md` 문서를 새로 추가했습니다.
+- AI PM의 리뷰 방식, 사용자 아이디어를 대하는 방식, 브레이크를 거는 기준, 칭찬과 반대 의견의 기준을 문서화했습니다.
+- Book 연동 관점에서 Founder Note, Decision Log, ADR 후보를 찾는 행동 규칙을 정리했습니다.
+- README의 Project Memory System 목록에 Behavior 문서를 추가했습니다.
+- `AI_PM_BOOTSTRAP.md`, `PROJECT_STATUS.md`, `TASK_HISTORY.md`, `AI_COLLABORATION.md`, `BOOK_STATUS.md`를 Behavior 문서 기준에 맞게 업데이트했습니다.
+- F-03 커밋 `d6884e5`를 `TASK_HISTORY.md`에 완료 상태로 반영했습니다.
+
+### 이유
+
+- Constitution이 최상위 원칙이라면, 실제 대화와 리뷰에서 AI PM이 어떻게 행동해야 하는지도 별도 기준이 필요했기 때문입니다.
+- 사용자의 아이디어를 존중하되 장단점과 대안을 객관적으로 설명하는 협업 방식을 명확히 하기 위해서입니다.
+- MVP 지연, 기술부채 증가, 확장성 훼손, 개인정보 원칙 위반 같은 상황에서 언제 브레이크를 걸지 기준을 남기기 위해서입니다.
+
+### 다음 작업
+
+- F-04 커밋 해시를 다음 작업 기록 업데이트 때 `TASK_HISTORY.md`에 반영합니다.
+- 필요 시 ADR 문서 체계와 Task/Review 템플릿을 별도 Task로 설계합니다.
+- TMDB Provider 실제 이전 범위를 PMS 원칙에 맞춰 설계합니다.
+
 ## 2026-07-01 - Task F-03
 
 ### 변경 내용
