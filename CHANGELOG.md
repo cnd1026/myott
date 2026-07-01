@@ -2,6 +2,28 @@
 
 프로젝트의 주요 변경 사항을 날짜별로 기록합니다.
 
+## 2026-07-01 - Task F-02
+
+### 변경 내용
+
+- `docs/project/AI_PM_BOOTSTRAP.md` 문서를 새로 추가했습니다.
+- 새 ChatGPT 채팅에서 첫 번째로 읽는 AI PM Bootstrap System v1.0을 정리했습니다.
+- AI, Product Owner, Codex의 역할과 응답 순서, 개발 원칙, 금지사항, Book 연동 방식을 문서화했습니다.
+- README의 Project Memory System 목록에 Bootstrap 문서를 추가했습니다.
+- `PROJECT_STATUS.md`, `TASK_HISTORY.md`, `AI_COLLABORATION.md`, `BOOK_STATUS.md`를 Bootstrap 문서 기준에 맞게 업데이트했습니다.
+
+### 이유
+
+- 새 채팅이 시작될 때 프로젝트 맥락을 놓치지 않고 같은 운영 방식으로 이어가기 위한 공식 첫 문서가 필요했기 때문입니다.
+- AI PM은 구현보다 설계, 리뷰, 문서화, Task 정리를 우선해야 하므로 역할 경계를 명확히 해야 했습니다.
+- MyOTT 개발 과정이 향후 AI Development System과 책으로도 이어질 수 있어 중요한 결정의 기록 위치를 정리할 필요가 있었습니다.
+
+### 다음 작업
+
+- F-02 커밋 해시를 다음 작업 기록 업데이트 때 `TASK_HISTORY.md`에 반영합니다.
+- AI PM v2에서 Task 템플릿과 Review 체크리스트를 표준화합니다.
+- TMDB Provider 실제 이전 범위를 Provider Architecture 기준으로 설계합니다.
+
 ## 2026-07-01 - Task F-01
 
 ### 변경 내용

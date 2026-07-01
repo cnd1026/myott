@@ -93,6 +93,7 @@ PMS는 AI가 프로젝트를 이어받기 위한 기억 장치입니다.
 
 새 스레드나 새 작업자는 먼저 다음 문서를 읽습니다.
 
+- `docs/project/AI_PM_BOOTSTRAP.md`
 - `docs/project/PROJECT_CONTEXT.md`
 - `docs/project/PROJECT_STATUS.md`
 - `docs/project/TASK_HISTORY.md`

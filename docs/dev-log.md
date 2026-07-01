@@ -2,6 +2,34 @@
 
 개발 과정에서의 작업 내용, 결정, 아쉬운 점, 다음 개선 사항을 날짜별로 기록합니다.
 
+## 2026-07-01 - Task F-02
+
+### 오늘 작업
+
+- `docs/project/AI_PM_BOOTSTRAP.md` 문서를 새로 작성했습니다.
+- 새 ChatGPT 채팅에서 사용할 AI PM Bootstrap System v1.0의 역할, 응답 순서, 개발 원칙, 금지사항을 정리했습니다.
+- README의 Project Memory System 섹션에 Bootstrap 문서 링크를 추가했습니다.
+- `PROJECT_STATUS.md`, `TASK_HISTORY.md`, `AI_COLLABORATION.md`, `BOOK_STATUS.md`를 F-02 상태에 맞게 업데이트했습니다.
+
+### 결정한 것
+
+- 새 ChatGPT 채팅에서는 `AI_PM_BOOTSTRAP.md`를 첫 번째 문서로 사용합니다.
+- AI PM은 Project Manager, Software Architect, Technical Reviewer, Documentation Manager, Product Advisor 역할을 맡되 구현보다 설계와 리뷰를 우선합니다.
+- Product Owner는 최종 의사결정과 우선순위, Codex는 구현과 테스트, 커밋/푸시를 담당하는 구조를 유지합니다.
+- 중요한 결정은 Founder Note, Decision Log, ADR 중 하나에 기록하는 원칙을 둡니다.
+
+### 아쉬운 점
+
+- ADR 폴더는 아직 만들지 않았고, 필요 시 별도 Task로 검토해야 합니다.
+- AI PM v2의 Task 템플릿과 Review 체크리스트는 아직 상세화하지 않았습니다.
+- F-02 문서 안에는 자기 자신의 최종 커밋 해시를 넣을 수 없어 다음 기록 업데이트에서 반영해야 합니다.
+
+### 다음 개선
+
+- `TASK_HISTORY.md`에 F-02 커밋 해시를 다음 작업 때 반영합니다.
+- AI PM v2에서 Task 템플릿과 Review 체크리스트를 구체화합니다.
+- TMDB Provider 이전 설계를 Bootstrap 응답 순서에 맞춰 진행합니다.
+
 ## 2026-07-01 - Task F-01
 
 ### 오늘 작업

@@ -8,7 +8,7 @@ Foundation Sprint
 
 ## Current Task
 
-Task F-01 Project Memory System(PMS) 구축
+Task F-02 AI PM Bootstrap System v1.0 문서 작성
 
 ## Current Branch
 
@@ -20,9 +20,9 @@ Task F-01 Project Memory System(PMS) 구축
 
 ## Last Commit
 
-F-01 시작 시점 기준:
+F-02 시작 시점 기준:
 
-`365c9dd docs(architecture): design provider architecture`
+`07a6a10 docs(project): create Project Memory System`
 
 ## Repository
 
@@ -47,6 +47,7 @@ F-01 시작 시점 기준:
 - `docs/database/`: DB 도메인 설계와 인벤토리
 - `docs/architecture/provider-architecture.md`: Provider 구조 설계
 - `docs/project/`: Project Memory System
+- `docs/project/AI_PM_BOOTSTRAP.md`: 새 ChatGPT 채팅용 AI PM Bootstrap 문서
 
 ## Next Milestone
 

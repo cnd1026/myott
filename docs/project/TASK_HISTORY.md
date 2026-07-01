@@ -6,7 +6,8 @@
 
 | Task | Commit | Review | 상태 |
 | --- | --- | --- | --- |
-| F-01 Project Memory System 구축 | Current task | PMS 문서 8개와 README/기록 파일 업데이트 | 진행 중 |
+| F-01 Project Memory System 구축 | `07a6a10` | PMS 문서 8개와 README/기록 파일 업데이트. | 완료 |
+| F-02 AI PM Bootstrap System v1.0 문서 작성 | Current task | 새 ChatGPT 채팅용 공식 Bootstrap 문서 추가. | 진행 중 |
 
 ## Sprint 5
 
