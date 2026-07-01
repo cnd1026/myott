@@ -2,6 +2,33 @@
 
 개발 과정에서의 작업 내용, 결정, 아쉬운 점, 다음 개선 사항을 날짜별로 기록합니다.
 
+## 2026-07-01 - MYOTT-SEC-01
+
+### 오늘 작업
+
+- APS 공개 안내 문서 `APS_PUBLIC_NOTICE.md`를 추가했습니다.
+- APS private repository 이전 계획 문서 `APS_MIGRATION_PLAN.md`를 추가했습니다.
+- README에서 APS 핵심 문서 직접 링크 노출을 줄이고 공개 안내/이전 계획 중심으로 정리했습니다.
+- `PROJECT_STATUS.md`, `TASK_HISTORY.md`, `CHANGELOG.md`, `docs/dev-log.md`를 보안 정리 Task 기준으로 업데이트했습니다.
+
+### 결정한 것
+
+- APS 핵심 문서는 공개 저장소에서 바로 삭제하지 않습니다.
+- Git history rewrite, force push, filter-repo는 이번 Task에서 사용하지 않습니다.
+- APS 상세 운영 문서는 private repository로 이전하고, 공개 저장소에는 MyOTT 진행에 필요한 최소 PMS 문서만 유지합니다.
+
+### 아쉬운 점
+
+- APS 핵심 문서 파일은 아직 공개 저장소에 남아 있습니다.
+- Private repository가 아직 생성되지 않아 실제 이전은 다음 Task로 분리했습니다.
+- 과거 공개 이력 정리 여부는 별도 보안 판단이 필요합니다.
+
+### 다음 개선
+
+- `cnd1026/aps` 또는 `cnd1026/ai-project-system` 중 private repository 이름을 결정합니다.
+- Private repository를 만들고 APS 핵심 문서를 백업/이전합니다.
+- 이전 완료 후 공개 저장소에서 어떤 문서를 제거할지 별도 Task로 검토합니다.
+
 ## 2026-07-01 - MYOTT-S50-T01
 
 ### 오늘 작업

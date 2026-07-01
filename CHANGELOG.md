@@ -2,6 +2,28 @@
 
 프로젝트의 주요 변경 사항을 날짜별로 기록합니다.
 
+## 2026-07-01 - MYOTT-SEC-01
+
+### 변경 내용
+
+- `docs/project/APS_PUBLIC_NOTICE.md` 문서를 새로 추가했습니다.
+- `docs/project/APS_MIGRATION_PLAN.md` 문서를 새로 추가했습니다.
+- README의 Project Memory System 섹션에서 APS 핵심 문서 직접 링크 노출을 완화했습니다.
+- `PROJECT_STATUS.md`에 현재 Task와 다음 Task를 APS private repository 이전 준비 기준으로 업데이트했습니다.
+- `TASK_HISTORY.md`에 MYOTT-SEC-01 기록을 추가했습니다.
+
+### 이유
+
+- APS는 MyOTT뿐 아니라 향후 프로젝트와 『AI와 함께 서비스를 만드는 방법』에 활용될 핵심 운영체계 자산이기 때문입니다.
+- 공개 저장소에는 MyOTT 개발에 필요한 최소 참조만 유지하고, APS 상세 문서는 private repository에서 관리하는 편이 적절합니다.
+- Git history rewrite 없이 현재 공개 저장소에서 가능한 정리와 이전 준비를 먼저 수행하기 위해서입니다.
+
+### 다음 작업
+
+- APS private repository를 생성합니다.
+- APS 핵심 문서를 private repository로 백업/이전합니다.
+- 이전 후 공개 저장소의 핵심 APS 문서 삭제 여부를 별도 보안 Task로 판단합니다.
+
 ## 2026-07-01 - MYOTT-S50-T01
 
 ### 변경 내용

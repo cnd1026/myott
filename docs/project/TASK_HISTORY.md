@@ -2,6 +2,12 @@
 
 이 문서는 Sprint별 Task, Commit, Review, 상태를 기록합니다.
 
+## Security Maintenance
+
+| Task ID | Task | Commit | Review | 상태 |
+| --- | --- | --- | --- | --- |
+| MYOTT-SEC-01 | APS 문서 공개 범위 정리 및 private repo 이전 준비 | This security commit | APS 공개 안내와 이전 계획을 추가하고 README/PMS의 핵심 APS 문서 직접 노출을 완화. | 완료 |
+
 ## Foundation Sprint
 
 | Task ID | Task | Commit | Review | 상태 |
@@ -24,7 +30,7 @@
 
 | Task ID | Task | Commit | Review | 상태 |
 | --- | --- | --- | --- | --- |
-| MYOTT-S50-T01 | APS 운영체계 표준화 | This standardization commit | Task ID 규칙, Codex Mode 기준, 기존 Task ID 소급 적용. | 완료 |
+| MYOTT-S50-T01 | APS 운영체계 표준화 | `8b816f7` | Task ID 규칙, Codex Mode 기준, 기존 Task ID 소급 적용. | 완료 |
 
 ## Sprint 4
 
