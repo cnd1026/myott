@@ -2,6 +2,33 @@
 
 개발 과정에서의 작업 내용, 결정, 아쉬운 점, 다음 개선 사항을 날짜별로 기록합니다.
 
+## 2026-07-01 - Task 5-1b
+
+### 오늘 작업
+
+- README, PROJECT_CONTEXT, PROJECT_STATUS, TASK_HISTORY를 현재 프로젝트 상태에 맞게 동기화했습니다.
+- Foundation Sprint F-01 ~ F-05 완료 상태를 반영했습니다.
+- Current Sprint를 Sprint 5로, Current Task를 Task 5-2 Mock Provider 준비로 정리했습니다.
+- README 실행 방법을 현재 저장소 루트 기준으로 수정했습니다.
+
+### 결정한 것
+
+- Task 5-2 전에는 Mock Provider 구현을 시작하지 않고 PMS 상태부터 맞춥니다.
+- Last Commit은 Task 5-1b 시작 시점 기준 `74d81d8 docs(project): add AI PM validation guide`로 기록합니다.
+- Sprint 5의 다음 실행 단위는 Mock Provider 준비이며, TMDB 직접 연동을 늘리지 않는 방향을 유지합니다.
+
+### 아쉬운 점
+
+- Task 5-1b는 자기 자신의 최종 커밋 해시를 문서 안에 정확히 반영할 수 없어 다음 기록 업데이트에서 반영해야 합니다.
+- README의 프로젝트 이름은 아직 SceneSense / MovieMind DNA와 MyOTT가 함께 쓰이고 있어, 별도 네이밍 정리 Task가 필요할 수 있습니다.
+- Mock Provider의 구체적인 파일 구조와 테스트 방식은 아직 설계하지 않았습니다.
+
+### 다음 개선
+
+- `TASK_HISTORY.md`에 Task 5-1b 커밋 해시를 다음 작업 때 반영합니다.
+- Task 5-2에서 Mock Provider 준비 범위와 금지 범위를 명확히 정리합니다.
+- Provider Architecture와 현재 `lib/tmdb.js` 사이의 이전 단계를 설계합니다.
+
 ## 2026-07-01 - Task F-05
 
 ### 오늘 작업

@@ -4,11 +4,11 @@
 
 ## Current Sprint
 
-Foundation Sprint
+Sprint 5
 
 ## Current Task
 
-Task F-05 AI PM Validation 문서 작성
+Task 5-2 Mock Provider 준비
 
 ## Current Branch
 
@@ -20,9 +20,9 @@ Task F-05 AI PM Validation 문서 작성
 
 ## Last Commit
 
-F-05 시작 시점 기준:
+Task 5-1b 시작 시점 기준:
 
-`6a7bdab docs(project): add AI PM behavior guide`
+`74d81d8 docs(project): add AI PM validation guide`
 
 ## Repository
 
@@ -36,6 +36,7 @@ F-05 시작 시점 기준:
 - 추천 결과는 실제 추천처럼 보이는 더미 데이터 기반 UX로 동작합니다.
 - TMDB 검색 API route와 상태 API route가 있습니다.
 - Provider Architecture는 문서와 초안 폴더만 있으며, 실제 검색 route는 아직 `lib/tmdb.js`를 직접 사용합니다.
+- Mock Provider는 아직 구현하지 않았습니다.
 
 ## Current Documentation State
 
@@ -54,18 +55,19 @@ F-05 시작 시점 기준:
 
 ## Next Milestone
 
-Provider 기반 구조로 TMDB 호출을 점진적으로 옮길 수 있는 최소 리팩터링 계획을 세웁니다.
+Task 5-2에서 Mock Provider 준비 범위를 설계하고, 기존 TMDB 직접 호출 구조를 Provider 기반 구조로 옮길 안전한 첫 단계를 정합니다.
 
 ## Immediate Next Tasks
 
-- TMDB Provider 이전 범위 설계
+- Task 5-2 Mock Provider 준비
 - MyOTT 공통 콘텐츠 모델 필드 확정
 - Provider Registry 필요 여부 결정
+- TMDB Provider 이전 범위 설계
 - v1.0 최소 DB 테이블 범위 확정
-- README 실행 경로 점검
 
 ## Risk Notes
 
-- README 실행 명령에는 과거 경로인 `outputs\ai-screen-recommender`가 남아 있어 실제 현재 루트 실행 방식과 맞는지 점검이 필요합니다.
+- README 실행 명령은 현재 저장소 루트 기준 `pnpm install`, `pnpm dev`로 정리되어 있습니다.
 - Provider 초안은 아직 실제 API route에 연결되어 있지 않습니다.
 - DB 설계는 문서 단계이며 SQL, Supabase 연결, 마이그레이션은 아직 없습니다.
+- Task 5-2 전에는 Mock Provider 구현을 시작하지 않습니다.

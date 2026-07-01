@@ -2,6 +2,28 @@
 
 프로젝트의 주요 변경 사항을 날짜별로 기록합니다.
 
+## 2026-07-01 - Task 5-1b
+
+### 변경 내용
+
+- README의 Current Sprint를 Foundation Sprint에서 Sprint 5로 동기화했습니다.
+- README 실행 방법을 현재 저장소 루트 기준 `pnpm install`, `pnpm dev`로 정리했습니다.
+- `docs/project/PROJECT_CONTEXT.md`와 `docs/project/PROJECT_STATUS.md`의 Current Sprint, Current Task, Last Commit 정보를 현재 상태에 맞게 업데이트했습니다.
+- Foundation Sprint F-01 ~ F-05 완료 상태와 최근 주요 커밋을 `docs/project/TASK_HISTORY.md`에 반영했습니다.
+- Current Task를 Task 5-2 Mock Provider 준비로 정리했습니다.
+
+### 이유
+
+- 새 PM이 PROJECT_CONTEXT와 PROJECT_STATUS를 읽었을 때 현재 프로젝트 상태를 일관되게 이해할 수 있어야 하기 때문입니다.
+- Foundation Sprint 문서 작업이 완료되었지만 PMS 일부 문서가 아직 이전 Current Task를 가리키고 있었습니다.
+- Task 5-2를 시작하기 전에 Mock Provider 구현 없이 문서 상태를 먼저 정리할 필요가 있었습니다.
+
+### 다음 작업
+
+- Task 5-1b 커밋 해시를 다음 작업 기록 업데이트 때 `TASK_HISTORY.md`에 반영합니다.
+- Task 5-2에서 Mock Provider 준비 범위를 설계합니다.
+- Provider 구조 이전 시 기존 `lib/tmdb.js`와 API route의 책임 분리 방식을 검토합니다.
+
 ## 2026-07-01 - Task F-05
 
 ### 변경 내용

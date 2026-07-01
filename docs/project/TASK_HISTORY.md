@@ -10,13 +10,15 @@
 | F-02 AI PM Bootstrap System v1.0 문서 작성 | `5d11898` | 새 ChatGPT 채팅용 공식 Bootstrap 문서 추가. | 완료 |
 | F-03 AI PM Constitution v1.0 작성 | `d6884e5` | AI PM이 지켜야 할 최상위 운영 원칙 문서화. | 완료 |
 | F-04 AI PM Behavior 문서 작성 | `6a7bdab` | AI PM의 리뷰, 칭찬, 반대, 브레이크 행동 규칙 문서화. | 완료 |
-| F-05 AI PM Validation 문서 작성 | Current task | 새로운 AI PM이 운영체계를 따르는지 검증하는 체크리스트 문서화. | 진행 중 |
+| F-05 AI PM Validation 문서 작성 | `74d81d8` | 새로운 AI PM이 운영체계를 따르는지 검증하는 체크리스트 문서화. | 완료 |
 
 ## Sprint 5
 
 | Task | Commit | Review | 상태 |
 | --- | --- | --- | --- |
 | Task 5-1 Provider Architecture 설계 | `365c9dd` | 문서와 Provider 초안 폴더만 생성. 기존 기능 미수정. | 완료 |
+| Task 5-1b Project Memory System 동기화 | This sync commit | Foundation Sprint 완료 상태, Sprint 5 현재 상태, README 실행 방법을 동기화. | 완료 |
+| Task 5-2 Mock Provider 준비 | Pending | Mock Provider 구현 전 설계와 준비 범위 정리 예정. | 예정 |
 
 ## Sprint 4
 
