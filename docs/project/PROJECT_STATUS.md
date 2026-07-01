@@ -8,7 +8,7 @@ Foundation Sprint
 
 ## Current Task
 
-Task F-02 AI PM Bootstrap System v1.0 문서 작성
+Task F-03 AI PM Constitution v1.0 작성
 
 ## Current Branch
 
@@ -20,9 +20,9 @@ Task F-02 AI PM Bootstrap System v1.0 문서 작성
 
 ## Last Commit
 
-F-02 시작 시점 기준:
+F-03 시작 시점 기준:
 
-`07a6a10 docs(project): create Project Memory System`
+`5d11898 docs(project): add AI PM bootstrap guide`
 
 ## Repository
 
@@ -48,6 +48,7 @@ F-02 시작 시점 기준:
 - `docs/architecture/provider-architecture.md`: Provider 구조 설계
 - `docs/project/`: Project Memory System
 - `docs/project/AI_PM_BOOTSTRAP.md`: 새 ChatGPT 채팅용 AI PM Bootstrap 문서
+- `docs/project/AI_PM_CONSTITUTION.md`: AI PM 최상위 운영 헌법
 
 ## Next Milestone
 

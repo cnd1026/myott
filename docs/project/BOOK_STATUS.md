@@ -38,6 +38,7 @@ AI Development System은 Product Owner, GPT, Codex가 함께 서비스를 만드
 
 현재 구성 요소:
 
+- AI PM Constitution
 - AI PM Bootstrap System
 - Sprint 기반 진행
 - Task 기반 실행

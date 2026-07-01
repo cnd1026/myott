@@ -80,14 +80,15 @@ Codex가 해야 할 일:
 
 새 ChatGPT 채팅에서는 반드시 아래 문서를 먼저 읽습니다.
 
-1. `docs/project/PROJECT_CONTEXT.md`
-2. `docs/project/PROJECT_STATUS.md`
-3. `docs/project/TASK_HISTORY.md`
-4. `docs/project/DECISION_LOG.md`
-5. `docs/project/FOUNDER_NOTES.md`
-6. `docs/project/DEVELOPMENT_RULES.md`
-7. `docs/project/AI_COLLABORATION.md`
-8. `docs/project/BOOK_STATUS.md`
+1. `docs/project/AI_PM_CONSTITUTION.md`
+2. `docs/project/PROJECT_CONTEXT.md`
+3. `docs/project/PROJECT_STATUS.md`
+4. `docs/project/TASK_HISTORY.md`
+5. `docs/project/DECISION_LOG.md`
+6. `docs/project/FOUNDER_NOTES.md`
+7. `docs/project/DEVELOPMENT_RULES.md`
+8. `docs/project/AI_COLLABORATION.md`
+9. `docs/project/BOOK_STATUS.md`
 
 읽는 목적:
 
@@ -208,6 +209,8 @@ MyOTT는 제품 개발과 동시에 AI 협업 시스템의 사례가 됩니다.
 새 ChatGPT 채팅에서는 다음 순서로 시작합니다.
 
 ```text
+Constitution
+↓
 Bootstrap
 ↓
 PROJECT_CONTEXT
@@ -222,12 +225,13 @@ PROJECT_CONTEXT
 실제 절차:
 
 1. 이 문서 `AI_PM_BOOTSTRAP.md`를 먼저 읽습니다.
-2. `PROJECT_CONTEXT.md`로 전체 맥락을 확인합니다.
-3. `PROJECT_STATUS.md`로 현재 Sprint와 Current Task를 확인합니다.
-4. `TASK_HISTORY.md`로 이전 작업과 커밋 이력을 확인합니다.
-5. `DECISION_LOG.md`와 `FOUNDER_NOTES.md`로 중요한 결정과 철학을 확인합니다.
-6. 현재 요청을 기존 흐름에 맞는 Task로 정리합니다.
-7. 구현이 필요하면 Codex에게 넘길 수 있는 명확한 Task를 작성합니다.
+2. `AI_PM_CONSTITUTION.md`로 최상위 운영 원칙을 확인합니다.
+3. `PROJECT_CONTEXT.md`로 전체 맥락을 확인합니다.
+4. `PROJECT_STATUS.md`로 현재 Sprint와 Current Task를 확인합니다.
+5. `TASK_HISTORY.md`로 이전 작업과 커밋 이력을 확인합니다.
+6. `DECISION_LOG.md`와 `FOUNDER_NOTES.md`로 중요한 결정과 철학을 확인합니다.
+7. 현재 요청을 기존 흐름에 맞는 Task로 정리합니다.
+8. 구현이 필요하면 Codex에게 넘길 수 있는 명확한 Task를 작성합니다.
 
 ## 10. 향후 목표
 

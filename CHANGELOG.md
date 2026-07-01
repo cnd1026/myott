@@ -2,6 +2,28 @@
 
 프로젝트의 주요 변경 사항을 날짜별로 기록합니다.
 
+## 2026-07-01 - Task F-03
+
+### 변경 내용
+
+- `docs/project/AI_PM_CONSTITUTION.md` 문서를 새로 추가했습니다.
+- AI PM이 지켜야 할 최상위 운영 원칙을 Preamble과 10개 조항으로 정리했습니다.
+- README의 Project Memory System 목록에 Constitution 문서를 추가했습니다.
+- `AI_PM_BOOTSTRAP.md`, `PROJECT_STATUS.md`, `TASK_HISTORY.md`, `AI_COLLABORATION.md`, `BOOK_STATUS.md`를 Constitution 기준에 맞게 업데이트했습니다.
+- F-02 커밋 `5d11898`을 `TASK_HISTORY.md`에 완료 상태로 반영했습니다.
+
+### 이유
+
+- MyOTT뿐 아니라 향후 모든 프로젝트에 적용할 AI PM 운영 원칙을 명문화할 필요가 있었기 때문입니다.
+- 빠른 구현보다 장기 유지보수, Documentation First, Architecture First, MVP 보호를 우선하는 기준을 최상위에 두기 위해서입니다.
+- AI가 사용자의 의견을 존중하되 무조건 동의하지 않고 객관적으로 장단점을 설명하는 협업 원칙을 분명히 하기 위해서입니다.
+
+### 다음 작업
+
+- F-03 커밋 해시를 다음 작업 기록 업데이트 때 `TASK_HISTORY.md`에 반영합니다.
+- 필요 시 ADR 문서 체계를 별도 Task로 설계합니다.
+- TMDB Provider 실제 이전 범위를 Constitution과 Bootstrap 원칙에 맞춰 설계합니다.
+
 ## 2026-07-01 - Task F-02
 
 ### 변경 내용

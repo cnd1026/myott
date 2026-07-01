@@ -2,6 +2,34 @@
 
 개발 과정에서의 작업 내용, 결정, 아쉬운 점, 다음 개선 사항을 날짜별로 기록합니다.
 
+## 2026-07-01 - Task F-03
+
+### 오늘 작업
+
+- `docs/project/AI_PM_CONSTITUTION.md` 문서를 새로 작성했습니다.
+- AI PM의 최상위 운영 원칙을 전문, 10개 조항, 마지막 조항으로 정리했습니다.
+- README의 Project Memory System 목록에 Constitution 문서를 추가했습니다.
+- Bootstrap, Project Status, Task History, AI Collaboration, Book Status 문서에 Constitution 연결을 반영했습니다.
+
+### 결정한 것
+
+- AI PM Constitution은 기술 문서가 아니라 프로젝트 운영 헌법으로 둡니다.
+- AI PM은 장기 유지보수, 설계 없는 구현 금지, Documentation First, Architecture First, MVP 보호를 최상위 원칙으로 따릅니다.
+- 사용자의 의견은 항상 존중하지만 무조건 동의하지 않고, 장단점과 이유를 객관적으로 설명합니다.
+- 중요한 결정은 Founder Note, Decision Log, ADR 중 하나에 남기는 원칙을 유지합니다.
+
+### 아쉬운 점
+
+- ADR 문서 체계는 아직 실제로 만들지 않았고 별도 Task가 필요합니다.
+- F-03 문서 안에는 자기 자신의 최종 커밋 해시를 넣을 수 없어 다음 기록 업데이트에서 반영해야 합니다.
+- Constitution을 다른 새 프로젝트에 적용하는 템플릿화 작업은 아직 하지 않았습니다.
+
+### 다음 개선
+
+- `TASK_HISTORY.md`에 F-03 커밋 해시를 다음 작업 때 반영합니다.
+- ADR 폴더와 작성 규칙을 만들지 검토합니다.
+- TMDB Provider 이전 설계를 Constitution 원칙에 맞춰 진행합니다.
+
 ## 2026-07-01 - Task F-02
 
 ### 오늘 작업
