@@ -4,11 +4,11 @@
 
 ## Current Sprint
 
-Sprint 5
+Sprint 5.0 Standardization
 
 ## Current Task
 
-Task 5-2 Mock Provider 준비
+MYOTT-S50-T01 APS 운영체계 표준화
 
 ## Current Branch
 
@@ -20,9 +20,9 @@ Task 5-2 Mock Provider 준비
 
 ## Last Commit
 
-Task 5-2 시작 시점 기준:
+MYOTT-S50-T01 시작 시점 기준:
 
-`2416d76 docs(project): synchronize project status`
+`4c2dd4c docs(architecture): prepare mock provider task`
 
 ## Repository
 
@@ -48,6 +48,7 @@ Task 5-2 시작 시점 기준:
 - `docs/database/`: DB 도메인 설계와 인벤토리
 - `docs/architecture/provider-architecture.md`: Provider 구조 설계
 - `docs/project/`: Project Memory System
+- `docs/project/APS_STANDARD.md`: Task ID, Codex Mode, Review 기록 방식의 APS 운영 표준
 - `docs/project/AI_PM_BOOTSTRAP.md`: 새 ChatGPT 채팅용 AI PM Bootstrap 문서
 - `docs/project/AI_PM_CONSTITUTION.md`: AI PM 최상위 운영 헌법
 - `docs/project/AI_PM_BEHAVIOR.md`: AI PM 사용자 협업 행동 규칙
@@ -55,15 +56,15 @@ Task 5-2 시작 시점 기준:
 
 ## Next Milestone
 
-Task 5-2에서 Mock Provider 구현 전 최소 설계를 완료하고, 다음 Task에서 실제 Mock Provider를 안전하게 추가할 수 있게 합니다.
+Sprint 5.0 Standardization에서 APS 운영체계를 표준화하고, 다음 Provider 구현 Task가 Task ID와 Codex Mode 기준을 따라 진행되게 합니다.
 
 ## Immediate Next Tasks
 
-- MyOTT 공통 콘텐츠 모델 필수 필드 정리
-- Mock Provider 샘플 콘텐츠 구조 정의
-- 기존 `app/api/search/route.js`의 `lib/tmdb.js` 직접 의존 구조 확인
-- Provider Registry 도입 시점 판단
-- 다음 Task의 Mock Provider 구현 범위 분리
+- APS Task ID 체계 반영
+- Codex Mode 기준 반영
+- 기존 Task ID 소급 적용
+- Task 5-2 커밋 해시 반영
+- Mock Provider 실제 구현 Task 범위 확인
 - TMDB Provider 이전 범위 설계
 - v1.0 최소 DB 테이블 범위 확정
 
@@ -72,5 +73,4 @@ Task 5-2에서 Mock Provider 구현 전 최소 설계를 완료하고, 다음 Ta
 - README 실행 명령은 현재 저장소 루트 기준 `pnpm install`, `pnpm dev`로 정리되어 있습니다.
 - Provider 초안은 아직 실제 API route에 연결되어 있지 않습니다.
 - DB 설계는 문서 단계이며 SQL, Supabase 연결, 마이그레이션은 아직 없습니다.
-- Task 5-2에서는 Mock Provider 구현을 시작하지 않습니다.
-- Task 5-2에서는 `app/api/search/route.js`와 `lib/tmdb.js`를 수정하지 않습니다.
+- Sprint 5.0 Standardization에서는 기능 구현, Provider 구현, UI 변경, TMDB 변경, Supabase 변경을 하지 않습니다.

@@ -2,6 +2,28 @@
 
 프로젝트의 주요 변경 사항을 날짜별로 기록합니다.
 
+## 2026-07-01 - MYOTT-S50-T01
+
+### 변경 내용
+
+- `docs/project/APS_STANDARD.md` 문서를 새로 추가했습니다.
+- APS Task ID 규칙과 Codex Mode 기준을 문서화했습니다.
+- `docs/project/TASK_HISTORY.md`에 기존 Task ID를 소급 적용했습니다.
+- `docs/project/DEVELOPMENT_RULES.md`에 Task ID와 Codex Mode 운영 기준을 반영했습니다.
+- README, `PROJECT_CONTEXT.md`, `PROJECT_STATUS.md`를 Sprint 5.0 Standardization / MYOTT-S50-T01 기준으로 동기화했습니다.
+
+### 이유
+
+- Sprint와 Foundation 문서가 늘어나면서 Task 식별 체계를 표준화할 필요가 있었기 때문입니다.
+- Codex Mode가 작업 위험도와 검증 수준을 나타내는 운영 기준으로 쓰이기 시작했으므로 명확한 기준이 필요했습니다.
+- 새 PM이 TASK_HISTORY만 읽어도 각 작업의 위치와 성격을 일관되게 이해할 수 있어야 했습니다.
+
+### 다음 작업
+
+- MYOTT-S50-T01 커밋 해시를 다음 작업 기록 업데이트 때 `TASK_HISTORY.md`에 반영합니다.
+- 다음 Provider 구현 Task부터 APS Task ID를 기본 표기로 사용합니다.
+- Task Template과 Review Template 분리 여부를 검토합니다.
+
 ## 2026-07-01 - Task 5-2
 
 ### 변경 내용

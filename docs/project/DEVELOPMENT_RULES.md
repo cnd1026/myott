@@ -13,6 +13,21 @@
 - 모든 작업은 Task 단위로 진행합니다.
 - Task에는 목표, 요구사항, 수정 범위, 금지사항, 완료 조건을 둡니다.
 - Task 완료 후 커밋과 푸시를 기본으로 합니다.
+- 모든 Task는 APS Task ID를 가집니다.
+- 기본 Task ID 형식은 `MYOTT-S{SPRINT}-T{TASK}`입니다.
+- Foundation Sprint는 `MYOTT-FND-T01`, Pre-Sprint는 `MYOTT-PRE-T01` 형식을 사용합니다.
+- 자세한 기준은 `docs/project/APS_STANDARD.md`를 따릅니다.
+
+## 2.1 Codex Mode 기준
+
+Codex Mode는 작업 위험도와 검증 수준을 나타냅니다.
+
+- LOW: 단순 문서 수정이나 작은 UI 조정
+- MEDIUM: 제한적 UI/UX 변경이나 상태 로직 조정
+- HIGH: 구조 변경 준비, PMS 동기화, API 영향 가능성이 있는 작업
+- VERY HIGH: 아키텍처, 개인정보, DB, 운영체계, 장기 정책에 영향을 주는 작업
+
+DB, 개인정보, Provider, 인증, AI 추천, 운영체계 작업은 기본적으로 HIGH 이상으로 판단합니다.
 
 ## 3. Git Review
 
@@ -55,6 +70,8 @@
 - `docs(db): ...`
 - `docs(architecture): ...`
 - `docs(project): ...`
+
+Task ID는 커밋 메시지에 반드시 포함하지 않아도 되지만, 완료 보고와 `TASK_HISTORY.md`에는 반영합니다.
 
 Foundation Sprint F-01 추천 커밋:
 

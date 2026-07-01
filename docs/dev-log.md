@@ -2,6 +2,34 @@
 
 개발 과정에서의 작업 내용, 결정, 아쉬운 점, 다음 개선 사항을 날짜별로 기록합니다.
 
+## 2026-07-01 - MYOTT-S50-T01
+
+### 오늘 작업
+
+- `docs/project/APS_STANDARD.md` 문서를 새로 작성했습니다.
+- Task ID 규칙과 Codex Mode 기준을 문서화했습니다.
+- `TASK_HISTORY.md`에 기존 Sprint와 Foundation 작업의 Task ID를 소급 적용했습니다.
+- `DEVELOPMENT_RULES.md`, `PROJECT_CONTEXT.md`, `PROJECT_STATUS.md`, README를 APS 표준 기준으로 동기화했습니다.
+
+### 결정한 것
+
+- 기본 Task ID 형식은 `MYOTT-S{SPRINT}-T{TASK}`로 둡니다.
+- Foundation Sprint는 `MYOTT-FND-T01`, Pre-Sprint는 `MYOTT-PRE-T01` 형식을 사용합니다.
+- Sprint 5.0 Standardization은 `MYOTT-S50-T01` 형식을 사용합니다.
+- Codex Mode는 LOW, MEDIUM, HIGH, VERY HIGH로 구분하고 작업 위험도와 검증 수준을 나타냅니다.
+
+### 아쉬운 점
+
+- 과거 커밋 메시지 자체에는 Task ID가 포함되어 있지 않아 `TASK_HISTORY.md`에서 소급 매핑했습니다.
+- Task Template과 Review Template은 아직 별도 문서로 분리하지 않았습니다.
+- MYOTT-S50-T01 문서 안에는 자기 자신의 최종 커밋 해시를 넣을 수 없어 다음 기록 업데이트에서 반영해야 합니다.
+
+### 다음 개선
+
+- `TASK_HISTORY.md`에 MYOTT-S50-T01 커밋 해시를 다음 작업 때 반영합니다.
+- 새 Task부터 Task ID를 요청/문서/완료 보고에 기본 포함합니다.
+- Task Template과 Review Template을 APS 기준으로 분리할지 검토합니다.
+
 ## 2026-07-01 - Task 5-2
 
 ### 오늘 작업
