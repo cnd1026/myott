@@ -2,6 +2,28 @@
 
 프로젝트의 주요 변경 사항을 날짜별로 기록합니다.
 
+## 2026-07-01 - Task 4-4a
+
+### 변경 내용
+
+- `docs/database/content-domain.md` 문서를 새로 추가했습니다.
+- Content Domain의 개요와 설계 경계를 정리했습니다.
+- `contents`, `genres`, `content_genres`, `people`, `content_people`, `ott_platforms`, `content_platforms`, `countries`, `languages`, `collections` 테이블 후보를 문서화했습니다.
+- 각 테이블별 목적, 주요 컬럼 초안, 필요한 이유, 향후 확장 가능성을 정리했습니다.
+- README의 Sprint 4 진행률을 Task 4-4a 완료 상태로 업데이트했습니다.
+
+### 이유
+
+- TMDB 연동과 실제 DB 설계 전에 콘텐츠 메타데이터의 기준 구조를 먼저 합의하기 위해서입니다.
+- 추천 카드와 상세 Layer에 필요한 작품, 장르, 인물, OTT 제공 정보를 분리해 설계할 필요가 있었습니다.
+- 사용자 데이터와 콘텐츠 메타데이터를 분리해 개인정보 최소 수집 원칙을 유지하기 위해서입니다.
+
+### 다음 작업
+
+- TMDB 응답 필드를 Content Domain 후보 컬럼과 매핑합니다.
+- v1.0에서 꼭 필요한 콘텐츠 테이블만 다시 좁힙니다.
+- User Domain과 Recommendation Domain의 DB 초안을 별도 문서로 정리합니다.
+
 ## 2026-07-01 - Task 4-3
 
 ### 변경 내용
