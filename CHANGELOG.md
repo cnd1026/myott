@@ -2,6 +2,29 @@
 
 프로젝트의 주요 변경 사항을 날짜별로 기록합니다.
 
+## 2026-07-01 - Task 5-2
+
+### 변경 내용
+
+- `docs/architecture/provider-architecture.md`에 MyOTT 공통 콘텐츠 모델 필수 필드를 추가했습니다.
+- Mock Provider가 반환할 샘플 검색/상세 응답 구조를 문서화했습니다.
+- 현재 `app/api/search/route.js`가 `lib/tmdb.js`를 직접 import하는 구조를 확인하고 문서에 기록했습니다.
+- 다음 Task에서 Mock Provider를 구현하기 위한 단계와 호환 alias 전략을 정리했습니다.
+- Provider Registry는 이번 Task에서 구현하지 않고 다음 구현 이후 별도 판단하는 것으로 정리했습니다.
+- `PROJECT_STATUS.md`와 `TASK_HISTORY.md`를 Task 5-2 기준으로 업데이트했습니다.
+
+### 이유
+
+- Mock Provider 구현 전에 공통 콘텐츠 모델과 기존 TMDB 직접 의존 구조를 먼저 합의해야 하기 때문입니다.
+- Provider Registry를 성급히 도입하면 Provider 선택 정책과 fallback 범위가 커져 MVP 전환 단계가 흐려질 수 있습니다.
+- 다음 Task에서 코드 변경을 최소화하고 안전하게 Mock Provider를 추가할 수 있도록 전환 단계를 분리하기 위해서입니다.
+
+### 다음 작업
+
+- Task 5-2 커밋 해시를 다음 작업 기록 업데이트 때 `TASK_HISTORY.md`에 반영합니다.
+- Task 5-3에서 Mock Provider 파일 구조를 실제로 추가합니다.
+- Mock Provider 구현 후 API route 전환 방식을 최소 변경으로 검증합니다.
+
 ## 2026-07-01 - Task 5-1b
 
 ### 변경 내용

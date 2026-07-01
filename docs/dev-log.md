@@ -2,6 +2,34 @@
 
 개발 과정에서의 작업 내용, 결정, 아쉬운 점, 다음 개선 사항을 날짜별로 기록합니다.
 
+## 2026-07-01 - Task 5-2
+
+### 오늘 작업
+
+- Provider Architecture 문서에 MyOTT 공통 콘텐츠 모델 필수 필드와 권장 필드를 정리했습니다.
+- Mock Provider 샘플 검색/상세 응답 구조를 정의했습니다.
+- `app/api/search/route.js`가 현재 `lib/tmdb.js`의 `hasTmdbKey`, `searchTmdb`를 직접 사용하는 구조를 확인했습니다.
+- Mock Provider 구현을 위한 전환 단계와 Provider Registry 판단을 문서화했습니다.
+
+### 결정한 것
+
+- Task 5-2에서는 Mock Provider를 실제로 구현하지 않습니다.
+- Provider Registry도 이번 Task에서는 구현하지 않고, Mock Provider 구현 후 Provider가 2개 이상 실제 동작할 때 별도 Task로 검토합니다.
+- 다음 구현 Task에서는 `src/lib/providers/mock/` 후보 구조를 기준으로 진행합니다.
+- 기존 UI/API 호환을 위해 `type`, `year`, `ott`, `mood`, `synopsis` alias 전략을 검토합니다.
+
+### 아쉬운 점
+
+- 실제 Mock Provider 파일은 아직 만들지 않았습니다.
+- API route 전환 방식은 Option A/B/C로 정리했지만 최종 구현안은 다음 Task에서 결정해야 합니다.
+- Task 5-2 문서 안에는 자기 자신의 최종 커밋 해시를 넣을 수 없어 다음 기록 업데이트에서 반영해야 합니다.
+
+### 다음 개선
+
+- `TASK_HISTORY.md`에 Task 5-2 커밋 해시를 다음 작업 때 반영합니다.
+- Task 5-3에서 Mock Provider를 실제로 추가합니다.
+- Mock Provider 구현 후 `/api/search` 응답과 추천 페이지 호환성을 로컬에서 검증합니다.
+
 ## 2026-07-01 - Task 5-1b
 
 ### 오늘 작업
