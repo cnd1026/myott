@@ -93,14 +93,13 @@ PMS는 AI가 프로젝트를 이어받기 위한 기억 장치입니다.
 
 새 스레드나 새 작업자는 먼저 다음 문서를 읽습니다.
 
-- `docs/project/AI_PM_CONSTITUTION.md`
-- `docs/project/AI_PM_BEHAVIOR.md`
-- `docs/project/AI_PM_VALIDATION.md`
-- `docs/project/AI_PM_BOOTSTRAP.md`
+- `docs/project/APS_PUBLIC_NOTICE.md`
 - `docs/project/PROJECT_CONTEXT.md`
 - `docs/project/PROJECT_STATUS.md`
 - `docs/project/TASK_HISTORY.md`
 - `docs/project/DECISION_LOG.md`
 - `README.md`
+
+APS 핵심 운영 문서는 private Platform repository `cnd1026/Nd_core`를 Source of Truth로 둡니다.
 
 그 다음 현재 Task 요구사항을 확인하고 작업합니다.

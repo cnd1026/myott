@@ -8,7 +8,7 @@ Security Maintenance
 
 ## Current Task
 
-MYOTT-SEC-01 APS 문서 공개 범위 정리 및 private repo 이전 준비
+APS-003 APS 핵심 운영 문서 public repo 제거
 
 ## Current Branch
 
@@ -20,9 +20,9 @@ MYOTT-SEC-01 APS 문서 공개 범위 정리 및 private repo 이전 준비
 
 ## Last Commit
 
-MYOTT-SEC-01 시작 시점 기준:
+APS-003 시작 시점 기준:
 
-`8b816f7 docs(project): standardize APS operating system`
+`e09ab50 docs(security): prepare APS migration to private repository`
 
 ## Repository
 
@@ -49,19 +49,17 @@ MYOTT-SEC-01 시작 시점 기준:
 - `docs/architecture/provider-architecture.md`: Provider 구조 설계
 - `docs/project/`: Project Memory System
 - `docs/project/APS_PUBLIC_NOTICE.md`: 공개 저장소의 APS 참조 범위 안내
-- `docs/project/APS_MIGRATION_PLAN.md`: APS 핵심 문서 private repository 이전 계획
+- APS 핵심 운영 문서의 Source of Truth는 private Platform repository `cnd1026/Nd_core`입니다.
 
 ## Next Milestone
 
-APS private repository를 생성하고 핵심 문서를 이전합니다.
+MyOTT Product Development를 재개합니다.
 
 ## Immediate Next Tasks
 
-- APS private repository 생성
-- APS 핵심 문서 복사 및 백업 확인
-- 공개 저장소 README/PMS 참조 정리 후속 작업
-- Task 5-2 커밋 해시 반영
+- MyOTT Product Development 재개
 - Mock Provider 실제 구현 Task 재개 여부 확인
+- Task 5-2 커밋 해시 반영
 - TMDB Provider 이전 범위 설계
 - v1.0 최소 DB 테이블 범위 확정
 
@@ -70,5 +68,6 @@ APS private repository를 생성하고 핵심 문서를 이전합니다.
 - README 실행 명령은 현재 저장소 루트 기준 `pnpm install`, `pnpm dev`로 정리되어 있습니다.
 - Provider 초안은 아직 실제 API route에 연결되어 있지 않습니다.
 - DB 설계는 문서 단계이며 SQL, Supabase 연결, 마이그레이션은 아직 없습니다.
-- MYOTT-SEC-01에서는 APS 핵심 문서를 삭제하지 않고 공개 참조 범위만 정리합니다.
+- APS 핵심 운영 문서는 MyOTT public repository에서 제거되었고, Nd_core가 Source of Truth입니다.
+- MyOTT public repository에는 APS 존재와 브랜드 참조만 유지합니다.
 - Git history rewrite, force push, filter-repo는 이번 Task에서 사용하지 않습니다.

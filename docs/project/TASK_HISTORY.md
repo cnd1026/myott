@@ -6,7 +6,8 @@
 
 | Task ID | Task | Commit | Review | 상태 |
 | --- | --- | --- | --- | --- |
-| MYOTT-SEC-01 | APS 문서 공개 범위 정리 및 private repo 이전 준비 | This security commit | APS 공개 안내와 이전 계획을 추가하고 README/PMS의 핵심 APS 문서 직접 노출을 완화. | 완료 |
+| MYOTT-SEC-01 | APS 문서 공개 범위 정리 및 private repo 이전 준비 | `e09ab50` | APS 공개 안내와 이전 계획을 추가하고 README/PMS의 핵심 APS 문서 직접 노출을 완화. | 완료 |
+| APS-003 | APS 핵심 운영 문서 public repo 제거 | This remove commit | APS 핵심 운영 문서 5개를 MyOTT에서 제거하고 Nd_core를 Source of Truth로 명시. | 완료 |
 
 ## Foundation Sprint
 

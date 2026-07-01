@@ -2,6 +2,28 @@
 
 프로젝트의 주요 변경 사항을 날짜별로 기록합니다.
 
+## 2026-07-01 - APS-003
+
+### 변경 내용
+
+- MyOTT public repository에서 APS 핵심 운영 문서 5개를 제거했습니다.
+- README에 `Built with APS.` 문구와 Source of Truth가 private Platform repository `cnd1026/Nd_core`라는 설명을 남겼습니다.
+- `PROJECT_CONTEXT.md`, `PROJECT_STATUS.md`, `DEVELOPMENT_RULES.md`, `AI_COLLABORATION.md`에서 삭제된 APS 핵심 문서 직접 링크를 제거했습니다.
+- `APS_PUBLIC_NOTICE.md`와 `APS_MIGRATION_PLAN.md`를 Remove 완료 상태에 맞게 업데이트했습니다.
+- `TASK_HISTORY.md`에 APS-003 기록을 추가했습니다.
+
+### 이유
+
+- Products create value. Platform multiplies value.
+- MyOTT는 고객을 위한 Product repository이고, APS 핵심 운영 문서는 회사 자산으로 보존해야 하는 Platform knowledge이기 때문입니다.
+- 공개 저장소에는 APS를 사용했다는 자연스러운 브랜드 참조만 남기고, 핵심 운영 방식은 Nd_core에서 관리하는 것이 Product / Platform 분리 원칙에 맞습니다.
+
+### 다음 작업
+
+- Nd_core의 `APS_MIGRATION_STATUS.md`에 Remove 완료 상태를 기록합니다.
+- MyOTT Product Development를 재개합니다.
+- Mock Provider / Provider 전환 작업을 다시 진행할지 결정합니다.
+
 ## 2026-07-01 - MYOTT-SEC-01
 
 ### 변경 내용

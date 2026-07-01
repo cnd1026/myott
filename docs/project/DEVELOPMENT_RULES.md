@@ -13,10 +13,10 @@
 - 모든 작업은 Task 단위로 진행합니다.
 - Task에는 목표, 요구사항, 수정 범위, 금지사항, 완료 조건을 둡니다.
 - Task 완료 후 커밋과 푸시를 기본으로 합니다.
-- 모든 Task는 APS Task ID를 가집니다.
+- 모든 Task는 APS 기반 Task ID를 가집니다.
 - 기본 Task ID 형식은 `MYOTT-S{SPRINT}-T{TASK}`입니다.
 - Foundation Sprint는 `MYOTT-FND-T01`, Pre-Sprint는 `MYOTT-PRE-T01` 형식을 사용합니다.
-- 자세한 기준은 `docs/project/APS_STANDARD.md`를 따릅니다.
+- APS 핵심 운영 기준은 private Platform repository `cnd1026/Nd_core`에서 관리합니다.
 
 ## 2.1 Codex Mode 기준
 
@@ -28,6 +28,8 @@ Codex Mode는 작업 위험도와 검증 수준을 나타냅니다.
 - VERY HIGH: 아키텍처, 개인정보, DB, 운영체계, 장기 정책에 영향을 주는 작업
 
 DB, 개인정보, Provider, 인증, AI 추천, 운영체계 작업은 기본적으로 HIGH 이상으로 판단합니다.
+
+Public MyOTT에는 APS의 존재와 운영 참조만 남기며, APS 상세 운영 방식은 Nd_core를 Source of Truth로 둡니다.
 
 ## 3. Git Review
 

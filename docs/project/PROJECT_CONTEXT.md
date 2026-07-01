@@ -17,11 +17,11 @@ MyOTT는 사용자가 좋아하는 영화, 드라마, 애니를 입력하거나 
 
 ## 현재 Sprint
 
-Sprint 5.0 Standardization
+Security Maintenance
 
 현재 Task:
 
-- MYOTT-S50-T01 APS 운영체계 표준화
+- APS-003 APS 핵심 운영 문서 public repo 제거
 
 직전 Sprint:
 
@@ -67,7 +67,7 @@ docs/
 - `lib/tmdb.js`: 현재 TMDB 직접 호출 로직
 - `src/lib/providers/`: Provider 구조 초안
 - `docs/`: 제품, 데이터, 아키텍처, 작업 기록 문서
-- `docs/project/APS_STANDARD.md`: Task ID와 Codex Mode 운영 표준
+- `docs/project/APS_PUBLIC_NOTICE.md`: MyOTT의 APS public reference 안내
 
 ## 핵심 철학
 
@@ -78,7 +78,7 @@ docs/
 - 개인정보는 AI 학습 대상이 아닙니다.
 - 큰 기능은 구현 전에 문서로 먼저 설계합니다.
 - TMDB 하나에 직접 의존하지 않고 Provider(Adapter) 구조로 확장합니다.
-- APS Task ID와 Codex Mode 기준으로 Sprint/Task 운영을 표준화합니다.
+- MyOTT는 내부 AI Project System(APS)을 기반으로 운영되며, APS 핵심 운영 문서의 Source of Truth는 private Platform repository `cnd1026/Nd_core`입니다.
 
 ## MVP 범위
 
@@ -112,7 +112,7 @@ MVP에서 후순위:
 
 - Repository: `https://github.com/cnd1026/myott`
 - Main Branch: `main`
-- Last Known Commit before MYOTT-S50-T01: `4c2dd4c docs(architecture): prepare mock provider task`
+- Last Known Public APS Remove Commit before APS-003: `e09ab50 docs(security): prepare APS migration to private repository`
 
 ## Parking Lot
 
@@ -129,8 +129,9 @@ MVP에서 후순위:
 ## 다음 목표
 
 - PMS 문서를 기준으로 새 작업 시작 전 현재 상태를 빠르게 파악합니다.
-- MYOTT-S50-T01에서 APS 운영체계를 표준화합니다.
-- 다음 Provider 구현 Task부터 APS Task ID를 기본 표기로 사용합니다.
+- APS 핵심 운영 문서는 `cnd1026/Nd_core`를 Source of Truth로 둡니다.
+- Public MyOTT에는 APS의 존재와 제품 개발에 필요한 최소 참조만 유지합니다.
+- MyOTT Product Development를 재개합니다.
 - TMDB 직접 호출 구조를 Provider 구조로 옮기는 최소 리팩터링 계획을 세웁니다.
 - v1.0 최소 DB 테이블 범위를 Database Inventory 기준으로 확정합니다.
 - MyOTT 공통 콘텐츠 모델의 필수 필드를 정리합니다.
