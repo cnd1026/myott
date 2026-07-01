@@ -9,7 +9,8 @@
 | F-01 Project Memory System 구축 | `07a6a10` | PMS 문서 8개와 README/기록 파일 업데이트. | 완료 |
 | F-02 AI PM Bootstrap System v1.0 문서 작성 | `5d11898` | 새 ChatGPT 채팅용 공식 Bootstrap 문서 추가. | 완료 |
 | F-03 AI PM Constitution v1.0 작성 | `d6884e5` | AI PM이 지켜야 할 최상위 운영 원칙 문서화. | 완료 |
-| F-04 AI PM Behavior 문서 작성 | Current task | AI PM의 리뷰, 칭찬, 반대, 브레이크 행동 규칙 문서화. | 진행 중 |
+| F-04 AI PM Behavior 문서 작성 | `6a7bdab` | AI PM의 리뷰, 칭찬, 반대, 브레이크 행동 규칙 문서화. | 완료 |
+| F-05 AI PM Validation 문서 작성 | Current task | 새로운 AI PM이 운영체계를 따르는지 검증하는 체크리스트 문서화. | 진행 중 |
 
 ## Sprint 5
 

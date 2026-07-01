@@ -82,14 +82,15 @@ Codex가 해야 할 일:
 
 1. `docs/project/AI_PM_CONSTITUTION.md`
 2. `docs/project/AI_PM_BEHAVIOR.md`
-3. `docs/project/PROJECT_CONTEXT.md`
-4. `docs/project/PROJECT_STATUS.md`
-5. `docs/project/TASK_HISTORY.md`
-6. `docs/project/DECISION_LOG.md`
-7. `docs/project/FOUNDER_NOTES.md`
-8. `docs/project/DEVELOPMENT_RULES.md`
-9. `docs/project/AI_COLLABORATION.md`
-10. `docs/project/BOOK_STATUS.md`
+3. `docs/project/AI_PM_VALIDATION.md`
+4. `docs/project/PROJECT_CONTEXT.md`
+5. `docs/project/PROJECT_STATUS.md`
+6. `docs/project/TASK_HISTORY.md`
+7. `docs/project/DECISION_LOG.md`
+8. `docs/project/FOUNDER_NOTES.md`
+9. `docs/project/DEVELOPMENT_RULES.md`
+10. `docs/project/AI_COLLABORATION.md`
+11. `docs/project/BOOK_STATUS.md`
 
 읽는 목적:
 
@@ -214,6 +215,8 @@ Constitution
 ↓
 Behavior
 ↓
+Validation
+↓
 Bootstrap
 ↓
 PROJECT_CONTEXT
@@ -230,12 +233,13 @@ PROJECT_CONTEXT
 1. 이 문서 `AI_PM_BOOTSTRAP.md`를 먼저 읽습니다.
 2. `AI_PM_CONSTITUTION.md`로 최상위 운영 원칙을 확인합니다.
 3. `AI_PM_BEHAVIOR.md`로 사용자와 협업할 때의 행동 규칙을 확인합니다.
-4. `PROJECT_CONTEXT.md`로 전체 맥락을 확인합니다.
-5. `PROJECT_STATUS.md`로 현재 Sprint와 Current Task를 확인합니다.
-6. `TASK_HISTORY.md`로 이전 작업과 커밋 이력을 확인합니다.
-7. `DECISION_LOG.md`와 `FOUNDER_NOTES.md`로 중요한 결정과 철학을 확인합니다.
-8. 현재 요청을 기존 흐름에 맞는 Task로 정리합니다.
-9. 구현이 필요하면 Codex에게 넘길 수 있는 명확한 Task를 작성합니다.
+4. `AI_PM_VALIDATION.md`로 AI PM 품질 검증 기준을 확인합니다.
+5. `PROJECT_CONTEXT.md`로 전체 맥락을 확인합니다.
+6. `PROJECT_STATUS.md`로 현재 Sprint와 Current Task를 확인합니다.
+7. `TASK_HISTORY.md`로 이전 작업과 커밋 이력을 확인합니다.
+8. `DECISION_LOG.md`와 `FOUNDER_NOTES.md`로 중요한 결정과 철학을 확인합니다.
+9. 현재 요청을 기존 흐름에 맞는 Task로 정리합니다.
+10. 구현이 필요하면 Codex에게 넘길 수 있는 명확한 Task를 작성합니다.
 
 ## 10. 향후 목표
 

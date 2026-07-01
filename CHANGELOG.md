@@ -2,6 +2,29 @@
 
 프로젝트의 주요 변경 사항을 날짜별로 기록합니다.
 
+## 2026-07-01 - Task F-05
+
+### 변경 내용
+
+- `docs/project/AI_PM_VALIDATION.md` 문서를 새로 추가했습니다.
+- 새로운 AI PM이 MyOTT 운영체계를 얼마나 잘 따르는지 검증하는 체크리스트를 작성했습니다.
+- Review 품질, Architecture 판단, Documentation 판단, 장기 유지보수, MVP 보호, Parking Lot, Decision Log, Founder Note, Book 연결 평가 기준을 문서화했습니다.
+- README의 Project Memory System 목록에 Validation 문서를 추가했습니다.
+- `AI_PM_BOOTSTRAP.md`, `PROJECT_STATUS.md`, `TASK_HISTORY.md`, `AI_COLLABORATION.md`, `BOOK_STATUS.md`를 Validation 문서 기준에 맞게 업데이트했습니다.
+- F-04 커밋 `6a7bdab`을 `TASK_HISTORY.md`에 완료 상태로 반영했습니다.
+
+### 이유
+
+- Constitution과 Behavior가 실제 AI PM 응답 품질로 이어지는지 검증할 기준이 필요했기 때문입니다.
+- 새 ChatGPT 채팅이나 새 AI PM이 PMS, MVP 보호, Documentation First, 장기 유지보수 원칙을 지키는지 판단할 수 있어야 했습니다.
+- 향후 AI Development System을 표준화하기 위해 Pass, Fail, Score 기준을 미리 정리할 필요가 있었습니다.
+
+### 다음 작업
+
+- F-05 커밋 해시를 다음 작업 기록 업데이트 때 `TASK_HISTORY.md`에 반영합니다.
+- 필요 시 Task Template과 Review Template을 AI PM Validation 기준으로 분리합니다.
+- TMDB Provider 실제 이전 범위를 PMS 원칙과 Validation 기준에 맞춰 설계합니다.
+
 ## 2026-07-01 - Task F-04
 
 ### 변경 내용

@@ -2,6 +2,34 @@
 
 개발 과정에서의 작업 내용, 결정, 아쉬운 점, 다음 개선 사항을 날짜별로 기록합니다.
 
+## 2026-07-01 - Task F-05
+
+### 오늘 작업
+
+- `docs/project/AI_PM_VALIDATION.md` 문서를 새로 작성했습니다.
+- 새로운 AI PM이 PMS 운영체계를 따르는지 확인하는 필수 체크리스트를 정리했습니다.
+- Review 품질, Architecture 판단, Documentation 판단, 장기 유지보수, MVP 보호, Parking Lot, Decision Log, Founder Note, Book 연결 평가 항목을 만들었습니다.
+- README와 PMS 관련 문서에 Validation 문서를 연결했습니다.
+
+### 결정한 것
+
+- AI PM Validation은 Pass, Fail, Score 방식으로 평가합니다.
+- 100점 기준 배점을 두고 PMS 확인, Review 품질, Architecture 판단, Documentation 판단, 장기 유지보수 판단을 핵심 평가 영역으로 둡니다.
+- 새 AI PM은 Constitution, Behavior, Validation, Bootstrap, Project Context 순서로 운영체계를 이해해야 합니다.
+- F-04 커밋 `6a7bdab`은 `TASK_HISTORY.md`에 완료 상태로 반영했습니다.
+
+### 아쉬운 점
+
+- 아직 Task Template과 Review Template은 별도 문서로 분리하지 않았습니다.
+- Validation 점수를 실제로 적용하는 예시 리뷰는 아직 만들지 않았습니다.
+- F-05 문서 안에는 자기 자신의 최종 커밋 해시를 넣을 수 없어 다음 기록 업데이트에서 반영해야 합니다.
+
+### 다음 개선
+
+- `TASK_HISTORY.md`에 F-05 커밋 해시를 다음 작업 때 반영합니다.
+- AI PM Validation 기준으로 Task Template과 Review Template을 설계할지 검토합니다.
+- TMDB Provider 이전 설계를 Validation 기준에 맞춰 리뷰합니다.
+
 ## 2026-07-01 - Task F-04
 
 ### 오늘 작업

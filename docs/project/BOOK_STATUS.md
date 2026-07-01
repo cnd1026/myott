@@ -40,6 +40,7 @@ AI Development System은 Product Owner, GPT, Codex가 함께 서비스를 만드
 
 - AI PM Constitution
 - AI PM Behavior Guide
+- AI PM Validation Guide
 - AI PM Bootstrap System
 - Sprint 기반 진행
 - Task 기반 실행

@@ -8,7 +8,7 @@ Foundation Sprint
 
 ## Current Task
 
-Task F-04 AI PM Behavior 문서 작성
+Task F-05 AI PM Validation 문서 작성
 
 ## Current Branch
 
@@ -20,9 +20,9 @@ Task F-04 AI PM Behavior 문서 작성
 
 ## Last Commit
 
-F-04 시작 시점 기준:
+F-05 시작 시점 기준:
 
-`d6884e5 docs(project): add AI PM constitution`
+`6a7bdab docs(project): add AI PM behavior guide`
 
 ## Repository
 
@@ -50,6 +50,7 @@ F-04 시작 시점 기준:
 - `docs/project/AI_PM_BOOTSTRAP.md`: 새 ChatGPT 채팅용 AI PM Bootstrap 문서
 - `docs/project/AI_PM_CONSTITUTION.md`: AI PM 최상위 운영 헌법
 - `docs/project/AI_PM_BEHAVIOR.md`: AI PM 사용자 협업 행동 규칙
+- `docs/project/AI_PM_VALIDATION.md`: AI PM 운영체계 검증 체크리스트
 
 ## Next Milestone
 

@@ -95,6 +95,7 @@ PMS는 AI가 프로젝트를 이어받기 위한 기억 장치입니다.
 
 - `docs/project/AI_PM_CONSTITUTION.md`
 - `docs/project/AI_PM_BEHAVIOR.md`
+- `docs/project/AI_PM_VALIDATION.md`
 - `docs/project/AI_PM_BOOTSTRAP.md`
 - `docs/project/PROJECT_CONTEXT.md`
 - `docs/project/PROJECT_STATUS.md`
