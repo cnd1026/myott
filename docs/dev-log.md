@@ -2,6 +2,34 @@
 
 개발 과정에서의 작업 내용, 결정, 아쉬운 점, 다음 개선 사항을 날짜별로 기록합니다.
 
+## 2026-07-01 - Task F-01
+
+### 오늘 작업
+
+- `docs/project/` 폴더를 만들고 Project Memory System(PMS) 문서 8개를 작성했습니다.
+- 프로젝트 맥락, 현재 상태, 작업 이력, 의사결정, Founder Note, 개발 규칙, AI 협업 방식, Book Status를 분리해 정리했습니다.
+- README에 PMS 소개와 각 문서 링크를 추가했습니다.
+- README의 Current Sprint를 Foundation Sprint로 업데이트했습니다.
+
+### 결정한 것
+
+- 긴 프로젝트를 이어가기 위해 PMS를 공식 운영 문서로 사용합니다.
+- 새 Codex 스레드는 먼저 `PROJECT_CONTEXT.md`, `PROJECT_STATUS.md`, `TASK_HISTORY.md`, `DECISION_LOG.md`, README를 확인하는 흐름으로 둡니다.
+- 중요한 제품/기술 결정은 `DECISION_LOG.md`, 창업자 관점의 원칙은 `FOUNDER_NOTES.md`에 기록합니다.
+- F-01 문서 안의 Last Commit은 작업 시작 시점 기준 `365c9dd`로 남기고, 실제 F-01 커밋 해시는 완료 보고와 다음 기록 업데이트에서 반영합니다.
+
+### 아쉬운 점
+
+- PMS 문서가 처음 생성된 상태라 다음 Task부터 실제 운영하면서 더 다듬어야 합니다.
+- README의 실행 경로는 과거 경로가 남아 있어 별도 Task에서 현재 프로젝트 루트 기준으로 점검이 필요합니다.
+- Task 템플릿과 Review 체크리스트는 아직 별도 표준 문서로 분리하지 않았습니다.
+
+### 다음 개선
+
+- TMDB Provider 이전 설계를 시작하기 전 PMS 문서를 기준으로 현재 상태를 다시 확인합니다.
+- `TASK_HISTORY.md`에 F-01 커밋 해시를 후속 기록 때 반영합니다.
+- 개발 규칙에 Task 템플릿과 Review 체크리스트를 추가할지 검토합니다.
+
 ## 2026-07-01 - Task 5-1
 
 ### 오늘 작업

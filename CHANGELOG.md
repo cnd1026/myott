@@ -2,6 +2,28 @@
 
 프로젝트의 주요 변경 사항을 날짜별로 기록합니다.
 
+## 2026-07-01 - Task F-01
+
+### 변경 내용
+
+- `docs/project/` 폴더를 새로 추가했습니다.
+- Project Memory System(PMS) 문서 8개를 생성했습니다.
+- `PROJECT_CONTEXT.md`, `PROJECT_STATUS.md`, `TASK_HISTORY.md`, `DECISION_LOG.md`, `FOUNDER_NOTES.md`, `DEVELOPMENT_RULES.md`, `AI_COLLABORATION.md`, `BOOK_STATUS.md`에 현재 프로젝트 맥락과 운영 규칙을 정리했습니다.
+- README에 Project Memory System 소개와 문서 링크를 추가했습니다.
+- README의 Current Sprint를 Foundation Sprint / Task F-01 기준으로 업데이트했습니다.
+
+### 이유
+
+- Sprint와 문서가 늘어나면서 새 Codex 스레드가 프로젝트를 바로 이어받을 수 있는 기억 시스템이 필요했기 때문입니다.
+- 제품 결정, 작업 이력, Founder Note, 운영 규칙이 여러 문서에 흩어지지 않도록 기준 위치를 만들기 위해서입니다.
+- 장기 프로젝트에서 AI 협업 품질을 유지하려면 현재 상태와 다음 목표를 명확히 남겨야 합니다.
+
+### 다음 작업
+
+- F-01 커밋 해시를 다음 작업 기록 업데이트 때 `TASK_HISTORY.md`에 반영합니다.
+- TMDB Provider 실제 이전 범위를 PMS와 Provider Architecture 기준으로 설계합니다.
+- v1.0 MVP 최소 DB 범위를 Database Inventory 기준으로 확정합니다.
+
 ## 2026-07-01 - Task 5-1
 
 ### 변경 내용
