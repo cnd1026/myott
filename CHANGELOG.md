@@ -2,6 +2,28 @@
 
 프로젝트의 주요 변경 사항을 날짜별로 기록합니다.
 
+## 2026-07-01 - Task 4-4d
+
+### 변경 내용
+
+- `docs/database/database-inventory.md` 문서를 새로 추가했습니다.
+- Content, User/Session, AI/Recommendation, Community, 장기 콘텐츠 확장 도메인의 테이블 후보를 한곳에 정리했습니다.
+- `recommendation_log`, `recommendation_result`, `user_session`, `comment`, `vote`처럼 문서마다 다르게 쓰인 후보명을 인벤토리 기준 이름으로 정리했습니다.
+- 각 테이블 후보별 목적, 도메인, MVP 필수 여부, 출시 버전, 필요한 이유, MVP 제외 사유, 향후 확장 가능성을 문서화했습니다.
+- README의 Sprint 4 진행률을 Task 4-4d 완료 상태로 업데이트했습니다.
+
+### 이유
+
+- 개별 도메인 문서가 늘어나면서 v1.0에서 실제로 필요한 테이블과 후순위 후보를 구분할 기준표가 필요했기 때문입니다.
+- SQL 작성 전 Content, User, AI, Community 도메인의 책임 경계를 한 번 더 정리해야 했습니다.
+- MVP에서 제외되는 후보의 이유를 남겨 향후 범위가 다시 커질 때 판단 근거로 삼기 위해서입니다.
+
+### 다음 작업
+
+- Database Inventory를 기준으로 v1.0 필수 테이블 범위를 최종 축소합니다.
+- TMDB 응답 필드를 Content Domain 후보 테이블과 매핑합니다.
+- `user_preferences`, `preference_tags`, `preference_vectors`의 책임 경계를 정리합니다.
+
 ## 2026-07-01 - Task 4-4c
 
 ### 변경 내용

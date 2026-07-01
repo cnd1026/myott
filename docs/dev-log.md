@@ -2,6 +2,34 @@
 
 개발 과정에서의 작업 내용, 결정, 아쉬운 점, 다음 개선 사항을 날짜별로 기록합니다.
 
+## 2026-07-01 - Task 4-4d
+
+### 오늘 작업
+
+- `docs/database/database-inventory.md` 문서를 새로 작성했습니다.
+- 지금까지 설계한 Content, User/Session, AI/Recommendation, Community 도메인의 테이블 후보를 한곳에 모았습니다.
+- 후보 테이블별 MVP 필수 여부와 출시 버전을 정리했습니다.
+- README의 Sprint 4 진행률을 Task 4-4d 완료 상태로 업데이트했습니다.
+
+### 결정한 것
+
+- 이전 문서의 `recommendation_log`는 인벤토리 기준으로 `recommendation_requests`에 통합해 검토합니다.
+- `comment`, `user_comments`는 `comments`로, `vote`, `content_votes`는 `votes`로 통합해 Community Domain 후보로 둡니다.
+- v1은 추천, 콘텐츠, OTT 필터, 로그인, 취향 저장, Watch Later 중심으로 두고, 댓글/알림/커뮤니티 기능은 v2 이후로 분리합니다.
+- 이번 작업에서는 SQL, ERD, Supabase 연결, TMDB 연결, 코드 수정을 하지 않습니다.
+
+### 아쉬운 점
+
+- 아직 각 테이블의 실제 컬럼 타입, 제약 조건, 인덱스는 정하지 않았습니다.
+- `content_details`, `external_content_ids`, `content_aliases`처럼 v1 선택 후보의 구현 시점은 더 좁혀야 합니다.
+- 이벤트 테이블은 개인정보 동의와 보관 정책이 더 구체화된 뒤 결정해야 합니다.
+
+### 다음 개선
+
+- Database Inventory를 기준으로 v1.0 최소 테이블 목록을 확정합니다.
+- TMDB 응답 필드를 Content Domain 후보와 매핑합니다.
+- User Preference와 AI Preference Vector의 경계를 다시 정리합니다.
+
 ## 2026-07-01 - Task 4-4c
 
 ### 오늘 작업
