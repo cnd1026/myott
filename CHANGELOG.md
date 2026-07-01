@@ -2,6 +2,28 @@
 
 프로젝트의 주요 변경 사항을 날짜별로 기록합니다.
 
+## 2026-07-01 - Task 4-4c
+
+### 변경 내용
+
+- `docs/database/user-domain.md` 문서를 새로 추가했습니다.
+- User Domain과 Anonymous Session Domain의 역할을 정리했습니다.
+- `anonymous_sessions`, `users`, `user_preferences`, `watch_later`, `recommendation_requests`, `recommendation_results`, `recommendation_feedback`, `notification_settings`, `notification_queue` 후보를 문서화했습니다.
+- Supabase Auth는 인증을 담당하고 MyOTT는 필요한 최소 사용자 정보만 저장하는 방향을 기록했습니다.
+- README의 Sprint 4 진행률을 Task 4-4c 완료 상태로 업데이트했습니다.
+
+### 이유
+
+- 회원가입 없이 추천을 사용할 수 있는 구조와 로그인 후 개인 기능을 제공하는 구조를 분리해야 했기 때문입니다.
+- 취향 저장, Watch Later, 추천 기록, 알림 기능이 어떤 사용자 데이터에 의존하는지 DB 구현 전에 정리할 필요가 있었습니다.
+- Data Policy의 최소 수집 원칙을 User Domain 설계에도 반영하기 위해서입니다.
+
+### 다음 작업
+
+- `recommendation_requests`와 AI Domain의 `recommendation_log` 이름을 통일할지 결정합니다.
+- `user_preferences`와 `preference_vector`의 책임 범위를 정리합니다.
+- v1.0에서 필요한 User/Session 최소 테이블 범위를 좁힙니다.
+
 ## 2026-07-01 - Task 4-4b
 
 ### 변경 내용
