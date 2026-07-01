@@ -4,70 +4,160 @@ import { useEffect, useMemo, useState } from "react";
 
 const dummyRecommendations = [
   {
-    title: "컨택트",
+    title: "인터스텔라",
     type: "movie",
     label: "영화",
+    tags: ["genre-sf", "country-us", "mood-moving", "runtime-long"],
     genre: "SF, 드라마",
-    director: "드니 빌뇌브",
-    actors: ["에이미 아담스", "제레미 레너"],
-    synopsis: "지구에 도착한 외계 생명체와 소통하기 위해 언어학자가 미지의 언어를 해독한다.",
-    match: 94,
-    reason: "입력한 작품의 SF, 감정선, 여운 있는 전개와 잘 맞는 더미 추천입니다.",
+    director: "크리스토퍼 놀란",
+    actors: ["매튜 매커너히", "앤 해서웨이"],
+    synopsis: "멸망 위기의 지구를 떠나 인류가 살 수 있는 새 행성을 찾기 위해 우주로 향한다.",
+    match: 96,
+    poster: "INTER\nSTELLAR",
+    reason: "광대한 SF 설정과 가족의 감정선을 함께 따라가는 추천입니다.",
   },
   {
-    title: "더 베어",
-    type: "drama",
-    label: "드라마",
-    genre: "드라마, 코미디",
-    director: "크리스토퍼 스토러",
-    actors: ["제러미 앨런 화이트", "아요 에데비리"],
-    synopsis: "젊은 셰프가 가족이 남긴 가게를 맡아 혼란과 재건을 겪는다.",
-    match: 88,
-    reason: "인물의 성장과 압박감 있는 리듬을 좋아하는 사용자에게 어울립니다.",
-  },
-  {
-    title: "스파이더맨: 뉴 유니버스",
-    type: "animation",
-    label: "애니",
-    genre: "애니메이션, 액션",
-    director: "밥 퍼시케티",
-    actors: ["샤메익 무어", "헤일리 스타인펠드"],
-    synopsis: "소년 마일스가 여러 차원의 스파이더맨들과 만나 자신만의 영웅이 된다.",
-    match: 86,
-    reason: "빠른 전개, 감각적인 화면, 성장 서사를 함께 원하는 흐름에 맞습니다.",
-  },
-  {
-    title: "나이브스 아웃",
+    title: "듄",
     type: "movie",
     label: "영화",
-    genre: "미스터리, 코미디",
-    director: "라이언 존슨",
-    actors: ["다니엘 크레이그", "아나 데 아르마스"],
-    synopsis: "유명 추리 작가의 죽음을 둘러싸고 가족 구성원 모두가 용의자가 된다.",
-    match: 82,
-    reason: "추리와 반전, 가벼운 긴장감을 동시에 즐길 때 보기 좋은 추천입니다.",
+    tags: ["genre-sf", "country-us", "mood-tense", "runtime-long"],
+    genre: "SF, 어드벤처",
+    director: "드니 빌뇌브",
+    actors: ["티모시 샬라메", "레베카 퍼거슨"],
+    synopsis: "사막 행성 아라키스를 둘러싼 권력 다툼 속에서 한 소년이 거대한 운명을 마주한다.",
+    match: 92,
+    poster: "DUNE",
+    reason: "장대한 세계관과 묵직한 긴장감을 원하는 흐름에 잘 맞습니다.",
   },
   {
-    title: "오징어 게임",
-    type: "drama",
-    label: "드라마",
-    genre: "스릴러, 드라마",
-    director: "황동혁",
-    actors: ["이정재", "정호연"],
-    synopsis: "벼랑 끝에 몰린 사람들이 거액의 상금을 두고 잔혹한 게임에 참가한다.",
-    match: 79,
-    reason: "강한 몰입감과 생존 게임 구도를 선호할 때 잘 맞는 더미 결과입니다.",
+    title: "마션",
+    type: "movie",
+    label: "영화",
+    tags: ["genre-sf", "country-us", "mood-light", "runtime-long"],
+    genre: "SF, 생존",
+    director: "리들리 스콧",
+    actors: ["맷 데이먼", "제시카 차스테인"],
+    synopsis: "화성에 홀로 남겨진 우주비행사가 과학과 유머로 생존 방법을 찾아간다.",
+    match: 89,
+    poster: "THE\nMARTIAN",
+    reason: "SF 설정 안에서도 밝은 에너지와 생존 서사를 함께 즐길 수 있습니다.",
+  },
+  {
+    title: "라라랜드",
+    type: "movie",
+    label: "영화",
+    tags: ["genre-romance", "country-us", "mood-moving", "runtime-medium"],
+    genre: "로맨스, 뮤지컬",
+    director: "데이미언 셔젤",
+    actors: ["라이언 고슬링", "엠마 스톤"],
+    synopsis: "꿈을 좇는 두 사람이 사랑에 빠지고, 각자의 미래 앞에서 서로의 의미를 되새긴다.",
+    match: 94,
+    poster: "LA LA\nLAND",
+    reason: "사랑과 꿈, 음악의 여운을 함께 느끼고 싶을 때 어울립니다.",
+  },
+  {
+    title: "노트북",
+    type: "movie",
+    label: "영화",
+    tags: ["genre-romance", "country-us", "mood-moving", "runtime-medium"],
+    genre: "로맨스, 드라마",
+    director: "닉 카사베츠",
+    actors: ["라이언 고슬링", "레이첼 맥아담스"],
+    synopsis: "계급과 시간이 갈라놓은 두 사람이 평생에 걸쳐 사랑의 기억을 붙잡는다.",
+    match: 90,
+    poster: "THE\nNOTEBOOK",
+    reason: "강한 감정선과 오래 남는 사랑 이야기를 찾는 선택에 맞습니다.",
   },
   {
     title: "센과 치히로의 행방불명",
     type: "animation",
     label: "애니",
+    tags: ["country-jp", "mood-moving", "runtime-medium"],
     genre: "애니메이션, 판타지",
     director: "미야자키 하야오",
     actors: ["히이라기 루미", "이리노 미유"],
     synopsis: "낯선 세계에 들어간 소녀가 부모를 구하고 자신의 이름과 용기를 찾아간다.",
-    match: 77,
+    match: 87,
+    poster: "SPIRITED\nAWAY",
     reason: "환상적인 세계관과 따뜻한 여운을 원하는 사용자에게 어울립니다.",
+  },
+  {
+    title: "너의 이름은",
+    type: "animation",
+    label: "애니",
+    tags: ["genre-romance", "country-jp", "mood-moving", "runtime-medium"],
+    genre: "애니메이션, 로맨스",
+    director: "신카이 마코토",
+    actors: ["카미키 류노스케", "카미시라이시 모네"],
+    synopsis: "서로의 몸이 바뀌는 두 소년소녀가 시간과 거리를 넘어 서로를 찾아간다.",
+    match: 88,
+    poster: "YOUR\nNAME",
+    reason: "설렘과 판타지, 애틋한 감정선을 함께 원하는 취향에 어울립니다.",
+  },
+  {
+    title: "세븐",
+    type: "movie",
+    label: "영화",
+    tags: ["genre-thriller", "country-us", "mood-tense", "runtime-medium"],
+    genre: "스릴러, 범죄",
+    director: "데이비드 핀처",
+    actors: ["브래드 피트", "모건 프리먼"],
+    synopsis: "두 형사가 일곱 가지 죄악을 따라 벌어지는 연쇄 살인 사건을 추적한다.",
+    match: 94,
+    poster: "SE7EN",
+    reason: "어둡고 집요한 수사극과 강한 결말의 긴장감을 원하는 선택에 맞습니다.",
+  },
+  {
+    title: "프리즈너스",
+    type: "movie",
+    label: "영화",
+    tags: ["genre-thriller", "country-us", "mood-tense", "runtime-long"],
+    genre: "스릴러, 미스터리",
+    director: "드니 빌뇌브",
+    actors: ["휴 잭맨", "제이크 질렌할"],
+    synopsis: "실종된 아이를 찾기 위해 한 아버지와 형사가 각자의 방식으로 진실을 추적한다.",
+    match: 91,
+    poster: "PRISONERS",
+    reason: "무거운 분위기와 끝까지 조여 오는 미스터리를 선호할 때 잘 맞습니다.",
+  },
+  {
+    title: "조디악",
+    type: "movie",
+    label: "영화",
+    tags: ["genre-thriller", "country-us", "mood-tense", "runtime-long"],
+    genre: "스릴러, 범죄",
+    director: "데이비드 핀처",
+    actors: ["제이크 질렌할", "마크 러팔로"],
+    synopsis: "미해결 연쇄 살인 사건에 매달린 기자와 수사관들이 집착에 가까운 추적을 이어간다.",
+    match: 88,
+    poster: "ZODIAC",
+    reason: "실화 기반의 서늘한 추적극과 차분한 긴장감을 좋아한다면 어울립니다.",
+  },
+  {
+    title: "더 베어",
+    type: "drama",
+    label: "드라마",
+    tags: ["country-us", "mood-tense", "runtime-short"],
+    genre: "드라마, 코미디",
+    director: "크리스토퍼 스토러",
+    actors: ["제러미 앨런 화이트", "아요 에데비리"],
+    synopsis: "젊은 셰프가 가족이 남긴 가게를 맡아 혼란과 재건을 겪는다.",
+    match: 84,
+    poster: "THE\nBEAR",
+    reason: "인물의 성장과 압박감 있는 리듬을 좋아하는 사용자에게 어울립니다.",
+  },
+  {
+    title: "오징어 게임",
+    type: "drama",
+    label: "드라마",
+    tags: ["country-kr", "mood-tense", "runtime-medium"],
+    genre: "스릴러, 드라마",
+    director: "황동혁",
+    actors: ["이정재", "정호연"],
+    synopsis: "벼랑 끝에 몰린 사람들이 거액의 상금을 두고 잔혹한 게임에 참가한다.",
+    match: 86,
+    poster: "SQUID\nGAME",
+    reason: "강한 몰입감과 생존 게임 구도를 선호할 때 잘 맞는 더미 결과입니다.",
   },
 ];
 
@@ -123,6 +213,32 @@ function thumbnailText(title) {
   return title.slice(0, 2);
 }
 
+function recommendationReason(item, titles) {
+  if (!titles.length) return item.reason;
+  const anchorTitle = titles[0];
+  return `${anchorTitle}를 좋아해서 추천합니다. ${item.reason}`;
+}
+
+function scoreRecommendation(item, quickPicks) {
+  return quickPicks.reduce((score, quickPick) => (item.tags.includes(quickPick) ? score + 1 : score), 0);
+}
+
+function buildRecommendations(selectedTypes, quickPicks) {
+  const typeMatched = dummyRecommendations.filter((item) => selectedTypes.includes(item.type));
+
+  if (!quickPicks.length) {
+    return typeMatched.slice(0, 6);
+  }
+
+  const scored = typeMatched
+    .map((item) => ({ item, score: scoreRecommendation(item, quickPicks) }))
+    .filter(({ score }) => score > 0)
+    .sort((a, b) => b.score - a.score || b.item.match - a.item.match)
+    .map(({ item }) => item);
+
+  return scored.length ? scored.slice(0, 6) : typeMatched.slice(0, 6);
+}
+
 function toggleValue(values, value) {
   return values.includes(value) ? values.filter((item) => item !== value) : [...values, value];
 }
@@ -158,7 +274,8 @@ export default function Home() {
 
     setHasSubmitted(true);
     setSelectedDetail(null);
-    setResults(dummyRecommendations.filter((item) => selectedTypes.includes(item.type)));
+    setShowQuickPick(false);
+    setResults(buildRecommendations(selectedTypes, selectedQuickPicks));
   }
 
   function openDetail(item) {
@@ -277,7 +394,7 @@ export default function Home() {
         <div className="result-grid" id="resultGrid">
           {results.map((item) => (
             <button className="result-card" type="button" key={item.title} onClick={() => openDetail(item)} aria-label={`${item.title} 상세 보기`}>
-              <div className="thumbnail" aria-hidden="true">{thumbnailText(item.title)}</div>
+              <div className="thumbnail poster" aria-hidden="true">{item.poster}</div>
               <div className="result-body">
                 <div className="card-topline">
                   <span className="type-badge">{item.label}</span>
@@ -290,7 +407,7 @@ export default function Home() {
                   <span><strong>주요 배우</strong> {item.actors.join(", ")}</span>
                 </div>
                 <p className="input-summary">{inputSummary}</p>
-                <p>{item.reason}</p>
+                <p>{recommendationReason(item, enteredTitles)}</p>
               </div>
             </button>
           ))}
@@ -340,7 +457,7 @@ export default function Home() {
           <section className="detail-layer" role="dialog" aria-modal="true" aria-labelledby="detailTitle">
             <button className="close-button detail-close" type="button" onClick={() => setSelectedDetail(null)} aria-label="상세 정보 닫기">×</button>
             <div className="detail-layout">
-              <div className="detail-thumb" aria-hidden="true">{thumbnailText(selectedDetail.title)}</div>
+              <div className="detail-thumb poster" aria-hidden="true">{selectedDetail.poster || thumbnailText(selectedDetail.title)}</div>
               <div className="detail-info">
                 <span className="type-badge">{selectedDetail.label}</span>
                 <h2 id="detailTitle">{selectedDetail.title}</h2>
@@ -350,7 +467,7 @@ export default function Home() {
                   <span><strong>주요 배우</strong> {selectedDetail.actors.join(", ")}</span>
                 </div>
                 <p><strong>줄거리</strong><br />{selectedDetail.synopsis}</p>
-                <p><strong>추천 이유</strong><br />{selectedDetail.reason}</p>
+                <p><strong>추천 이유</strong><br />{recommendationReason(selectedDetail, enteredTitles)}</p>
               </div>
             </div>
           </section>

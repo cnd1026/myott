@@ -307,6 +307,12 @@ input[type="text"]:focus {
   font-weight: 900;
 }
 
+.poster {
+  white-space: pre-line;
+  line-height: 1.05;
+  text-align: center;
+}
+
 .result-body {
   display: grid;
   gap: 10px;
