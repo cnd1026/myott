@@ -2,6 +2,34 @@
 
 개발 과정에서의 작업 내용, 결정, 아쉬운 점, 다음 개선 사항을 날짜별로 기록합니다.
 
+## 2026-07-01 - Task 5-1
+
+### 오늘 작업
+
+- `docs/architecture/provider-architecture.md` 문서를 새로 작성했습니다.
+- TMDB를 직접 호출하는 구조에서 Provider(Adapter) 구조로 확장하기 위한 방향을 정리했습니다.
+- `src/lib/providers/` 아래에 Provider 계약 초안과 TMDB Provider 자리표시자를 추가했습니다.
+- README의 Current Sprint를 Sprint 5 진행 상태로 업데이트했습니다.
+
+### 결정한 것
+
+- MyOTT 내부는 특정 외부 API 대신 `ContentProvider` 개념에 의존하는 방향으로 설계합니다.
+- TMDB는 제거 대상이 아니라 첫 번째 Provider로 감싸는 대상으로 둡니다.
+- 현재 프로젝트가 JavaScript 기반이므로 Provider 초안은 TypeScript 파일이 아니라 JSDoc 기반 JS 파일로 작성합니다.
+- 이번 작업에서는 기존 `lib/tmdb.js`, API route, UI 동작을 수정하지 않습니다.
+
+### 아쉬운 점
+
+- Provider Registry, fallback 순서, 오류 처리 정책은 아직 구현하지 않았습니다.
+- MyOTT 공통 콘텐츠 모델의 필수 필드는 더 구체화해야 합니다.
+- 기존 TMDB 호출 코드를 실제 Provider로 옮기는 작업은 다음 단계로 남겨두었습니다.
+
+### 다음 개선
+
+- `lib/tmdb.js`를 `tmdb-provider`로 옮길 수 있는 최소 리팩터링 단계를 나눕니다.
+- Provider별 응답 실패와 빈 결과 fallback 정책을 문서화합니다.
+- 테스트용 mock provider가 필요한지 검토합니다.
+
 ## 2026-07-01 - Task 4-4d
 
 ### 오늘 작업

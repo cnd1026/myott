@@ -2,6 +2,28 @@
 
 프로젝트의 주요 변경 사항을 날짜별로 기록합니다.
 
+## 2026-07-01 - Task 5-1
+
+### 변경 내용
+
+- `docs/architecture/provider-architecture.md` 문서를 새로 추가했습니다.
+- TMDB 직접 의존을 줄이고 Provider(Adapter) 기반으로 외부 콘텐츠 공급자를 확장하는 구조를 설계했습니다.
+- `ContentProvider`의 `search`, `getDetail`, `getRecommendations`, `getTrending` 메서드 개념을 문서화했습니다.
+- `src/lib/providers/` 아래에 Provider 계약과 TMDB Provider 자리표시자 파일을 추가했습니다.
+- README의 Current Sprint를 Sprint 5 / Task 5-1 기준으로 업데이트했습니다.
+
+### 이유
+
+- MyOTT가 TMDB 하나에만 묶이지 않고 JustWatch, AniList, OpenLibrary, Steam 같은 외부 Provider를 추가할 수 있어야 하기 때문입니다.
+- 외부 API 응답 구조를 UI와 추천 흐름에서 분리해 유지보수성과 테스트 용이성을 높이기 위해서입니다.
+- 실제 Provider 이전을 시작하기 전에 공통 계약과 폴더 구조를 먼저 합의할 필요가 있었습니다.
+
+### 다음 작업
+
+- 현재 `lib/tmdb.js`의 책임을 TMDB Provider로 옮길 최소 단계를 설계합니다.
+- MyOTT 공통 콘텐츠 모델의 필수 필드를 확정합니다.
+- Provider Registry와 fallback 정책이 필요한 시점을 결정합니다.
+
 ## 2026-07-01 - Task 4-4d
 
 ### 변경 내용
