@@ -2,6 +2,28 @@
 
 프로젝트의 주요 변경 사항을 날짜별로 기록합니다.
 
+## 2026-07-01 - MYOTT-S05-T03
+
+### 변경 내용
+
+- `src/lib/providers/mock/`에 Mock Provider를 구현했습니다.
+- `src/lib/providers/registry.js`에 최소 Provider Registry를 추가했습니다.
+- `/api/search`가 TMDB API key 없음 또는 TMDB 검색 실패 시 Mock Provider 결과로 fallback하도록 연결했습니다.
+- Mock Provider가 Unified Content Model과 기존 호환 alias를 함께 반환하도록 정리했습니다.
+- README, Provider Architecture 문서, PROJECT_STATUS, TASK_HISTORY를 Sprint 5 상태로 업데이트했습니다.
+
+### 이유
+
+- Sprint 5의 목표는 AI 추천 구현이 아니라 추천 엔진을 연결할 수 있는 Provider 기반 구조를 검증하는 것이기 때문입니다.
+- 외부 API key 없이도 local verification에서 검색 API가 안정적으로 동작해야 합니다.
+- UI 수정 없이 Provider를 교체할 수 있어야 이후 TMDB Provider adapter로 자연스럽게 확장할 수 있습니다.
+
+### 다음 작업
+
+- Founder가 local verification checklist를 직접 확인합니다.
+- TMDB Provider adapter 전환 범위를 다음 Task로 분리합니다.
+- Provider Registry의 provider 선택 정책과 환경변수 제어 여부를 검토합니다.
+
 ## 2026-07-01 - APS-003
 
 ### 변경 내용

@@ -4,11 +4,11 @@
 
 ## Current Sprint
 
-Security Maintenance
+Sprint 5
 
 ## Current Task
 
-APS-003 APS 핵심 운영 문서 public repo 제거
+MYOTT-S05-T03 Mock Provider Implementation with Local Verification
 
 ## Current Branch
 
@@ -20,9 +20,9 @@ APS-003 APS 핵심 운영 문서 public repo 제거
 
 ## Last Commit
 
-APS-003 시작 시점 기준:
+MYOTT-S05-T03 시작 시점 기준:
 
-`e09ab50 docs(security): prepare APS migration to private repository`
+`d26272b docs(project): remove public aps core documents`
 
 ## Repository
 
@@ -35,8 +35,9 @@ APS-003 시작 시점 기준:
 - Quick Pick Layer와 추천 상세 Layer가 구현되어 있습니다.
 - 추천 결과는 실제 추천처럼 보이는 더미 데이터 기반 UX로 동작합니다.
 - TMDB 검색 API route와 상태 API route가 있습니다.
-- Provider Architecture는 문서와 초안 폴더만 있으며, 실제 검색 route는 아직 `lib/tmdb.js`를 직접 사용합니다.
-- Mock Provider는 아직 구현하지 않았습니다.
+- Provider Architecture는 Mock Provider와 최소 Provider Registry 구현 단계에 진입했습니다.
+- TMDB API key가 없거나 TMDB 검색이 실패하면 `/api/search`가 Mock Provider 결과로 fallback합니다.
+- 메인 추천 UI는 기존 한 페이지 더미 추천 UX를 유지합니다.
 
 ## Current Documentation State
 
@@ -53,20 +54,20 @@ APS-003 시작 시점 기준:
 
 ## Next Milestone
 
-MyOTT Product Development를 재개합니다.
+Provider 기반 외부 데이터 연결 구조를 안정화합니다.
 
 ## Immediate Next Tasks
 
-- MyOTT Product Development 재개
-- Mock Provider 실제 구현 Task 재개 여부 확인
-- Task 5-2 커밋 해시 반영
+- Mock Provider local verification 결과 확인
 - TMDB Provider 이전 범위 설계
+- Provider Registry 확장 기준 정리
 - v1.0 최소 DB 테이블 범위 확정
 
 ## Risk Notes
 
 - README 실행 명령은 현재 저장소 루트 기준 `pnpm install`, `pnpm dev`로 정리되어 있습니다.
-- Provider 초안은 아직 실제 API route에 연결되어 있지 않습니다.
+- Mock Provider는 API route에 연결되었지만 TMDB Provider adapter는 아직 구현하지 않았습니다.
+- Provider Registry는 현재 Mock Provider 중심의 최소 구현입니다.
 - DB 설계는 문서 단계이며 SQL, Supabase 연결, 마이그레이션은 아직 없습니다.
 - APS 핵심 운영 문서는 MyOTT public repository에서 제거되었고, Nd_core가 Source of Truth입니다.
 - MyOTT public repository에는 APS 존재와 브랜드 참조만 유지합니다.

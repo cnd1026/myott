@@ -17,11 +17,11 @@ MyOTT는 사용자가 좋아하는 영화, 드라마, 애니를 입력하거나 
 
 ## 현재 Sprint
 
-Security Maintenance
+Sprint 5
 
 현재 Task:
 
-- APS-003 APS 핵심 운영 문서 public repo 제거
+- MYOTT-S05-T03 Mock Provider Implementation with Local Verification
 
 직전 Sprint:
 
@@ -29,6 +29,7 @@ Security Maintenance
 
 최근 완료 작업:
 
+- APS-003 APS 핵심 운영 문서 public repo 제거
 - Task 5-1 Provider Architecture 설계
 - Task 5-1b Project Memory System 동기화
 - Task 5-2 Mock Provider 준비
@@ -49,6 +50,11 @@ src/
   lib/
     providers/
       provider.js
+      registry.js
+      mock/
+        data.js
+        index.js
+        provider.js
       tmdb/
         index.js
         provider.js
@@ -65,7 +71,7 @@ docs/
 - `app/api/search/route.js`: 검색 API route
 - `app/api/status/route.js`: TMDB 상태 API route
 - `lib/tmdb.js`: 현재 TMDB 직접 호출 로직
-- `src/lib/providers/`: Provider 구조 초안
+- `src/lib/providers/`: Provider 구조, Mock Provider, Provider Registry
 - `docs/`: 제품, 데이터, 아키텍처, 작업 기록 문서
 - `docs/project/APS_PUBLIC_NOTICE.md`: MyOTT의 APS public reference 안내
 
@@ -112,7 +118,7 @@ MVP에서 후순위:
 
 - Repository: `https://github.com/cnd1026/myott`
 - Main Branch: `main`
-- Last Known Public APS Remove Commit before APS-003: `e09ab50 docs(security): prepare APS migration to private repository`
+- Last Known APS Remove Commit: `d26272b docs(project): remove public aps core documents`
 
 ## Parking Lot
 
@@ -129,9 +135,9 @@ MVP에서 후순위:
 ## 다음 목표
 
 - PMS 문서를 기준으로 새 작업 시작 전 현재 상태를 빠르게 파악합니다.
-- APS 핵심 운영 문서는 `cnd1026/Nd_core`를 Source of Truth로 둡니다.
-- Public MyOTT에는 APS의 존재와 제품 개발에 필요한 최소 참조만 유지합니다.
-- MyOTT Product Development를 재개합니다.
+- Mock Provider local verification을 완료합니다.
+- TMDB 직접 호출 구조를 Provider adapter로 옮기는 최소 리팩터링 계획을 세웁니다.
+- v1.0 최소 DB 테이블 범위를 Database Inventory 기준으로 확정합니다.
 - TMDB 직접 호출 구조를 Provider 구조로 옮기는 최소 리팩터링 계획을 세웁니다.
 - v1.0 최소 DB 테이블 범위를 Database Inventory 기준으로 확정합니다.
 - MyOTT 공통 콘텐츠 모델의 필수 필드를 정리합니다.

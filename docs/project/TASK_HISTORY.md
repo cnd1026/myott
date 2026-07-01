@@ -7,7 +7,7 @@
 | Task ID | Task | Commit | Review | 상태 |
 | --- | --- | --- | --- | --- |
 | MYOTT-SEC-01 | APS 문서 공개 범위 정리 및 private repo 이전 준비 | `e09ab50` | APS 공개 안내와 이전 계획을 추가하고 README/PMS의 핵심 APS 문서 직접 노출을 완화. | 완료 |
-| APS-003 | APS 핵심 운영 문서 public repo 제거 | This remove commit | APS 핵심 운영 문서 5개를 MyOTT에서 제거하고 Nd_core를 Source of Truth로 명시. | 완료 |
+| APS-003 | APS 핵심 운영 문서 public repo 제거 | `d26272b` | APS 핵심 운영 문서 5개를 MyOTT에서 제거하고 Nd_core를 Source of Truth로 명시. | 완료 |
 
 ## Foundation Sprint
 
@@ -26,6 +26,7 @@
 | MYOTT-S05-T01 | Task 5-1 Provider Architecture 설계 | `365c9dd` | 문서와 Provider 초안 폴더만 생성. 기존 기능 미수정. | 완료 |
 | MYOTT-S05-T01B | Task 5-1b Project Memory System 동기화 | `2416d76` | Foundation Sprint 완료 상태, Sprint 5 현재 상태, README 실행 방법을 동기화. | 완료 |
 | MYOTT-S05-T02 | Task 5-2 Mock Provider 준비 | `4c2dd4c` | Mock Provider 구현 전 공통 모델, 샘플 구조, 전환 단계, Registry 판단을 문서화. | 완료 |
+| MYOTT-S05-T03 | Task 5-3 Mock Provider 구현 및 로컬 검증 | This implementation commit | Mock Provider, 최소 Provider Registry, `/api/search` fallback 연결. UI/CSS 미수정. | 완료 |
 
 ## Sprint 5.0 Standardization
 

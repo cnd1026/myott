@@ -2,6 +2,36 @@
 
 개발 과정에서의 작업 내용, 결정, 아쉬운 점, 다음 개선 사항을 날짜별로 기록합니다.
 
+## 2026-07-01 - MYOTT-S05-T03
+
+### 오늘 작업
+
+- Mock Provider 데이터와 Provider 메서드를 구현했습니다.
+- Provider Registry를 최소 형태로 추가했습니다.
+- `/api/search`가 TMDB key 없음 또는 TMDB 오류 시 Mock Provider fallback을 사용하도록 연결했습니다.
+- Provider Architecture와 PMS 문서를 Sprint 5 / MYOTT-S05-T03 기준으로 업데이트했습니다.
+- `pnpm install`, `pnpm dev`, 브라우저 UX 확인, `/api/search` 확인, `pnpm build`를 수행했습니다.
+
+### 결정한 것
+
+- 이번 Task에서는 AI Recommendation, Personalization, Ranking Algorithm을 만들지 않습니다.
+- Mock Provider는 Unified Content Model을 우선 반환하고 기존 alias를 함께 유지합니다.
+- Provider Registry는 과도하게 확장하지 않고 mock fallback 연결에 필요한 최소 기능만 둡니다.
+- 기존 메인 UI와 CSS는 수정하지 않습니다.
+- Local verification에서 추천 결과, Quick Pick, Detail Layer, console error 0건을 확인했습니다.
+
+### 아쉬운 점
+
+- TMDB Provider adapter는 아직 구현하지 않았습니다.
+- 메인 추천 UI는 여전히 자체 더미 데이터 기반이며, 검색 API Provider와 완전히 통합되지는 않았습니다.
+- Provider 선택 정책은 아직 환경변수 기반으로 분리하지 않았습니다.
+
+### 다음 개선
+
+- TMDB Provider adapter를 구현할지 별도 Task로 설계합니다.
+- Provider Registry의 우선순위와 fallback 정책을 문서화합니다.
+- Founder local verification 결과를 기준으로 Sprint 6 연결 작업을 정합니다.
+
 ## 2026-07-01 - APS-003
 
 ### 오늘 작업

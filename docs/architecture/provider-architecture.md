@@ -460,3 +460,39 @@ Mock Provider를 실제로 추가하고 API route 전환의 첫 단계를 구현
 - 추천 알고리즘 변경 금지
 - Provider Registry 대규모 구현 금지
 ```
+
+## 16. MYOTT-S05-T03 구현 결과
+
+Task MYOTT-S05-T03에서는 Mock Provider를 실제 런타임 코드로 추가하고 `/api/search`에 연결했습니다.
+
+구현 파일:
+
+```text
+src/lib/providers/
+  registry.js
+  mock/
+    data.js
+    index.js
+    provider.js
+```
+
+구현 결정:
+
+- Mock Provider는 `search`, `getDetail`, `getRecommendations`, `getTrending` 메서드를 제공합니다.
+- Mock Provider는 공통 콘텐츠 모델 필드를 반환합니다.
+- 기존 API/UI 호환을 위해 `type`, `year`, `ott`, `mood`, `synopsis`, `genre`, `label`, `tags` alias를 함께 유지합니다.
+- Provider Registry는 `getProvider`, `getFallbackProvider`, `listProviders`만 제공하는 최소 구현입니다.
+- `/api/search`는 TMDB API key가 없거나 TMDB 검색이 실패하면 Mock Provider 결과로 fallback합니다.
+- `app/page.jsx`와 CSS는 수정하지 않았습니다.
+
+Registry 판단:
+
+- Task 5-2에서는 Registry 구현을 보류했습니다.
+- Task 5-3에서는 Provider 교체 가능성을 실제로 검증하기 위해 최소 Registry만 도입했습니다.
+- Provider 우선순위, 환경변수 기반 provider 선택, TMDB Provider adapter 등록은 다음 Task로 분리합니다.
+
+다음 Task 후보:
+
+- TMDB Provider adapter 구현
+- `lib/tmdb.js`를 Provider 인터페이스 뒤로 이동
+- Provider Registry의 provider 선택 정책 문서화
