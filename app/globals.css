@@ -285,7 +285,10 @@ input[type="text"]:focus {
   overflow: hidden;
   border: 1px solid var(--line);
   border-radius: 8px;
+  padding: 0;
   background: #fff;
+  color: inherit;
+  font: inherit;
   text-align: left;
 }
 
