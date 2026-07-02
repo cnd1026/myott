@@ -36,7 +36,8 @@
 | Task ID | Task | Commit | Review | 상태 |
 | --- | --- | --- | --- | --- |
 | MYOTT-S06-T01 | Task 6-1 Decision Card MVP | `2402da7` | 추천 카드에서 추천 이유를 최상단에 배치하고 장르, 러닝타임, 평점, OTT만 남겨 빠른 결정을 돕도록 개선. Provider 구조 미수정. | 완료 |
-| MYOTT-S06-T02 | Task 6-2 Hero Recommendation MVP | This implementation commit | 메인 화면 최상단에 입력 없이 확인 가능한 Hero Recommendation 3개를 추가하고 DecisionCard를 재사용. Provider 구조 미수정. | 완료 |
+| MYOTT-S06-T02 | Task 6-2 Hero Recommendation MVP | `de28d9d` | 메인 화면 최상단에 입력 없이 확인 가능한 Hero Recommendation 3개를 추가하고 DecisionCard를 재사용. Provider 구조 미수정. | 완료 |
+| MYOTT-S06-T03 | Task 6-3 Hero Recommendation Micro UX Polish | This implementation commit | Hero 문구, 추천 이유, CTA, 안내 문구, 카드 간격을 다듬어 추천에서 입력으로 이어지는 흐름을 개선. 기능 추가 없음. | 완료 |
 
 ## Sprint 5.0 Standardization
 

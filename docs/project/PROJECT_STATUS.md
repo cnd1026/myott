@@ -8,7 +8,7 @@ Sprint 6
 
 ## Current Task
 
-MYOTT-S06-T02 Hero Recommendation MVP
+MYOTT-S06-T03 Hero Recommendation Micro UX Polish
 
 ## Current Branch
 
@@ -20,9 +20,9 @@ MYOTT-S06-T02 Hero Recommendation MVP
 
 ## Last Commit
 
-MYOTT-S06-T02 시작 시점 기준:
+MYOTT-S06-T03 시작 시점 기준:
 
-`2402da7 feat(ui): redesign recommendation cards for faster decisions`
+`de28d9d feat(home): add hero recommendation section`
 
 ## Repository
 
@@ -42,6 +42,7 @@ MYOTT-S06-T02 시작 시점 기준:
 - 개발 환경에서는 Provider Status Indicator로 현재 data source와 fallback 여부를 확인할 수 있습니다.
 - Sprint 6에서는 추천 결과를 더 빠른 결정을 돕는 Decision Card 형태로 개선합니다.
 - 메인 화면 최상단에는 입력 없이 볼 수 있는 Hero Recommendation 3개가 표시됩니다.
+- Hero Recommendation 문구와 CTA는 입력으로 자연스럽게 이어지도록 다듬어진 상태입니다.
 
 ## Current Documentation State
 
@@ -62,7 +63,7 @@ Decision Experience를 검증하고 추천 결과 이해 시간을 줄입니다.
 
 ## Immediate Next Tasks
 
-- Hero Recommendation MVP Founder Review
+- Hero Recommendation Micro UX Founder Review
 - 10초/30초 Time Validation
 - Provider 검색 결과와 메인 추천 UX 연결 방식 검토
 - TMDB key 환경에서 실제 Provider Badge Founder Review
@@ -73,7 +74,7 @@ Decision Experience를 검증하고 추천 결과 이해 시간을 줄입니다.
 - README 실행 명령은 현재 저장소 루트 기준 `pnpm install`, `pnpm dev`로 정리되어 있습니다.
 - TMDB Provider Adapter는 기존 `lib/tmdb.js`를 감싸는 형태이며, `lib/tmdb.js` 자체를 제거하지는 않았습니다.
 - 현재 환경에는 TMDB key가 없을 수 있으므로 TMDB 성공 경로는 Founder 환경에서 추가 확인이 필요합니다.
-- MYOTT-S06-T02는 Provider Registry/API/TMDB/Mock Provider를 수정하지 않는 UI/UX 개선 작업입니다.
+- MYOTT-S06-T03은 Provider Registry/API/TMDB/Mock Provider를 수정하지 않는 UI polish 작업입니다.
 - DB 설계는 문서 단계이며 SQL, Supabase 연결, 마이그레이션은 아직 없습니다.
 - APS 핵심 운영 문서는 MyOTT public repository에서 제거되었고, Nd_core가 Source of Truth입니다.
 - MyOTT public repository에는 APS 존재와 브랜드 참조만 유지합니다.

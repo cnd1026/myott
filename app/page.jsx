@@ -262,19 +262,19 @@ const initialProviderStatus = {
 const timeSlotContent = {
   morning: {
     title: "더 베어",
-    reason: "짧고 리듬감 있게 하루를 시작하고 싶다면 추천",
+    reason: "짧게 몰입하고 싶을 때 좋아요",
   },
   afternoon: {
     title: "마션",
-    reason: "가볍지만 똑똑한 생존 SF가 필요한 시간대 추천",
+    reason: "가볍게 시작하기 좋은 SF예요",
   },
   evening: {
     title: "라라랜드",
-    reason: "하루 끝에 음악과 감정선을 함께 느끼고 싶다면 추천",
+    reason: "하루 끝에 여운을 남기기 좋아요",
   },
   late: {
     title: "세븐",
-    reason: "늦은 밤 강한 몰입감이 필요하다면 추천",
+    reason: "늦은 밤 몰입하기 좋은 스릴러예요",
   },
 };
 
@@ -314,17 +314,17 @@ function buildHeroRecommendations(timeSlot) {
 
   return [
     {
-      badge: "오늘의 추천",
+      badge: "오늘 바로 보기 좋은 작품",
       item: findRecommendation("인터스텔라"),
-      reason: "입력 없이 바로 시작하기 좋은 대표 추천",
+      reason: "고민 없이 시작하기 좋은 대표 추천",
     },
     {
-      badge: "지금 인기 작품",
+      badge: "요즘 많이 고르는 작품",
       item: findRecommendation("오징어 게임"),
-      reason: "지금 대화에 바로 끼기 좋은 인기 추천",
+      reason: "지금 대화에 바로 끼기 좋아요",
     },
     {
-      badge: "지금 시간대 추천",
+      badge: "지금 시간에 어울리는 작품",
       item: findRecommendation(timePick.title),
       reason: timePick.reason,
     },
@@ -509,9 +509,9 @@ export default function Home() {
         <div className="hero-heading">
           <div>
             <p className="eyebrow">First Pick</p>
-            <h1 id="heroRecommendationTitle">입력하기 전에, 바로 고를 수 있는 추천</h1>
+            <h1 id="heroRecommendationTitle">오늘 볼 작품, 3개만 먼저 골라드릴게요</h1>
           </div>
-          <p>처음 와도 바로 볼 만한 작품 3개만 먼저 보여드립니다. 더 정확한 추천은 아래에서 취향을 입력해 받아보세요.</p>
+          <p>입력하기 전에도 바로 고를 수 있게 추천을 먼저 보여드립니다. 더 정확히 고르고 싶을 때만 아래에서 취향을 알려주세요.</p>
         </div>
         <div className="result-grid hero-grid" aria-label="Hero Recommendation">
           {heroRecommendations.map(({ item, badge, reason }) => (
@@ -526,6 +526,7 @@ export default function Home() {
             />
           ))}
         </div>
+        <p className="hero-next-step">원하는 분위기나 좋아하는 작품이 있다면 아래에서 더 정확한 추천을 받아보세요.</p>
       </section>
 
       <section className="recommendation-panel" aria-labelledby="pageTitle">
@@ -622,7 +623,7 @@ export default function Home() {
               전체 초기화
             </button>
             <button className="primary-button" id="recommendButton" type="submit" disabled={!canRecommend}>
-              추천받기
+              내 취향으로 추천받기
             </button>
           </div>
         </form>
