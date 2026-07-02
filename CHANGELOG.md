@@ -2,6 +2,28 @@
 
 프로젝트의 주요 변경 사항을 날짜별로 기록합니다.
 
+## 2026-07-01 - MYOTT-S05-T04
+
+### 변경 내용
+
+- `src/lib/providers/tmdb/provider.js`에 TMDB Provider Adapter를 구현했습니다.
+- Provider Registry에 TMDB Provider를 등록하고 active provider 선택을 추가했습니다.
+- `/api/search`가 `lib/tmdb.js`를 직접 import하지 않고 Provider Registry를 통해 검색하도록 리팩터링했습니다.
+- TMDB 결과를 Unified Content Model 필드와 기존 호환 alias로 보강했습니다.
+- TMDB key 없음 또는 TMDB 검색 실패 시 Mock Provider fallback을 유지했습니다.
+
+### 이유
+
+- 사용자는 Provider가 Mock인지 TMDB인지 알 필요 없이 동일한 검색 경험을 가져야 하기 때문입니다.
+- Sprint 5의 목표는 추천 엔진 자체가 아니라 Provider 교체 가능한 기반을 검증하는 것입니다.
+- API route의 직접 TMDB 의존을 줄여 Sprint 6에서 Provider 확장과 실제 추천 엔진 연결로 이어가기 위해서입니다.
+
+### 다음 작업
+
+- TMDB key가 있는 Founder 환경에서 실제 검색 경로를 확인합니다.
+- Provider 선택 정책을 환경변수로 제어할지 검토합니다.
+- Sprint 6에서 TMDB detail/recommendation provider 확장 범위를 정합니다.
+
 ## 2026-07-01 - MYOTT-S05-T03
 
 ### 변경 내용

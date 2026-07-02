@@ -2,6 +2,36 @@
 
 개발 과정에서의 작업 내용, 결정, 아쉬운 점, 다음 개선 사항을 날짜별로 기록합니다.
 
+## 2026-07-01 - MYOTT-S05-T04
+
+### 오늘 작업
+
+- TMDB Provider Adapter를 구현했습니다.
+- Provider Registry에 TMDB Provider를 등록하고 `getActiveProvider()`를 추가했습니다.
+- `/api/search`에서 직접 TMDB import를 제거하고 Registry 기반 검색으로 바꿨습니다.
+- TMDB 결과를 Unified Content Model로 보강했습니다.
+- Mock fallback을 유지해 TMDB key가 없어도 동일한 검색 경험이 이어지게 했습니다.
+
+### 결정한 것
+
+- TMDB Provider Adapter는 우선 기존 `lib/tmdb.js`를 감싸는 방식으로 구현합니다.
+- `/api/search`는 Provider Registry만 의존합니다.
+- TMDB key가 있으면 TMDB Provider, 없으면 Mock Provider를 active provider로 사용합니다.
+- TMDB 오류가 발생하면 Mock Provider fallback을 반환합니다.
+- 기존 UI와 CSS는 수정하지 않습니다.
+
+### 아쉬운 점
+
+- 현재 로컬 환경에서는 TMDB key가 없어 실제 TMDB 검색 경로는 Founder 환경에서 추가 확인이 필요합니다.
+- `lib/tmdb.js` 자체는 아직 남아 있으며 TMDB Provider 내부 구현으로 감싸진 상태입니다.
+- Provider 선택 정책은 아직 환경변수로 강제할 수 없습니다.
+
+### 다음 개선
+
+- TMDB key가 있는 환경에서 실제 검색 결과를 Founder가 확인합니다.
+- Provider Registry의 우선순위와 강제 선택 정책을 문서화합니다.
+- Sprint 6에서 TMDB 상세/추천 Provider 확장 범위를 정합니다.
+
 ## 2026-07-01 - MYOTT-S05-T03
 
 ### 오늘 작업

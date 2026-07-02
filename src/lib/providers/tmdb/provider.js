@@ -1,14 +1,62 @@
-/**
- * TMDB Provider draft.
- *
- * Future implementation should wrap the current TMDB-specific logic behind the
- * ContentProvider contract from ../provider.js.
- *
- * Intended responsibilities:
- * - Search TMDB movie and TV endpoints.
- * - Normalize TMDB media types into MyOTT content types.
- * - Normalize genres, posters, credits, overviews, and watch providers.
- * - Hide TMDB credentials and response shapes from UI and route handlers.
- *
- * This file intentionally contains no runtime implementation.
- */
+import { hasTmdbKey, searchTmdb } from "../../../../lib/tmdb";
+
+function typeLabel(contentType) {
+  if (contentType === "movie") return "영화";
+  if (contentType === "animation") return "애니";
+  return "드라마";
+}
+
+function toUnifiedContentModel(item) {
+  const contentType = item.type || "movie";
+  const providerContentId = item.tmdbId ? String(item.tmdbId) : `${contentType}-${item.title}`;
+  const overview = item.synopsis || "줄거리 정보가 아직 없습니다.";
+  const platforms = item.ott || ["검색 필요"];
+  const moods = item.mood || [];
+
+  return {
+    ...item,
+    id: `tmdb-${providerContentId}`,
+    providerId: "tmdb",
+    providerContentId,
+    contentType,
+    releaseYear: item.year || 0,
+    platforms,
+    moods,
+    overview,
+    label: item.label || typeLabel(contentType),
+    genre: item.genre || (item.genres || ["기타"]).join(", "),
+    source: "tmdb",
+    // Compatibility aliases for the current UI/API response shape.
+    type: contentType,
+    year: item.year || 0,
+    ott: platforms,
+    mood: moods,
+    synopsis: overview,
+  };
+}
+
+export const tmdbProvider = {
+  id: "tmdb",
+  name: "TMDB Provider",
+
+  isEnabled() {
+    return hasTmdbKey();
+  },
+
+  async search({ query = "" } = {}) {
+    const payload = await searchTmdb(query);
+    return (payload.results || []).map(toUnifiedContentModel);
+  },
+
+  async getDetail() {
+    return null;
+  },
+
+  async getRecommendations({ query = "" } = {}) {
+    return this.search({ query });
+  },
+
+  async getTrending() {
+    return [];
+  },
+};

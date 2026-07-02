@@ -496,3 +496,36 @@ Registry 판단:
 - TMDB Provider adapter 구현
 - `lib/tmdb.js`를 Provider 인터페이스 뒤로 이동
 - Provider Registry의 provider 선택 정책 문서화
+
+## 17. MYOTT-S05-T04 구현 결과
+
+Task MYOTT-S05-T04에서는 TMDB Provider Adapter를 실제 Registry 구조에 연결했습니다.
+
+구현 파일:
+
+```text
+src/lib/providers/
+  registry.js
+  tmdb/
+    index.js
+    provider.js
+
+app/api/search/route.js
+```
+
+구현 결정:
+
+- `tmdbProvider`는 기존 `lib/tmdb.js`의 `searchTmdb`와 `hasTmdbKey`를 감싸는 adapter입니다.
+- `/api/search`는 더 이상 `lib/tmdb.js`를 직접 import하지 않습니다.
+- `/api/search`는 `getActiveProvider()`로 active provider를 선택합니다.
+- TMDB key가 있으면 TMDB Provider가 active provider가 됩니다.
+- TMDB key가 없으면 Mock Provider가 active provider가 됩니다.
+- TMDB 검색 중 오류가 발생하면 Mock Provider로 fallback합니다.
+- TMDB 결과는 Unified Content Model 필드(`providerId`, `providerContentId`, `contentType`, `releaseYear`, `platforms`, `moods`, `overview`)로 보강합니다.
+- 기존 응답 호환을 위해 `type`, `year`, `ott`, `mood`, `synopsis`, `genre`, `label` alias를 유지합니다.
+
+남은 범위:
+
+- `lib/tmdb.js` 내부 정리와 TMDB detail/recommendation provider 확장은 다음 Task로 분리합니다.
+- 환경변수 기반 provider 강제 선택 정책은 아직 도입하지 않았습니다.
+- TMDB key 활성화 경로는 실제 key가 있는 Founder 환경에서 추가 확인합니다.

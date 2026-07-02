@@ -26,7 +26,8 @@
 | MYOTT-S05-T01 | Task 5-1 Provider Architecture 설계 | `365c9dd` | 문서와 Provider 초안 폴더만 생성. 기존 기능 미수정. | 완료 |
 | MYOTT-S05-T01B | Task 5-1b Project Memory System 동기화 | `2416d76` | Foundation Sprint 완료 상태, Sprint 5 현재 상태, README 실행 방법을 동기화. | 완료 |
 | MYOTT-S05-T02 | Task 5-2 Mock Provider 준비 | `4c2dd4c` | Mock Provider 구현 전 공통 모델, 샘플 구조, 전환 단계, Registry 판단을 문서화. | 완료 |
-| MYOTT-S05-T03 | Task 5-3 Mock Provider 구현 및 로컬 검증 | This implementation commit | Mock Provider, 최소 Provider Registry, `/api/search` fallback 연결. UI/CSS 미수정. | 완료 |
+| MYOTT-S05-T03 | Task 5-3 Mock Provider 구현 및 로컬 검증 | `46b5904` | Mock Provider, 최소 Provider Registry, `/api/search` fallback 연결. UI/CSS 미수정. | 완료 |
+| MYOTT-S05-T04 | Task 5-4 TMDB Provider Adapter 연결 | This implementation commit | TMDB Provider를 Registry에 연결하고 `/api/search`의 직접 TMDB 의존을 제거. UI/CSS 미수정. | 완료 |
 
 ## Sprint 5.0 Standardization
 
