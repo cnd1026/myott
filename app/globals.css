@@ -243,8 +243,20 @@ input[type="text"]:focus {
   font-weight: 900;
 }
 
+.tertiary-button {
+  min-height: 44px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 0 12px;
+  background: var(--surface-soft);
+  color: var(--accent-strong);
+  font-size: 14px;
+  font-weight: 900;
+}
+
 .form-actions {
   display: flex;
+  flex-wrap: wrap;
   gap: 10px;
   justify-content: flex-start;
   padding-top: 2px;
@@ -487,6 +499,12 @@ input[type="text"]:focus {
   border-bottom: 1px solid var(--line);
 }
 
+.sheet-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
 .sheet-heading h2 {
   margin: 0;
   font-size: 26px;
@@ -594,6 +612,15 @@ input[type="text"]:focus {
 
   .sheet-heading {
     align-items: center;
+  }
+
+  .sheet-actions {
+    align-items: stretch;
+    flex-direction: column-reverse;
+  }
+
+  .tertiary-button {
+    min-height: 40px;
   }
 
   .quick-pick-groups,

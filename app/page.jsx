@@ -209,6 +209,11 @@ const quickPickGroups = [
   },
 ];
 
+const initialOtt = ["netflix"];
+const initialTypes = ["movie", "drama", "animation"];
+const initialTitles = ["", "", ""];
+const titlePlaceholders = ["예: 인터스텔라", "예: 오징어 게임", "예: 너의 이름은"];
+
 function thumbnailText(title) {
   return title.slice(0, 2);
 }
@@ -243,10 +248,32 @@ function toggleValue(values, value) {
   return values.includes(value) ? values.filter((item) => item !== value) : [...values, value];
 }
 
+function normalizeTitleInputs(values) {
+  const normalized = [...values];
+
+  while (normalized.length < initialTitles.length) {
+    normalized.push("");
+  }
+
+  while (
+    normalized.length > initialTitles.length &&
+    normalized.at(-1)?.trim() === "" &&
+    normalized.at(-2)?.trim() === ""
+  ) {
+    normalized.splice(normalized.length - 2, 1);
+  }
+
+  if (normalized.length >= initialTitles.length && normalized.at(-1)?.trim()) {
+    normalized.push("");
+  }
+
+  return normalized;
+}
+
 export default function Home() {
-  const [selectedOtt, setSelectedOtt] = useState(["netflix"]);
-  const [selectedTypes, setSelectedTypes] = useState(["movie", "drama", "animation"]);
-  const [titles, setTitles] = useState(["", "", ""]);
+  const [selectedOtt, setSelectedOtt] = useState(initialOtt);
+  const [selectedTypes, setSelectedTypes] = useState(initialTypes);
+  const [titles, setTitles] = useState(initialTitles);
   const [selectedQuickPicks, setSelectedQuickPicks] = useState([]);
   const [showQuickPick, setShowQuickPick] = useState(false);
   const [results, setResults] = useState([]);
@@ -281,6 +308,21 @@ export default function Home() {
   function openDetail(item) {
     setShowQuickPick(false);
     setSelectedDetail(item);
+  }
+
+  function updateTitle(index, value) {
+    setTitles((current) => normalizeTitleInputs(current.map((item, itemIndex) => (itemIndex === index ? value : item))));
+  }
+
+  function resetAll() {
+    setSelectedOtt([...initialOtt]);
+    setSelectedTypes([...initialTypes]);
+    setTitles([...initialTitles]);
+    setSelectedQuickPicks([]);
+    setShowQuickPick(false);
+    setResults([]);
+    setHasSubmitted(false);
+    setSelectedDetail(null);
   }
 
   return (
@@ -353,12 +395,10 @@ export default function Home() {
                     id={`titleInput${index + 1}`}
                     type="text"
                     name="title"
-                    placeholder={["예: 인터스텔라", "예: 오징어 게임", "예: 너의 이름은"][index]}
+                    placeholder={titlePlaceholders[index] || "예: 최근 좋았던 작품"}
                     autoComplete="off"
                     value={title}
-                    onChange={(event) =>
-                      setTitles((current) => current.map((item, itemIndex) => (itemIndex === index ? event.target.value : item)))
-                    }
+                    onChange={(event) => updateTitle(index, event.target.value)}
                   />
                 </label>
               ))}
@@ -368,6 +408,9 @@ export default function Home() {
           <div className="form-actions">
             <button className="secondary-button" id="quickPickButton" type="button" onClick={() => setShowQuickPick(true)}>
               {selectedQuickPicks.length ? `추천 옵션 (${selectedQuickPicks.length})` : "추천 옵션"}
+            </button>
+            <button className="secondary-button" id="resetAllButton" type="button" onClick={resetAll}>
+              전체 초기화
             </button>
             <button className="primary-button" id="recommendButton" type="submit" disabled={!canRecommend}>
               추천받기
@@ -425,7 +468,12 @@ export default function Home() {
                 <h2 id="quickPickTitle">추천 옵션</h2>
                 <p className="sheet-count" id="quickPickCount">필터 {selectedQuickPicks.length}개 선택됨</p>
               </div>
-              <button className="close-button" type="button" onClick={() => setShowQuickPick(false)} aria-label="추천 옵션 닫기">×</button>
+              <div className="sheet-actions">
+                <button className="tertiary-button" type="button" onClick={() => setSelectedQuickPicks([])}>
+                  옵션 초기화
+                </button>
+                <button className="close-button" type="button" onClick={() => setShowQuickPick(false)} aria-label="추천 옵션 닫기">×</button>
+              </div>
             </div>
 
             <div className="quick-pick-groups">

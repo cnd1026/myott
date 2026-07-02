@@ -8,7 +8,7 @@ Sprint 5
 
 ## Current Task
 
-MYOTT-S05-T04 TMDB Provider Adapter Registry Integration
+MYOTT-S05-T05 Dynamic Title Inputs and Reset Actions
 
 ## Current Branch
 
@@ -20,9 +20,9 @@ MYOTT-S05-T04 TMDB Provider Adapter Registry Integration
 
 ## Last Commit
 
-MYOTT-S05-T04 시작 시점 기준:
+MYOTT-S05-T05 시작 시점 기준:
 
-`46b5904 feat(provider): implement mock provider`
+`a88d17a feat(provider): add tmdb provider adapter`
 
 ## Repository
 
@@ -38,7 +38,7 @@ MYOTT-S05-T04 시작 시점 기준:
 - Provider Architecture는 Mock Provider와 TMDB Provider Adapter가 Registry에 연결된 상태입니다.
 - `/api/search`는 Provider Registry를 통해 active provider를 선택합니다.
 - TMDB API key가 있으면 TMDB Provider를 사용하고, key가 없거나 TMDB 검색이 실패하면 Mock Provider 결과로 fallback합니다.
-- 메인 추천 UI는 기존 한 페이지 더미 추천 UX를 유지합니다.
+- 메인 추천 UI는 동적 작품 입력창과 전체/옵션 초기화 UX를 포함합니다.
 
 ## Current Documentation State
 
@@ -60,6 +60,7 @@ Provider 기반 외부 데이터 연결 구조를 안정화합니다.
 ## Immediate Next Tasks
 
 - TMDB key 환경에서 실제 검색 Founder Review
+- 동적 작품 입력 UX Founder Review
 - Provider Registry 확장 기준 정리
 - Provider 선택 정책 환경변수화 여부 검토
 - v1.0 최소 DB 테이블 범위 확정
@@ -69,6 +70,7 @@ Provider 기반 외부 데이터 연결 구조를 안정화합니다.
 - README 실행 명령은 현재 저장소 루트 기준 `pnpm install`, `pnpm dev`로 정리되어 있습니다.
 - TMDB Provider Adapter는 기존 `lib/tmdb.js`를 감싸는 형태이며, `lib/tmdb.js` 자체를 제거하지는 않았습니다.
 - 현재 환경에는 TMDB key가 없을 수 있으므로 key 활성화 경로는 Founder 환경에서 추가 확인이 필요합니다.
+- MYOTT-S05-T05는 Provider, API route, TMDB, Mock Provider 구조를 수정하지 않는 UI 상태 관리 작업입니다.
 - DB 설계는 문서 단계이며 SQL, Supabase 연결, 마이그레이션은 아직 없습니다.
 - APS 핵심 운영 문서는 MyOTT public repository에서 제거되었고, Nd_core가 Source of Truth입니다.
 - MyOTT public repository에는 APS 존재와 브랜드 참조만 유지합니다.
