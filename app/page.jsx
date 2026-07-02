@@ -259,6 +259,25 @@ const initialProviderStatus = {
   checked: false,
 };
 
+const timeSlotContent = {
+  morning: {
+    title: "더 베어",
+    reason: "짧고 리듬감 있게 하루를 시작하고 싶다면 추천",
+  },
+  afternoon: {
+    title: "마션",
+    reason: "가볍지만 똑똑한 생존 SF가 필요한 시간대 추천",
+  },
+  evening: {
+    title: "라라랜드",
+    reason: "하루 끝에 음악과 감정선을 함께 느끼고 싶다면 추천",
+  },
+  late: {
+    title: "세븐",
+    reason: "늦은 밤 강한 몰입감이 필요하다면 추천",
+  },
+};
+
 function thumbnailText(title) {
   return title.slice(0, 2);
 }
@@ -276,6 +295,40 @@ function decisionReason(item, titles) {
   if (item.tags.includes("genre-thriller")) return "긴장감 있는 이야기를 좋아한다면 추천";
   if (item.tags.includes("mood-moving")) return "여운이 남는 작품을 찾는다면 추천";
   return "오늘 바로 고르기 좋은 추천";
+}
+
+function findRecommendation(title) {
+  return dummyRecommendations.find((item) => item.title === title);
+}
+
+function getTimeSlot(date) {
+  const hour = date.getHours();
+  if (hour < 11) return "morning";
+  if (hour < 18) return "afternoon";
+  if (hour < 23) return "evening";
+  return "late";
+}
+
+function buildHeroRecommendations(timeSlot) {
+  const timePick = timeSlotContent[timeSlot] || timeSlotContent.evening;
+
+  return [
+    {
+      badge: "오늘의 추천",
+      item: findRecommendation("인터스텔라"),
+      reason: "입력 없이 바로 시작하기 좋은 대표 추천",
+    },
+    {
+      badge: "지금 인기 작품",
+      item: findRecommendation("오징어 게임"),
+      reason: "지금 대화에 바로 끼기 좋은 인기 추천",
+    },
+    {
+      badge: "지금 시간대 추천",
+      item: findRecommendation(timePick.title),
+      reason: timePick.reason,
+    },
+  ].filter(({ item }) => Boolean(item));
 }
 
 function scoreRecommendation(item, quickPicks) {
@@ -331,12 +384,13 @@ function providerStatusLabel(providerStatus) {
   return providerStatus.providerName || providerStatus.providerId || "Unknown";
 }
 
-function DecisionCard({ item, enteredTitles, onOpen }) {
+function DecisionCard({ item, enteredTitles, onOpen, badge, reasonOverride, className = "" }) {
   return (
-    <button className="result-card decision-card" type="button" onClick={() => onOpen(item)} aria-label={`${item.title} 상세 보기`}>
+    <button className={`result-card decision-card ${className}`.trim()} type="button" onClick={() => onOpen(item)} aria-label={`${item.title} 상세 보기`}>
       <div className="thumbnail poster" aria-hidden="true">{item.poster}</div>
       <div className="result-body">
-        <p className="decision-reason">{decisionReason(item, enteredTitles)}</p>
+        {badge ? <span className="card-context">{badge}</span> : null}
+        <p className="decision-reason">{reasonOverride || decisionReason(item, enteredTitles)}</p>
         <div className="decision-title-row">
           <h3>{item.title}</h3>
           <span className="type-badge">{item.label}</span>
@@ -362,9 +416,11 @@ export default function Home() {
   const [hasSubmitted, setHasSubmitted] = useState(false);
   const [selectedDetail, setSelectedDetail] = useState(null);
   const [providerStatus, setProviderStatus] = useState(initialProviderStatus);
+  const [timeSlot, setTimeSlot] = useState("evening");
 
   const enteredTitles = useMemo(() => titles.map((title) => title.trim()).filter(Boolean), [titles]);
   const canRecommend = enteredTitles.length > 0 || selectedQuickPicks.length > 0;
+  const heroRecommendations = useMemo(() => buildHeroRecommendations(timeSlot).slice(0, 3), [timeSlot]);
 
   useEffect(() => {
     function handleEscape(event) {
@@ -380,6 +436,10 @@ export default function Home() {
   useEffect(() => {
     if (!showDevProviderStatus) return;
     refreshProviderStatus();
+  }, []);
+
+  useEffect(() => {
+    setTimeSlot(getTimeSlot(new Date()));
   }, []);
 
   async function refreshProviderStatus(query = "interstellar") {
@@ -445,6 +505,29 @@ export default function Home() {
 
   return (
     <main className="recommendation-page">
+      <section className="hero-recommendation" aria-labelledby="heroRecommendationTitle">
+        <div className="hero-heading">
+          <div>
+            <p className="eyebrow">First Pick</p>
+            <h1 id="heroRecommendationTitle">입력하기 전에, 바로 고를 수 있는 추천</h1>
+          </div>
+          <p>처음 와도 바로 볼 만한 작품 3개만 먼저 보여드립니다. 더 정확한 추천은 아래에서 취향을 입력해 받아보세요.</p>
+        </div>
+        <div className="result-grid hero-grid" aria-label="Hero Recommendation">
+          {heroRecommendations.map(({ item, badge, reason }) => (
+            <DecisionCard
+              item={item}
+              enteredTitles={[]}
+              onOpen={openDetail}
+              badge={badge}
+              reasonOverride={reason}
+              className="hero-card"
+              key={badge}
+            />
+          ))}
+        </div>
+      </section>
+
       <section className="recommendation-panel" aria-labelledby="pageTitle">
         <div className="page-heading">
           <p className="eyebrow">MovieMind DNA</p>

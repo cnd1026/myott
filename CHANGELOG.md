@@ -2,6 +2,28 @@
 
 프로젝트의 주요 변경 사항을 날짜별로 기록합니다.
 
+## 2026-07-02 - MYOTT-S06-T02
+
+### 변경 내용
+
+- 메인 화면 최상단에 Hero Recommendation 영역을 추가했습니다.
+- Hero Recommendation은 `오늘의 추천`, `지금 인기 작품`, `지금 시간대 추천` 3개 카드만 표시합니다.
+- 기존 Decision Card 컴포넌트를 재사용해 Hero Recommendation과 일반 추천 결과 카드의 구조를 통일했습니다.
+- 시간대 추천은 현재 시간 기준의 임시 로직으로 선택되도록 했습니다.
+- README, PROJECT_STATUS, TASK_HISTORY를 Sprint 6 / MYOTT-S06-T02 기준으로 업데이트했습니다.
+
+### 이유
+
+- 처음 방문한 사용자가 입력 없이도 MyOTT의 추천 가치를 바로 이해해야 하기 때문입니다.
+- 선택지를 늘리는 것이 아니라 첫 추천 경험을 더 빠르게 제공하기 위해서입니다.
+- 기존 Provider Foundation과 추천 버튼 이후 흐름을 건드리지 않고 첫 화면 경험만 개선하기 위해서입니다.
+
+### 다음 작업
+
+- Founder가 첫 화면에서 5초 안에 서비스 목적을 이해하는지 확인합니다.
+- Hero Recommendation이 30초 안 첫 성공 경험을 만드는지 Time Validation을 진행합니다.
+- Provider 검색 결과와 Hero/Decision Card 연결 방식을 별도 Task로 검토합니다.
+
 ## 2026-07-02 - MYOTT-S06-T01
 
 ### 변경 내용

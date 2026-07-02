@@ -43,20 +43,45 @@ button {
 }
 
 .recommendation-panel,
-.results-panel {
+.results-panel,
+.hero-recommendation {
   border: 1px solid var(--line);
   border-radius: 8px;
   background: var(--surface);
   box-shadow: var(--shadow);
 }
 
-.recommendation-panel {
+.recommendation-panel,
+.hero-recommendation {
   padding: 32px;
 }
 
 .results-panel {
   margin-top: 18px;
   padding: 24px;
+}
+
+.hero-recommendation {
+  margin-bottom: 18px;
+}
+
+.hero-heading {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(260px, 380px);
+  gap: 20px;
+  align-items: end;
+  margin-bottom: 18px;
+}
+
+.hero-heading h1 {
+  max-width: 680px;
+}
+
+.hero-heading p:last-child {
+  margin: 0;
+  color: var(--muted);
+  font-size: 15px;
+  line-height: 1.6;
 }
 
 .page-heading {
@@ -309,6 +334,10 @@ input[type="text"]:focus {
   gap: 14px;
 }
 
+.hero-grid {
+  align-items: stretch;
+}
+
 .result-card {
   display: grid;
   grid-template-rows: 150px 1fr;
@@ -329,6 +358,10 @@ input[type="text"]:focus {
 
 .decision-card {
   grid-template-rows: 150px auto;
+}
+
+.hero-card {
+  border-color: rgba(47, 125, 104, 0.28);
 }
 
 .thumbnail {
@@ -364,6 +397,16 @@ input[type="text"]:focus {
   font-size: 15px;
   font-weight: 900;
   line-height: 1.45;
+}
+
+.card-context {
+  width: fit-content;
+  border-radius: 999px;
+  padding: 5px 9px;
+  background: #e6efe9;
+  color: var(--accent-strong);
+  font-size: 12px;
+  font-weight: 900;
 }
 
 .decision-title-row {
@@ -613,15 +656,22 @@ input[type="text"]:focus {
   }
 
   .recommendation-panel,
-  .results-panel {
+  .results-panel,
+  .hero-recommendation {
     padding: 18px;
   }
 
   .option-grid,
   .option-grid.compact,
   .input-group,
+  .hero-heading,
   .result-grid {
     grid-template-columns: 1fr;
+  }
+
+  .hero-heading {
+    align-items: start;
+    gap: 12px;
   }
 
   .check-option,
