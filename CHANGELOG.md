@@ -2,6 +2,28 @@
 
 프로젝트의 주요 변경 사항을 날짜별로 기록합니다.
 
+## 2026-07-02 - MYOTT-S06-T04
+
+### 변경 내용
+
+- Hero Recommendation, 입력 영역, 추천 결과 영역의 문구 흐름을 최종 점검했습니다.
+- 사용자에게 보이는 `더미` 표현을 제거해 MVP 첫인상이 더 자연스럽게 느껴지도록 정리했습니다.
+- Decision Card의 높이, 제목 줄바꿈, 배지, 핵심 정보 그리드를 안정적으로 보이게 다듬었습니다.
+- 모바일 화면에서 카드 높이와 sticky action 영역 여백을 조정했습니다.
+- README, PROJECT_STATUS, TASK_HISTORY를 Sprint 6 / MYOTT-S06-T04 기준으로 업데이트했습니다.
+
+### 이유
+
+- 새 기능보다 현재 MVP의 완성도와 첫인상이 더 중요한 전환점이기 때문입니다.
+- 사용자가 Hero Recommendation에서 입력, 추천 결과로 이어지는 흐름을 설명 없이 이해해야 하기 때문입니다.
+- Provider/API/아키텍처를 건드리지 않고 Decision Experience의 마감감을 높이기 위해서입니다.
+
+### 다음 작업
+
+- Founder가 첫 화면에서 멈추는 순간이 줄었는지 확인합니다.
+- 10초/30초 Time Validation으로 추천 이해 속도를 점검합니다.
+- Sprint 6 이후 Provider 검색 결과와 Recommendation Experience의 연결 방식을 검토합니다.
+
 ## 2026-07-02 - MYOTT-S06-T03
 
 ### 변경 내용

@@ -511,7 +511,7 @@ export default function Home() {
             <p className="eyebrow">First Pick</p>
             <h1 id="heroRecommendationTitle">오늘 볼 작품, 3개만 먼저 골라드릴게요</h1>
           </div>
-          <p>입력하기 전에도 바로 고를 수 있게 추천을 먼저 보여드립니다. 더 정확히 고르고 싶을 때만 아래에서 취향을 알려주세요.</p>
+          <p>입력하기 전에도 바로 고를 수 있게 추천을 먼저 보여드립니다. 더 정확히 고르고 싶다면 아래에서 취향을 조금만 알려주세요.</p>
         </div>
         <div className="result-grid hero-grid" aria-label="Hero Recommendation">
           {heroRecommendations.map(({ item, badge, reason }) => (
@@ -526,14 +526,14 @@ export default function Home() {
             />
           ))}
         </div>
-        <p className="hero-next-step">원하는 분위기나 좋아하는 작품이 있다면 아래에서 더 정확한 추천을 받아보세요.</p>
+        <p className="hero-next-step">마음에 드는 작품이 없다면, 좋아했던 작품이나 분위기를 알려주고 더 정확히 골라보세요.</p>
       </section>
 
       <section className="recommendation-panel" aria-labelledby="pageTitle">
         <div className="page-heading">
           <p className="eyebrow">MovieMind DNA</p>
-          <h1 id="pageTitle">오늘 볼 콘텐츠를 한 번에 추천받으세요</h1>
-          <p>선호하는 OTT와 콘텐츠 종류를 고른 뒤 좋아했던 작품 3개를 입력하면, 더미 데이터를 기반으로 추천 결과가 바로 아래에 표시됩니다.</p>
+          <h1 id="pageTitle">취향을 알려주면 더 좁혀드릴게요</h1>
+          <p>이용 중인 OTT와 콘텐츠 종류를 고르고, 좋아했던 작품이나 추천 옵션을 더하면 결과가 바로 아래에 표시됩니다.</p>
           {showDevProviderStatus ? (
             <div className="provider-status" id="providerStatus" aria-label="Provider status" title={providerStatus.message}>
               <span>Data Source</span>
@@ -594,7 +594,7 @@ export default function Home() {
               <span>3</span>
               <div>
                 <h2 id="inputSectionTitle">좋아하는 작품 입력</h2>
-                <p className="section-copy">기본 3개 입력창에 인상 깊었던 작품을 적어주세요.</p>
+            <p className="section-copy">인상 깊었던 작품을 적어주세요. 마지막 칸을 채우면 새 입력창이 자동으로 생깁니다.</p>
               </div>
             </div>
             <div className="input-group" aria-label="좋아했던 작품 입력">
@@ -640,8 +640,8 @@ export default function Home() {
         {!results.length ? (
           <div className="empty-state" id="emptyState">
             {hasSubmitted
-              ? "선택한 유형에 맞는 더미 결과가 없습니다. 영화, 드라마, 애니 중 하나 이상 선택해 주세요."
-              : "작품을 입력하고 추천받기를 누르면 더미 추천 결과가 여기에 표시됩니다."}
+              ? "선택한 유형에 맞는 결과가 없습니다. 영화, 드라마, 애니 중 하나 이상 선택해 주세요."
+              : "작품을 입력하거나 추천 옵션을 고르면 결과가 여기에 표시됩니다."}
           </div>
         ) : null}
         <div className="result-grid" id="resultGrid">

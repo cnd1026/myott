@@ -69,8 +69,8 @@ button {
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(260px, 380px);
   gap: 18px;
-  align-items: end;
-  margin-bottom: 16px;
+  align-items: center;
+  margin-bottom: 18px;
 }
 
 .hero-heading h1 {
@@ -86,10 +86,10 @@ button {
 }
 
 .hero-next-step {
-  margin: 16px 0 0;
+  margin: 18px 0 0;
   border-top: 1px solid var(--line);
-  padding-top: 14px;
-  color: var(--muted);
+  padding: 16px 2px 0;
+  color: var(--text);
   font-size: 14px;
   font-weight: 800;
   line-height: 1.5;
@@ -154,8 +154,8 @@ h1 {
 
 .recommendation-form {
   display: grid;
-  gap: 18px;
-  margin-top: 30px;
+  gap: 16px;
+  margin-top: 28px;
 }
 
 .option-section,
@@ -200,7 +200,7 @@ h1 {
 }
 
 .section-copy {
-  margin: 8px 0 14px;
+  margin: 8px 0 16px;
   font-size: 14px;
 }
 
@@ -347,13 +347,14 @@ input[type="text"]:focus {
 
 .hero-grid {
   align-items: stretch;
-  gap: 12px;
+  gap: 14px;
 }
 
 .result-card {
   display: grid;
   grid-template-rows: 150px 1fr;
   gap: 0;
+  height: 100%;
   overflow: hidden;
   border: 1px solid var(--line);
   border-radius: 8px;
@@ -369,7 +370,7 @@ input[type="text"]:focus {
 }
 
 .decision-card {
-  grid-template-rows: 150px auto;
+  grid-template-rows: 150px 1fr;
 }
 
 .hero-card {
@@ -378,6 +379,7 @@ input[type="text"]:focus {
 
 .hero-card .result-body {
   gap: 10px;
+  align-content: start;
 }
 
 .thumbnail {
@@ -401,6 +403,7 @@ input[type="text"]:focus {
   display: grid;
   gap: 12px;
   padding: 16px;
+  align-content: start;
 }
 
 .result-card .decision-reason {
@@ -416,6 +419,7 @@ input[type="text"]:focus {
 }
 
 .card-context {
+  max-width: 100%;
   width: fit-content;
   border-radius: 999px;
   padding: 5px 9px;
@@ -423,16 +427,18 @@ input[type="text"]:focus {
   color: var(--accent-strong);
   font-size: 11px;
   font-weight: 900;
+  line-height: 1.25;
 }
 
 .decision-title-row {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   justify-content: space-between;
   gap: 10px;
 }
 
 .type-badge {
+  flex: 0 0 auto;
   border-radius: 999px;
   padding: 6px 10px;
   background: var(--surface-soft);
@@ -442,9 +448,11 @@ input[type="text"]:focus {
 }
 
 .result-card h3 {
+  min-width: 0;
   margin: 0;
   font-size: 20px;
   line-height: 1.25;
+  word-break: keep-all;
 }
 
 .result-card p {
@@ -459,11 +467,12 @@ input[type="text"]:focus {
 
 .decision-facts span {
   display: grid;
-  grid-template-columns: 72px 1fr;
+  grid-template-columns: 76px minmax(0, 1fr);
   gap: 8px;
   color: var(--muted);
   font-size: 13px;
   line-height: 1.35;
+  word-break: keep-all;
 }
 
 .decision-facts strong {
@@ -674,7 +683,7 @@ input[type="text"]:focus {
   .recommendation-panel,
   .results-panel,
   .hero-recommendation {
-    padding: 18px;
+    padding: 18px 16px;
   }
 
   .option-grid,
@@ -688,6 +697,12 @@ input[type="text"]:focus {
   .hero-heading {
     align-items: start;
     gap: 12px;
+    margin-bottom: 14px;
+  }
+
+  .hero-next-step {
+    margin-top: 14px;
+    padding-top: 14px;
   }
 
   .check-option,
@@ -709,8 +724,8 @@ input[type="text"]:focus {
     bottom: 0;
     z-index: 5;
     flex-direction: column;
-    margin: 0 -18px -18px;
-    padding: 12px 18px 18px;
+    margin: 0 -16px -18px;
+    padding: 12px 16px 18px;
     background: linear-gradient(180deg, rgba(255, 255, 255, 0.92), #fff 34%);
     border-top: 1px solid var(--line);
   }
@@ -771,6 +786,7 @@ input[type="text"]:focus {
   .section-heading {
     align-items: flex-start;
     flex-direction: column;
+    gap: 10px;
   }
 
   h1 {
@@ -783,5 +799,21 @@ input[type="text"]:focus {
 
   .page-heading p {
     font-size: 15px;
+  }
+
+  .result-card {
+    grid-template-rows: 138px 1fr;
+  }
+
+  .thumbnail {
+    min-height: 138px;
+  }
+
+  .decision-title-row {
+    gap: 8px;
+  }
+
+  .decision-facts span {
+    grid-template-columns: 72px minmax(0, 1fr);
   }
 }
