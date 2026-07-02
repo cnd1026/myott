@@ -327,6 +327,10 @@ input[type="text"]:focus {
   border-color: var(--accent);
 }
 
+.decision-card {
+  grid-template-rows: 150px auto;
+}
+
 .thumbnail {
   display: grid;
   place-items: center;
@@ -346,11 +350,23 @@ input[type="text"]:focus {
 
 .result-body {
   display: grid;
-  gap: 10px;
+  gap: 12px;
   padding: 16px;
 }
 
-.card-topline {
+.result-card .decision-reason {
+  margin: 0;
+  border-left: 4px solid var(--accent);
+  border-radius: 8px;
+  padding: 10px 12px;
+  background: var(--surface-soft);
+  color: var(--accent-strong);
+  font-size: 15px;
+  font-weight: 900;
+  line-height: 1.45;
+}
+
+.decision-title-row {
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -369,6 +385,7 @@ input[type="text"]:focus {
 .result-card h3 {
   margin: 0;
   font-size: 20px;
+  line-height: 1.25;
 }
 
 .result-card p {
@@ -376,8 +393,22 @@ input[type="text"]:focus {
   font-size: 14px;
 }
 
-.input-summary {
-  font-weight: 800;
+.decision-facts {
+  display: grid;
+  gap: 8px;
+}
+
+.decision-facts span {
+  display: grid;
+  grid-template-columns: 72px 1fr;
+  gap: 8px;
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.35;
+}
+
+.decision-facts strong {
+  color: var(--text);
 }
 
 .meta-list {

@@ -4,11 +4,11 @@
 
 ## Current Sprint
 
-Sprint 5 completed
+Sprint 6
 
 ## Current Task
 
-MYOTT-S05-T06 Provider Status Indicator
+MYOTT-S06-T01 Decision Card MVP
 
 ## Current Branch
 
@@ -20,9 +20,9 @@ MYOTT-S05-T06 Provider Status Indicator
 
 ## Last Commit
 
-MYOTT-S05-T06 시작 시점 기준:
+MYOTT-S06-T01 시작 시점 기준:
 
-`4a614c1 feat(ui): add dynamic title inputs and reset actions`
+`aba7b4e feat(dev): add provider status indicator`
 
 ## Repository
 
@@ -40,6 +40,7 @@ MYOTT-S05-T06 시작 시점 기준:
 - TMDB API key가 있으면 TMDB Provider를 사용하고, key가 없거나 TMDB 검색이 실패하면 Mock Provider 결과로 fallback합니다.
 - 메인 추천 UI는 동적 작품 입력창과 전체/옵션 초기화 UX를 포함합니다.
 - 개발 환경에서는 Provider Status Indicator로 현재 data source와 fallback 여부를 확인할 수 있습니다.
+- Sprint 6에서는 추천 결과를 더 빠른 결정을 돕는 Decision Card 형태로 개선합니다.
 
 ## Current Documentation State
 
@@ -56,11 +57,12 @@ MYOTT-S05-T06 시작 시점 기준:
 
 ## Next Milestone
 
-Sprint 6에서 Recommendation Experience를 개선합니다.
+Decision Experience를 검증하고 추천 결과 이해 시간을 줄입니다.
 
 ## Immediate Next Tasks
 
-- Sprint 6 Recommendation Experience 범위 확정
+- Decision Card MVP Founder Review
+- 10초/30초 Time Validation
 - Provider 검색 결과와 메인 추천 UX 연결 방식 검토
 - TMDB key 환경에서 실제 Provider Badge Founder Review
 - v1.0 최소 추천 경험과 DB 연동 시점 정리
@@ -70,7 +72,7 @@ Sprint 6에서 Recommendation Experience를 개선합니다.
 - README 실행 명령은 현재 저장소 루트 기준 `pnpm install`, `pnpm dev`로 정리되어 있습니다.
 - TMDB Provider Adapter는 기존 `lib/tmdb.js`를 감싸는 형태이며, `lib/tmdb.js` 자체를 제거하지는 않았습니다.
 - 현재 환경에는 TMDB key가 없을 수 있으므로 TMDB 성공 경로는 Founder 환경에서 추가 확인이 필요합니다.
-- MYOTT-S05-T06은 Provider Registry를 수정하지 않고 `/api/search` 응답 메타를 UI에서 확인하는 개발 편의 기능입니다.
+- MYOTT-S06-T01은 Provider Registry/API/TMDB/Mock Provider를 수정하지 않는 UI/UX 개선 작업입니다.
 - DB 설계는 문서 단계이며 SQL, Supabase 연결, 마이그레이션은 아직 없습니다.
 - APS 핵심 운영 문서는 MyOTT public repository에서 제거되었고, Nd_core가 Source of Truth입니다.
 - MyOTT public repository에는 APS 존재와 브랜드 참조만 유지합니다.

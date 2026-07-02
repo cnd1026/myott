@@ -13,6 +13,9 @@ const dummyRecommendations = [
     actors: ["매튜 매커너히", "앤 해서웨이"],
     synopsis: "멸망 위기의 지구를 떠나 인류가 살 수 있는 새 행성을 찾기 위해 우주로 향한다.",
     match: 96,
+    runtime: "169분",
+    rating: "8.7",
+    ott: ["Netflix", "Watcha"],
     poster: "INTER\nSTELLAR",
     reason: "광대한 SF 설정과 가족의 감정선을 함께 따라가는 추천입니다.",
   },
@@ -26,6 +29,9 @@ const dummyRecommendations = [
     actors: ["티모시 샬라메", "레베카 퍼거슨"],
     synopsis: "사막 행성 아라키스를 둘러싼 권력 다툼 속에서 한 소년이 거대한 운명을 마주한다.",
     match: 92,
+    runtime: "155분",
+    rating: "8.0",
+    ott: ["Netflix", "Watcha"],
     poster: "DUNE",
     reason: "장대한 세계관과 묵직한 긴장감을 원하는 흐름에 잘 맞습니다.",
   },
@@ -39,6 +45,9 @@ const dummyRecommendations = [
     actors: ["맷 데이먼", "제시카 차스테인"],
     synopsis: "화성에 홀로 남겨진 우주비행사가 과학과 유머로 생존 방법을 찾아간다.",
     match: 89,
+    runtime: "144분",
+    rating: "8.0",
+    ott: ["Disney+"],
     poster: "THE\nMARTIAN",
     reason: "SF 설정 안에서도 밝은 에너지와 생존 서사를 함께 즐길 수 있습니다.",
   },
@@ -52,6 +61,9 @@ const dummyRecommendations = [
     actors: ["라이언 고슬링", "엠마 스톤"],
     synopsis: "꿈을 좇는 두 사람이 사랑에 빠지고, 각자의 미래 앞에서 서로의 의미를 되새긴다.",
     match: 94,
+    runtime: "128분",
+    rating: "8.0",
+    ott: ["Watcha", "TVING"],
     poster: "LA LA\nLAND",
     reason: "사랑과 꿈, 음악의 여운을 함께 느끼고 싶을 때 어울립니다.",
   },
@@ -65,6 +77,9 @@ const dummyRecommendations = [
     actors: ["라이언 고슬링", "레이첼 맥아담스"],
     synopsis: "계급과 시간이 갈라놓은 두 사람이 평생에 걸쳐 사랑의 기억을 붙잡는다.",
     match: 90,
+    runtime: "123분",
+    rating: "7.8",
+    ott: ["검색 필요"],
     poster: "THE\nNOTEBOOK",
     reason: "강한 감정선과 오래 남는 사랑 이야기를 찾는 선택에 맞습니다.",
   },
@@ -78,6 +93,9 @@ const dummyRecommendations = [
     actors: ["히이라기 루미", "이리노 미유"],
     synopsis: "낯선 세계에 들어간 소녀가 부모를 구하고 자신의 이름과 용기를 찾아간다.",
     match: 87,
+    runtime: "125분",
+    rating: "8.6",
+    ott: ["Netflix"],
     poster: "SPIRITED\nAWAY",
     reason: "환상적인 세계관과 따뜻한 여운을 원하는 사용자에게 어울립니다.",
   },
@@ -91,6 +109,9 @@ const dummyRecommendations = [
     actors: ["카미키 류노스케", "카미시라이시 모네"],
     synopsis: "서로의 몸이 바뀌는 두 소년소녀가 시간과 거리를 넘어 서로를 찾아간다.",
     match: 88,
+    runtime: "106분",
+    rating: "8.4",
+    ott: ["Netflix"],
     poster: "YOUR\nNAME",
     reason: "설렘과 판타지, 애틋한 감정선을 함께 원하는 취향에 어울립니다.",
   },
@@ -104,6 +125,9 @@ const dummyRecommendations = [
     actors: ["브래드 피트", "모건 프리먼"],
     synopsis: "두 형사가 일곱 가지 죄악을 따라 벌어지는 연쇄 살인 사건을 추적한다.",
     match: 94,
+    runtime: "127분",
+    rating: "8.6",
+    ott: ["검색 필요"],
     poster: "SE7EN",
     reason: "어둡고 집요한 수사극과 강한 결말의 긴장감을 원하는 선택에 맞습니다.",
   },
@@ -117,6 +141,9 @@ const dummyRecommendations = [
     actors: ["휴 잭맨", "제이크 질렌할"],
     synopsis: "실종된 아이를 찾기 위해 한 아버지와 형사가 각자의 방식으로 진실을 추적한다.",
     match: 91,
+    runtime: "153분",
+    rating: "8.2",
+    ott: ["검색 필요"],
     poster: "PRISONERS",
     reason: "무거운 분위기와 끝까지 조여 오는 미스터리를 선호할 때 잘 맞습니다.",
   },
@@ -130,6 +157,9 @@ const dummyRecommendations = [
     actors: ["제이크 질렌할", "마크 러팔로"],
     synopsis: "미해결 연쇄 살인 사건에 매달린 기자와 수사관들이 집착에 가까운 추적을 이어간다.",
     match: 88,
+    runtime: "157분",
+    rating: "7.7",
+    ott: ["검색 필요"],
     poster: "ZODIAC",
     reason: "실화 기반의 서늘한 추적극과 차분한 긴장감을 좋아한다면 어울립니다.",
   },
@@ -143,6 +173,9 @@ const dummyRecommendations = [
     actors: ["제러미 앨런 화이트", "아요 에데비리"],
     synopsis: "젊은 셰프가 가족이 남긴 가게를 맡아 혼란과 재건을 겪는다.",
     match: 84,
+    runtime: "30분 내외",
+    rating: "8.6",
+    ott: ["Disney+"],
     poster: "THE\nBEAR",
     reason: "인물의 성장과 압박감 있는 리듬을 좋아하는 사용자에게 어울립니다.",
   },
@@ -156,6 +189,9 @@ const dummyRecommendations = [
     actors: ["이정재", "정호연"],
     synopsis: "벼랑 끝에 몰린 사람들이 거액의 상금을 두고 잔혹한 게임에 참가한다.",
     match: 86,
+    runtime: "60분 내외",
+    rating: "8.0",
+    ott: ["Netflix"],
     poster: "SQUID\nGAME",
     reason: "강한 몰입감과 생존 게임 구도를 선호할 때 잘 맞는 더미 결과입니다.",
   },
@@ -233,6 +269,15 @@ function recommendationReason(item, titles) {
   return `${anchorTitle}를 좋아해서 추천합니다. ${item.reason}`;
 }
 
+function decisionReason(item, titles) {
+  if (titles.length) return `${titles[0]}를 좋아했다면 추천`;
+  if (item.tags.includes("genre-sf")) return "몰입감 있는 SF를 좋아한다면 추천";
+  if (item.tags.includes("genre-romance")) return "감정선이 선명한 이야기를 좋아한다면 추천";
+  if (item.tags.includes("genre-thriller")) return "긴장감 있는 이야기를 좋아한다면 추천";
+  if (item.tags.includes("mood-moving")) return "여운이 남는 작품을 찾는다면 추천";
+  return "오늘 바로 고르기 좋은 추천";
+}
+
 function scoreRecommendation(item, quickPicks) {
   return quickPicks.reduce((score, quickPick) => (item.tags.includes(quickPick) ? score + 1 : score), 0);
 }
@@ -286,6 +331,27 @@ function providerStatusLabel(providerStatus) {
   return providerStatus.providerName || providerStatus.providerId || "Unknown";
 }
 
+function DecisionCard({ item, enteredTitles, onOpen }) {
+  return (
+    <button className="result-card decision-card" type="button" onClick={() => onOpen(item)} aria-label={`${item.title} 상세 보기`}>
+      <div className="thumbnail poster" aria-hidden="true">{item.poster}</div>
+      <div className="result-body">
+        <p className="decision-reason">{decisionReason(item, enteredTitles)}</p>
+        <div className="decision-title-row">
+          <h3>{item.title}</h3>
+          <span className="type-badge">{item.label}</span>
+        </div>
+        <div className="decision-facts" aria-label={`${item.title} 핵심 정보`}>
+          <span><strong>장르</strong>{item.genre}</span>
+          <span><strong>러닝타임</strong>{item.runtime}</span>
+          <span><strong>평점</strong>{item.rating}</span>
+          <span><strong>OTT</strong>{item.ott.join(", ")}</span>
+        </div>
+      </div>
+    </button>
+  );
+}
+
 export default function Home() {
   const [selectedOtt, setSelectedOtt] = useState(initialOtt);
   const [selectedTypes, setSelectedTypes] = useState(initialTypes);
@@ -299,7 +365,6 @@ export default function Home() {
 
   const enteredTitles = useMemo(() => titles.map((title) => title.trim()).filter(Boolean), [titles]);
   const canRecommend = enteredTitles.length > 0 || selectedQuickPicks.length > 0;
-  const inputSummary = enteredTitles.length ? `${enteredTitles.join(", ")} 기반` : "기본 취향 기반";
 
   useEffect(() => {
     function handleEscape(event) {
@@ -497,23 +562,7 @@ export default function Home() {
         ) : null}
         <div className="result-grid" id="resultGrid">
           {results.map((item) => (
-            <button className="result-card" type="button" key={item.title} onClick={() => openDetail(item)} aria-label={`${item.title} 상세 보기`}>
-              <div className="thumbnail poster" aria-hidden="true">{item.poster}</div>
-              <div className="result-body">
-                <div className="card-topline">
-                  <span className="type-badge">{item.label}</span>
-                  <strong>{item.match}%</strong>
-                </div>
-                <h3>{item.title}</h3>
-                <div className="meta-list">
-                  <span><strong>장르</strong> {item.genre}</span>
-                  <span><strong>감독</strong> {item.director}</span>
-                  <span><strong>주요 배우</strong> {item.actors.join(", ")}</span>
-                </div>
-                <p className="input-summary">{inputSummary}</p>
-                <p>{recommendationReason(item, enteredTitles)}</p>
-              </div>
-            </button>
+            <DecisionCard item={item} enteredTitles={enteredTitles} onOpen={openDetail} key={item.title} />
           ))}
         </div>
       </section>

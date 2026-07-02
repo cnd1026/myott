@@ -2,6 +2,35 @@
 
 개발 과정에서의 작업 내용, 결정, 아쉬운 점, 다음 개선 사항을 날짜별로 기록합니다.
 
+## 2026-07-02 - MYOTT-S06-T01
+
+### 오늘 작업
+
+- 추천 결과 카드를 Decision Card MVP로 재구성했습니다.
+- 추천 이유를 카드 상단에 배치해 사용자가 먼저 “왜 추천됐는지” 이해할 수 있게 했습니다.
+- 카드에는 포스터, 제목, 추천 이유, 장르, 러닝타임, 평점, OTT Provider만 남겼습니다.
+- 기존 상세 Layer, Quick Pick, Dynamic Input, Reset UX는 유지했습니다.
+- README, PROJECT_STATUS, TASK_HISTORY, CHANGELOG, dev-log를 Sprint 6 기준으로 업데이트했습니다.
+
+### 결정한 것
+
+- 이번 Task는 UI/UX 개선에 집중하고 Provider Registry, API Route, TMDB Provider, Mock Provider는 수정하지 않습니다.
+- 감독과 배우 정보는 결정 카드에서는 제거하되 상세 Layer에서는 확인할 수 있게 유지합니다.
+- 추천 이유 문구는 현재 더미 데이터와 입력값을 바탕으로 임시 문장으로 구성합니다.
+- Decision Card는 향후 Hero Recommendation에서도 재사용할 수 있도록 컴포넌트로 분리합니다.
+
+### 아쉬운 점
+
+- 추천 이유는 아직 AI가 생성한 문장이 아니라 규칙 기반 임시 문구입니다.
+- Time Validation은 Founder가 직접 사용하면서 체감 시간을 확인해야 합니다.
+- 메인 추천 결과는 아직 Provider 검색 결과와 직접 연결되어 있지 않습니다.
+
+### 다음 개선
+
+- Founder Review에서 10초 안에 추천 이유가 이해되는지 확인합니다.
+- 30초 안에 첫 선택 경험이 생기는지 Time Validation을 진행합니다.
+- Sprint 6 후속 Task에서 Provider 검색 결과와 Decision Card 연결 여부를 검토합니다.
+
 ## 2026-07-02 - MYOTT-S05-T06
 
 ### 오늘 작업
