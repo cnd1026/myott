@@ -400,10 +400,10 @@ input[type="text"]:focus {
 }
 
 .result-body {
-  display: grid;
+  display: flex;
+  flex-direction: column;
   gap: 12px;
   padding: 16px;
-  align-content: start;
 }
 
 .result-card .decision-reason {
@@ -477,6 +477,16 @@ input[type="text"]:focus {
 
 .decision-facts strong {
   color: var(--text);
+}
+
+.card-action {
+  align-self: flex-start;
+  margin-top: auto;
+  border-bottom: 2px solid rgba(47, 125, 104, 0.28);
+  color: var(--accent-strong);
+  font-size: 13px;
+  font-weight: 900;
+  line-height: 1.4;
 }
 
 .meta-list {
@@ -578,6 +588,13 @@ input[type="text"]:focus {
   margin: 0;
   color: var(--muted);
   line-height: 1.6;
+}
+
+.detail-reason {
+  border-left: 4px solid var(--accent);
+  border-radius: 8px;
+  padding: 12px 14px;
+  background: var(--surface-soft);
 }
 
 .quick-pick-sheet {

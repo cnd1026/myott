@@ -401,6 +401,7 @@ function DecisionCard({ item, enteredTitles, onOpen, badge, reasonOverride, clas
           <span><strong>평점</strong>{item.rating}</span>
           <span><strong>OTT</strong>{item.ott.join(", ")}</span>
         </div>
+        <span className="card-action">상세 보기</span>
       </div>
     </button>
   );
@@ -594,7 +595,7 @@ export default function Home() {
               <span>3</span>
               <div>
                 <h2 id="inputSectionTitle">좋아하는 작품 입력</h2>
-            <p className="section-copy">인상 깊었던 작품을 적어주세요. 마지막 칸을 채우면 새 입력창이 자동으로 생깁니다.</p>
+                <p className="section-copy">인상 깊었던 작품을 적어주세요. 마지막 칸을 채우면 새 입력창이 자동으로 생깁니다.</p>
               </div>
             </div>
             <div className="input-group" aria-label="좋아했던 작품 입력">
@@ -708,8 +709,8 @@ export default function Home() {
                   <span><strong>감독</strong> {selectedDetail.director}</span>
                   <span><strong>주요 배우</strong> {selectedDetail.actors.join(", ")}</span>
                 </div>
+                <p className="detail-reason"><strong>추천 이유</strong><br />{recommendationReason(selectedDetail, enteredTitles)}</p>
                 <p><strong>줄거리</strong><br />{selectedDetail.synopsis}</p>
-                <p><strong>추천 이유</strong><br />{recommendationReason(selectedDetail, enteredTitles)}</p>
               </div>
             </div>
           </section>
