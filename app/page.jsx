@@ -213,6 +213,15 @@ const initialOtt = ["netflix"];
 const initialTypes = ["movie", "drama", "animation"];
 const initialTitles = ["", "", ""];
 const titlePlaceholders = ["예: 인터스텔라", "예: 오징어 게임", "예: 너의 이름은"];
+const showDevProviderStatus = process.env.NODE_ENV !== "production";
+const initialProviderStatus = {
+  providerId: "checking",
+  providerName: "Checking",
+  fallback: false,
+  tmdbEnabled: false,
+  message: "",
+  checked: false,
+};
 
 function thumbnailText(title) {
   return title.slice(0, 2);
@@ -270,6 +279,13 @@ function normalizeTitleInputs(values) {
   return normalized;
 }
 
+function providerStatusLabel(providerStatus) {
+  if (!providerStatus.checked) return "Checking";
+  if (providerStatus.providerId === "mock") return "Mock Provider";
+  if (providerStatus.providerId === "tmdb") return "TMDB";
+  return providerStatus.providerName || providerStatus.providerId || "Unknown";
+}
+
 export default function Home() {
   const [selectedOtt, setSelectedOtt] = useState(initialOtt);
   const [selectedTypes, setSelectedTypes] = useState(initialTypes);
@@ -279,6 +295,7 @@ export default function Home() {
   const [results, setResults] = useState([]);
   const [hasSubmitted, setHasSubmitted] = useState(false);
   const [selectedDetail, setSelectedDetail] = useState(null);
+  const [providerStatus, setProviderStatus] = useState(initialProviderStatus);
 
   const enteredTitles = useMemo(() => titles.map((title) => title.trim()).filter(Boolean), [titles]);
   const canRecommend = enteredTitles.length > 0 || selectedQuickPicks.length > 0;
@@ -295,6 +312,41 @@ export default function Home() {
     return () => document.removeEventListener("keydown", handleEscape);
   }, []);
 
+  useEffect(() => {
+    if (!showDevProviderStatus) return;
+    refreshProviderStatus();
+  }, []);
+
+  async function refreshProviderStatus(query = "interstellar") {
+    if (!showDevProviderStatus) return;
+
+    try {
+      const response = await fetch(`/api/search?q=${encodeURIComponent(query)}`, {
+        cache: "no-store",
+      });
+      const payload = await response.json();
+      const providerId = payload.providerId || payload.source || "unknown";
+
+      setProviderStatus({
+        providerId,
+        providerName: payload.providerName || providerId,
+        fallback: providerId === "mock" && Boolean(payload.tmdbEnabled),
+        tmdbEnabled: Boolean(payload.tmdbEnabled),
+        message: payload.message || "",
+        checked: true,
+      });
+    } catch (error) {
+      setProviderStatus({
+        providerId: "error",
+        providerName: "Provider check failed",
+        fallback: false,
+        tmdbEnabled: false,
+        message: error instanceof Error ? error.message : "Provider status check failed.",
+        checked: true,
+      });
+    }
+  }
+
   function handleSubmit(event) {
     event.preventDefault();
     if (!canRecommend) return;
@@ -303,6 +355,7 @@ export default function Home() {
     setSelectedDetail(null);
     setShowQuickPick(false);
     setResults(buildRecommendations(selectedTypes, selectedQuickPicks));
+    refreshProviderStatus(enteredTitles[0] || "interstellar");
   }
 
   function openDetail(item) {
@@ -332,6 +385,14 @@ export default function Home() {
           <p className="eyebrow">MovieMind DNA</p>
           <h1 id="pageTitle">오늘 볼 콘텐츠를 한 번에 추천받으세요</h1>
           <p>선호하는 OTT와 콘텐츠 종류를 고른 뒤 좋아했던 작품 3개를 입력하면, 더미 데이터를 기반으로 추천 결과가 바로 아래에 표시됩니다.</p>
+          {showDevProviderStatus ? (
+            <div className="provider-status" id="providerStatus" aria-label="Provider status" title={providerStatus.message}>
+              <span>Data Source</span>
+              <strong>{providerStatusLabel(providerStatus)}</strong>
+              <span>Fallback</span>
+              <strong>{providerStatus.fallback ? "Yes" : "No"}</strong>
+            </div>
+          ) : null}
         </div>
 
         <form className="recommendation-form" id="recommendationForm" onSubmit={handleSubmit}>

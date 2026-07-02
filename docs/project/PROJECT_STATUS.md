@@ -4,11 +4,11 @@
 
 ## Current Sprint
 
-Sprint 5
+Sprint 5 completed
 
 ## Current Task
 
-MYOTT-S05-T05 Dynamic Title Inputs and Reset Actions
+MYOTT-S05-T06 Provider Status Indicator
 
 ## Current Branch
 
@@ -20,9 +20,9 @@ MYOTT-S05-T05 Dynamic Title Inputs and Reset Actions
 
 ## Last Commit
 
-MYOTT-S05-T05 시작 시점 기준:
+MYOTT-S05-T06 시작 시점 기준:
 
-`a88d17a feat(provider): add tmdb provider adapter`
+`4a614c1 feat(ui): add dynamic title inputs and reset actions`
 
 ## Repository
 
@@ -39,6 +39,7 @@ MYOTT-S05-T05 시작 시점 기준:
 - `/api/search`는 Provider Registry를 통해 active provider를 선택합니다.
 - TMDB API key가 있으면 TMDB Provider를 사용하고, key가 없거나 TMDB 검색이 실패하면 Mock Provider 결과로 fallback합니다.
 - 메인 추천 UI는 동적 작품 입력창과 전체/옵션 초기화 UX를 포함합니다.
+- 개발 환경에서는 Provider Status Indicator로 현재 data source와 fallback 여부를 확인할 수 있습니다.
 
 ## Current Documentation State
 
@@ -55,23 +56,53 @@ MYOTT-S05-T05 시작 시점 기준:
 
 ## Next Milestone
 
-Provider 기반 외부 데이터 연결 구조를 안정화합니다.
+Sprint 6에서 Recommendation Experience를 개선합니다.
 
 ## Immediate Next Tasks
 
-- TMDB key 환경에서 실제 검색 Founder Review
-- 동적 작품 입력 UX Founder Review
-- Provider Registry 확장 기준 정리
-- Provider 선택 정책 환경변수화 여부 검토
-- v1.0 최소 DB 테이블 범위 확정
+- Sprint 6 Recommendation Experience 범위 확정
+- Provider 검색 결과와 메인 추천 UX 연결 방식 검토
+- TMDB key 환경에서 실제 Provider Badge Founder Review
+- v1.0 최소 추천 경험과 DB 연동 시점 정리
 
 ## Risk Notes
 
 - README 실행 명령은 현재 저장소 루트 기준 `pnpm install`, `pnpm dev`로 정리되어 있습니다.
 - TMDB Provider Adapter는 기존 `lib/tmdb.js`를 감싸는 형태이며, `lib/tmdb.js` 자체를 제거하지는 않았습니다.
-- 현재 환경에는 TMDB key가 없을 수 있으므로 key 활성화 경로는 Founder 환경에서 추가 확인이 필요합니다.
-- MYOTT-S05-T05는 Provider, API route, TMDB, Mock Provider 구조를 수정하지 않는 UI 상태 관리 작업입니다.
+- 현재 환경에는 TMDB key가 없을 수 있으므로 TMDB 성공 경로는 Founder 환경에서 추가 확인이 필요합니다.
+- MYOTT-S05-T06은 Provider Registry를 수정하지 않고 `/api/search` 응답 메타를 UI에서 확인하는 개발 편의 기능입니다.
 - DB 설계는 문서 단계이며 SQL, Supabase 연결, 마이그레이션은 아직 없습니다.
 - APS 핵심 운영 문서는 MyOTT public repository에서 제거되었고, Nd_core가 Source of Truth입니다.
 - MyOTT public repository에는 APS 존재와 브랜드 참조만 유지합니다.
 - Git history rewrite, force push, filter-repo는 이번 Task에서 사용하지 않습니다.
+
+## Sprint 5 Retrospective
+
+### What went well
+
+- Provider Architecture, Mock Provider, TMDB Provider Adapter, fallback 흐름을 Sprint 안에서 연결했습니다.
+- UI를 크게 흔들지 않고 Provider Foundation을 검증 가능한 구조로 만들었습니다.
+- Dynamic Title Input과 Reset UX까지 정리해 Sprint 6의 추천 경험 개선에 필요한 기본 조작 흐름을 확보했습니다.
+
+### Lessons Learned
+
+- Provider 교체 가능성은 코드 구조만으로 충분하지 않고, 개발자가 현재 data source를 즉시 확인할 수 있어야 합니다.
+- Mock Provider는 외부 API key가 없는 환경에서도 Local Verification을 이어가기 위한 필수 안전망입니다.
+- 메인 추천 UX와 검색 Provider API는 아직 완전히 같은 흐름이 아니므로 Sprint 6에서 연결 기준을 신중히 정해야 합니다.
+
+### Technical Debt
+
+- TMDB 성공 경로는 유효한 key가 있는 Founder 환경에서 추가 검증이 필요합니다.
+- Provider 선택 정책은 아직 환경변수로 강제 선택할 수 없습니다.
+- 메인 추천 결과는 더미 추천 UX이며 Provider 검색 결과와 직접 통합되어 있지 않습니다.
+
+### Parking Lot
+
+- Provider 강제 선택 환경변수
+- Provider별 latency/error badge
+- 추천 결과와 Provider 검색 결과 통합
+- TMDB detail/recommendation endpoint 확장
+
+### Next Sprint
+
+Sprint 6 Recommendation Experience

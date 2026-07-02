@@ -2,6 +2,35 @@
 
 개발 과정에서의 작업 내용, 결정, 아쉬운 점, 다음 개선 사항을 날짜별로 기록합니다.
 
+## 2026-07-02 - MYOTT-S05-T06
+
+### 오늘 작업
+
+- 개발 환경에서만 보이는 Provider Status Indicator를 추가했습니다.
+- `/api/search` 응답의 `providerId`, `providerName`, `tmdbEnabled`, `message`를 이용해 현재 data source와 fallback 여부를 표시했습니다.
+- 추천 실행 시 Provider 상태를 다시 확인하도록 연결했습니다.
+- PROJECT_STATUS에 Sprint 5 Retrospective를 작성했습니다.
+- README, TASK_HISTORY, CHANGELOG, dev-log를 Sprint 5 완료 상태로 업데이트했습니다.
+
+### 결정한 것
+
+- Provider Registry, TMDB Provider, Mock Provider, API route 구조는 수정하지 않습니다.
+- Provider Badge는 개발 편의 기능이므로 `development` 환경에서만 표시합니다.
+- Fallback 여부는 `providerId`가 `mock`이고 `tmdbEnabled`가 `true`인 경우로 판단합니다.
+- 메인 추천 결과는 기존 더미 UX를 유지하고, Provider 상태 확인만 API 메타와 연결합니다.
+
+### 아쉬운 점
+
+- 현재 로컬 환경에는 `.env.local`이 없어 실제 TMDB 성공 경로는 확인하지 못했습니다.
+- TMDB fallback은 invalid key 경로로 검증할 수 있지만, 실제 TMDB 응답은 Founder 환경에서 추가 확인이 필요합니다.
+- 메인 추천 UX와 Provider 검색 결과는 아직 완전히 통합되어 있지 않습니다.
+
+### 다음 개선
+
+- Sprint 6에서 Recommendation Experience 중심으로 메인 추천 UX와 Provider 검색 결과의 연결 방식을 정합니다.
+- Provider 강제 선택 환경변수와 Provider별 장애 표시가 필요한지 검토합니다.
+- 유효한 TMDB key 환경에서 Provider Badge가 `TMDB / Fallback No`로 표시되는지 Founder Review를 진행합니다.
+
 ## 2026-07-02 - MYOTT-S05-T05
 
 ### 오늘 작업

@@ -2,6 +2,28 @@
 
 프로젝트의 주요 변경 사항을 날짜별로 기록합니다.
 
+## 2026-07-02 - MYOTT-S05-T06
+
+### 변경 내용
+
+- 개발 환경에서 현재 사용 중인 Provider를 확인할 수 있는 Provider Status Indicator를 추가했습니다.
+- Provider Badge에 `Data Source`와 `Fallback` 여부를 작게 표시하도록 했습니다.
+- `/api/search` 응답 메타를 활용해 Mock Provider, TMDB Provider, fallback 상태를 구분할 수 있게 했습니다.
+- README, PROJECT_STATUS, TASK_HISTORY를 Sprint 5 종료 상태로 업데이트했습니다.
+- PROJECT_STATUS에 Sprint 5 Retrospective를 추가했습니다.
+
+### 이유
+
+- Sprint 5에서 구축한 Provider Foundation이 실제로 어떤 data source를 사용하는지 UI에서 즉시 확인할 수 있어야 하기 때문입니다.
+- Sprint 6부터 Recommendation Experience에 집중하기 전 Provider 기반 구조를 검증 가능한 상태로 닫기 위해서입니다.
+- 개발 편의 기능이므로 Production UI에는 노출하지 않는 방향이 적절하기 때문입니다.
+
+### 다음 작업
+
+- 유효한 TMDB key가 있는 Founder 환경에서 TMDB Provider 표시를 확인합니다.
+- Sprint 6 Recommendation Experience 범위를 확정합니다.
+- Provider 검색 결과와 메인 추천 UX를 연결할지 별도 Task로 설계합니다.
+
 ## 2026-07-02 - MYOTT-S05-T05
 
 ### 변경 내용
