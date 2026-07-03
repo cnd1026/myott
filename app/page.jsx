@@ -282,6 +282,18 @@ function thumbnailText(title) {
   return title.slice(0, 2);
 }
 
+function isImageUrl(value) {
+  return typeof value === "string" && /^https?:\/\//.test(value);
+}
+
+function PosterVisual({ poster, title }) {
+  if (isImageUrl(poster)) {
+    return <img className="poster-image" src={poster} alt="" loading="lazy" />;
+  }
+
+  return poster || thumbnailText(title);
+}
+
 function recommendationReason(item, titles) {
   if (!titles.length) return item.reason;
   const anchorTitle = titles[0];
@@ -426,7 +438,7 @@ function normalizeProviderResult(content) {
     ott,
     reason: content.reason || "입력한 작품과 연결해 확인해볼 만한 실제 검색 결과입니다.",
     synopsis: content.synopsis || content.overview || "줄거리 정보가 아직 없습니다.",
-    poster: thumbnailText(title),
+    poster: content.poster || thumbnailText(title),
     match: content.match || Number(content.vote_average || content.rating || 0),
   };
 }
@@ -517,7 +529,7 @@ function providerStatusLabel(providerStatus) {
 function DecisionCard({ item, enteredTitles, onOpen, badge, reasonOverride, className = "" }) {
   return (
     <button className={`result-card decision-card ${className}`.trim()} type="button" onClick={() => onOpen(item)} aria-label={`${item.title} 상세 보기`}>
-      <div className="thumbnail poster" aria-hidden="true">{item.poster}</div>
+      <div className="thumbnail poster" aria-hidden="true"><PosterVisual poster={item.poster} title={item.title} /></div>
       <div className="result-body">
         {badge ? <span className="card-context">{badge}</span> : null}
         <p className="decision-reason">{reasonOverride || decisionReason(item, enteredTitles)}</p>
@@ -838,7 +850,7 @@ export default function Home() {
           <section className="detail-layer" role="dialog" aria-modal="true" aria-labelledby="detailTitle">
             <button className="close-button detail-close" type="button" onClick={() => setSelectedDetail(null)} aria-label="상세 정보 닫기">×</button>
             <div className="detail-layout">
-              <div className="detail-thumb poster" aria-hidden="true">{selectedDetail.poster || thumbnailText(selectedDetail.title)}</div>
+              <div className="detail-thumb poster" aria-hidden="true"><PosterVisual poster={selectedDetail.poster} title={selectedDetail.title} /></div>
               <div className="detail-info">
                 <span className="type-badge">{selectedDetail.label}</span>
                 <h2 id="detailTitle">{selectedDetail.title}</h2>
