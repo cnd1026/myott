@@ -2,6 +2,32 @@
 
 개발 과정에서의 작업 내용, 결정, 아쉬운 점, 다음 개선 사항을 날짜별로 기록합니다.
 
+## 2026-07-03 - MYOTT-S08-T04
+
+### 오늘 작업
+
+- TMDB 단순 검색 결과 대신 seed 기반 recommendations/similar 결과를 사용하도록 Provider 경로를 개선했습니다.
+- 입력값으로 seed 작품을 먼저 찾고, 해당 TMDB id로 recommendations를 조회하도록 했습니다.
+- recommendations가 부족하면 similar 결과를 fallback으로 사용하도록 했습니다.
+- seed 원본 제외, multi-input 병합, 중복 제거, Mock fallback 구조는 유지했습니다.
+
+### 결정한 것
+
+- `/api/search` route 이름과 Provider Registry 구조는 유지합니다.
+- TMDB Provider의 `search()`는 현재 MyOTT 추천 흐름 안에서는 seed recommendation entrypoint로 동작합니다.
+- Hero Recommendation은 이번 Task에서 실제 데이터로 연결하지 않습니다.
+
+### 아쉬운 점
+
+- Codex 환경에서는 TMDB 외부 fetch가 제한되어 실제 recommendations 성공 경로는 Founder 환경에서 확인해야 합니다.
+- TMDB 추천 품질은 TMDB 데이터 자체에 의존합니다.
+- OTT 제공처 직접 이동은 이번 범위에서 제외했습니다.
+
+### 다음 개선
+
+- recommendations와 similar의 혼합 비율을 실제 Founder Review 결과로 조정합니다.
+- Hero Recommendation 실제 데이터 연결 여부는 별도 Sprint에서 판단합니다.
+
 ## 2026-07-03 - MYOTT-S08-T03
 
 ### 오늘 작업

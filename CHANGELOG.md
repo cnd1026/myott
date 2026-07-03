@@ -2,6 +2,26 @@
 
 프로젝트의 주요 변경 사항을 날짜별로 기록합니다.
 
+## 2026-07-03 - MYOTT-S08-T04
+
+### 변경 내용
+
+- TMDB Provider가 입력값을 먼저 seed 작품으로 찾은 뒤 `/recommendations` 결과를 반환하도록 개선했습니다.
+- recommendations 결과가 부족하면 `/similar` 결과를 fallback으로 병합하도록 했습니다.
+- seed 원본은 추천 결과에서 제외하고, TMDB 추천/similar 결과 내 중복도 제거하도록 했습니다.
+- 기존 `/api/search`, Provider Registry, Decision Card, Detail Layer 구조는 유지했습니다.
+
+### 이유
+
+- 제목 검색 결과를 추천처럼 보여주는 구조에서 벗어나, 입력 작품과 실제로 관련된 TMDB 추천 결과를 보여주기 위해서입니다.
+- `인터스텔라` 입력 시 인터스텔라 제목 검색 결과가 아니라 관련 SF/드라마 추천이 나오도록 기반을 만들기 위해서입니다.
+
+### 다음 작업
+
+- Founder 환경에서 `인터스텔라`, `라라랜드`, `너의 이름은` multi-input 추천 품질을 확인합니다.
+- Hero Recommendation은 아직 Mock 고정입니다.
+- TMDB 추천 품질은 TMDB 데이터에 의존하며, OTT 제공처 직접 이동은 후순위입니다.
+
 ## 2026-07-03 - MYOTT-S08-T03
 
 ### 변경 내용
