@@ -2,6 +2,32 @@
 
 개발 과정에서의 작업 내용, 결정, 아쉬운 점, 다음 개선 사항을 날짜별로 기록합니다.
 
+## 2026-07-04 - MYOTT-S08-T10
+
+### 오늘 작업
+
+- 추천 결과 상태를 idle/loading/success/empty/error로 분리했습니다.
+- loading 중에는 empty 문구가 보이지 않도록 했습니다.
+- Detail Layer 하단에 현재 결과 목록 기반 Related Picks를 추가했습니다.
+- `/api/options` metadata를 Quick Pick UI에 연결했습니다.
+- TMDB genre metadata와 국가 option value가 scoring에 반영되도록 정리했습니다.
+
+### 결정한 것
+
+- Related Picks는 새 API 호출 없이 현재 결과 배열을 재사용합니다.
+- 국가 옵션은 정확 필터가 아니라 현재 데이터 품질에 맞춘 score 보정으로만 사용합니다.
+- 기존 OTT 선택, 콘텐츠 종류 선택, Provider Registry, API route는 유지합니다.
+
+### 아쉬운 점
+
+- Codex 환경에서는 TMDB TLS 제한 때문에 실제 TMDB 장르 metadata 성공 UI를 확인하기 어렵습니다.
+- 국가 옵션은 콘텐츠 제작 국가와 제공처/사용자 지역이 섞일 수 있어 정확 필터로 표현하지 않습니다.
+
+### 다음 개선
+
+- Founder 환경에서 Quick Pick 장르/국가 옵션 노출과 Related Picks 터치 사용성을 확인합니다.
+- 국가/언어/제공처 필터의 정확한 의미를 별도 UX 문구로 정리합니다.
+
 ## 2026-07-04 - MYOTT-S08-T09A
 
 ### 오늘 작업

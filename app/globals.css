@@ -128,6 +128,10 @@ h1 {
   line-height: 1.6;
 }
 
+.loading-state {
+  color: var(--accent-strong);
+}
+
 .page-heading p {
   margin: 14px 0 0;
   font-size: 17px;
@@ -773,6 +777,66 @@ input[type="text"]:focus {
 .detail-next-step strong {
   color: var(--accent-strong);
   font-size: 15px;
+}
+
+.related-panel {
+  display: grid;
+  gap: 10px;
+}
+
+.related-strip {
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: minmax(180px, 220px);
+  gap: 10px;
+  overflow-x: auto;
+  padding-bottom: 4px;
+  overscroll-behavior-inline: contain;
+}
+
+.related-card {
+  display: grid;
+  grid-template-columns: 52px 1fr;
+  align-items: center;
+  gap: 10px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 9px;
+  background: #fff;
+  color: var(--text);
+  text-align: left;
+  cursor: pointer;
+}
+
+.related-card strong,
+.related-card small {
+  display: block;
+}
+
+.related-card small {
+  margin-top: 3px;
+  color: var(--muted);
+  font-size: 11px;
+  line-height: 1.35;
+}
+
+.related-thumb {
+  display: grid;
+  place-items: center;
+  aspect-ratio: 1;
+  border-radius: 7px;
+  overflow: hidden;
+  background: var(--surface-soft);
+  color: var(--accent-strong);
+  font-size: 12px;
+  font-weight: 900;
+  white-space: pre-line;
+}
+
+.related-thumb img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
 }
 
 .quick-pick-sheet {

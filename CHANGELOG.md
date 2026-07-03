@@ -2,6 +2,27 @@
 
 프로젝트의 주요 변경 사항을 날짜별로 기록합니다.
 
+## 2026-07-04 - MYOTT-S08-T10
+
+### 변경 내용
+
+- 추천 상태를 `idle`, `loading`, `success`, `empty`, `error`로 분리했습니다.
+- 추천 요청 중에는 empty 문구 대신 `추천을 찾는 중입니다...` loading 상태를 표시하도록 했습니다.
+- Detail Layer 하단에 현재 추천 결과를 재사용한 Related Picks 3~4개를 추가했습니다.
+- `/api/options` metadata groups를 Quick Pick Layer에 반영해 TMDB 장르 옵션과 fallback 국가 옵션을 UI에 표시하도록 했습니다.
+- TMDB genre metadata option은 `tmdbIds`, 국가 옵션은 option value 기반으로 scoring에 반영되도록 했습니다.
+
+### 이유
+
+- 추천 요청 직후 empty 문구가 잠깐 보이면 사용자가 오류로 오해할 수 있기 때문입니다.
+- 상세 확인 후 다시 입력하지 않아도 마우스/터치로 다음 추천을 탐색할 수 있어야 하기 때문입니다.
+- Sprint 8의 option metadata foundation이 실제 추천 UI와 scoring 흐름에 연결되어야 하기 때문입니다.
+
+### 다음 작업
+
+- Founder 환경에서 TMDB 장르 metadata가 실제 UI에 표시되는지 확인합니다.
+- 미국/일본 국가 옵션은 현재 정확 필터가 아니라 score 보정이므로 실제 제공처/국가 필터는 후속으로 분리합니다.
+
 ## 2026-07-04 - MYOTT-S08-T09A
 
 ### 변경 내용

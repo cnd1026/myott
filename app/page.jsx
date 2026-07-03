@@ -247,6 +247,19 @@ const quickPickGroups = [
 ];
 
 const quickPickLabelByValue = new Map(quickPickGroups.flatMap((group) => group.options));
+const initialOptionMetadata = {
+  genres: [],
+  countries: [
+    ["country-kr", "한국"],
+    ["country-us", "미국"],
+    ["country-jp", "일본"],
+  ],
+  languages: [
+    ["language-ko", "한국어"],
+    ["language-en", "영어"],
+    ["language-ja", "일본어"],
+  ],
+};
 const targetProviderResultCount = 12;
 const autocompleteDebounceMs = 150;
 const quickPickGenreIds = new Map([
@@ -484,8 +497,8 @@ function contentTypeForUi(content) {
   return content.type || content.contentType || "movie";
 }
 
-function quickPickSummary(quickPicks) {
-  return quickPicks.map((quickPick) => quickPickLabelByValue.get(quickPick)).filter(Boolean).slice(0, 2).join(", ");
+function quickPickSummary(quickPicks, labelByValue = quickPickLabelByValue) {
+  return quickPicks.map((quickPick) => labelByValue.get(quickPick)).filter(Boolean).slice(0, 2).join(", ");
 }
 
 function normalizedIdList(values = []) {
@@ -566,11 +579,19 @@ function platformMatchesSelectedOtt(item, selectedOtt) {
   return selectedLabels.some((label) => platforms.some((platform) => normalizeTitleKey(platform) === normalizeTitleKey(label)));
 }
 
-function analyzeProviderResult(item, selectedTypes, quickPicks, selectedOtt) {
+function genreIdsForQuickPick(quickPick, optionMetadata) {
+  if (quickPickGenreIds.has(quickPick)) return quickPickGenreIds.get(quickPick);
+  const metadataGenre = (optionMetadata.genres || []).find((genre) => genre.value === quickPick);
+  if (metadataGenre?.tmdbIds?.length) return normalizedIdList(metadataGenre.tmdbIds);
+  if (quickPick.startsWith("tmdb-genre-")) return normalizedIdList([quickPick.replace("tmdb-genre-", "")]);
+  return [];
+}
+
+function analyzeProviderResult(item, selectedTypes, quickPicks, selectedOtt, optionMetadata) {
   const genreIds = normalizedIdList(item.genreIds);
   const seedGenreOverlap = intersectionCount(genreIds, normalizedIdList(item.seedGenreIds));
   const quickPickGenreOverlap = quickPicks.reduce(
-    (score, quickPick) => score + (intersects(genreIds, quickPickGenreIds.get(quickPick)) ? 1 : 0),
+    (score, quickPick) => score + (intersects(genreIds, genreIdsForQuickPick(quickPick, optionMetadata)) ? 1 : 0),
     0,
   );
   const quickPickTagMatches = quickPicks.reduce((score, quickPick) => score + (item.tags.includes(quickPick) ? 1 : 0), 0);
@@ -592,10 +613,10 @@ function analyzeProviderResult(item, selectedTypes, quickPicks, selectedOtt) {
   };
 }
 
-function sortProviderResults(results, selectedTypes, quickPicks, selectedOtt) {
+function sortProviderResults(results, selectedTypes, quickPicks, selectedOtt, optionMetadata) {
   return results
     .map((item) => {
-      const analysis = analyzeProviderResult(item, selectedTypes, quickPicks, selectedOtt);
+      const analysis = analyzeProviderResult(item, selectedTypes, quickPicks, selectedOtt, optionMetadata);
       return {
         ...item,
         score: analysis.score,
@@ -662,7 +683,7 @@ function balanceSeedDiversity(sortedResults, seedTitles) {
   return balanced;
 }
 
-function normalizeProviderResult(content, quickPicks = [], reasonSeed = "") {
+function normalizeProviderResult(content, quickPicks = [], reasonSeed = "", labelByValue = quickPickLabelByValue) {
   const title = content.title || "제목 없음";
   const type = contentTypeForUi(content);
   const genres = Array.isArray(content.genres) && content.genres.length ? content.genres : ["장르 확인 필요"];
@@ -671,7 +692,7 @@ function normalizeProviderResult(content, quickPicks = [], reasonSeed = "") {
   const runtime = Number(content.runtime);
   const rating = Number(content.rating);
   const poster = content.backdrop || content.poster || thumbnailText(title);
-  const optionSummary = quickPickSummary(quickPicks);
+  const optionSummary = quickPickSummary(quickPicks, labelByValue);
 
   return {
     ...content,
@@ -715,7 +736,7 @@ function providerStatusFromPayload(payload) {
   };
 }
 
-async function fetchProviderRecommendations(titles, selectedTypes, quickPicks, selectedOtt) {
+async function fetchProviderRecommendations(titles, selectedTypes, quickPicks, selectedOtt, optionMetadata, labelByValue) {
   const uniqueTitles = [...new Set(titles)];
   const providerResults = [];
   let providerStatus = null;
@@ -732,13 +753,13 @@ async function fetchProviderRecommendations(titles, selectedTypes, quickPicks, s
     const payload = await response.json();
     providerStatus = providerStatus || providerStatusFromPayload(payload);
     const normalizedResults = (payload.results || [])
-      .map((item) => normalizeProviderResult(item, quickPicks, title))
+      .map((item) => normalizeProviderResult(item, quickPicks, title, labelByValue))
       .filter((item) => !titleMatchesSeed(item, title));
     providerResults.push(...normalizedResults);
   }
 
   const mergedResults = mergeProviderResults(filterSeedResults(providerResults, uniqueTitles));
-  const sortedResults = sortProviderResults(mergedResults, selectedTypes, quickPicks, selectedOtt);
+  const sortedResults = sortProviderResults(mergedResults, selectedTypes, quickPicks, selectedOtt, optionMetadata);
   const balancedResults = balanceSeedDiversity(sortedResults, uniqueTitles);
 
   return { results: balancedResults.slice(0, targetProviderResultCount), providerStatus };
@@ -805,9 +826,11 @@ export default function Home() {
   const [selectedTypes, setSelectedTypes] = useState(initialTypes);
   const [titles, setTitles] = useState(initialTitles);
   const [selectedQuickPicks, setSelectedQuickPicks] = useState([]);
+  const [optionGroups, setOptionGroups] = useState(quickPickGroups);
+  const [optionMetadata, setOptionMetadata] = useState(initialOptionMetadata);
   const [showQuickPick, setShowQuickPick] = useState(false);
   const [results, setResults] = useState([]);
-  const [hasSubmitted, setHasSubmitted] = useState(false);
+  const [recommendationStatus, setRecommendationStatus] = useState("idle");
   const [selectedDetail, setSelectedDetail] = useState(null);
   const [providerStatus, setProviderStatus] = useState(initialProviderStatus);
   const [timeSlot, setTimeSlot] = useState("evening");
@@ -819,6 +842,10 @@ export default function Home() {
   const enteredTitles = useMemo(() => titles.map((title) => title.trim()).filter(Boolean), [titles]);
   const canRecommend = enteredTitles.length > 0 || selectedQuickPicks.length > 0;
   const heroRecommendations = useMemo(() => buildHeroRecommendations(timeSlot).slice(0, 3), [timeSlot]);
+  const optionLabelByValue = useMemo(() => new Map(optionGroups.flatMap((group) => group.options)), [optionGroups]);
+  const relatedRecommendations = selectedDetail
+    ? results.filter((item) => contentKey(item) !== contentKey(selectedDetail)).slice(0, 4)
+    : [];
 
   useEffect(() => {
     function handleEscape(event) {
@@ -850,6 +877,38 @@ export default function Home() {
 
   useEffect(() => {
     setTimeSlot(getTimeSlot(new Date()));
+  }, []);
+
+  useEffect(() => {
+    let isMounted = true;
+
+    async function loadOptionMetadata() {
+      try {
+        const response = await fetch("/api/options", { cache: "no-store" });
+        const payload = await response.json();
+        if (!isMounted) return;
+        if (Array.isArray(payload.groups) && payload.groups.length) {
+          setOptionGroups(payload.groups);
+        }
+        if (payload.metadata) {
+          setOptionMetadata({
+            genres: payload.metadata.genres || [],
+            countries: payload.metadata.countries || initialOptionMetadata.countries,
+            languages: payload.metadata.languages || initialOptionMetadata.languages,
+          });
+        }
+      } catch {
+        if (!isMounted) return;
+        setOptionGroups(quickPickGroups);
+        setOptionMetadata(initialOptionMetadata);
+      }
+    }
+
+    loadOptionMetadata();
+
+    return () => {
+      isMounted = false;
+    };
   }, []);
 
   useEffect(() => {
@@ -918,7 +977,7 @@ export default function Home() {
     const canSubmit = currentTitles.length > 0 || selectedQuickPicks.length > 0;
     if (!canSubmit) return;
 
-    setHasSubmitted(true);
+    setRecommendationStatus("loading");
     setResults([]);
     setSelectedDetail(null);
     setShowQuickPick(false);
@@ -928,18 +987,29 @@ export default function Home() {
 
     if (!currentTitles.length) {
       setResults(fallbackResults);
+      setRecommendationStatus(fallbackResults.length ? "success" : "empty");
       refreshProviderStatus("interstellar");
       return;
     }
 
     try {
-      const { results: providerResults, providerStatus: nextProviderStatus } = await fetchProviderRecommendations(currentTitles, selectedTypes, selectedQuickPicks, selectedOtt);
-      setResults(providerResults.length ? providerResults : fallbackResults);
+      const { results: providerResults, providerStatus: nextProviderStatus } = await fetchProviderRecommendations(
+        currentTitles,
+        selectedTypes,
+        selectedQuickPicks,
+        selectedOtt,
+        optionMetadata,
+        optionLabelByValue,
+      );
+      const nextResults = providerResults.length ? providerResults : fallbackResults;
+      setResults(nextResults);
+      setRecommendationStatus(nextResults.length ? "success" : "empty");
       if (showDevProviderStatus && nextProviderStatus) {
         setProviderStatus(nextProviderStatus);
       }
     } catch {
       setResults(fallbackResults);
+      setRecommendationStatus(fallbackResults.length ? "success" : "error");
       refreshProviderStatus(currentTitles[0] || "interstellar");
     }
   }
@@ -986,7 +1056,7 @@ export default function Home() {
     setSelectedQuickPicks([]);
     setShowQuickPick(false);
     setResults([]);
-    setHasSubmitted(false);
+    setRecommendationStatus("idle");
     setSelectedDetail(null);
     setSuggestions({});
     setActiveSuggestionIndex(null);
@@ -1157,9 +1227,12 @@ export default function Home() {
           </div>
           <p className="result-count" id="resultCount">{results.length}개</p>
         </div>
-        {!results.length ? (
+        {recommendationStatus === "loading" ? (
+          <div className="empty-state loading-state" id="loadingState">추천을 찾는 중입니다...</div>
+        ) : null}
+        {!results.length && recommendationStatus !== "loading" ? (
           <div className="empty-state" id="emptyState">
-            {hasSubmitted
+            {recommendationStatus === "empty" || recommendationStatus === "error"
               ? "선택한 유형에 맞는 결과가 없습니다. 영화, 드라마, 애니 중 하나 이상 선택해 주세요."
               : "작품을 입력하거나 추천 옵션을 고르면 결과가 여기에 표시됩니다."}
           </div>
@@ -1191,7 +1264,7 @@ export default function Home() {
             </div>
 
             <div className="quick-pick-groups">
-              {quickPickGroups.map((group) => (
+              {optionGroups.map((group) => (
                 <fieldset className="quick-group" key={group.title}>
                   <legend>{group.title}</legend>
                   {group.options.map(([value, label]) => (
@@ -1258,6 +1331,30 @@ export default function Home() {
                   <span>볼 수 있는 OTT</span>
                   <strong>{selectedDetail.ott.join(", ")}</strong>
                 </div>
+                {relatedRecommendations.length ? (
+                  <section className="related-panel" aria-labelledby="relatedRecommendationTitle">
+                    <div>
+                      <p className="trust-label" id="relatedRecommendationTitle">Related Picks</p>
+                      <p className="trust-copy">현재 추천 결과에서 이어서 볼 만한 작품입니다.</p>
+                    </div>
+                    <div className="related-strip" aria-label="관련 추천">
+                      {relatedRecommendations.map((item) => (
+                        <button
+                          className="related-card"
+                          type="button"
+                          onClick={() => setSelectedDetail(item)}
+                          key={item.id || item.providerContentId || item.title}
+                        >
+                          <span className="related-thumb" aria-hidden="true"><PosterVisual poster={item.poster} title={item.title} /></span>
+                          <span>
+                            <strong>{item.title}</strong>
+                            <small>{decisionReason(item, enteredTitles)}</small>
+                          </span>
+                        </button>
+                      ))}
+                    </div>
+                  </section>
+                ) : null}
               </div>
             </div>
           </section>
