@@ -245,6 +245,9 @@ const quickPickGroups = [
   },
 ];
 
+const quickPickLabelByValue = new Map(quickPickGroups.flatMap((group) => group.options));
+const targetProviderResultCount = 8;
+
 const initialOtt = ["netflix"];
 const initialTypes = ["movie", "drama", "animation"];
 const initialTitles = ["", "", ""];
@@ -415,7 +418,16 @@ function contentTypeForUi(content) {
   return content.type || content.contentType || "movie";
 }
 
-function normalizeProviderResult(content) {
+function quickPickSummary(quickPicks) {
+  return quickPicks.map((quickPick) => quickPickLabelByValue.get(quickPick)).filter(Boolean).slice(0, 2).join(", ");
+}
+
+function providerQuickPickScore(item, quickPicks) {
+  if (!quickPicks.length) return 0;
+  return quickPicks.reduce((score, quickPick) => (item.tags.includes(quickPick) ? score + 1 : score), 0);
+}
+
+function normalizeProviderResult(content, quickPicks = []) {
   const title = content.title || "제목 없음";
   const type = contentTypeForUi(content);
   const genres = Array.isArray(content.genres) && content.genres.length ? content.genres : ["장르 확인 필요"];
@@ -423,6 +435,8 @@ function normalizeProviderResult(content) {
   const actors = Array.isArray(content.actors) && content.actors.length ? content.actors : ["정보 없음"];
   const runtime = Number(content.runtime);
   const rating = Number(content.rating);
+  const poster = content.backdrop || content.poster || thumbnailText(title);
+  const optionSummary = quickPickSummary(quickPicks);
 
   return {
     ...content,
@@ -436,9 +450,11 @@ function normalizeProviderResult(content) {
     rating: Number.isFinite(rating) && rating > 0 ? rating.toFixed(1) : "정보 없음",
     runtime: Number.isFinite(runtime) && runtime > 0 ? `${runtime}분` : "상세 확인",
     ott,
-    reason: content.reason || "입력한 작품과 연결해 확인해볼 만한 실제 검색 결과입니다.",
+    reason: content.reason || (optionSummary ? `${optionSummary} 옵션까지 함께 참고한 실제 검색 결과입니다.` : "입력한 작품과 연결해 확인해볼 만한 실제 검색 결과입니다."),
     synopsis: content.synopsis || content.overview || "줄거리 정보가 아직 없습니다.",
-    poster: content.poster || thumbnailText(title),
+    poster,
+    detailPoster: content.poster || content.backdrop || thumbnailText(title),
+    backdrop: content.backdrop || "",
     match: content.match || Number(content.vote_average || content.rating || 0),
   };
 }
@@ -460,9 +476,9 @@ function providerStatusFromPayload(payload) {
   };
 }
 
-async function fetchProviderRecommendations(titles, selectedTypes) {
+async function fetchProviderRecommendations(titles, selectedTypes, quickPicks) {
   const uniqueTitles = [...new Set(titles)].slice(0, 3);
-  const collected = [];
+  const resultBatches = [];
   const seen = new Set();
   let providerStatus = null;
 
@@ -477,20 +493,34 @@ async function fetchProviderRecommendations(titles, selectedTypes) {
 
     const payload = await response.json();
     providerStatus = providerStatus || providerStatusFromPayload(payload);
-    const normalizedResults = (payload.results || []).map(normalizeProviderResult);
+    const normalizedResults = (payload.results || []).map((item) => normalizeProviderResult(item, quickPicks));
     const selectedResults = normalizedResults.filter((item) => isSelectedContentType(item, selectedTypes));
-    const displayResults = selectedResults.length ? selectedResults : normalizedResults;
+    const displayResults = (selectedResults.length ? selectedResults : normalizedResults).sort(
+      (a, b) => providerQuickPickScore(b, quickPicks) - providerQuickPickScore(a, quickPicks) || b.match - a.match,
+    );
+    resultBatches.push(displayResults);
+  }
 
-    for (const item of displayResults) {
+  const collected = [];
+  const maxBatchLength = Math.max(0, ...resultBatches.map((batch) => batch.length));
+
+  for (let rank = 0; rank < maxBatchLength; rank += 1) {
+    for (const batch of resultBatches) {
+      const item = batch[rank];
+      if (!item) continue;
+
       const key = `${item.providerId || item.source || "provider"}-${item.providerContentId || item.title}`;
       if (seen.has(key)) continue;
       seen.add(key);
       collected.push(item);
-      if (collected.length >= 6) return { results: collected, providerStatus };
+
+      if (collected.length >= targetProviderResultCount) {
+        return { results: collected, providerStatus };
+      }
     }
   }
 
-  return { results: collected, providerStatus };
+  return { results: collected.slice(0, targetProviderResultCount), providerStatus };
 }
 
 function toggleValue(values, value) {
@@ -623,7 +653,7 @@ export default function Home() {
     }
 
     try {
-      const { results: providerResults, providerStatus: nextProviderStatus } = await fetchProviderRecommendations(enteredTitles, selectedTypes);
+      const { results: providerResults, providerStatus: nextProviderStatus } = await fetchProviderRecommendations(enteredTitles, selectedTypes, selectedQuickPicks);
       setResults(providerResults.length ? providerResults : fallbackResults);
       if (showDevProviderStatus && nextProviderStatus) {
         setProviderStatus(nextProviderStatus);
@@ -797,7 +827,7 @@ export default function Home() {
         ) : null}
         <div className="result-grid" id="resultGrid">
           {results.map((item) => (
-            <DecisionCard item={item} enteredTitles={enteredTitles} onOpen={openDetail} key={item.title} />
+            <DecisionCard item={item} enteredTitles={enteredTitles} onOpen={openDetail} key={item.id || item.providerContentId || item.title} />
           ))}
         </div>
       </section>
@@ -850,7 +880,7 @@ export default function Home() {
           <section className="detail-layer" role="dialog" aria-modal="true" aria-labelledby="detailTitle">
             <button className="close-button detail-close" type="button" onClick={() => setSelectedDetail(null)} aria-label="상세 정보 닫기">×</button>
             <div className="detail-layout">
-              <div className="detail-thumb poster" aria-hidden="true"><PosterVisual poster={selectedDetail.poster} title={selectedDetail.title} /></div>
+              <div className="detail-thumb poster" aria-hidden="true"><PosterVisual poster={selectedDetail.detailPoster || selectedDetail.poster} title={selectedDetail.title} /></div>
               <div className="detail-info">
                 <span className="type-badge">{selectedDetail.label}</span>
                 <h2 id="detailTitle">{selectedDetail.title}</h2>

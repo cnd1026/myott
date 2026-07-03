@@ -23,6 +23,8 @@ function toUnifiedContentModel(item) {
     platforms,
     moods,
     overview,
+    backdrop: item.backdrop || "",
+    backdropPath: item.backdropPath || "",
     label: item.label || typeLabel(contentType),
     genre: item.genre || (item.genres || ["기타"]).join(", "),
     source: "tmdb",

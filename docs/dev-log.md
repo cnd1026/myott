@@ -2,6 +2,31 @@
 
 개발 과정에서의 작업 내용, 결정, 아쉬운 점, 다음 개선 사항을 날짜별로 기록합니다.
 
+## 2026-07-03 - MYOTT-S08-T03
+
+### 오늘 작업
+
+- 여러 입력 작품의 TMDB 결과를 각각 가져와 중복 제거 후 8개까지 섞어 보여주도록 개선했습니다.
+- 첫 번째 입력값 결과가 전체 추천을 독점하지 않도록 라운드로빈 병합을 적용했습니다.
+- Quick Pick 옵션은 정렬과 추천 이유 문구에만 가볍게 반영했습니다.
+- 카드 상단에는 backdrop 이미지를 우선 사용하고, 상세 Layer에는 poster/backdrop fallback을 유지했습니다.
+
+### 결정한 것
+
+- TMDB recommendation API 확장은 이번 Task에서 하지 않습니다.
+- Provider Registry와 Mock fallback 구조는 유지합니다.
+- Hero Recommendation은 이번 Task에서 직접 수정하지 않고 Mock 고정 Known Issue로 남깁니다.
+
+### 아쉬운 점
+
+- 검색 결과 병합 기반이라 아직 진짜 유사작 추천은 아닙니다.
+- Codex 환경에서는 TMDB 외부 fetch가 제한되어 실제 multi-input TMDB 화면은 Founder 환경에서 확인해야 합니다.
+
+### 다음 개선
+
+- 다음 단계에서 TMDB recommendation/detail 확장 또는 별도 추천 endpoint 사용 여부를 검토합니다.
+- Hero Recommendation을 실제 데이터와 연결할지, MVP에서는 Mock 큐레이션으로 유지할지 결정합니다.
+
 ## 2026-07-03 - MYOTT-S08-T02
 
 ### 오늘 작업
