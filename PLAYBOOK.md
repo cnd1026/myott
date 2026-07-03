@@ -134,6 +134,15 @@ Review는 칭찬이나 보고서가 아니라 다음 Sprint를 더 정확히 시
 - Privacy by Design
 - Parking Lot으로 MVP를 보호한다.
 
+### Recommendation Engine Principle
+
+- 추천 엔진은 더 많은 결과를 보여주기 위한 기능이 아니다.
+- 추천 엔진의 목적은 사용자가 가장 먼저 볼 작품을 더 빨리 찾도록 돕는 것이다.
+- 추천 결과는 입력 작품, 추천 옵션, metadata, 공통점, 신뢰 단서를 바탕으로 정렬되어야 한다.
+- 좋은 추천은 결과 수를 늘리는 것이 아니라 첫 번째 선택의 품질을 높이는 것이다.
+- 추천 로직은 가능한 한 설명 가능해야 한다.
+- 글로벌 서비스를 고려하여 추천 로직은 표시 언어보다 TMDB genre id 같은 locale-independent metadata를 우선 활용한다.
+
 ---
 
 ## 10. Documentation Rules
@@ -228,3 +237,4 @@ Sprint 종료 전 반드시 묻습니다.
 - Team Roles
 - Product Principles
 - Documentation Rules
+- Recommendation Engine Principle
