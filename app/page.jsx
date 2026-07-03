@@ -203,6 +203,7 @@ const ottOptions = [
   ["watcha", "Watcha"],
   ["tving", "TVING"],
 ];
+const ottLabelByValue = new Map(ottOptions);
 
 const contentTypeOptions = [
   ["movie", "영화"],
@@ -246,7 +247,7 @@ const quickPickGroups = [
 ];
 
 const quickPickLabelByValue = new Map(quickPickGroups.flatMap((group) => group.options));
-const targetProviderResultCount = 8;
+const targetProviderResultCount = 12;
 const quickPickGenreIds = new Map([
   ["genre-sf", [878, 10765]],
   ["genre-romance", [10749]],
@@ -257,6 +258,7 @@ const recommendationInsightText = {
   genreMatch: "입력한 작품들과 공통 장르가 많습니다.",
   optionMatch: "선택한 추천 옵션과 잘 맞습니다.",
   contentType: "선택한 콘텐츠 종류와 맞습니다.",
+  ottMatch: "선택한 OTT 정보와 연결됩니다.",
   metadataTieBreak: "평점과 인기도를 보조 기준으로 참고했습니다.",
 };
 
@@ -400,24 +402,26 @@ function buildHeroRecommendations(timeSlot) {
   ].filter(({ item }) => Boolean(item));
 }
 
-function scoreRecommendation(item, quickPicks) {
-  return quickPicks.reduce((score, quickPick) => (item.tags.includes(quickPick) ? score + 1 : score), 0);
+function scoreRecommendation(item, quickPicks, selectedOtt) {
+  const quickPickScore = quickPicks.reduce((score, quickPick) => (item.tags.includes(quickPick) ? score + 1 : score), 0);
+  const ottScore = platformMatchesSelectedOtt(item, selectedOtt) ? 1 : 0;
+  return quickPickScore + ottScore;
 }
 
-function buildRecommendations(selectedTypes, quickPicks) {
+function buildRecommendations(selectedTypes, quickPicks, selectedOtt = []) {
   const typeMatched = dummyRecommendations.filter((item) => selectedTypes.includes(item.type));
 
-  if (!quickPicks.length) {
-    return typeMatched.slice(0, 6);
+  if (!quickPicks.length && !selectedOtt.length) {
+    return typeMatched.slice(0, targetProviderResultCount);
   }
 
   const scored = typeMatched
-    .map((item) => ({ item, score: scoreRecommendation(item, quickPicks) }))
+    .map((item) => ({ item, score: scoreRecommendation(item, quickPicks, selectedOtt) }))
     .filter(({ score }) => score > 0)
     .sort((a, b) => b.score - a.score || b.item.match - a.item.match)
     .map(({ item }) => item);
 
-  return scored.length ? scored.slice(0, 6) : typeMatched.slice(0, 6);
+  return scored.length ? scored.slice(0, targetProviderResultCount) : typeMatched.slice(0, targetProviderResultCount);
 }
 
 function tagsFromProviderContent(content) {
@@ -523,11 +527,22 @@ function insightMessages(signals) {
   if (signals.genreMatch) messages.push(recommendationInsightText.genreMatch);
   if (signals.optionMatch) messages.push(recommendationInsightText.optionMatch);
   if (signals.contentType) messages.push(recommendationInsightText.contentType);
+  if (signals.ottMatch) messages.push(recommendationInsightText.ottMatch);
   if (!messages.length && signals.metadataTieBreak) messages.push(recommendationInsightText.metadataTieBreak);
   return messages.slice(0, 3);
 }
 
-function analyzeProviderResult(item, selectedTypes, quickPicks) {
+function selectedOttLabels(selectedOtt) {
+  return selectedOtt.map((value) => ottLabelByValue.get(value)).filter(Boolean);
+}
+
+function platformMatchesSelectedOtt(item, selectedOtt) {
+  const platforms = Array.isArray(item.ott) ? item.ott : [];
+  const selectedLabels = selectedOttLabels(selectedOtt);
+  return selectedLabels.some((label) => platforms.some((platform) => normalizeTitleKey(platform) === normalizeTitleKey(label)));
+}
+
+function analyzeProviderResult(item, selectedTypes, quickPicks, selectedOtt) {
   const genreIds = normalizedIdList(item.genreIds);
   const seedGenreOverlap = intersectionCount(genreIds, normalizedIdList(item.seedGenreIds));
   const quickPickGenreOverlap = quickPicks.reduce(
@@ -536,25 +551,27 @@ function analyzeProviderResult(item, selectedTypes, quickPicks) {
   );
   const quickPickTagMatches = quickPicks.reduce((score, quickPick) => score + (item.tags.includes(quickPick) ? 1 : 0), 0);
   const typeMatch = isSelectedContentType(item, selectedTypes) ? 1 : 0;
+  const ottMatch = platformMatchesSelectedOtt(item, selectedOtt) ? 1 : 0;
   const rating = Number.parseFloat(item.rating);
   const signals = {
     multipleSeed: item.seedCount > 1,
     genreMatch: seedGenreOverlap > 0,
     optionMatch: quickPickGenreOverlap + quickPickTagMatches > 0,
     contentType: typeMatch > 0,
+    ottMatch: ottMatch > 0,
     metadataTieBreak: Number(item.popularity || 0) > 0 || Number.isFinite(rating),
   };
 
   return {
-    score: item.seedCount * 3 + seedGenreOverlap * 2 + quickPickGenreOverlap * 2 + quickPickTagMatches * 2 + typeMatch,
+    score: item.seedCount * 3 + seedGenreOverlap * 2 + quickPickGenreOverlap * 2 + quickPickTagMatches * 2 + typeMatch * 2 + ottMatch,
     insight: insightMessages(signals),
   };
 }
 
-function sortProviderResults(results, selectedTypes, quickPicks) {
+function sortProviderResults(results, selectedTypes, quickPicks, selectedOtt) {
   return results
     .map((item) => {
-      const analysis = analyzeProviderResult(item, selectedTypes, quickPicks);
+      const analysis = analyzeProviderResult(item, selectedTypes, quickPicks, selectedOtt);
       return {
         ...item,
         score: analysis.score,
@@ -629,8 +646,8 @@ function providerStatusFromPayload(payload) {
   };
 }
 
-async function fetchProviderRecommendations(titles, selectedTypes, quickPicks) {
-  const uniqueTitles = [...new Set(titles)].slice(0, 3);
+async function fetchProviderRecommendations(titles, selectedTypes, quickPicks, selectedOtt) {
+  const uniqueTitles = [...new Set(titles)];
   const providerResults = [];
   let providerStatus = null;
 
@@ -652,7 +669,7 @@ async function fetchProviderRecommendations(titles, selectedTypes, quickPicks) {
   }
 
   const mergedResults = mergeProviderResults(filterSeedResults(providerResults, uniqueTitles));
-  const sortedResults = sortProviderResults(mergedResults, selectedTypes, quickPicks);
+  const sortedResults = sortProviderResults(mergedResults, selectedTypes, quickPicks, selectedOtt);
 
   return { results: sortedResults.slice(0, targetProviderResultCount), providerStatus };
 }
@@ -817,30 +834,33 @@ export default function Home() {
 
   async function handleSubmit(event) {
     event.preventDefault();
-    if (!canRecommend) return;
+    const currentTitles = titles.map((title) => title.trim()).filter(Boolean);
+    const canSubmit = currentTitles.length > 0 || selectedQuickPicks.length > 0;
+    if (!canSubmit) return;
 
     setHasSubmitted(true);
+    setResults([]);
     setSelectedDetail(null);
     setShowQuickPick(false);
     closeSuggestions();
 
-    const fallbackResults = filterSeedResults(buildRecommendations(selectedTypes, selectedQuickPicks), enteredTitles);
+    const fallbackResults = filterSeedResults(buildRecommendations(selectedTypes, selectedQuickPicks, selectedOtt), currentTitles).slice(0, targetProviderResultCount);
 
-    if (!enteredTitles.length) {
+    if (!currentTitles.length) {
       setResults(fallbackResults);
       refreshProviderStatus("interstellar");
       return;
     }
 
     try {
-      const { results: providerResults, providerStatus: nextProviderStatus } = await fetchProviderRecommendations(enteredTitles, selectedTypes, selectedQuickPicks);
+      const { results: providerResults, providerStatus: nextProviderStatus } = await fetchProviderRecommendations(currentTitles, selectedTypes, selectedQuickPicks, selectedOtt);
       setResults(providerResults.length ? providerResults : fallbackResults);
       if (showDevProviderStatus && nextProviderStatus) {
         setProviderStatus(nextProviderStatus);
       }
     } catch {
       setResults(fallbackResults);
-      refreshProviderStatus(enteredTitles[0] || "interstellar");
+      refreshProviderStatus(currentTitles[0] || "interstellar");
     }
   }
 

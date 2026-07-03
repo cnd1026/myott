@@ -2,6 +2,34 @@
 
 개발 과정에서의 작업 내용, 결정, 아쉬운 점, 다음 개선 사항을 날짜별로 기록합니다.
 
+## 2026-07-03 - MYOTT-S08-T09
+
+### 오늘 작업
+
+- 추천 submit 시 현재 입력값 전체를 다시 수집하도록 했습니다.
+- Provider 추천 요청에서 seed 3개 제한을 제거해 동적 입력창 4개 이상도 반영되도록 했습니다.
+- 추천 결과 목표 수를 12개로 늘리고, TMDB recommendation 수집 한도도 12개로 조정했습니다.
+- OTT 선택값과 콘텐츠 종류 선택값을 score와 Recommendation Insight에 반영했습니다.
+- 개발 포트 정책을 `3000` Founder, `3001` Codex로 문서화했습니다.
+
+### 결정한 것
+
+- OTT 선택은 현재 정확한 제공처 필터가 아니라 우선순위 보정으로만 사용합니다.
+- 콘텐츠 종류는 결과 배제보다 score 가산 방식으로 반영해 데이터 부족 상황에서도 fallback을 유지합니다.
+- Codex 환경의 TMDB 실패는 `UNABLE_TO_VERIFY_LEAF_SIGNATURE` TLS 인증서 검증 문제로 기록합니다.
+
+### 아쉬운 점
+
+- Codex 환경에서는 TMDB HTTPS 인증서 체인을 신뢰하지 못해 실제 TMDB 성공 경로를 확인하지 못했습니다.
+- `NODE_TLS_REJECT_UNAUTHORIZED=0` 같은 해결은 보안상 코드나 운영 규칙에 적용하지 않습니다.
+- 정확한 OTT 제공처 필터는 TMDB watch provider 데이터 품질과 지역별 차이를 더 확인해야 합니다.
+
+### 다음 개선
+
+- Founder 환경에서 TMDB 실제 응답 기준으로 작품 4~5 추가 후 결과 변경을 확인합니다.
+- Codex 환경에서 필요한 경우 신뢰 가능한 CA bundle을 `NODE_EXTRA_CA_CERTS`로 제공하는 방식을 검토합니다.
+- OTT deep link와 정확한 제공처 필터는 별도 Sprint로 분리합니다.
+
 ## 2026-07-03 - MYOTT-S08-T08
 
 ### 오늘 작업

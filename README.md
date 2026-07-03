@@ -16,6 +16,7 @@ SceneSense / MovieMind DNA는 좋아했던 영화, 드라마, 애니를 바탕�
 - [x] MYOTT-S08-T06A Task 8-6A 자동완성 닫힘 UX 정리
 - [x] MYOTT-S08-T07 Task 8-7 Multi-seed option scoring
 - [x] MYOTT-S08-T08 Task 8-8 Recommendation Insight
+- [x] MYOTT-S08-T09 Task 8-9 전체 입력/옵션 재계산
 
 ### Sprint 7 Completed
 
