@@ -54,6 +54,8 @@ function contentMatchesFilters(content, filters = []) {
     content.contentType,
     content.type,
     content.country,
+    ...content.platforms,
+    ...content.ott,
     ...content.genres,
     ...content.moods,
     ...content.keywords,

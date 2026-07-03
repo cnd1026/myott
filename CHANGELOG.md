@@ -2,6 +2,28 @@
 
 프로젝트의 주요 변경 사항을 날짜별로 기록합니다.
 
+## 2026-07-04 - MYOTT-S08-T10A
+
+### 변경 내용
+
+- Quick Pick Layer에 옵션 검색 입력창을 추가했습니다.
+- 장르/국가/분위기/러닝타임을 4개 Grid 영역으로 재배치하고, 모든 옵션을 동일한 chip UI로 정리했습니다.
+- TMDB 장르 metadata의 긴 영어 label을 한국어 표시 label로 다듬었습니다.
+- 입력 작품 없이 옵션만 선택해도 Provider 기반 옵션 추천을 요청하도록 `/api/recommend/options` 경로를 추가했습니다.
+- TMDB option-only 추천은 genre id, country code, content type 기반 discover 힌트를 사용하도록 했습니다.
+- Related Picks를 Detail Layer 내부가 아니라 Detail Layer 아래의 독립 strip으로 분리했습니다.
+
+### 이유
+
+- 옵션이 늘어날수록 검색과 균형 잡힌 레이아웃이 없으면 Quick Pick이 선택 도구가 아니라 긴 목록처럼 느껴지기 때문입니다.
+- 장르/국가만 선택해도 실제 추천 흐름이 동작해야 Quick Pick이 더미 옵션처럼 보이지 않기 때문입니다.
+- 상세 확인 후 다음 작품 탐색은 상세 정보 내부보다 별도 related strip에서 더 자연스럽게 이어지기 때문입니다.
+
+### 다음 작업
+
+- Founder 환경에서 TMDB discover 기반 option-only 추천 품질을 확인합니다.
+- 국가 옵션은 제작 국가 기반 score/discover 힌트이며, OTT 제공처/지역 필터와는 별도로 후속 검토합니다.
+
 ## 2026-07-04 - MYOTT-S08-T10
 
 ### 변경 내용

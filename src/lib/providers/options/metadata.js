@@ -71,6 +71,7 @@ const genreValueByName = new Map([
 function normalizeGenreName(name) {
   const mapping = {
     Action: "액션",
+    "Action & Adventure": "액션·모험",
     Adventure: "모험",
     Animation: "애니메이션",
     Comedy: "코미디",
@@ -83,7 +84,14 @@ function normalizeGenreName(name) {
     Romance: "로맨스",
     "Science Fiction": "SF",
     "Sci-Fi & Fantasy": "SF",
+    "TV Movie": "TV 영화",
     Thriller: "스릴러",
+    Kids: "키즈",
+    Reality: "리얼리티",
+    Talk: "토크",
+    Soap: "소프",
+    News: "뉴스",
+    "War & Politics": "전쟁·정치",
   };
 
   return mapping[name] || name;

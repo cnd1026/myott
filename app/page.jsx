@@ -501,6 +501,22 @@ function quickPickSummary(quickPicks, labelByValue = quickPickLabelByValue) {
   return quickPicks.map((quickPick) => labelByValue.get(quickPick)).filter(Boolean).slice(0, 2).join(", ");
 }
 
+function normalizeOptionSearch(value = "") {
+  return String(value).trim().toLowerCase();
+}
+
+function filterOptionGroups(groups, query) {
+  const normalizedQuery = normalizeOptionSearch(query);
+  if (!normalizedQuery) return groups;
+
+  return groups
+    .map((group) => ({
+      ...group,
+      options: group.options.filter(([, label]) => normalizeOptionSearch(label).includes(normalizedQuery)),
+    }))
+    .filter((group) => group.options.length);
+}
+
 function normalizedIdList(values = []) {
   return (Array.isArray(values) ? values : []).map((value) => Number(value)).filter((value) => Number.isFinite(value));
 }
@@ -765,6 +781,30 @@ async function fetchProviderRecommendations(titles, selectedTypes, quickPicks, s
   return { results: balancedResults.slice(0, targetProviderResultCount), providerStatus };
 }
 
+async function fetchOptionRecommendations(selectedTypes, quickPicks, selectedOtt, optionMetadata, labelByValue) {
+  const filters = [...quickPicks, ...selectedOtt];
+  const params = new URLSearchParams({
+    filters: filters.join(","),
+    types: selectedTypes.join(","),
+  });
+  const response = await fetch(`/api/recommend/options?${params.toString()}`, {
+    cache: "no-store",
+  });
+
+  if (!response.ok) {
+    throw new Error(`Option recommendation request failed: ${response.status}`);
+  }
+
+  const payload = await response.json();
+  const normalizedResults = (payload.results || []).map((item) => normalizeProviderResult(item, quickPicks, "", labelByValue));
+  const sortedResults = sortProviderResults(mergeProviderResults(normalizedResults), selectedTypes, quickPicks, selectedOtt, optionMetadata);
+
+  return {
+    results: sortedResults.slice(0, targetProviderResultCount),
+    providerStatus: providerStatusFromPayload(payload),
+  };
+}
+
 function toggleValue(values, value) {
   return values.includes(value) ? values.filter((item) => item !== value) : [...values, value];
 }
@@ -828,6 +868,7 @@ export default function Home() {
   const [selectedQuickPicks, setSelectedQuickPicks] = useState([]);
   const [optionGroups, setOptionGroups] = useState(quickPickGroups);
   const [optionMetadata, setOptionMetadata] = useState(initialOptionMetadata);
+  const [quickPickSearch, setQuickPickSearch] = useState("");
   const [showQuickPick, setShowQuickPick] = useState(false);
   const [results, setResults] = useState([]);
   const [recommendationStatus, setRecommendationStatus] = useState("idle");
@@ -840,9 +881,11 @@ export default function Home() {
   const suggestionCacheRef = useRef(new Map());
 
   const enteredTitles = useMemo(() => titles.map((title) => title.trim()).filter(Boolean), [titles]);
-  const canRecommend = enteredTitles.length > 0 || selectedQuickPicks.length > 0;
+  const hasOptionPreference = selectedQuickPicks.length > 0 || selectedOtt.length > 0 || selectedTypes.length > 0;
+  const canRecommend = enteredTitles.length > 0 || hasOptionPreference;
   const heroRecommendations = useMemo(() => buildHeroRecommendations(timeSlot).slice(0, 3), [timeSlot]);
   const optionLabelByValue = useMemo(() => new Map(optionGroups.flatMap((group) => group.options)), [optionGroups]);
+  const filteredOptionGroups = useMemo(() => filterOptionGroups(optionGroups, quickPickSearch), [optionGroups, quickPickSearch]);
   const relatedRecommendations = selectedDetail
     ? results.filter((item) => contentKey(item) !== contentKey(selectedDetail)).slice(0, 4)
     : [];
@@ -974,7 +1017,7 @@ export default function Home() {
   async function handleSubmit(event) {
     event.preventDefault();
     const currentTitles = titles.map((title) => title.trim()).filter(Boolean);
-    const canSubmit = currentTitles.length > 0 || selectedQuickPicks.length > 0;
+    const canSubmit = currentTitles.length > 0 || hasOptionPreference;
     if (!canSubmit) return;
 
     setRecommendationStatus("loading");
@@ -986,9 +1029,25 @@ export default function Home() {
     const fallbackResults = filterSeedResults(buildRecommendations(selectedTypes, selectedQuickPicks, selectedOtt), currentTitles).slice(0, targetProviderResultCount);
 
     if (!currentTitles.length) {
-      setResults(fallbackResults);
-      setRecommendationStatus(fallbackResults.length ? "success" : "empty");
-      refreshProviderStatus("interstellar");
+      try {
+        const { results: optionResults, providerStatus: nextProviderStatus } = await fetchOptionRecommendations(
+          selectedTypes,
+          selectedQuickPicks,
+          selectedOtt,
+          optionMetadata,
+          optionLabelByValue,
+        );
+        const nextResults = optionResults.length ? optionResults : fallbackResults;
+        setResults(nextResults);
+        setRecommendationStatus(nextResults.length ? "success" : "empty");
+        if (showDevProviderStatus && nextProviderStatus) {
+          setProviderStatus(nextProviderStatus);
+        }
+      } catch {
+        setResults(fallbackResults);
+        setRecommendationStatus(fallbackResults.length ? "success" : "error");
+        refreshProviderStatus("interstellar");
+      }
       return;
     }
 
@@ -1054,6 +1113,7 @@ export default function Home() {
     setSelectedTypes([...initialTypes]);
     setTitles([...initialTitles]);
     setSelectedQuickPicks([]);
+    setQuickPickSearch("");
     setShowQuickPick(false);
     setResults([]);
     setRecommendationStatus("idle");
@@ -1263,8 +1323,18 @@ export default function Home() {
               </div>
             </div>
 
+            <label className="option-search-field">
+              옵션 검색
+              <input
+                type="text"
+                value={quickPickSearch}
+                placeholder="옵션 검색..."
+                onChange={(event) => setQuickPickSearch(event.target.value)}
+              />
+            </label>
+
             <div className="quick-pick-groups">
-              {optionGroups.map((group) => (
+              {filteredOptionGroups.map((group) => (
                 <fieldset className="quick-group" key={group.title}>
                   <legend>{group.title}</legend>
                   {group.options.map(([value, label]) => (
@@ -1281,6 +1351,7 @@ export default function Home() {
                   ))}
                 </fieldset>
               ))}
+              {!filteredOptionGroups.length ? <p className="option-empty">검색된 옵션이 없습니다.</p> : null}
             </div>
           </section>
         </div>
@@ -1289,6 +1360,7 @@ export default function Home() {
       {selectedDetail ? (
         <div className="detail-overlay" id="detailOverlay" aria-hidden="false">
           <div className="detail-backdrop" onClick={() => setSelectedDetail(null)} />
+          <div className="detail-stack">
           <section className="detail-layer" role="dialog" aria-modal="true" aria-labelledby="detailTitle">
             <button className="close-button detail-close" type="button" onClick={() => setSelectedDetail(null)} aria-label="상세 정보 닫기">×</button>
             <div className="detail-layout">
@@ -1331,33 +1403,34 @@ export default function Home() {
                   <span>볼 수 있는 OTT</span>
                   <strong>{selectedDetail.ott.join(", ")}</strong>
                 </div>
-                {relatedRecommendations.length ? (
-                  <section className="related-panel" aria-labelledby="relatedRecommendationTitle">
-                    <div>
-                      <p className="trust-label" id="relatedRecommendationTitle">Related Picks</p>
-                      <p className="trust-copy">현재 추천 결과에서 이어서 볼 만한 작품입니다.</p>
-                    </div>
-                    <div className="related-strip" aria-label="관련 추천">
-                      {relatedRecommendations.map((item) => (
-                        <button
-                          className="related-card"
-                          type="button"
-                          onClick={() => setSelectedDetail(item)}
-                          key={item.id || item.providerContentId || item.title}
-                        >
-                          <span className="related-thumb" aria-hidden="true"><PosterVisual poster={item.poster} title={item.title} /></span>
-                          <span>
-                            <strong>{item.title}</strong>
-                            <small>{decisionReason(item, enteredTitles)}</small>
-                          </span>
-                        </button>
-                      ))}
-                    </div>
-                  </section>
-                ) : null}
               </div>
             </div>
           </section>
+          {relatedRecommendations.length ? (
+            <section className="related-panel" aria-labelledby="relatedRecommendationTitle">
+              <div>
+                <p className="trust-label" id="relatedRecommendationTitle">Related Picks</p>
+                <p className="trust-copy">현재 추천 결과에서 이어서 볼 만한 작품입니다.</p>
+              </div>
+              <div className="related-strip" aria-label="관련 추천">
+                {relatedRecommendations.map((item) => (
+                  <button
+                    className="related-card"
+                    type="button"
+                    onClick={() => setSelectedDetail(item)}
+                    key={item.id || item.providerContentId || item.title}
+                  >
+                    <span className="related-thumb" aria-hidden="true"><PosterVisual poster={item.poster} title={item.title} /></span>
+                    <span>
+                      <strong>{item.title}</strong>
+                      <small>{decisionReason(item, enteredTitles)}</small>
+                    </span>
+                  </button>
+                ))}
+              </div>
+            </section>
+          ) : null}
+          </div>
         </div>
       ) : null}
     </main>

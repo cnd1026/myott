@@ -2,6 +2,32 @@
 
 개발 과정에서의 작업 내용, 결정, 아쉬운 점, 다음 개선 사항을 날짜별로 기록합니다.
 
+## 2026-07-04 - MYOTT-S08-T10A
+
+### 오늘 작업
+
+- Quick Pick 옵션 검색을 추가했습니다.
+- 옵션 그룹을 장르/국가/분위기/러닝타임 4영역 Grid로 재구성했습니다.
+- TMDB 장르 label을 chip에 맞는 한국어 표시명으로 정리했습니다.
+- 옵션만 선택했을 때도 Provider 기반 추천 경로를 타도록 option recommendation API를 추가했습니다.
+- Related Picks를 Detail Layer 바깥 독립 strip으로 분리했습니다.
+
+### 결정한 것
+
+- 옵션 검색은 display label 기준으로 수행하고, scoring/discover에는 value와 TMDB genre id/country code를 사용합니다.
+- option-only 추천은 TMDB가 가능하면 discover를 사용하고, 실패하면 Mock Provider fallback을 유지합니다.
+- Related Picks는 새 API 호출 없이 현재 결과 배열을 재사용합니다.
+
+### 아쉬운 점
+
+- 국가 옵션은 아직 정확한 OTT 제공처 필터가 아니라 제작 국가 기반 힌트에 가깝습니다.
+- Codex 환경에서는 TMDB TLS 제약으로 실제 TMDB discover 성공 경로를 Founder 로컬에서 최종 확인해야 합니다.
+
+### 다음 개선
+
+- Founder 환경에서 `SF`, `미` 검색과 일본/미국 옵션 추천 품질을 확인합니다.
+- 옵션 수가 더 늘어나면 group별 접기/고정 영역이 필요한지 검토합니다.
+
 ## 2026-07-04 - MYOTT-S08-T10
 
 ### 오늘 작업
