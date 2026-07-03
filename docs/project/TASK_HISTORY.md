@@ -41,13 +41,19 @@
 | MYOTT-S06-T04 | Task 6-4 MVP Readiness Polish | `9040931` | Hero, 입력, 결과 영역의 문구와 카드 균형을 점검하고 모바일 흐름을 다듬음. Provider/API/아키텍처 미수정. | 완료 |
 | MYOTT-S06-T05 | Task 6-5 Decision Experience Final Polish | `7050c82` | 카드 상세 보기 affordance와 상세 Layer 정보 계층을 다듬어 추천에서 상세 확인까지의 마지막 UX 마찰을 줄임. Provider/API/아키텍처 미수정. | 완료 |
 
+## Sprint 8
+
+| Task ID | Task | Commit | Review | 상태 |
+| --- | --- | --- | --- | --- |
+| MYOTT-S08-T01 | Task 8-1 TMDB 실제 검색 결과 연결 | This implementation commit | 입력 작품이 있으면 `/api/search` Provider 결과를 Decision Card/Detail Layer 데이터로 사용하고, 실패 시 기존 Mock 추천으로 fallback. UI/Provider Registry 구조 유지. | 완료 |
+
 ## Sprint 7
 
 | Task ID | Task | Commit | Review | 상태 |
 | --- | --- | --- | --- | --- |
 | MYOTT-S07-T01 | Task 7-1 Recommendation Confidence Foundation | `cf6ba39` | 상세 Layer에 실제 데이터로 오해되지 않는 추천 신뢰 단서 UI를 추가. Provider/API/추천 알고리즘 미수정. | 완료 |
 | MYOTT-S07-T02 | Task 7-2 Recommendation Trust Signals | `d26aa53` | Recommendation Confidence 영역을 Trust Signal 슬롯 구조로 개선. 실제 데이터처럼 보이는 표현 없이 상세 Layer 신뢰 정보 계층 정리. | 완료 |
-| MYOTT-S07-T03 | Task 7-3 Recommendation Trust Polish | This implementation commit | 카드 CTA, Trust Signal, OTT 확인 정보의 시각적 우선순위를 다듬어 마지막 선택 흐름을 개선. Provider/API/추천 알고리즘 미수정. | 완료 |
+| MYOTT-S07-T03 | Task 7-3 Recommendation Trust Polish | `6390938` | 카드 CTA, Trust Signal, OTT 확인 정보의 시각적 우선순위를 다듬어 마지막 선택 흐름을 개선. Provider/API/추천 알고리즘 미수정. | 완료 |
 
 ## Sprint 5.0 Standardization
 

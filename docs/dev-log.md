@@ -2,6 +2,31 @@
 
 개발 과정에서의 작업 내용, 결정, 아쉬운 점, 다음 개선 사항을 날짜별로 기록합니다.
 
+## 2026-07-03 - MYOTT-S08-T01
+
+### 오늘 작업
+
+- 작품 입력 기반 추천 실행 시 `/api/search`의 Provider 결과를 우선 사용하도록 연결했습니다.
+- TMDB/Mock Provider 응답을 기존 Decision Card와 Detail Layer 데이터 형태로 맞췄습니다.
+- 검색 실패, 빈 결과, TMDB 오류 상황에서는 기존 Mock 추천 결과로 돌아가도록 유지했습니다.
+- README, PROJECT_STATUS, TASK_HISTORY, CHANGELOG, dev-log를 Sprint 8 기준으로 업데이트했습니다.
+
+### 결정한 것
+
+- Decision Card UI와 Detail Layer UI는 변경하지 않습니다.
+- Provider Registry, TMDB Provider, Mock Provider 구조는 유지합니다.
+- Quick Pick만 선택한 경우에는 기존 Mock 추천 흐름을 유지하고, 작품 입력이 있을 때만 Provider 검색 결과를 사용합니다.
+
+### 아쉬운 점
+
+- 실제 TMDB 포스터 이미지는 현재 카드 UI 구조를 바꾸지 않기 위해 텍스트 썸네일로 유지했습니다.
+- TMDB 실제 성공 경로는 유효한 `.env.local` 키와 네트워크 상태에 따라 추가 확인이 필요합니다.
+
+### 다음 개선
+
+- 실제 데이터에서 러닝타임, OTT 제공처, 평점이 비어 있을 때의 표시 품질을 Founder Review로 확인합니다.
+- 이후 Sprint에서 필요하면 포스터 이미지 렌더링을 별도 UI Task로 검토합니다.
+
 ## 2026-07-03 - MYOTT-S07-T03
 
 ### 오늘 작업

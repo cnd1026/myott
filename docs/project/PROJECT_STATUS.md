@@ -4,11 +4,11 @@
 
 ## Current Sprint
 
-Sprint 7
+Sprint 8
 
 ## Current Task
 
-MYOTT-S07-T03 Recommendation Trust Polish
+MYOTT-S08-T01 TMDB 실제 검색 결과 연결
 
 ## Current Branch
 
@@ -20,9 +20,9 @@ MYOTT-S07-T03 Recommendation Trust Polish
 
 ## Last Commit
 
-MYOTT-S07-T03 시작 시점 기준:
+MYOTT-S08-T01 시작 시점 기준:
 
-`d26aa53 feat(ui): improve recommendation trust signals`
+`6390938 refactor(ui): polish recommendation trust experience`
 
 ## Repository
 
@@ -33,7 +33,7 @@ MYOTT-S07-T03 시작 시점 기준:
 - Next.js 기반 앱입니다.
 - 메인 추천 흐름은 한 페이지에서 동작합니다.
 - Quick Pick Layer와 추천 상세 Layer가 구현되어 있습니다.
-- 추천 결과는 실제 추천처럼 보이는 더미 데이터 기반 UX로 동작합니다.
+- 추천 결과는 작품 입력이 있으면 Provider 검색 결과를 우선 사용하고, 실패하거나 결과가 부족하면 기존 Mock 기반 추천으로 fallback합니다.
 - TMDB 검색 API route와 상태 API route가 있습니다.
 - Provider Architecture는 Mock Provider와 TMDB Provider Adapter가 Registry에 연결된 상태입니다.
 - `/api/search`는 Provider Registry를 통해 active provider를 선택합니다.
@@ -46,7 +46,7 @@ MYOTT-S07-T03 시작 시점 기준:
 - MVP Readiness Polish로 Hero, 입력, 결과 영역의 문구와 카드 균형을 최종 점검하는 단계입니다.
 - Decision Experience Final Polish에서 카드 클릭 가능성, 상세 Layer 정보 계층, Reset/Dynamic Input 흐름을 최종 점검합니다.
 - Sprint 7에서는 상세 Layer에서 추천을 믿을 수 있는 보조 단서인 Trust Signal UI를 준비합니다.
-- Recommendation Trust Polish에서 추천 카드, Trust Signal, OTT 확인 정보의 시각적 흐름을 최종 점검합니다.
+- Sprint 8에서는 Sprint 7의 Decision/Trust UX를 유지한 채 TMDB 실제 검색 결과를 Recommendation Card와 Detail Layer에 연결합니다.
 
 ## Current Documentation State
 
@@ -63,14 +63,13 @@ MYOTT-S07-T03 시작 시점 기준:
 
 ## Next Milestone
 
-Recommendation Trust 흐름을 검증하고 마지막 선택까지의 마찰을 줄입니다.
+TMDB 실제 검색 결과가 기존 Recommendation Flow와 동일한 UX로 표시되는지 검증합니다.
 
 ## Immediate Next Tasks
 
-- Recommendation Trust Polish Founder Review
-- 추천 카드에서 상세, OTT 확인 정보까지 흐름이 끊기지 않는지 확인
-- Provider 검색 결과와 메인 추천 UX 연결 방식 검토
-- TMDB key 환경에서 실제 Provider Badge Founder Review
+- TMDB key 환경에서 실제 검색 결과 Founder Review
+- TMDB 실패/키 없음 환경에서 Mock fallback 확인
+- 실제 데이터의 장르, 러닝타임, 평점, OTT 정보가 Decision Card/Detail Layer에서 어색하지 않은지 확인
 - v1.0 최소 추천 경험과 DB 연동 시점 정리
 
 ## Risk Notes
@@ -78,7 +77,7 @@ Recommendation Trust 흐름을 검증하고 마지막 선택까지의 마찰을 
 - README 실행 명령은 현재 저장소 루트 기준 `pnpm install`, `pnpm dev`로 정리되어 있습니다.
 - TMDB Provider Adapter는 기존 `lib/tmdb.js`를 감싸는 형태이며, `lib/tmdb.js` 자체를 제거하지는 않았습니다.
 - 현재 환경에는 TMDB key가 없을 수 있으므로 TMDB 성공 경로는 Founder 환경에서 추가 확인이 필요합니다.
-- MYOTT-S07-T03은 Provider Registry/API/TMDB/Mock Provider를 수정하지 않는 Trust UX polish 작업입니다.
+- MYOTT-S08-T01은 Decision Card/Detail Layer UI를 변경하지 않고 Provider 검색 결과를 기존 카드 데이터 형태로 연결하는 작업입니다.
 - DB 설계는 문서 단계이며 SQL, Supabase 연결, 마이그레이션은 아직 없습니다.
 - APS 핵심 운영 문서는 MyOTT public repository에서 제거되었고, Nd_core가 Source of Truth입니다.
 - MyOTT public repository에는 APS 존재와 브랜드 참조만 유지합니다.

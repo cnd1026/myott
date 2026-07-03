@@ -2,6 +2,25 @@
 
 프로젝트의 주요 변경 사항을 날짜별로 기록합니다.
 
+## 2026-07-03 - MYOTT-S08-T01
+
+### 변경 내용
+
+- 작품 입력이 있을 때 메인 추천 흐름이 `/api/search` Provider 결과를 우선 사용하도록 연결했습니다.
+- TMDB/Mock Provider 결과를 기존 Decision Card와 Detail Layer가 읽는 데이터 형태로 정규화했습니다.
+- Provider 검색 실패나 결과 부족 시 기존 Mock 기반 추천 결과로 fallback하도록 유지했습니다.
+- README, PROJECT_STATUS, TASK_HISTORY를 Sprint 8 / MYOTT-S08-T01 기준으로 업데이트했습니다.
+
+### 이유
+
+- Sprint 5~7에서 검증한 Decision/Trust UX를 유지한 채 실제 TMDB 검색 결과에서도 같은 추천 경험이 가능한지 확인하기 위해서입니다.
+- UI와 Provider Registry 구조를 바꾸지 않고 실제 데이터 연결만 검증해야 하기 때문입니다.
+
+### 다음 작업
+
+- Founder 환경에서 TMDB API key가 있는 상태의 실제 검색 결과를 확인합니다.
+- TMDB 실패 또는 key 없음 상태에서 Mock fallback이 같은 UX로 표시되는지 확인합니다.
+
 ## 2026-07-03 - MYOTT-S07-T03
 
 ### 변경 내용

@@ -372,6 +372,98 @@ function buildRecommendations(selectedTypes, quickPicks) {
   return scored.length ? scored.slice(0, 6) : typeMatched.slice(0, 6);
 }
 
+function tagsFromProviderContent(content) {
+  const tags = new Set(Array.isArray(content.tags) ? content.tags : []);
+  const genres = Array.isArray(content.genres) ? content.genres : [];
+  const moods = Array.isArray(content.moods) ? content.moods : content.mood || [];
+  const country = content.country || "";
+  const runtime = Number(content.runtime);
+
+  genres.forEach((genre) => {
+    if (genre.includes("SF")) tags.add("genre-sf");
+    if (genre.includes("로맨스")) tags.add("genre-romance");
+    if (genre.includes("스릴러") || genre.includes("범죄")) tags.add("genre-thriller");
+  });
+
+  moods.forEach((mood) => tags.add(`mood-${mood}`));
+
+  if (country === "한국") tags.add("country-kr");
+  if (country === "일본") tags.add("country-jp");
+  if (country === "미국") tags.add("country-us");
+
+  if (runtime > 140) tags.add("runtime-long");
+  else if (runtime > 0 && runtime <= 70) tags.add("runtime-short");
+  else if (runtime > 0) tags.add("runtime-medium");
+
+  return [...tags];
+}
+
+function contentTypeForUi(content) {
+  if (content.type === "series" || content.contentType === "series") return "drama";
+  return content.type || content.contentType || "movie";
+}
+
+function normalizeProviderResult(content) {
+  const title = content.title || "제목 없음";
+  const type = contentTypeForUi(content);
+  const genres = Array.isArray(content.genres) && content.genres.length ? content.genres : ["장르 확인 필요"];
+  const ott = Array.isArray(content.ott) && content.ott.length ? content.ott : content.platforms || ["검색 필요"];
+  const actors = Array.isArray(content.actors) && content.actors.length ? content.actors : ["정보 없음"];
+  const runtime = Number(content.runtime);
+  const rating = Number(content.rating);
+
+  return {
+    ...content,
+    title,
+    type,
+    label: content.label || (type === "animation" ? "애니" : type === "movie" ? "영화" : "드라마"),
+    tags: tagsFromProviderContent(content),
+    genre: content.genre || genres.join(", "),
+    director: content.director || "정보 없음",
+    actors,
+    rating: Number.isFinite(rating) && rating > 0 ? rating.toFixed(1) : "정보 없음",
+    runtime: Number.isFinite(runtime) && runtime > 0 ? `${runtime}분` : "상세 확인",
+    ott,
+    reason: content.reason || "입력한 작품과 연결해 확인해볼 만한 실제 검색 결과입니다.",
+    synopsis: content.synopsis || content.overview || "줄거리 정보가 아직 없습니다.",
+    poster: thumbnailText(title),
+    match: content.match || Number(content.vote_average || content.rating || 0),
+  };
+}
+
+function isSelectedContentType(content, selectedTypes) {
+  return selectedTypes.includes(content.type);
+}
+
+async function fetchProviderRecommendations(titles, selectedTypes) {
+  const uniqueTitles = [...new Set(titles)].slice(0, 3);
+  const collected = [];
+  const seen = new Set();
+
+  for (const title of uniqueTitles) {
+    const response = await fetch(`/api/search?q=${encodeURIComponent(title)}`, {
+      cache: "no-store",
+    });
+
+    if (!response.ok) {
+      throw new Error(`Search request failed: ${response.status}`);
+    }
+
+    const payload = await response.json();
+    const normalizedResults = (payload.results || []).map(normalizeProviderResult).filter((item) => isSelectedContentType(item, selectedTypes));
+
+    for (const item of normalizedResults) {
+      const key = `${item.providerId || item.source || "provider"}-${item.providerContentId || item.title}`;
+      if (seen.has(key)) continue;
+      seen.add(key);
+      collected.push(item);
+      if (collected.length >= 6) return collected;
+    }
+  }
+
+  return collected;
+}
+
 function toggleValue(values, value) {
   return values.includes(value) ? values.filter((item) => item !== value) : [...values, value];
 }
@@ -494,15 +586,30 @@ export default function Home() {
     }
   }
 
-  function handleSubmit(event) {
+  async function handleSubmit(event) {
     event.preventDefault();
     if (!canRecommend) return;
 
     setHasSubmitted(true);
     setSelectedDetail(null);
     setShowQuickPick(false);
-    setResults(buildRecommendations(selectedTypes, selectedQuickPicks));
-    refreshProviderStatus(enteredTitles[0] || "interstellar");
+
+    const fallbackResults = buildRecommendations(selectedTypes, selectedQuickPicks);
+
+    if (!enteredTitles.length) {
+      setResults(fallbackResults);
+      refreshProviderStatus("interstellar");
+      return;
+    }
+
+    try {
+      const providerResults = await fetchProviderRecommendations(enteredTitles, selectedTypes);
+      setResults(providerResults.length ? providerResults : fallbackResults);
+    } catch {
+      setResults(fallbackResults);
+    } finally {
+      refreshProviderStatus(enteredTitles[0] || "interstellar");
+    }
   }
 
   function openDetail(item) {
