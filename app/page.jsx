@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 const dummyRecommendations = [
   {
@@ -248,6 +248,7 @@ const quickPickGroups = [
 
 const quickPickLabelByValue = new Map(quickPickGroups.flatMap((group) => group.options));
 const targetProviderResultCount = 12;
+const autocompleteDebounceMs = 150;
 const quickPickGenreIds = new Map([
   ["genre-sf", [878, 10765]],
   ["genre-romance", [10749]],
@@ -306,6 +307,29 @@ function normalizeTitleKey(value = "") {
     .replace(/[^\p{L}\p{N}]+/gu, "");
 }
 
+function cleanSeedTitleForDisplay(value = "") {
+  return String(value)
+    .trim()
+    .replace(/[\s.。．,，、!！?？:：;；"'“”‘’()[\]{}<>《》]+$/gu, "")
+    .trim();
+}
+
+function hasKoreanFinalConsonant(value = "") {
+  const title = cleanSeedTitleForDisplay(value);
+  const lastCharacter = [...title].at(-1);
+  if (!lastCharacter) return false;
+
+  const code = lastCharacter.charCodeAt(0);
+  if (code < 0xac00 || code > 0xd7a3) return false;
+  return (code - 0xac00) % 28 !== 0;
+}
+
+function seedWithKoreanObjectParticle(seedTitle = "") {
+  const title = cleanSeedTitleForDisplay(seedTitle);
+  if (!title) return "";
+  return `${title}${hasKoreanFinalConsonant(title) ? "을" : "를"}`;
+}
+
 function titleMatchesSeed(item, seedTitle) {
   const seedKey = normalizeTitleKey(seedTitle);
   if (!seedKey) return false;
@@ -330,14 +354,14 @@ function PosterVisual({ poster, title }) {
 }
 
 function recommendationReason(item, titles) {
-  if (item.reasonSeed) return `${item.reasonSeed}를 좋아해서 추천합니다. ${item.reason}`;
+  if (item.reasonSeed) return `${seedWithKoreanObjectParticle(item.reasonSeed)} 좋아해서 추천합니다. ${item.reason}`;
   if (titles.length > 1) return `여러 취향을 함께 반영한 추천입니다. ${item.reason}`;
   if (titles.length) return `입력한 취향을 바탕으로 추천합니다. ${item.reason}`;
   return item.reason;
 }
 
 function decisionReason(item, titles) {
-  if (item.reasonSeed) return `${item.reasonSeed}를 좋아했다면 추천`;
+  if (item.reasonSeed) return `${seedWithKoreanObjectParticle(item.reasonSeed)} 좋아했다면 추천`;
   if (titles.length > 1) return "여러 취향을 함께 반영한 추천";
   if (titles.length) return "입력한 취향을 바탕으로 추천";
   if (item.tags.includes("genre-sf")) return "몰입감 있는 SF를 좋아한다면 추천";
@@ -498,14 +522,14 @@ function mergeProviderResults(results) {
     if (!existing) {
       merged.set(key, {
         ...item,
-        reasonSeeds: item.reasonSeed ? [item.reasonSeed] : [],
+        reasonSeeds: item.reasonSeed ? [cleanSeedTitleForDisplay(item.reasonSeed)] : [],
         seedCount: 1,
         seedGenreIds: uniqueNumbers(item.seedGenreIds),
       });
       continue;
     }
 
-    const reasonSeeds = [...new Set([...existing.reasonSeeds, item.reasonSeed].filter(Boolean))];
+    const reasonSeeds = [...new Set([...existing.reasonSeeds, cleanSeedTitleForDisplay(item.reasonSeed)].filter(Boolean))];
     merged.set(key, {
       ...existing,
       reasonSeed: reasonSeeds.length === 1 ? reasonSeeds[0] : "",
@@ -593,6 +617,51 @@ function sortProviderResults(results, selectedTypes, quickPicks, selectedOtt) {
     });
 }
 
+function balanceSeedDiversity(sortedResults, seedTitles) {
+  if (seedTitles.length <= 1) return sortedResults;
+
+  const seedOrder = seedTitles.map(cleanSeedTitleForDisplay).filter(Boolean);
+  const commonResults = sortedResults.filter((item) => item.seedCount > 1);
+  const singleSeedGroups = new Map(seedOrder.map((seed) => [seed, []]));
+  const ungrouped = [];
+
+  for (const item of sortedResults) {
+    if (item.seedCount > 1) continue;
+    const seed = cleanSeedTitleForDisplay(item.reasonSeed || item.reasonSeeds?.[0]);
+    if (singleSeedGroups.has(seed)) {
+      singleSeedGroups.get(seed).push(item);
+    } else {
+      ungrouped.push(item);
+    }
+  }
+
+  const balanced = [...commonResults];
+  let cursor = 0;
+
+  while (balanced.length < targetProviderResultCount) {
+    let added = false;
+
+    for (const seed of seedOrder) {
+      const group = singleSeedGroups.get(seed) || [];
+      const item = group[cursor];
+      if (!item) continue;
+      balanced.push(item);
+      added = true;
+      if (balanced.length >= targetProviderResultCount) break;
+    }
+
+    if (!added) break;
+    cursor += 1;
+  }
+
+  for (const item of ungrouped) {
+    if (balanced.length >= targetProviderResultCount) break;
+    balanced.push(item);
+  }
+
+  return balanced;
+}
+
 function normalizeProviderResult(content, quickPicks = [], reasonSeed = "") {
   const title = content.title || "제목 없음";
   const type = contentTypeForUi(content);
@@ -607,7 +676,7 @@ function normalizeProviderResult(content, quickPicks = [], reasonSeed = "") {
   return {
     ...content,
     title,
-    reasonSeed: content.seedTitle || reasonSeed,
+    reasonSeed: cleanSeedTitleForDisplay(content.seedTitle || reasonSeed),
     type,
     genreIds: normalizedIdList(content.genreIds),
     seedGenreIds: normalizedIdList(content.seedGenreIds),
@@ -670,8 +739,9 @@ async function fetchProviderRecommendations(titles, selectedTypes, quickPicks, s
 
   const mergedResults = mergeProviderResults(filterSeedResults(providerResults, uniqueTitles));
   const sortedResults = sortProviderResults(mergedResults, selectedTypes, quickPicks, selectedOtt);
+  const balancedResults = balanceSeedDiversity(sortedResults, uniqueTitles);
 
-  return { results: sortedResults.slice(0, targetProviderResultCount), providerStatus };
+  return { results: balancedResults.slice(0, targetProviderResultCount), providerStatus };
 }
 
 function toggleValue(values, value) {
@@ -744,6 +814,7 @@ export default function Home() {
   const [suggestions, setSuggestions] = useState({});
   const [activeSuggestionIndex, setActiveSuggestionIndex] = useState(null);
   const [confirmedSeeds, setConfirmedSeeds] = useState({});
+  const suggestionCacheRef = useRef(new Map());
 
   const enteredTitles = useMemo(() => titles.map((title) => title.trim()).filter(Boolean), [titles]);
   const canRecommend = enteredTitles.length > 0 || selectedQuickPicks.length > 0;
@@ -790,6 +861,13 @@ export default function Home() {
       return undefined;
     }
 
+    const cacheKey = query.toLocaleLowerCase("ko-KR");
+    const cachedSuggestions = suggestionCacheRef.current.get(cacheKey);
+    if (cachedSuggestions) {
+      setSuggestions((current) => ({ ...current, [activeSuggestionIndex]: cachedSuggestions }));
+      return undefined;
+    }
+
     const controller = new AbortController();
     const timeout = window.setTimeout(async () => {
       try {
@@ -798,12 +876,14 @@ export default function Home() {
           signal: controller.signal,
         });
         const payload = await response.json();
-        setSuggestions((current) => ({ ...current, [activeSuggestionIndex]: payload.results || [] }));
+        const nextSuggestions = payload.results || [];
+        suggestionCacheRef.current.set(cacheKey, nextSuggestions);
+        setSuggestions((current) => ({ ...current, [activeSuggestionIndex]: nextSuggestions }));
       } catch (error) {
         if (error?.name === "AbortError") return;
         setSuggestions((current) => ({ ...current, [activeSuggestionIndex]: [] }));
       }
-    }, 300);
+    }, autocompleteDebounceMs);
 
     return () => {
       window.clearTimeout(timeout);
