@@ -50,6 +50,7 @@
 | MYOTT-S08-T02 | Task 8-2 TMDB Result Mapping 개선 | `7a532a8` | TMDB 제목/타입/연도/평점/장르/포스터 정규화와 검색 관련도 정렬을 보강. 기존 Decision Card/Detail Layer 구조와 Mock fallback 유지. | 완료 |
 | MYOTT-S08-T03 | Task 8-3 TMDB 결과 커버리지와 이미지 개선 | `c0473d1` | 여러 입력값의 TMDB 결과를 병합하고 8개까지 중복 제거, backdrop 우선 카드 이미지, Quick Pick 보조 반영. Hero는 Mock 고정 Known Issue 유지. | 완료 |
 | MYOTT-S08-T04 | Task 8-4 TMDB Recommendations / Similar 기반 추천 | `ee7098b` | 입력 작품을 seed로 찾고 TMDB recommendations 우선, similar fallback으로 추천 결과를 반환. Seed 원본 제외, multi-input 병합, Mock fallback 유지. | 완료 |
+| MYOTT-S08-T05 | Task 8-5 TMDB Option Metadata 기반 | This implementation commit | TMDB movie/tv 장르 metadata를 추천옵션 연결 가능한 형태로 정규화하고 `/api/options` fallback route 추가. 기존 UI/추천 흐름 유지. | 완료 |
 
 ## Sprint 7
 

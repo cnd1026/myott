@@ -2,6 +2,31 @@
 
 개발 과정에서의 작업 내용, 결정, 아쉬운 점, 다음 개선 사항을 날짜별로 기록합니다.
 
+## 2026-07-03 - MYOTT-S08-T05
+
+### 오늘 작업
+
+- TMDB movie/tv 장르 metadata를 가져오는 기반을 추가했습니다.
+- 장르 metadata를 기존 추천옵션 UI에 연결 가능한 legacy option 배열과 상세 metadata로 함께 정규화했습니다.
+- 국가/언어 옵션은 TMDB 기반 확장을 고려해 fallback metadata로 준비했습니다.
+- `/api/options` route를 추가해 metadata fetch 성공/실패 경로를 확인할 수 있게 했습니다.
+
+### 결정한 것
+
+- 이번 Task에서는 Quick Pick UI를 크게 바꾸지 않습니다.
+- metadata 로직은 `page.jsx`가 아니라 provider option metadata 모듈과 API route로 분리합니다.
+- TMDB fetch 실패 시 기존 fallback 옵션을 유지합니다.
+
+### 아쉬운 점
+
+- 아직 TMDB metadata가 실제 추천 점수 계산에 직접 사용되지는 않습니다.
+- Codex 환경에서는 TMDB 외부 fetch가 제한될 수 있어 실제 TMDB metadata 성공 경로는 Founder 환경 확인이 필요합니다.
+
+### 다음 개선
+
+- 입력 작품 3개와 Quick Pick 옵션의 공통 장르/국가/언어를 추출해 추천 점수에 반영하는 Task를 설계합니다.
+- TMDB metadata 중 어떤 옵션을 사용자에게 노출할지 UX 기준을 정합니다.
+
 ## 2026-07-03 - MYOTT-S08-T04
 
 ### 오늘 작업

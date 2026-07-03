@@ -2,6 +2,26 @@
 
 프로젝트의 주요 변경 사항을 날짜별로 기록합니다.
 
+## 2026-07-03 - MYOTT-S08-T05
+
+### 변경 내용
+
+- TMDB movie/tv 장르 목록을 가져오는 metadata 기반을 추가했습니다.
+- TMDB 장르를 기존 추천옵션 UI에 연결 가능한 `[value, label]` 형태와 상세 metadata 형태로 정규화했습니다.
+- 국가/언어 옵션은 fallback metadata로 준비해 향후 확장 지점을 만들었습니다.
+- `/api/options` route를 추가해 TMDB metadata fetch 실패 시 기존 fallback 옵션을 반환하도록 했습니다.
+- README에 Sprint 8 진행 상태와 옵션 metadata API를 반영했습니다.
+
+### 이유
+
+- 추천옵션이 정적인 하드코딩 값에 머물지 않고 TMDB 실제 metadata와 연결될 수 있어야 하기 때문입니다.
+- 이후 입력 작품, 추천옵션, TMDB 장르/국가/언어 데이터를 함께 사용해 추천 점수 계산으로 확장하기 위한 기반이 필요하기 때문입니다.
+
+### 다음 작업
+
+- TMDB metadata를 실제 추천 점수 계산에 어느 수준까지 반영할지 별도 Task로 판단합니다.
+- 기존 Quick Pick UI는 유지하면서 metadata 기반 옵션 노출 범위를 Founder Review로 결정합니다.
+
 ## 2026-07-03 - MYOTT-S08-T04
 
 ### 변경 내용
