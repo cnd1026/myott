@@ -54,6 +54,7 @@
 | MYOTT-S08-T06 | Task 8-6 TMDB 작품명 자동완성 | `54850ae` | `/api/suggest`와 입력창별 300ms debounce 자동완성을 추가. 후보 선택 시 정확한 TMDB 제목 입력, 기존 추천 흐름 유지. | 완료 |
 | MYOTT-S08-T06A | Task 8-6A 자동완성 닫힘 UX 정리 | `6f45773` | 외부 클릭, ESC, 입력창 focus 전환, 추천 submit 시 후보창이 닫히도록 정리. API/Provider 구조 유지. | 완료 |
 | MYOTT-S08-T07 | Task 8-7 Multi-seed option scoring | `b31795c` | 여러 seed 반복, seed genre overlap, Quick Pick, 콘텐츠 타입, TMDB popularity/rating을 반영한 rule-based score 정렬 추가. UI 구조 유지. | 완료 |
+| MYOTT-S08-T08 | Task 8-8 Recommendation Insight | `TBD` | 실제 scoring signal을 최대 3개의 짧은 Insight bullet로 변환해 Detail Layer에 표시. score 비노출, 과장 근거 없음. | 완료 |
 
 ## Sprint 7
 

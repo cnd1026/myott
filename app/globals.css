@@ -692,6 +692,25 @@ input[type="text"]:focus {
   background: var(--surface-soft);
 }
 
+.insight-panel {
+  display: grid;
+  gap: 8px;
+  border: 1px solid rgba(47, 125, 104, 0.22);
+  border-radius: 8px;
+  padding: 13px 14px;
+  background: #fff;
+}
+
+.insight-list {
+  display: grid;
+  gap: 6px;
+  margin: 0;
+  padding-left: 18px;
+  color: var(--text);
+  font-size: 13px;
+  line-height: 1.45;
+}
+
 .trust-panel {
   display: grid;
   gap: 12px;

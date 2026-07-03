@@ -252,6 +252,13 @@ const quickPickGenreIds = new Map([
   ["genre-romance", [10749]],
   ["genre-thriller", [53]],
 ]);
+const recommendationInsightText = {
+  multipleSeed: "여러 입력 작품에서 함께 추천되었습니다.",
+  genreMatch: "입력한 작품들과 공통 장르가 많습니다.",
+  optionMatch: "선택한 추천 옵션과 잘 맞습니다.",
+  contentType: "선택한 콘텐츠 종류와 맞습니다.",
+  metadataTieBreak: "평점과 인기도를 보조 기준으로 참고했습니다.",
+};
 
 const initialOtt = ["netflix"];
 const initialTypes = ["movie", "drama", "animation"];
@@ -510,7 +517,17 @@ function mergeProviderResults(results) {
   return [...merged.values()];
 }
 
-function scoreProviderResult(item, selectedTypes, quickPicks) {
+function insightMessages(signals) {
+  const messages = [];
+  if (signals.multipleSeed) messages.push(recommendationInsightText.multipleSeed);
+  if (signals.genreMatch) messages.push(recommendationInsightText.genreMatch);
+  if (signals.optionMatch) messages.push(recommendationInsightText.optionMatch);
+  if (signals.contentType) messages.push(recommendationInsightText.contentType);
+  if (!messages.length && signals.metadataTieBreak) messages.push(recommendationInsightText.metadataTieBreak);
+  return messages.slice(0, 3);
+}
+
+function analyzeProviderResult(item, selectedTypes, quickPicks) {
   const genreIds = normalizedIdList(item.genreIds);
   const seedGenreOverlap = intersectionCount(genreIds, normalizedIdList(item.seedGenreIds));
   const quickPickGenreOverlap = quickPicks.reduce(
@@ -519,16 +536,31 @@ function scoreProviderResult(item, selectedTypes, quickPicks) {
   );
   const quickPickTagMatches = quickPicks.reduce((score, quickPick) => score + (item.tags.includes(quickPick) ? 1 : 0), 0);
   const typeMatch = isSelectedContentType(item, selectedTypes) ? 1 : 0;
+  const rating = Number.parseFloat(item.rating);
+  const signals = {
+    multipleSeed: item.seedCount > 1,
+    genreMatch: seedGenreOverlap > 0,
+    optionMatch: quickPickGenreOverlap + quickPickTagMatches > 0,
+    contentType: typeMatch > 0,
+    metadataTieBreak: Number(item.popularity || 0) > 0 || Number.isFinite(rating),
+  };
 
-  return item.seedCount * 3 + seedGenreOverlap * 2 + quickPickGenreOverlap * 2 + quickPickTagMatches * 2 + typeMatch;
+  return {
+    score: item.seedCount * 3 + seedGenreOverlap * 2 + quickPickGenreOverlap * 2 + quickPickTagMatches * 2 + typeMatch,
+    insight: insightMessages(signals),
+  };
 }
 
 function sortProviderResults(results, selectedTypes, quickPicks) {
   return results
-    .map((item) => ({
-      ...item,
-      score: scoreProviderResult(item, selectedTypes, quickPicks),
-    }))
+    .map((item) => {
+      const analysis = analyzeProviderResult(item, selectedTypes, quickPicks);
+      return {
+        ...item,
+        score: analysis.score,
+        recommendationInsight: analysis.insight,
+      };
+    })
     .sort((a, b) => {
       const popularityA = Number(a.popularity || 0);
       const popularityB = Number(b.popularity || 0);
@@ -1097,6 +1129,16 @@ export default function Home() {
                   <span><strong>주요 배우</strong> {selectedDetail.actors.join(", ")}</span>
                 </div>
                 <p className="detail-reason"><strong>추천 이유</strong><br />{recommendationReason(selectedDetail, enteredTitles)}</p>
+                {selectedDetail.recommendationInsight?.length ? (
+                  <section className="insight-panel" aria-labelledby="recommendationInsightTitle">
+                    <p className="trust-label" id="recommendationInsightTitle">Recommendation Insight</p>
+                    <ul className="insight-list">
+                      {selectedDetail.recommendationInsight.map((insight) => (
+                        <li key={insight}>{insight}</li>
+                      ))}
+                    </ul>
+                  </section>
+                ) : null}
                 <section className="trust-panel" aria-labelledby="trustSignalTitle">
                   <div>
                     <p className="trust-label" id="trustSignalTitle">Trust Signal</p>

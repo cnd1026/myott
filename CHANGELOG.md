@@ -2,6 +2,25 @@
 
 프로젝트의 주요 변경 사항을 날짜별로 기록합니다.
 
+## 2026-07-03 - MYOTT-S08-T08
+
+### 변경 내용
+
+- Detail Layer의 Recommendation Reason 아래에 Recommendation Insight 영역을 추가했습니다.
+- Insight는 최대 3개의 짧은 bullet로 표시하고, insight가 없으면 영역을 숨기도록 했습니다.
+- multi-seed, genre match, option match, content type, metadata tie-break처럼 실제 scoring에 사용된 근거만 문장으로 변환했습니다.
+- score 숫자는 화면에 노출하지 않고, 사용자에게 이해 가능한 추천 근거만 표시하도록 했습니다.
+
+### 이유
+
+- 사용자가 “왜 이 작품이 위에 있는지”를 빠르게 이해하고 추천을 더 신뢰할 수 있어야 하기 때문입니다.
+- MyOTT는 과장된 추천 이유가 아니라 실제 계산 근거에 기반한 설명을 제공해야 하기 때문입니다.
+
+### 다음 작업
+
+- Founder 환경에서 실제 TMDB 결과의 Insight 문장이 Recommendation Reason보다 과하지 않은지 확인합니다.
+- 사용자 기반 추천 근거는 실제 사용자 데이터가 추가된 뒤 별도 Task로 다룹니다.
+
 ## 2026-07-03 - MYOTT-S08-T07
 
 ### 변경 내용
