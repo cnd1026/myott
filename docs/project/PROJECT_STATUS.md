@@ -4,11 +4,11 @@
 
 ## Current Sprint
 
-Sprint 6
+Sprint 7
 
 ## Current Task
 
-MYOTT-S06-T05 Decision Experience Final Polish
+MYOTT-S07-T01 Recommendation Confidence Foundation
 
 ## Current Branch
 
@@ -20,9 +20,9 @@ MYOTT-S06-T05 Decision Experience Final Polish
 
 ## Last Commit
 
-MYOTT-S06-T05 시작 시점 기준:
+MYOTT-S07-T01 시작 시점 기준:
 
-`9040931 refactor(ui): polish mvp readiness for decision experience`
+`7050c82 refactor(ui): finalize decision experience polish`
 
 ## Repository
 
@@ -45,6 +45,7 @@ MYOTT-S06-T05 시작 시점 기준:
 - Hero Recommendation 문구와 CTA는 입력으로 자연스럽게 이어지도록 다듬어진 상태입니다.
 - MVP Readiness Polish로 Hero, 입력, 결과 영역의 문구와 카드 균형을 최종 점검하는 단계입니다.
 - Decision Experience Final Polish에서 카드 클릭 가능성, 상세 Layer 정보 계층, Reset/Dynamic Input 흐름을 최종 점검합니다.
+- Sprint 7에서는 상세 Layer에서 추천을 믿을 수 있는 보조 단서인 Recommendation Confidence UI를 준비합니다.
 
 ## Current Documentation State
 
@@ -61,12 +62,12 @@ MYOTT-S06-T05 시작 시점 기준:
 
 ## Next Milestone
 
-Decision Experience MVP를 마감하고 추천 결과 이해 시간을 줄입니다.
+Recommendation Confidence를 검증하고 추천 선택의 신뢰감을 높입니다.
 
 ## Immediate Next Tasks
 
-- Decision Experience Final Polish Founder Review
-- 10초/30초 Time Validation
+- Recommendation Confidence Founder Review
+- Confidence 문구가 실제 데이터로 오해되지 않는지 확인
 - Provider 검색 결과와 메인 추천 UX 연결 방식 검토
 - TMDB key 환경에서 실제 Provider Badge Founder Review
 - v1.0 최소 추천 경험과 DB 연동 시점 정리
@@ -76,7 +77,7 @@ Decision Experience MVP를 마감하고 추천 결과 이해 시간을 줄입니
 - README 실행 명령은 현재 저장소 루트 기준 `pnpm install`, `pnpm dev`로 정리되어 있습니다.
 - TMDB Provider Adapter는 기존 `lib/tmdb.js`를 감싸는 형태이며, `lib/tmdb.js` 자체를 제거하지는 않았습니다.
 - 현재 환경에는 TMDB key가 없을 수 있으므로 TMDB 성공 경로는 Founder 환경에서 추가 확인이 필요합니다.
-- MYOTT-S06-T05는 Provider Registry/API/TMDB/Mock Provider를 수정하지 않는 최종 UX polish 작업입니다.
+- MYOTT-S07-T01은 Provider Registry/API/TMDB/Mock Provider를 수정하지 않는 Confidence UI foundation 작업입니다.
 - DB 설계는 문서 단계이며 SQL, Supabase 연결, 마이그레이션은 아직 없습니다.
 - APS 핵심 운영 문서는 MyOTT public repository에서 제거되었고, Nd_core가 Source of Truth입니다.
 - MyOTT public repository에는 APS 존재와 브랜드 참조만 유지합니다.

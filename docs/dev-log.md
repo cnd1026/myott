@@ -2,6 +2,34 @@
 
 개발 과정에서의 작업 내용, 결정, 아쉬운 점, 다음 개선 사항을 날짜별로 기록합니다.
 
+## 2026-07-02 - MYOTT-S07-T01
+
+### 오늘 작업
+
+- 상세 Layer에 Recommendation Confidence 영역을 추가했습니다.
+- 추천 이유 아래에 정성적 신뢰 단서를 chip 형태로 표시했습니다.
+- 실제 랭킹, 사용자 수, 인기 수치처럼 사실로 오해될 수 있는 문구는 제외했습니다.
+- README, PROJECT_STATUS, TASK_HISTORY, CHANGELOG, dev-log를 Sprint 7 기준으로 업데이트했습니다.
+
+### 결정한 것
+
+- Recommendation Confidence는 추천 이유를 대체하지 않고 보조 정보로 둡니다.
+- 현재는 Mock 기반 UI foundation만 구현합니다.
+- Confidence 문구는 `입력한 취향`, `장르`, `분위기`, `평점 확인 가능`처럼 검증 가능한 수준의 표현으로 제한합니다.
+- Provider Registry, API Route, TMDB Provider, Mock Provider, 추천 알고리즘은 수정하지 않습니다.
+
+### 아쉬운 점
+
+- Confidence chip은 아직 실제 데이터 기반 신뢰 점수가 아닙니다.
+- Founder Review를 통해 표현이 과장되어 보이지 않는지 확인해야 합니다.
+- 향후 실제 TMDB/사용자 데이터가 연결될 때 정보 우선순위를 다시 점검해야 합니다.
+
+### 다음 개선
+
+- Founder가 상세 Layer에서 추천을 더 믿을 수 있다고 느끼는지 확인합니다.
+- 실제 데이터로 오해될 수 있는 문구가 없는지 검토합니다.
+- Sprint 7 후속 Task에서 Confidence 정보와 실제 Provider 데이터를 연결할지 판단합니다.
+
 ## 2026-07-02 - MYOTT-S06-T05
 
 ### 오늘 작업

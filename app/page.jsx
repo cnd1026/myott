@@ -297,6 +297,17 @@ function decisionReason(item, titles) {
   return "오늘 바로 고르기 좋은 추천";
 }
 
+function recommendationConfidence(item, titles) {
+  const chips = [];
+
+  if (titles.length) chips.push("입력한 취향과 연결됨");
+  if (item.tags.some((tag) => tag.startsWith("genre-"))) chips.push("비슷한 장르 단서");
+  if (item.tags.some((tag) => tag.startsWith("mood-"))) chips.push("분위기 단서 참고");
+  if (item.rating) chips.push("평점도 함께 확인 가능");
+
+  return chips.slice(0, 4);
+}
+
 function findRecommendation(title) {
   return dummyRecommendations.find((item) => item.title === title);
 }
@@ -710,6 +721,17 @@ export default function Home() {
                   <span><strong>주요 배우</strong> {selectedDetail.actors.join(", ")}</span>
                 </div>
                 <p className="detail-reason"><strong>추천 이유</strong><br />{recommendationReason(selectedDetail, enteredTitles)}</p>
+                <section className="confidence-panel" aria-labelledby="confidenceTitle">
+                  <div>
+                    <p className="confidence-label" id="confidenceTitle">추천 신뢰 단서</p>
+                    <p className="confidence-copy">현재 선택과 작품 정보에서 읽은 정성적 참고 단서입니다.</p>
+                  </div>
+                  <div className="confidence-chips">
+                    {recommendationConfidence(selectedDetail, enteredTitles).map((chip) => (
+                      <span className="confidence-chip" key={chip}>{chip}</span>
+                    ))}
+                  </div>
+                </section>
                 <p><strong>줄거리</strong><br />{selectedDetail.synopsis}</p>
               </div>
             </div>
