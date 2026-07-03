@@ -614,6 +614,8 @@ export default function Home() {
   const [selectedDetail, setSelectedDetail] = useState(null);
   const [providerStatus, setProviderStatus] = useState(initialProviderStatus);
   const [timeSlot, setTimeSlot] = useState("evening");
+  const [suggestions, setSuggestions] = useState({});
+  const [activeSuggestionIndex, setActiveSuggestionIndex] = useState(null);
 
   const enteredTitles = useMemo(() => titles.map((title) => title.trim()).filter(Boolean), [titles]);
   const canRecommend = enteredTitles.length > 0 || selectedQuickPicks.length > 0;
@@ -638,6 +640,36 @@ export default function Home() {
   useEffect(() => {
     setTimeSlot(getTimeSlot(new Date()));
   }, []);
+
+  useEffect(() => {
+    if (activeSuggestionIndex === null) return undefined;
+    const query = titles[activeSuggestionIndex]?.trim() || "";
+
+    if (query.length < 2) {
+      setSuggestions((current) => ({ ...current, [activeSuggestionIndex]: [] }));
+      return undefined;
+    }
+
+    const controller = new AbortController();
+    const timeout = window.setTimeout(async () => {
+      try {
+        const response = await fetch(`/api/suggest?q=${encodeURIComponent(query)}`, {
+          cache: "no-store",
+          signal: controller.signal,
+        });
+        const payload = await response.json();
+        setSuggestions((current) => ({ ...current, [activeSuggestionIndex]: payload.results || [] }));
+      } catch (error) {
+        if (error?.name === "AbortError") return;
+        setSuggestions((current) => ({ ...current, [activeSuggestionIndex]: [] }));
+      }
+    }, 300);
+
+    return () => {
+      window.clearTimeout(timeout);
+      controller.abort();
+    };
+  }, [titles, activeSuggestionIndex]);
 
   async function refreshProviderStatus(query = "interstellar") {
     if (!showDevProviderStatus) return;
@@ -695,6 +727,13 @@ export default function Home() {
 
   function updateTitle(index, value) {
     setTitles((current) => normalizeTitleInputs(current.map((item, itemIndex) => (itemIndex === index ? value : item))));
+    setActiveSuggestionIndex(index);
+  }
+
+  function selectSuggestion(index, suggestion) {
+    setTitles((current) => normalizeTitleInputs(current.map((item, itemIndex) => (itemIndex === index ? suggestion.title : item))));
+    setSuggestions((current) => ({ ...current, [index]: [] }));
+    setActiveSuggestionIndex(null);
   }
 
   function resetAll() {
@@ -706,6 +745,8 @@ export default function Home() {
     setResults([]);
     setHasSubmitted(false);
     setSelectedDetail(null);
+    setSuggestions({});
+    setActiveSuggestionIndex(null);
   }
 
   return (
@@ -804,7 +845,7 @@ export default function Home() {
             </div>
             <div className="input-group" aria-label="좋아했던 작품 입력">
               {titles.map((title, index) => (
-                <label key={`title-${index + 1}`}>
+                <label className="title-input-field" key={`title-${index + 1}`}>
                   작품 {index + 1}
                   <input
                     id={`titleInput${index + 1}`}
@@ -814,7 +855,32 @@ export default function Home() {
                     autoComplete="off"
                     value={title}
                     onChange={(event) => updateTitle(index, event.target.value)}
+                    onFocus={() => setActiveSuggestionIndex(index)}
                   />
+                  {suggestions[index]?.length ? (
+                    <div className="suggestion-list" role="listbox" aria-label={`작품 ${index + 1} 검색 후보`}>
+                      {suggestions[index].map((suggestion) => (
+                        <button
+                          className="suggestion-item"
+                          type="button"
+                          role="option"
+                          onClick={() => selectSuggestion(index, suggestion)}
+                          key={`${suggestion.providerContentId}-${suggestion.title}`}
+                        >
+                          <span className="suggestion-poster" aria-hidden="true">
+                            {suggestion.poster ? <img src={suggestion.poster} alt="" loading="lazy" /> : suggestion.title.slice(0, 2)}
+                          </span>
+                          <span className="suggestion-copy">
+                            <strong>{suggestion.title}</strong>
+                            <span>
+                              {suggestion.originalTitle && suggestion.originalTitle !== suggestion.title ? `${suggestion.originalTitle} · ` : ""}
+                              {suggestion.year || "연도 확인"} · {suggestion.label}
+                            </span>
+                          </span>
+                        </button>
+                      ))}
+                    </div>
+                  ) : null}
                 </label>
               ))}
             </div>
