@@ -8,6 +8,8 @@
 
 - 여러 작품 입력값의 TMDB 검색 결과를 각각 가져와 중복 제거 후 라운드로빈 방식으로 병합하도록 개선했습니다.
 - Provider 결과 목표 수를 8개로 늘려 한 작품 검색 결과에만 치우치지 않도록 했습니다.
+- 입력 작품은 seed/preference로만 사용하고, 결과에서는 title/originalTitle이 seed와 같은 원본 작품을 제외하도록 보강했습니다.
+- 각 결과에 `reasonSeed`를 붙여 특정 seed 기반 결과는 `{seed}를 좋아했다면 추천`, 복합 결과는 `여러 취향을 함께 반영한 추천`으로 정리했습니다.
 - Quick Pick 옵션을 결과 정렬과 추천 이유 문구에 가볍게 반영했습니다.
 - Decision Card 상단 이미지는 TMDB `backdrop`을 우선 사용하고, Detail Layer는 poster/backdrop fallback을 유지하도록 정리했습니다.
 
@@ -19,6 +21,7 @@
 ### 다음 작업
 
 - Founder 환경에서 `인터스텔라`, `라라랜드`, `너의 이름은`을 함께 입력했을 때 결과가 고르게 섞이는지 확인합니다.
+- 입력한 원본 작품이 추천 결과에 다시 노출되지 않는지 확인합니다.
 - Hero Recommendation은 아직 Mock 고정이므로 별도 Sprint에서 실제 데이터 연결 여부를 판단합니다.
 
 ## 2026-07-03 - MYOTT-S08-T02

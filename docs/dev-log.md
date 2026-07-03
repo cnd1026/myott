@@ -8,6 +8,8 @@
 
 - 여러 입력 작품의 TMDB 결과를 각각 가져와 중복 제거 후 8개까지 섞어 보여주도록 개선했습니다.
 - 첫 번째 입력값 결과가 전체 추천을 독점하지 않도록 라운드로빈 병합을 적용했습니다.
+- 입력 작품 원본은 seed/preference로만 사용하고 추천 결과에서 제외하도록 보강했습니다.
+- `reasonSeed`를 사용해 추천 이유가 입력값을 줄줄이 나열하지 않도록 정리했습니다.
 - Quick Pick 옵션은 정렬과 추천 이유 문구에만 가볍게 반영했습니다.
 - 카드 상단에는 backdrop 이미지를 우선 사용하고, 상세 Layer에는 poster/backdrop fallback을 유지했습니다.
 
@@ -15,11 +17,13 @@
 
 - TMDB recommendation API 확장은 이번 Task에서 하지 않습니다.
 - Provider Registry와 Mock fallback 구조는 유지합니다.
+- 입력값과 동일한 원본 작품은 추천 결과에서 보여주지 않습니다.
 - Hero Recommendation은 이번 Task에서 직접 수정하지 않고 Mock 고정 Known Issue로 남깁니다.
 
 ### 아쉬운 점
 
 - 검색 결과 병합 기반이라 아직 진짜 유사작 추천은 아닙니다.
+- TMDB recommendations/similar API는 Next Step으로 남깁니다.
 - Codex 환경에서는 TMDB 외부 fetch가 제한되어 실제 multi-input TMDB 화면은 Founder 환경에서 확인해야 합니다.
 
 ### 다음 개선

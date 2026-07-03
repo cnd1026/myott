@@ -285,6 +285,24 @@ function thumbnailText(title) {
   return title.slice(0, 2);
 }
 
+function normalizeTitleKey(value = "") {
+  return String(value)
+    .trim()
+    .toLowerCase()
+    .replace(/[^\p{L}\p{N}]+/gu, "");
+}
+
+function titleMatchesSeed(item, seedTitle) {
+  const seedKey = normalizeTitleKey(seedTitle);
+  if (!seedKey) return false;
+
+  return [item.title, item.originalTitle, item.name, item.originalName].some((title) => normalizeTitleKey(title) === seedKey);
+}
+
+function filterSeedResults(results, seedTitles) {
+  return results.filter((item) => !seedTitles.some((seedTitle) => titleMatchesSeed(item, seedTitle)));
+}
+
 function isImageUrl(value) {
   return typeof value === "string" && /^https?:\/\//.test(value);
 }
@@ -298,13 +316,16 @@ function PosterVisual({ poster, title }) {
 }
 
 function recommendationReason(item, titles) {
-  if (!titles.length) return item.reason;
-  const anchorTitle = titles[0];
-  return `${anchorTitle}를 좋아해서 추천합니다. ${item.reason}`;
+  if (item.reasonSeed) return `${item.reasonSeed}를 좋아해서 추천합니다. ${item.reason}`;
+  if (titles.length > 1) return `여러 취향을 함께 반영한 추천입니다. ${item.reason}`;
+  if (titles.length) return `입력한 취향을 바탕으로 추천합니다. ${item.reason}`;
+  return item.reason;
 }
 
 function decisionReason(item, titles) {
-  if (titles.length) return `${titles[0]}를 좋아했다면 추천`;
+  if (item.reasonSeed) return `${item.reasonSeed}를 좋아했다면 추천`;
+  if (titles.length > 1) return "여러 취향을 함께 반영한 추천";
+  if (titles.length) return "입력한 취향을 바탕으로 추천";
   if (item.tags.includes("genre-sf")) return "몰입감 있는 SF를 좋아한다면 추천";
   if (item.tags.includes("genre-romance")) return "감정선이 선명한 이야기를 좋아한다면 추천";
   if (item.tags.includes("genre-thriller")) return "긴장감 있는 이야기를 좋아한다면 추천";
@@ -427,7 +448,7 @@ function providerQuickPickScore(item, quickPicks) {
   return quickPicks.reduce((score, quickPick) => (item.tags.includes(quickPick) ? score + 1 : score), 0);
 }
 
-function normalizeProviderResult(content, quickPicks = []) {
+function normalizeProviderResult(content, quickPicks = [], reasonSeed = "") {
   const title = content.title || "제목 없음";
   const type = contentTypeForUi(content);
   const genres = Array.isArray(content.genres) && content.genres.length ? content.genres : ["장르 확인 필요"];
@@ -441,6 +462,7 @@ function normalizeProviderResult(content, quickPicks = []) {
   return {
     ...content,
     title,
+    reasonSeed,
     type,
     label: content.label || (type === "animation" ? "애니" : type === "movie" ? "영화" : "드라마"),
     tags: tagsFromProviderContent(content),
@@ -493,7 +515,9 @@ async function fetchProviderRecommendations(titles, selectedTypes, quickPicks) {
 
     const payload = await response.json();
     providerStatus = providerStatus || providerStatusFromPayload(payload);
-    const normalizedResults = (payload.results || []).map((item) => normalizeProviderResult(item, quickPicks));
+    const normalizedResults = (payload.results || [])
+      .map((item) => normalizeProviderResult(item, quickPicks, title))
+      .filter((item) => !titleMatchesSeed(item, title));
     const selectedResults = normalizedResults.filter((item) => isSelectedContentType(item, selectedTypes));
     const displayResults = (selectedResults.length ? selectedResults : normalizedResults).sort(
       (a, b) => providerQuickPickScore(b, quickPicks) - providerQuickPickScore(a, quickPicks) || b.match - a.match,
@@ -644,7 +668,7 @@ export default function Home() {
     setSelectedDetail(null);
     setShowQuickPick(false);
 
-    const fallbackResults = buildRecommendations(selectedTypes, selectedQuickPicks);
+    const fallbackResults = filterSeedResults(buildRecommendations(selectedTypes, selectedQuickPicks), enteredTitles);
 
     if (!enteredTitles.length) {
       setResults(fallbackResults);
