@@ -2,6 +2,31 @@
 
 개발 과정에서의 작업 내용, 결정, 아쉬운 점, 다음 개선 사항을 날짜별로 기록합니다.
 
+## 2026-07-03 - MYOTT-S07-T03
+
+### 오늘 작업
+
+- Recommendation Card CTA 문구를 Trust 흐름에 맞게 조정했습니다.
+- Detail Layer에서 Recommendation Reason, Trust Signal, 줄거리의 간격과 강조 수준을 다듬었습니다.
+- 실제 이동 기능 없이 OTT 확인 정보를 하단에 정리했습니다.
+- README, PROJECT_STATUS, TASK_HISTORY, CHANGELOG, dev-log를 T03 기준으로 업데이트했습니다.
+
+### 결정한 것
+
+- 이번 Task는 새 기능이 아니라 Recommendation Trust polish로 제한합니다.
+- 실제 OTT 이동 링크는 추가하지 않습니다.
+- Provider, API, TMDB, Mock Provider, 추천 알고리즘은 수정하지 않습니다.
+
+### 아쉬운 점
+
+- 실제 OTT 이동 버튼은 아직 구현하지 않았습니다.
+- Founder Review에서 `신뢰 단서 보기` 문구가 충분히 자연스러운지 확인해야 합니다.
+
+### 다음 개선
+
+- Founder가 카드에서 상세까지 막힘 없이 이동하는지 확인합니다.
+- 실제 OTT 링크/제공처 데이터는 별도 Sprint에서 정책과 함께 검토합니다.
+
 ## 2026-07-03 - MYOTT-S07-T02
 
 ### 오늘 작업

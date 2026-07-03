@@ -422,7 +422,7 @@ function DecisionCard({ item, enteredTitles, onOpen, badge, reasonOverride, clas
           <span><strong>평점</strong>{item.rating}</span>
           <span><strong>OTT</strong>{item.ott.join(", ")}</span>
         </div>
-        <span className="card-action">상세 보기</span>
+        <span className="card-action">신뢰 단서 보기</span>
       </div>
     </button>
   );
@@ -734,7 +734,7 @@ export default function Home() {
                 <section className="trust-panel" aria-labelledby="trustSignalTitle">
                   <div>
                     <p className="trust-label" id="trustSignalTitle">Trust Signal</p>
-                    <p className="trust-copy">선택을 돕기 위한 참고 단서입니다. 실제 지표는 이후 데이터 연결 시 교체됩니다.</p>
+                    <p className="trust-copy">선택을 돕기 위한 참고 단서입니다. 이후 실제 지표로 교체됩니다.</p>
                   </div>
                   <div className="trust-grid">
                     {trustSignals(selectedDetail, enteredTitles).map((signal) => (
@@ -746,6 +746,10 @@ export default function Home() {
                   </div>
                 </section>
                 <p><strong>줄거리</strong><br />{selectedDetail.synopsis}</p>
+                <div className="detail-next-step" aria-label={`${selectedDetail.title} OTT 확인`}>
+                  <span>볼 수 있는 OTT</span>
+                  <strong>{selectedDetail.ott.join(", ")}</strong>
+                </div>
               </div>
             </div>
           </section>

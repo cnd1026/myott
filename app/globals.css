@@ -482,7 +482,10 @@ input[type="text"]:focus {
 .card-action {
   align-self: flex-start;
   margin-top: auto;
-  border-bottom: 2px solid rgba(47, 125, 104, 0.28);
+  border: 1px solid rgba(47, 125, 104, 0.24);
+  border-radius: 999px;
+  padding: 6px 10px;
+  background: #fff;
   color: var(--accent-strong);
   font-size: 13px;
   font-weight: 900;
@@ -575,7 +578,7 @@ input[type="text"]:focus {
 
 .detail-info {
   display: grid;
-  gap: 14px;
+  gap: 13px;
   padding-right: 42px;
 }
 
@@ -593,16 +596,16 @@ input[type="text"]:focus {
 .detail-reason {
   border-left: 4px solid var(--accent);
   border-radius: 8px;
-  padding: 12px 14px;
+  padding: 14px 16px;
   background: var(--surface-soft);
 }
 
 .trust-panel {
   display: grid;
-  gap: 10px;
+  gap: 12px;
   border: 1px solid var(--line);
   border-radius: 8px;
-  padding: 12px 14px;
+  padding: 14px;
   background: #fff;
 }
 
@@ -614,7 +617,7 @@ input[type="text"]:focus {
 }
 
 .trust-copy {
-  margin: 4px 0 0;
+  margin: 5px 0 0;
   color: var(--muted);
   font-size: 13px;
   line-height: 1.5;
@@ -628,9 +631,9 @@ input[type="text"]:focus {
 
 .trust-signal {
   display: grid;
-  gap: 3px;
+  gap: 4px;
   border-radius: 8px;
-  padding: 9px 10px;
+  padding: 10px 11px;
   background: var(--surface-soft);
   color: var(--accent-strong);
   font-size: 12px;
@@ -642,6 +645,23 @@ input[type="text"]:focus {
   color: var(--muted);
   font-size: 11px;
   text-transform: uppercase;
+}
+
+.detail-next-step {
+  display: grid;
+  gap: 4px;
+  border: 1px solid rgba(47, 125, 104, 0.24);
+  border-radius: 8px;
+  padding: 12px 14px;
+  background: #fff;
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.45;
+}
+
+.detail-next-step strong {
+  color: var(--accent-strong);
+  font-size: 15px;
 }
 
 .quick-pick-sheet {

@@ -8,7 +8,7 @@ Sprint 7
 
 ## Current Task
 
-MYOTT-S07-T02 Recommendation Trust Signals
+MYOTT-S07-T03 Recommendation Trust Polish
 
 ## Current Branch
 
@@ -20,9 +20,9 @@ MYOTT-S07-T02 Recommendation Trust Signals
 
 ## Last Commit
 
-MYOTT-S07-T02 시작 시점 기준:
+MYOTT-S07-T03 시작 시점 기준:
 
-`cf6ba39 feat(ui): add recommendation confidence section`
+`d26aa53 feat(ui): improve recommendation trust signals`
 
 ## Repository
 
@@ -46,6 +46,7 @@ MYOTT-S07-T02 시작 시점 기준:
 - MVP Readiness Polish로 Hero, 입력, 결과 영역의 문구와 카드 균형을 최종 점검하는 단계입니다.
 - Decision Experience Final Polish에서 카드 클릭 가능성, 상세 Layer 정보 계층, Reset/Dynamic Input 흐름을 최종 점검합니다.
 - Sprint 7에서는 상세 Layer에서 추천을 믿을 수 있는 보조 단서인 Trust Signal UI를 준비합니다.
+- Recommendation Trust Polish에서 추천 카드, Trust Signal, OTT 확인 정보의 시각적 흐름을 최종 점검합니다.
 
 ## Current Documentation State
 
@@ -62,12 +63,12 @@ MYOTT-S07-T02 시작 시점 기준:
 
 ## Next Milestone
 
-Recommendation Trust Signal을 검증하고 추천 선택의 신뢰감을 높입니다.
+Recommendation Trust 흐름을 검증하고 마지막 선택까지의 마찰을 줄입니다.
 
 ## Immediate Next Tasks
 
-- Recommendation Trust Signal Founder Review
-- Trust Signal 문구가 실제 데이터로 오해되지 않는지 확인
+- Recommendation Trust Polish Founder Review
+- 추천 카드에서 상세, OTT 확인 정보까지 흐름이 끊기지 않는지 확인
 - Provider 검색 결과와 메인 추천 UX 연결 방식 검토
 - TMDB key 환경에서 실제 Provider Badge Founder Review
 - v1.0 최소 추천 경험과 DB 연동 시점 정리
@@ -77,7 +78,7 @@ Recommendation Trust Signal을 검증하고 추천 선택의 신뢰감을 높입
 - README 실행 명령은 현재 저장소 루트 기준 `pnpm install`, `pnpm dev`로 정리되어 있습니다.
 - TMDB Provider Adapter는 기존 `lib/tmdb.js`를 감싸는 형태이며, `lib/tmdb.js` 자체를 제거하지는 않았습니다.
 - 현재 환경에는 TMDB key가 없을 수 있으므로 TMDB 성공 경로는 Founder 환경에서 추가 확인이 필요합니다.
-- MYOTT-S07-T02는 Provider Registry/API/TMDB/Mock Provider를 수정하지 않는 Trust Signal UI 작업입니다.
+- MYOTT-S07-T03은 Provider Registry/API/TMDB/Mock Provider를 수정하지 않는 Trust UX polish 작업입니다.
 - DB 설계는 문서 단계이며 SQL, Supabase 연결, 마이그레이션은 아직 없습니다.
 - APS 핵심 운영 문서는 MyOTT public repository에서 제거되었고, Nd_core가 Source of Truth입니다.
 - MyOTT public repository에는 APS 존재와 브랜드 참조만 유지합니다.

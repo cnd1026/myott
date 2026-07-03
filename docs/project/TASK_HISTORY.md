@@ -46,7 +46,8 @@
 | Task ID | Task | Commit | Review | 상태 |
 | --- | --- | --- | --- | --- |
 | MYOTT-S07-T01 | Task 7-1 Recommendation Confidence Foundation | `cf6ba39` | 상세 Layer에 실제 데이터로 오해되지 않는 추천 신뢰 단서 UI를 추가. Provider/API/추천 알고리즘 미수정. | 완료 |
-| MYOTT-S07-T02 | Task 7-2 Recommendation Trust Signals | This implementation commit | Recommendation Confidence 영역을 Trust Signal 슬롯 구조로 개선. 실제 데이터처럼 보이는 표현 없이 상세 Layer 신뢰 정보 계층 정리. | 완료 |
+| MYOTT-S07-T02 | Task 7-2 Recommendation Trust Signals | `d26aa53` | Recommendation Confidence 영역을 Trust Signal 슬롯 구조로 개선. 실제 데이터처럼 보이는 표현 없이 상세 Layer 신뢰 정보 계층 정리. | 완료 |
+| MYOTT-S07-T03 | Task 7-3 Recommendation Trust Polish | This implementation commit | 카드 CTA, Trust Signal, OTT 확인 정보의 시각적 우선순위를 다듬어 마지막 선택 흐름을 개선. Provider/API/추천 알고리즘 미수정. | 완료 |
 
 ## Sprint 5.0 Standardization
 
