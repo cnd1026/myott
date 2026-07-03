@@ -2,6 +2,31 @@
 
 개발 과정에서의 작업 내용, 결정, 아쉬운 점, 다음 개선 사항을 날짜별로 기록합니다.
 
+## 2026-07-03 - MYOTT-S08-T07
+
+### 오늘 작업
+
+- multi-seed 추천 결과를 병합한 뒤 rule-based score로 정렬하는 레이어를 추가했습니다.
+- 동일 결과가 여러 seed에서 반복될 때 seed count와 reason seed를 병합하도록 했습니다.
+- TMDB `genreIds`, seed `genreIds`, popularity를 Provider 결과에 보존했습니다.
+- Quick Pick과 콘텐츠 타입 선택이 score에 반영되도록 했습니다.
+
+### 결정한 것
+
+- 이번 Task는 AI/ML이 아니라 설명 가능한 추천 엔진 1.0의 첫 단계로 둡니다.
+- 한국어 장르명만 보지 않고 TMDB genre id 기반 scoring도 함께 사용합니다.
+- Decision Card와 Detail Layer UI는 변경하지 않습니다.
+
+### 아쉬운 점
+
+- Codex 환경에서는 TMDB 외부 fetch가 제한될 수 있어 실제 추천 품질은 Founder 환경 확인이 필요합니다.
+- 점수 가중치는 아직 Founder Review 전의 초안입니다.
+
+### 다음 개선
+
+- 실제 결과를 보며 seed 반복, genre overlap, Quick Pick 가중치를 조정합니다.
+- confirmed seed metadata를 추천 요청에 더 직접적으로 활용할지 검토합니다.
+
 ## 2026-07-03 - MYOTT-S08-T06A
 
 ### 오늘 작업

@@ -247,6 +247,11 @@ const quickPickGroups = [
 
 const quickPickLabelByValue = new Map(quickPickGroups.flatMap((group) => group.options));
 const targetProviderResultCount = 8;
+const quickPickGenreIds = new Map([
+  ["genre-sf", [878, 10765]],
+  ["genre-romance", [10749]],
+  ["genre-thriller", [53]],
+]);
 
 const initialOtt = ["netflix"];
 const initialTypes = ["movie", "drama", "animation"];
@@ -411,6 +416,7 @@ function buildRecommendations(selectedTypes, quickPicks) {
 function tagsFromProviderContent(content) {
   const tags = new Set(Array.isArray(content.tags) ? content.tags : []);
   const genres = Array.isArray(content.genres) ? content.genres : [];
+  const genreIds = normalizedIdList(content.genreIds);
   const moods = Array.isArray(content.moods) ? content.moods : content.mood || [];
   const country = content.country || "";
   const runtime = Number(content.runtime);
@@ -420,6 +426,10 @@ function tagsFromProviderContent(content) {
     if (genre.includes("로맨스")) tags.add("genre-romance");
     if (genre.includes("스릴러") || genre.includes("범죄")) tags.add("genre-thriller");
   });
+
+  if (intersects(genreIds, quickPickGenreIds.get("genre-sf"))) tags.add("genre-sf");
+  if (intersects(genreIds, quickPickGenreIds.get("genre-romance"))) tags.add("genre-romance");
+  if (intersects(genreIds, quickPickGenreIds.get("genre-thriller"))) tags.add("genre-thriller");
 
   moods.forEach((mood) => tags.add(`mood-${mood}`));
 
@@ -443,9 +453,95 @@ function quickPickSummary(quickPicks) {
   return quickPicks.map((quickPick) => quickPickLabelByValue.get(quickPick)).filter(Boolean).slice(0, 2).join(", ");
 }
 
-function providerQuickPickScore(item, quickPicks) {
-  if (!quickPicks.length) return 0;
-  return quickPicks.reduce((score, quickPick) => (item.tags.includes(quickPick) ? score + 1 : score), 0);
+function normalizedIdList(values = []) {
+  return (Array.isArray(values) ? values : []).map((value) => Number(value)).filter((value) => Number.isFinite(value));
+}
+
+function intersects(left = [], right = []) {
+  if (!left.length || !right?.length) return false;
+  const rightSet = new Set(right);
+  return left.some((value) => rightSet.has(value));
+}
+
+function intersectionCount(left = [], right = []) {
+  if (!left.length || !right.length) return 0;
+  const rightSet = new Set(right);
+  return left.filter((value) => rightSet.has(value)).length;
+}
+
+function uniqueNumbers(values = []) {
+  return [...new Set(values.map((value) => Number(value)).filter((value) => Number.isFinite(value)))];
+}
+
+function contentKey(item) {
+  return `${item.providerId || item.source || "provider"}-${item.providerContentId || item.tmdbId || normalizeTitleKey(item.title)}`;
+}
+
+function mergeProviderResults(results) {
+  const merged = new Map();
+
+  for (const item of results) {
+    const key = contentKey(item);
+    const existing = merged.get(key);
+
+    if (!existing) {
+      merged.set(key, {
+        ...item,
+        reasonSeeds: item.reasonSeed ? [item.reasonSeed] : [],
+        seedCount: 1,
+        seedGenreIds: uniqueNumbers(item.seedGenreIds),
+      });
+      continue;
+    }
+
+    const reasonSeeds = [...new Set([...existing.reasonSeeds, item.reasonSeed].filter(Boolean))];
+    merged.set(key, {
+      ...existing,
+      reasonSeed: reasonSeeds.length === 1 ? reasonSeeds[0] : "",
+      reasonSeeds,
+      seedCount: existing.seedCount + 1,
+      seedGenreIds: uniqueNumbers([...existing.seedGenreIds, ...normalizedIdList(item.seedGenreIds)]),
+      tags: [...new Set([...existing.tags, ...item.tags])],
+      match: Math.max(Number(existing.match || 0), Number(item.match || 0)),
+      popularity: Math.max(Number(existing.popularity || 0), Number(item.popularity || 0)),
+    });
+  }
+
+  return [...merged.values()];
+}
+
+function scoreProviderResult(item, selectedTypes, quickPicks) {
+  const genreIds = normalizedIdList(item.genreIds);
+  const seedGenreOverlap = intersectionCount(genreIds, normalizedIdList(item.seedGenreIds));
+  const quickPickGenreOverlap = quickPicks.reduce(
+    (score, quickPick) => score + (intersects(genreIds, quickPickGenreIds.get(quickPick)) ? 1 : 0),
+    0,
+  );
+  const quickPickTagMatches = quickPicks.reduce((score, quickPick) => score + (item.tags.includes(quickPick) ? 1 : 0), 0);
+  const typeMatch = isSelectedContentType(item, selectedTypes) ? 1 : 0;
+
+  return item.seedCount * 3 + seedGenreOverlap * 2 + quickPickGenreOverlap * 2 + quickPickTagMatches * 2 + typeMatch;
+}
+
+function sortProviderResults(results, selectedTypes, quickPicks) {
+  return results
+    .map((item) => ({
+      ...item,
+      score: scoreProviderResult(item, selectedTypes, quickPicks),
+    }))
+    .sort((a, b) => {
+      const popularityA = Number(a.popularity || 0);
+      const popularityB = Number(b.popularity || 0);
+      const ratingA = Number.parseFloat(a.rating);
+      const ratingB = Number.parseFloat(b.rating);
+
+      return (
+        b.score - a.score ||
+        popularityB - popularityA ||
+        (Number.isFinite(ratingB) ? ratingB : 0) - (Number.isFinite(ratingA) ? ratingA : 0) ||
+        Number(b.match || 0) - Number(a.match || 0)
+      );
+    });
 }
 
 function normalizeProviderResult(content, quickPicks = [], reasonSeed = "") {
@@ -462,8 +558,11 @@ function normalizeProviderResult(content, quickPicks = [], reasonSeed = "") {
   return {
     ...content,
     title,
-    reasonSeed,
+    reasonSeed: content.seedTitle || reasonSeed,
     type,
+    genreIds: normalizedIdList(content.genreIds),
+    seedGenreIds: normalizedIdList(content.seedGenreIds),
+    popularity: Number(content.popularity || 0),
     label: content.label || (type === "animation" ? "애니" : type === "movie" ? "영화" : "드라마"),
     tags: tagsFromProviderContent(content),
     genre: content.genre || genres.join(", "),
@@ -477,7 +576,7 @@ function normalizeProviderResult(content, quickPicks = [], reasonSeed = "") {
     poster,
     detailPoster: content.poster || content.backdrop || thumbnailText(title),
     backdrop: content.backdrop || "",
-    match: content.match || Number(content.vote_average || content.rating || 0),
+    match: content.match || Number(content.popularity || content.vote_average || content.rating || 0),
   };
 }
 
@@ -500,8 +599,7 @@ function providerStatusFromPayload(payload) {
 
 async function fetchProviderRecommendations(titles, selectedTypes, quickPicks) {
   const uniqueTitles = [...new Set(titles)].slice(0, 3);
-  const resultBatches = [];
-  const seen = new Set();
+  const providerResults = [];
   let providerStatus = null;
 
   for (const title of uniqueTitles) {
@@ -518,33 +616,13 @@ async function fetchProviderRecommendations(titles, selectedTypes, quickPicks) {
     const normalizedResults = (payload.results || [])
       .map((item) => normalizeProviderResult(item, quickPicks, title))
       .filter((item) => !titleMatchesSeed(item, title));
-    const selectedResults = normalizedResults.filter((item) => isSelectedContentType(item, selectedTypes));
-    const displayResults = (selectedResults.length ? selectedResults : normalizedResults).sort(
-      (a, b) => providerQuickPickScore(b, quickPicks) - providerQuickPickScore(a, quickPicks) || b.match - a.match,
-    );
-    resultBatches.push(displayResults);
+    providerResults.push(...normalizedResults);
   }
 
-  const collected = [];
-  const maxBatchLength = Math.max(0, ...resultBatches.map((batch) => batch.length));
+  const mergedResults = mergeProviderResults(filterSeedResults(providerResults, uniqueTitles));
+  const sortedResults = sortProviderResults(mergedResults, selectedTypes, quickPicks);
 
-  for (let rank = 0; rank < maxBatchLength; rank += 1) {
-    for (const batch of resultBatches) {
-      const item = batch[rank];
-      if (!item) continue;
-
-      const key = `${item.providerId || item.source || "provider"}-${item.providerContentId || item.title}`;
-      if (seen.has(key)) continue;
-      seen.add(key);
-      collected.push(item);
-
-      if (collected.length >= targetProviderResultCount) {
-        return { results: collected, providerStatus };
-      }
-    }
-  }
-
-  return { results: collected.slice(0, targetProviderResultCount), providerStatus };
+  return { results: sortedResults.slice(0, targetProviderResultCount), providerStatus };
 }
 
 function toggleValue(values, value) {

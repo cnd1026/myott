@@ -53,6 +53,7 @@
 | MYOTT-S08-T05 | Task 8-5 TMDB Option Metadata 기반 | `6116a34` | TMDB movie/tv 장르 metadata를 추천옵션 연결 가능한 형태로 정규화하고 `/api/options` fallback route 추가. 기존 UI/추천 흐름 유지. | 완료 |
 | MYOTT-S08-T06 | Task 8-6 TMDB 작품명 자동완성 | `54850ae` | `/api/suggest`와 입력창별 300ms debounce 자동완성을 추가. 후보 선택 시 정확한 TMDB 제목 입력, 기존 추천 흐름 유지. | 완료 |
 | MYOTT-S08-T06A | Task 8-6A 자동완성 닫힘 UX 정리 | `6f45773` | 외부 클릭, ESC, 입력창 focus 전환, 추천 submit 시 후보창이 닫히도록 정리. API/Provider 구조 유지. | 완료 |
+| MYOTT-S08-T07 | Task 8-7 Multi-seed option scoring | `TBD` | 여러 seed 반복, seed genre overlap, Quick Pick, 콘텐츠 타입, TMDB popularity/rating을 반영한 rule-based score 정렬 추가. UI 구조 유지. | 완료 |
 
 ## Sprint 7
 

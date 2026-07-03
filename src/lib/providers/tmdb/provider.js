@@ -47,7 +47,15 @@ export const tmdbProvider = {
 
   async search({ query = "" } = {}) {
     const payload = await searchTmdb(query);
-    return (payload.results || []).map(toUnifiedContentModel);
+    return (payload.results || []).map((item) =>
+      toUnifiedContentModel({
+        ...item,
+        seedTitle: payload.seed?.title || query,
+        seedGenreIds: payload.seed?.genreIds || [],
+        seedGenres: payload.seed?.genres || [],
+        seedContentType: payload.seed?.type || "",
+      }),
+    );
   },
 
   async getDetail() {
