@@ -56,7 +56,7 @@
 | MYOTT-S08-T07 | Task 8-7 Multi-seed option scoring | `b31795c` | 여러 seed 반복, seed genre overlap, Quick Pick, 콘텐츠 타입, TMDB popularity/rating을 반영한 rule-based score 정렬 추가. UI 구조 유지. | 완료 |
 | MYOTT-S08-T08 | Task 8-8 Recommendation Insight | `8c4c916` | 실제 scoring signal을 최대 3개의 짧은 Insight bullet로 변환해 Detail Layer에 표시. score 비노출, 과장 근거 없음. | 완료 |
 | MYOTT-S08-T09 | Task 8-9 전체 입력/옵션 재계산 | `8af4968` | 동적 입력 전체를 다시 수집하고 결과 목표를 12개로 확대. OTT/type scoring과 개발 포트/TMDB TLS 조사 기록 추가. | 완료 |
-| MYOTT-S08-T09A | Task 8-9A seed 이유 문구와 multi-seed 균형 보정 | `TBD` | ko-KR 을/를 helper, seed title cleanup, multi-seed 라운드로빈 보정, 자동완성 150ms/cache 적용. | 완료 |
+| MYOTT-S08-T09A | Task 8-9A seed 이유 문구와 multi-seed 균형 보정 | `9d3bdcc` | ko-KR 을/를 helper, seed title cleanup, multi-seed 라운드로빈 보정, 자동완성 150ms/cache 적용. | 완료 |
 
 ## Sprint 7
 
