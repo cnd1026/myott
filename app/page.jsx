@@ -399,7 +399,7 @@ function tagsFromProviderContent(content) {
 }
 
 function contentTypeForUi(content) {
-  if (content.type === "series" || content.contentType === "series") return "drama";
+  if (["drama", "series", "tv"].includes(content.type) || ["drama", "series", "tv"].includes(content.contentType)) return "drama";
   return content.type || content.contentType || "movie";
 }
 
@@ -432,13 +432,27 @@ function normalizeProviderResult(content) {
 }
 
 function isSelectedContentType(content, selectedTypes) {
-  return selectedTypes.includes(content.type);
+  return selectedTypes.includes(content.type) || selectedTypes.includes(content.contentType);
+}
+
+function providerStatusFromPayload(payload) {
+  const providerId = payload.providerId || payload.source || "unknown";
+
+  return {
+    providerId,
+    providerName: payload.providerName || providerId,
+    fallback: providerId === "mock" && Boolean(payload.tmdbEnabled),
+    tmdbEnabled: Boolean(payload.tmdbEnabled),
+    message: payload.message || "",
+    checked: true,
+  };
 }
 
 async function fetchProviderRecommendations(titles, selectedTypes) {
   const uniqueTitles = [...new Set(titles)].slice(0, 3);
   const collected = [];
   const seen = new Set();
+  let providerStatus = null;
 
   for (const title of uniqueTitles) {
     const response = await fetch(`/api/search?q=${encodeURIComponent(title)}`, {
@@ -450,18 +464,21 @@ async function fetchProviderRecommendations(titles, selectedTypes) {
     }
 
     const payload = await response.json();
-    const normalizedResults = (payload.results || []).map(normalizeProviderResult).filter((item) => isSelectedContentType(item, selectedTypes));
+    providerStatus = providerStatus || providerStatusFromPayload(payload);
+    const normalizedResults = (payload.results || []).map(normalizeProviderResult);
+    const selectedResults = normalizedResults.filter((item) => isSelectedContentType(item, selectedTypes));
+    const displayResults = selectedResults.length ? selectedResults : normalizedResults;
 
-    for (const item of normalizedResults) {
+    for (const item of displayResults) {
       const key = `${item.providerId || item.source || "provider"}-${item.providerContentId || item.title}`;
       if (seen.has(key)) continue;
       seen.add(key);
       collected.push(item);
-      if (collected.length >= 6) return collected;
+      if (collected.length >= 6) return { results: collected, providerStatus };
     }
   }
 
-  return collected;
+  return { results: collected, providerStatus };
 }
 
 function toggleValue(values, value) {
@@ -564,16 +581,7 @@ export default function Home() {
         cache: "no-store",
       });
       const payload = await response.json();
-      const providerId = payload.providerId || payload.source || "unknown";
-
-      setProviderStatus({
-        providerId,
-        providerName: payload.providerName || providerId,
-        fallback: providerId === "mock" && Boolean(payload.tmdbEnabled),
-        tmdbEnabled: Boolean(payload.tmdbEnabled),
-        message: payload.message || "",
-        checked: true,
-      });
+      setProviderStatus(providerStatusFromPayload(payload));
     } catch (error) {
       setProviderStatus({
         providerId: "error",
@@ -603,11 +611,13 @@ export default function Home() {
     }
 
     try {
-      const providerResults = await fetchProviderRecommendations(enteredTitles, selectedTypes);
+      const { results: providerResults, providerStatus: nextProviderStatus } = await fetchProviderRecommendations(enteredTitles, selectedTypes);
       setResults(providerResults.length ? providerResults : fallbackResults);
+      if (showDevProviderStatus && nextProviderStatus) {
+        setProviderStatus(nextProviderStatus);
+      }
     } catch {
       setResults(fallbackResults);
-    } finally {
       refreshProviderStatus(enteredTitles[0] || "interstellar");
     }
   }
