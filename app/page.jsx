@@ -616,6 +616,7 @@ export default function Home() {
   const [timeSlot, setTimeSlot] = useState("evening");
   const [suggestions, setSuggestions] = useState({});
   const [activeSuggestionIndex, setActiveSuggestionIndex] = useState(null);
+  const [confirmedSeeds, setConfirmedSeeds] = useState({});
 
   const enteredTitles = useMemo(() => titles.map((title) => title.trim()).filter(Boolean), [titles]);
   const canRecommend = enteredTitles.length > 0 || selectedQuickPicks.length > 0;
@@ -626,10 +627,22 @@ export default function Home() {
       if (event.key !== "Escape") return;
       setSelectedDetail(null);
       setShowQuickPick(false);
+      closeSuggestions();
     }
 
     document.addEventListener("keydown", handleEscape);
     return () => document.removeEventListener("keydown", handleEscape);
+  }, []);
+
+  useEffect(() => {
+    function handleOutsidePointerDown(event) {
+      if (!(event.target instanceof Element)) return;
+      if (event.target.closest("[data-autocomplete-root]")) return;
+      closeSuggestions();
+    }
+
+    document.addEventListener("pointerdown", handleOutsidePointerDown);
+    return () => document.removeEventListener("pointerdown", handleOutsidePointerDown);
   }, []);
 
   useEffect(() => {
@@ -699,6 +712,7 @@ export default function Home() {
     setHasSubmitted(true);
     setSelectedDetail(null);
     setShowQuickPick(false);
+    closeSuggestions();
 
     const fallbackResults = filterSeedResults(buildRecommendations(selectedTypes, selectedQuickPicks), enteredTitles);
 
@@ -727,12 +741,31 @@ export default function Home() {
 
   function updateTitle(index, value) {
     setTitles((current) => normalizeTitleInputs(current.map((item, itemIndex) => (itemIndex === index ? value : item))));
+    setConfirmedSeeds((current) => {
+      if (!current[index]) return current;
+      const next = { ...current };
+      delete next[index];
+      return next;
+    });
     setActiveSuggestionIndex(index);
   }
 
   function selectSuggestion(index, suggestion) {
     setTitles((current) => normalizeTitleInputs(current.map((item, itemIndex) => (itemIndex === index ? suggestion.title : item))));
+    setConfirmedSeeds((current) => ({ ...current, [index]: suggestion }));
     setSuggestions((current) => ({ ...current, [index]: [] }));
+    setActiveSuggestionIndex(null);
+  }
+
+  function focusTitleInput(index) {
+    setActiveSuggestionIndex(index);
+    setSuggestions((current) =>
+      Object.fromEntries(Object.entries(current).filter(([suggestionIndex]) => Number(suggestionIndex) === index)),
+    );
+  }
+
+  function closeSuggestions() {
+    setSuggestions({});
     setActiveSuggestionIndex(null);
   }
 
@@ -747,6 +780,7 @@ export default function Home() {
     setSelectedDetail(null);
     setSuggestions({});
     setActiveSuggestionIndex(null);
+    setConfirmedSeeds({});
   }
 
   return (
@@ -845,7 +879,12 @@ export default function Home() {
             </div>
             <div className="input-group" aria-label="좋아했던 작품 입력">
               {titles.map((title, index) => (
-                <label className="title-input-field" key={`title-${index + 1}`}>
+                <label
+                  className="title-input-field"
+                  data-autocomplete-root
+                  data-confirmed-seed={confirmedSeeds[index] ? "true" : "false"}
+                  key={`title-${index + 1}`}
+                >
                   작품 {index + 1}
                   <input
                     id={`titleInput${index + 1}`}
@@ -855,7 +894,7 @@ export default function Home() {
                     autoComplete="off"
                     value={title}
                     onChange={(event) => updateTitle(index, event.target.value)}
-                    onFocus={() => setActiveSuggestionIndex(index)}
+                    onFocus={() => focusTitleInput(index)}
                   />
                   {suggestions[index]?.length ? (
                     <div className="suggestion-list" role="listbox" aria-label={`작품 ${index + 1} 검색 후보`}>
