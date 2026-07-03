@@ -47,7 +47,7 @@
 | --- | --- | --- | --- | --- |
 | MYOTT-S08-T01 | Task 8-1 TMDB 실제 검색 결과 연결 | `47872e9` | 입력 작품이 있으면 `/api/search` Provider 결과를 Decision Card/Detail Layer 데이터로 사용하고, 실패 시 기존 Mock 추천으로 fallback. UI/Provider Registry 구조 유지. | 완료 |
 | MYOTT-S08-T01B | Task 8-1b TMDB 검색 결과 프론트 바인딩 보정 | `2fd2cba` | `/api/search`의 `results` 배열을 화면 카드 상태에 직접 반영하고, Provider metadata를 같은 응답 기준으로 dev 표시. Provider/API/UI 구조 유지. | 완료 |
-| MYOTT-S08-T02 | Task 8-2 TMDB Result Mapping 개선 | This implementation commit | TMDB 제목/타입/연도/평점/장르/포스터 정규화와 검색 관련도 정렬을 보강. 기존 Decision Card/Detail Layer 구조와 Mock fallback 유지. | 완료 |
+| MYOTT-S08-T02 | Task 8-2 TMDB Result Mapping 개선 | `7a532a8` | TMDB 제목/타입/연도/평점/장르/포스터 정규화와 검색 관련도 정렬을 보강. 기존 Decision Card/Detail Layer 구조와 Mock fallback 유지. | 완료 |
 
 ## Sprint 7
 
