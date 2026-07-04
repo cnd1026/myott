@@ -60,7 +60,7 @@
 | MYOTT-S08-T10 | Task 8-10 loading/options/related recommendation UX | `0e26861` | 추천 상태 분리, Detail Related Picks, `/api/options` metadata Quick Pick 연결, genre/country option scoring 반영. | 완료 |
 | MYOTT-S08-T10A | Task 8-10A Quick Pick UX and option recommendation polish | `7ff87cd` | Quick Pick 검색/Grid/chip label 개선, option-only Provider 추천, Related Picks 독립 strip 분리. | 완료 |
 | MYOTT-S08-T10B | Task 8-10B Related Picks and Quick Pick filter polish | `0a9a0cd` | 현재 작품 기준 Related API, carousel controls, 장르 더보기/접기, 글로벌 국가 옵션, 선택 필터 chip 추가. | 완료 |
-| MYOTT-S08-T10C | Task 8-10C Recommendation option interaction rule polish | `TBD` | Related Picks drag/swipe UX, 검색 clear button, option group 공통 expand rule, visual polish 적용. | 완료 |
+| MYOTT-S08-T10C | Task 8-10C Recommendation option interaction rule polish | `134cab8` | Related Picks drag/swipe UX, 검색 clear button, option group 공통 expand rule, visual polish 적용. | 완료 |
 
 ## Sprint 7
 
