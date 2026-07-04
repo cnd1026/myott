@@ -2,6 +2,34 @@
 
 개발 과정에서의 작업 내용, 결정, 아쉬운 점, 다음 개선 사항을 날짜별로 기록합니다.
 
+## 2026-07-05 - MYOTT-S08-BUG-001
+
+### 오늘 작업
+
+- Related Picks drag/click 상태를 ref 기반으로 정리했습니다.
+- drag distance threshold를 적용해 실제 drag 후 발생하는 click만 억제했습니다.
+- 일반 Related Pick click은 기존 `openDetail` 흐름을 그대로 사용해 상세 전환과 related reload가 이어지도록 했습니다.
+- Related 카드 제목 3줄 clamp와 카드 높이를 다시 맞춰 긴 제목에서도 클릭 영역과 레이아웃이 안정적으로 유지되도록 했습니다.
+- 선택한 OTT option label을 실제 provider처럼 카드에 표시하던 로직을 제거했습니다.
+- 실제 provider 데이터가 없는 TMDB 결과는 `OTT 정보 확인 필요`로 표시하도록 안전한 fallback을 적용했습니다.
+
+### 결정한 것
+
+- OTT option은 recommendation scoring/filter hint입니다.
+- 카드의 OTT 표시는 실제 작품 provider 데이터가 있을 때만 사용합니다.
+- selected OTT와 actual provider는 같은 label을 쓰더라도 다른 데이터로 취급합니다.
+- Related Picks interaction은 drag 상태를 DOM dataset에 남기지 않고 명확한 interaction state로 관리합니다.
+
+### 아쉬운 점
+
+- Codex 환경에서는 TMDB 외부 fetch가 제한될 수 있어 실제 provider 데이터 품질은 Founder 로컬에서 확인해야 합니다.
+- TMDB watch provider를 카드에 정확히 표시하려면 지역별 provider detail 연결 정책이 별도 Task로 필요합니다.
+
+### 다음 개선
+
+- 실제 watch provider detail API를 어느 시점에 카드/상세에 연결할지 정책을 정리합니다.
+- Related Picks drag/swipe의 모바일 체감은 Founder 기기에서 추가 확인합니다.
+
 ## 2026-07-04 - MYOTT-S08-T10F
 
 ### 오늘 작업

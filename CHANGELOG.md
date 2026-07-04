@@ -2,6 +2,28 @@
 
 프로젝트의 주요 변경 사항을 날짜별로 기록합니다.
 
+## 2026-07-05 - MYOTT-S08-BUG-001
+
+### 변경 내용
+
+- Related Picks drag 상태를 `dataset` 기반에서 ref 기반 상태로 정리해 drag와 click을 분리했습니다.
+- Related Picks는 drag distance threshold를 넘은 직후의 click만 억제하고, 일반 click은 즉시 `openDetail` 흐름으로 상세 작품을 변경하도록 수정했습니다.
+- Related Pick 클릭 후 선택 작품이 바뀌면 기존 effect를 통해 해당 작품 기준 Related Picks가 다시 로드됩니다.
+- Related Picks 카드 높이와 제목 3줄 clamp 영역을 다시 맞춰 긴 제목에서도 카드 레이아웃이 흔들리지 않도록 조정했습니다.
+- 선택한 OTT 필터 라벨을 실제 제공처처럼 카드에 표시하던 fallback 경로를 제거했습니다.
+- TMDB discover에서 watch provider 필터를 사용하더라도, 실제 provider 데이터가 없으면 카드에는 `OTT 정보 확인 필요`를 표시하도록 정리했습니다.
+
+### 이유
+
+- Related Picks는 drag와 click이 충돌하면 상세 탐색 흐름이 끊기기 때문입니다.
+- Netflix, Disney+, Watcha를 선택했다는 사실은 추천 힌트이지 실제 작품 제공처 검증 결과가 아니기 때문입니다.
+- 실제 provider 데이터와 selected OTT option을 분리해야 추천 서비스의 신뢰를 유지할 수 있습니다.
+
+### 다음 작업
+
+- Founder 로컬에서 Related Picks click/drag와 모바일 swipe를 확인합니다.
+- 실제 TMDB watch provider 데이터를 카드에 안전하게 연결하는 작업은 별도 Task로 분리합니다.
+
 ## 2026-07-04 - MYOTT-S08-T10F
 
 ### 변경 내용

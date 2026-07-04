@@ -274,6 +274,9 @@ const initialOptionMetadata = {
 };
 const targetProviderResultCount = 12;
 const relatedPickCount = 12;
+const relatedDragThreshold = 8;
+const relatedClickSuppressMs = 220;
+const unknownOttLabel = "OTT 정보 확인 필요";
 const collapsedOptionCount = 8;
 const autocompleteDebounceMs = 150;
 const quickPickGenreIds = new Map([
@@ -649,8 +652,22 @@ function selectedOttLabels(selectedOtt) {
   return selectedOtt.map((value) => ottLabelByValue.get(value)).filter(Boolean);
 }
 
+function isUnknownOttValue(value) {
+  return ["검색 필요", unknownOttLabel].includes(String(value || "").trim());
+}
+
+function safeOttPlatforms(content) {
+  const actualProviders = Array.isArray(content.actualProviders) ? content.actualProviders : [];
+  const rawPlatforms = Array.isArray(content.ott) && content.ott.length ? content.ott : content.platforms || [];
+  const providers = (actualProviders.length ? actualProviders : rawPlatforms)
+    .map((provider) => String(provider || "").trim())
+    .filter((provider) => provider && !isUnknownOttValue(provider));
+
+  return providers.length ? [...new Set(providers)] : [unknownOttLabel];
+}
+
 function platformMatchesSelectedOtt(item, selectedOtt) {
-  const platforms = Array.isArray(item.ott) ? item.ott : [];
+  const platforms = safeOttPlatforms(item).filter((provider) => !isUnknownOttValue(provider));
   const selectedLabels = selectedOttLabels(selectedOtt);
   return selectedLabels.some((label) => platforms.some((platform) => normalizeTitleKey(platform) === normalizeTitleKey(label)));
 }
@@ -810,17 +827,13 @@ function normalizeProviderResult(content, quickPicks = [], reasonSeed = "", labe
   const title = content.title || "제목 없음";
   const type = contentTypeForUi(content);
   const genres = Array.isArray(content.genres) && content.genres.length ? content.genres : ["장르 확인 필요"];
-  const selectedProviderLabels = selectedOttLabels(selectedOtt);
-  const rawOtt = Array.isArray(content.ott) && content.ott.length ? content.ott : content.platforms || ["검색 필요"];
-  const hasUnknownOtt = rawOtt.length === 1 && rawOtt[0] === "검색 필요";
-  const ott = hasUnknownOtt && selectedProviderLabels.length ? selectedProviderLabels : rawOtt;
+  const ott = safeOttPlatforms(content);
   const actors = Array.isArray(content.actors) && content.actors.length ? content.actors : ["정보 없음"];
   const runtime = Number(content.runtime);
   const rating = Number(content.rating);
   const poster = content.backdrop || content.poster || thumbnailText(title);
   const optionSummary = quickPickSummary(quickPicks, labelByValue);
-  const ottSummary = selectedProviderLabels.slice(0, 2).join(", ");
-  const reason = content.reason || (ottSummary ? `${ottSummary} 제공 작품 기준 추천입니다.` : optionSummary ? `${optionSummary} 옵션까지 함께 참고한 실제 검색 결과입니다.` : "입력한 작품과 연결해 확인해볼 만한 실제 검색 결과입니다.");
+  const reason = content.reason || (optionSummary ? `${optionSummary} 옵션까지 함께 참고한 실제 검색 결과입니다.` : "입력한 작품과 연결해 확인해볼 만한 실제 검색 결과입니다.");
 
   return {
     ...content,
@@ -1025,6 +1038,14 @@ export default function Home() {
   const [confirmedSeeds, setConfirmedSeeds] = useState({});
   const suggestionCacheRef = useRef(new Map());
   const relatedStripRef = useRef(null);
+  const relatedDragRef = useRef({
+    active: false,
+    pointerId: null,
+    startX: 0,
+    scrollLeft: 0,
+    moved: false,
+    suppressClickUntil: 0,
+  });
   const quickPickSearchRef = useRef(null);
 
   const enteredTitles = useMemo(() => titles.map((title) => title.trim()).filter(Boolean), [titles]);
@@ -1275,32 +1296,55 @@ export default function Home() {
   function startRelatedDrag(event) {
     const node = relatedStripRef.current;
     if (!node) return;
-    node.dataset.dragging = "true";
-    node.dataset.dragMoved = "false";
-    node.dataset.dragStartX = String(event.clientX);
-    node.dataset.dragScrollLeft = String(node.scrollLeft);
+
+    if (event.pointerType === "mouse" && event.button !== 0) return;
+
+    relatedDragRef.current = {
+      active: true,
+      pointerId: event.pointerId,
+      startX: event.clientX,
+      scrollLeft: node.scrollLeft,
+      moved: false,
+      suppressClickUntil: 0,
+    };
     node.setPointerCapture?.(event.pointerId);
   }
 
   function moveRelatedDrag(event) {
     const node = relatedStripRef.current;
-    if (!node || node.dataset.dragging !== "true") return;
-    const startX = Number(node.dataset.dragStartX || event.clientX);
-    const startScrollLeft = Number(node.dataset.dragScrollLeft || node.scrollLeft);
-    const deltaX = event.clientX - startX;
-    if (Math.abs(deltaX) > 3) {
+    const drag = relatedDragRef.current;
+    if (!node || !drag.active || drag.pointerId !== event.pointerId) return;
+
+    const deltaX = event.clientX - drag.startX;
+    if (Math.abs(deltaX) > relatedDragThreshold) {
       node.classList.add("is-dragging");
-      node.dataset.dragMoved = "true";
+      drag.moved = true;
     }
-    node.scrollLeft = startScrollLeft - deltaX;
+    node.scrollLeft = drag.scrollLeft - deltaX;
   }
 
   function endRelatedDrag(event) {
     const node = relatedStripRef.current;
     if (!node) return;
-    node.dataset.dragging = "false";
+    const drag = relatedDragRef.current;
+    if (drag.active && drag.pointerId === event.pointerId && drag.moved) {
+      drag.suppressClickUntil = Date.now() + relatedClickSuppressMs;
+    }
+    drag.active = false;
+    drag.pointerId = null;
+    drag.moved = false;
     node.releasePointerCapture?.(event.pointerId);
     window.setTimeout(() => node.classList.remove("is-dragging"), 0);
+  }
+
+  function openRelatedPick(item, event) {
+    if (Date.now() < relatedDragRef.current.suppressClickUntil) {
+      event.preventDefault();
+      return;
+    }
+
+    relatedDragRef.current.suppressClickUntil = 0;
+    openDetail(item);
   }
 
   function updateTitle(index, value) {
@@ -1713,15 +1757,7 @@ export default function Home() {
                   <button
                     className="related-card"
                     type="button"
-                    onClick={(event) => {
-                      const strip = event.currentTarget.closest(".related-strip");
-                      if (strip?.dataset.dragMoved === "true") {
-                        strip.dataset.dragMoved = "false";
-                        event.preventDefault();
-                        return;
-                      }
-                      openDetail(item);
-                    }}
+                    onClick={(event) => openRelatedPick(item, event)}
                     key={item.id || item.providerContentId || item.title}
                   >
                     <span className="related-thumb" aria-hidden="true"><PosterVisual poster={item.poster} title={item.title} /></span>

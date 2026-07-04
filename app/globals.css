@@ -845,13 +845,13 @@ input[type="text"]:focus {
 
 .related-card {
   display: grid;
-  grid-template-columns: 58px 1fr;
+  grid-template-columns: 62px minmax(0, 1fr);
   align-items: start;
   gap: 10px;
-  height: 132px;
+  height: 146px;
   border: 1px solid var(--line);
   border-radius: 8px;
-  padding: 11px;
+  padding: 12px;
   background: #fff;
   color: var(--text);
   text-align: left;
@@ -871,9 +871,10 @@ input[type="text"]:focus {
 
 .related-card strong {
   display: -webkit-box;
-  min-height: 57px;
-  max-height: 57px;
-  line-height: 1.35;
+  min-height: calc(14px * 1.3 * 3);
+  max-height: calc(14px * 1.3 * 3);
+  font-size: 14px;
+  line-height: 1.3;
   -webkit-box-orient: vertical;
   -webkit-line-clamp: 3;
 }
@@ -890,8 +891,8 @@ input[type="text"]:focus {
 .related-thumb {
   display: grid;
   place-items: center;
-  width: 58px;
-  height: 72px;
+  width: 62px;
+  height: 78px;
   border-radius: 7px;
   overflow: hidden;
   background: var(--surface-soft);
