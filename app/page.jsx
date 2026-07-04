@@ -1040,7 +1040,6 @@ export default function Home() {
   const relatedStripRef = useRef(null);
   const relatedDragRef = useRef({
     active: false,
-    pointerId: null,
     startX: 0,
     scrollLeft: 0,
     moved: false,
@@ -1297,49 +1296,59 @@ export default function Home() {
     const node = relatedStripRef.current;
     if (!node) return;
 
-    if (event.pointerType === "mouse" && event.button !== 0) return;
+    if (event.button !== 0) return;
 
     relatedDragRef.current = {
       active: true,
-      pointerId: event.pointerId,
       startX: event.clientX,
       scrollLeft: node.scrollLeft,
       moved: false,
       suppressClickUntil: 0,
     };
-    node.setPointerCapture?.(event.pointerId);
   }
 
   function moveRelatedDrag(event) {
     const node = relatedStripRef.current;
     const drag = relatedDragRef.current;
-    if (!node || !drag.active || drag.pointerId !== event.pointerId) return;
+    if (!node || !drag.active) return;
 
     const deltaX = event.clientX - drag.startX;
     if (Math.abs(deltaX) > relatedDragThreshold) {
+      event.preventDefault();
       node.classList.add("is-dragging");
       drag.moved = true;
+      drag.suppressClickUntil = Date.now() + relatedClickSuppressMs;
     }
     node.scrollLeft = drag.scrollLeft - deltaX;
   }
 
-  function endRelatedDrag(event) {
+  function endRelatedDrag() {
     const node = relatedStripRef.current;
     if (!node) return;
     const drag = relatedDragRef.current;
-    if (drag.active && drag.pointerId === event.pointerId && drag.moved) {
+    if (drag.active && drag.moved) {
       drag.suppressClickUntil = Date.now() + relatedClickSuppressMs;
     }
     drag.active = false;
-    drag.pointerId = null;
     drag.moved = false;
-    node.releasePointerCapture?.(event.pointerId);
     window.setTimeout(() => node.classList.remove("is-dragging"), 0);
+  }
+
+  function suppressRelatedClick(event) {
+    if (Date.now() >= relatedDragRef.current.suppressClickUntil) return;
+    event.preventDefault();
+    event.stopPropagation();
+  }
+
+  function preventRelatedContextMenu(event) {
+    if (!relatedDragRef.current.active && Date.now() >= relatedDragRef.current.suppressClickUntil) return;
+    event.preventDefault();
   }
 
   function openRelatedPick(item, event) {
     if (Date.now() < relatedDragRef.current.suppressClickUntil) {
       event.preventDefault();
+      event.stopPropagation();
       return;
     }
 
@@ -1747,11 +1756,12 @@ export default function Home() {
                 className="related-strip"
                 aria-label="관련 추천"
                 ref={relatedStripRef}
-                onPointerDown={startRelatedDrag}
-                onPointerMove={moveRelatedDrag}
-                onPointerUp={endRelatedDrag}
-                onPointerCancel={endRelatedDrag}
-                onPointerLeave={endRelatedDrag}
+                onMouseDown={startRelatedDrag}
+                onMouseMove={moveRelatedDrag}
+                onMouseUp={endRelatedDrag}
+                onMouseLeave={endRelatedDrag}
+                onClickCapture={suppressRelatedClick}
+                onContextMenu={preventRelatedContextMenu}
               >
                 {relatedRecommendations.map((item) => (
                   <button

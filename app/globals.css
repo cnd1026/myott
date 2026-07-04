@@ -863,6 +863,10 @@ input[type="text"]:focus {
   min-width: 0;
 }
 
+.related-card > * {
+  pointer-events: none;
+}
+
 .related-card strong,
 .related-card small {
   display: block;

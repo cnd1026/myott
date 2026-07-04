@@ -64,7 +64,8 @@
 | MYOTT-S08-T10D | Task 8-10D Related card and content type filtering bugfix | `439171b` | Related 카드 높이 안정화, 긴 제목 clamp, content type mapping 점검, animation discover 쏠림 완화. | 완료 |
 | MYOTT-S08-T10E | Task 8-10E Content type enforcement and related card layout bugfix | `c1f5a95` | 콘텐츠 타입 후보 수집/감산 강화, 드라마+일본 애니 쏠림 완화, Related 카드 텍스트 영역 안정화. | 완료 |
 | MYOTT-S08-T10F | Task 8-10F Recommendation reliability and QA finalization | `b983506` | 콘텐츠 타입별 TMDB 후보 수집 분리, content diversity, Related 클릭/카드 레이아웃, 장르 정렬/SF 라벨/OTT 표시 보강. | 완료 |
-| MYOTT-S08-BUG-001 | Sprint 8 Detail Layer interaction and OTT provider accuracy | `이번 커밋` | Related Picks drag/click 충돌을 분리하고, 선택한 OTT option을 실제 제공처처럼 표시하지 않도록 provider 표시를 안전화. | 완료 |
+| MYOTT-S08-BUG-001 | Sprint 8 Detail Layer interaction and OTT provider accuracy | `70c79e1` | Related Picks drag/click 충돌을 분리하고, 선택한 OTT option을 실제 제공처처럼 표시하지 않도록 provider 표시를 안전화. | 완료 |
+| MYOTT-S08-BUG-001B | Re-fix Related Picks interaction and OTT Provider display | `이번 커밋` | Founder Local QA 재현 기준으로 pointer capture를 제거하고 mouse drag/click guard로 Related Picks 상호작용을 재수정. selected OTT와 actual provider 표시 분리 유지. | 완료 |
 
 ## Sprint 7
 

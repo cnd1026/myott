@@ -2,6 +2,40 @@
 
 개발 과정에서의 작업 내용, 결정, 아쉬운 점, 다음 개선 사항을 날짜별로 기록합니다.
 
+## 2026-07-05 - MYOTT-S08-BUG-001B
+
+### 오늘 작업
+
+- Founder Local QA에서 BUG-001의 Related Picks click 문제가 계속 재현된 것을 기준으로 interaction 경로를 다시 추적했습니다.
+- Related strip의 `pointer capture` 사용을 제거하고 desktop mouse drag로 분리했습니다.
+- drag threshold 이후에만 click을 suppress하고, 일반 card click은 button의 `onClick`이 바로 `openDetail`을 호출하도록 유지했습니다.
+- Related card 내부 thumbnail/title/small 요소가 click target을 가로막지 않도록 카드 내부 pointer events를 정리했습니다.
+- drag 중 context menu처럼 보이는 오동작을 줄이기 위해 context menu guard를 추가했습니다.
+- selected OTT option과 actual provider 표시가 섞이지 않도록 `safeOttPlatforms` 기준을 유지했습니다.
+
+### 원인
+
+- 이전 BUG-001 수정은 ref 기반 suppress를 도입했지만, strip에서 `setPointerCapture`를 계속 사용했습니다.
+- 실제 브라우저에서는 pointer capture가 button click target과 React click 흐름을 흔들 수 있어 Related Pick 단순 click이 막히는 증상이 남을 수 있습니다.
+- DOM event target이 card 내부 이미지/텍스트로 들어갈 때 클릭 영역 판단이 더 불안정해질 수 있었습니다.
+
+### 결정한 것
+
+- Related Picks의 desktop drag는 mouse event로 처리합니다.
+- Mobile swipe와 trackpad 이동은 native horizontal scroll을 우선합니다.
+- card click은 button 자체의 click target을 기준으로 처리합니다.
+- selected OTT는 provider display fallback으로 절대 사용하지 않습니다.
+
+### 아쉬운 점
+
+- Codex 환경에서는 실제 Founder 브라우저의 pointer/click 체감을 완전히 재현하기 어렵습니다.
+- 실제 watch provider 데이터는 TMDB region과 detail payload 품질에 따라 달라집니다.
+
+### 다음 개선
+
+- Founder Local QA에서 Related click/drag/swipe를 재확인합니다.
+- 실제 OTT provider 표시를 고도화할 때는 selected option과 actual provider 모델을 별도 필드로 계속 유지합니다.
+
 ## 2026-07-05 - MYOTT-S08-BUG-001
 
 ### 오늘 작업

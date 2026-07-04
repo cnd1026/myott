@@ -2,6 +2,28 @@
 
 프로젝트의 주요 변경 사항을 날짜별로 기록합니다.
 
+## 2026-07-05 - MYOTT-S08-BUG-001B
+
+### 변경 내용
+
+- Related Picks drag를 `pointer capture` 기반에서 desktop mouse drag 기반으로 재구성했습니다.
+- Related strip에 click capture guard를 추가해 drag threshold 이후 발생하는 accidental click만 억제하도록 했습니다.
+- Related card 내부 요소에 `pointer-events: none`을 적용해 버튼 전체가 안정적인 click target이 되도록 했습니다.
+- drag 중 context menu로 보이는 오동작을 막기 위해 관련 context menu guard를 추가했습니다.
+- mobile swipe와 trackpad horizontal scroll은 기존 native overflow scroll 흐름을 유지했습니다.
+- provider 표시 경로는 `safeOttPlatforms` helper를 기준으로 selected OTT option과 actual provider를 분리한 상태를 유지했습니다.
+
+### 이유
+
+- `setPointerCapture`는 실제 브라우저에서 click target을 strip 쪽으로 흔들 수 있어 Related card click이 Founder 환경에서 재현 실패했기 때문입니다.
+- DOM dataset에 drag state를 남기는 방식은 React click 흐름과 어긋날 수 있어 ref 기반 interaction state로 분리하는 편이 안전합니다.
+- selected OTT는 추천 힌트일 뿐 실제 제공처 truth source가 아니므로 카드 표시와 완전히 분리해야 합니다.
+
+### 다음 작업
+
+- Founder 로컬에서 Related Picks 단순 click, drag, swipe를 실제 브라우저 기준으로 재확인합니다.
+- 실제 watch provider 데이터 연결은 별도 Task에서 region 정책과 함께 다룹니다.
+
 ## 2026-07-05 - MYOTT-S08-BUG-001
 
 ### 변경 내용
