@@ -62,7 +62,7 @@
 | MYOTT-S08-T10B | Task 8-10B Related Picks and Quick Pick filter polish | `0a9a0cd` | 현재 작품 기준 Related API, carousel controls, 장르 더보기/접기, 글로벌 국가 옵션, 선택 필터 chip 추가. | 완료 |
 | MYOTT-S08-T10C | Task 8-10C Recommendation option interaction rule polish | `134cab8` | Related Picks drag/swipe UX, 검색 clear button, option group 공통 expand rule, visual polish 적용. | 완료 |
 | MYOTT-S08-T10D | Task 8-10D Related card and content type filtering bugfix | `439171b` | Related 카드 높이 안정화, 긴 제목 clamp, content type mapping 점검, animation discover 쏠림 완화. | 완료 |
-| MYOTT-S08-T10E | Task 8-10E Content type enforcement and related card layout bugfix | `TBD` | 콘텐츠 타입 후보 수집/감산 강화, 드라마+일본 애니 쏠림 완화, Related 카드 텍스트 영역 안정화. | 완료 |
+| MYOTT-S08-T10E | Task 8-10E Content type enforcement and related card layout bugfix | `c1f5a95` | 콘텐츠 타입 후보 수집/감산 강화, 드라마+일본 애니 쏠림 완화, Related 카드 텍스트 영역 안정화. | 완료 |
 
 ## Sprint 7
 
