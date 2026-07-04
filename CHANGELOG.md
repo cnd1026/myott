@@ -2,6 +2,29 @@
 
 프로젝트의 주요 변경 사항을 날짜별로 기록합니다.
 
+## 2026-07-04 - MYOTT-S08-T10C
+
+### 변경 내용
+
+- Related Picks에 mouse drag 기반 scroll을 추가하고 grab/grabbing cursor를 적용했습니다.
+- Related Picks는 기존 좌우 버튼과 trackpad/mobile swipe를 유지하면서 drag를 기본 탐색 UX로 보강했습니다.
+- Quick Pick 검색창에 검색어 지우기 `×` 버튼과 ESC 초기화 동작을 추가했습니다.
+- 옵션 검색 placeholder를 `SF, 일본, 긴장감처럼 검색`으로 바꿔 검색 대상을 더 명확히 했습니다.
+- 장르 전용 더보기/접기 로직을 모든 option group에 적용 가능한 공통 expand rule로 바꿨습니다.
+- 국가도 9개 이상 option group 규칙에 따라 기본 8개 표시 후 `+ 더보기` / `접기`가 동작하도록 했습니다.
+- option group header에 Green 기반 좌측 accent와 간결한 header polish를 적용했습니다.
+
+### 이유
+
+- Related Picks는 화살표보다 마우스/손가락으로 직접 넘기는 흐름이 더 자연스럽기 때문입니다.
+- 앞으로 배우, 감독, 언어, 제작사 등 option group이 늘어나도 동일한 UX Rule이 적용되어야 하기 때문입니다.
+- 검색어를 쉽게 지울 수 있어야 옵션 탐색이 끊기지 않기 때문입니다.
+
+### 다음 작업
+
+- Founder 로컬 브라우저에서 drag/swipe 체감과 장르/국가 expand rule을 직접 확인합니다.
+- option group이 더 늘어날 경우 동일 rule을 유지하면서 group별 대표 option 순서를 조정합니다.
+
 ## 2026-07-04 - MYOTT-S08-T10B
 
 ### 변경 내용

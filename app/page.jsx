@@ -274,7 +274,7 @@ const initialOptionMetadata = {
 };
 const targetProviderResultCount = 12;
 const relatedPickCount = 12;
-const collapsedGenreCount = 8;
+const collapsedOptionCount = 8;
 const autocompleteDebounceMs = 150;
 const quickPickGenreIds = new Map([
   ["genre-sf", [878, 10765]],
@@ -545,14 +545,14 @@ function filterOptionGroups(groups, query) {
     .filter((group) => group.options.length);
 }
 
-function visibleOptionGroups(groups, query, expandedGenres) {
+function visibleOptionGroups(groups, query, expandedGroups) {
   if (normalizeOptionSearch(query)) return groups;
 
   return groups.map((group) => {
-    if (group.title !== "장르" || expandedGenres || group.options.length <= collapsedGenreCount) return group;
+    if (expandedGroups[group.title] || group.options.length <= collapsedOptionCount) return group;
     return {
       ...group,
-      options: group.options.slice(0, collapsedGenreCount),
+      options: group.options.slice(0, collapsedOptionCount),
       totalOptions: group.options.length,
     };
   });
@@ -933,7 +933,7 @@ export default function Home() {
   const [optionGroups, setOptionGroups] = useState(quickPickGroups);
   const [optionMetadata, setOptionMetadata] = useState(initialOptionMetadata);
   const [quickPickSearch, setQuickPickSearch] = useState("");
-  const [expandedGenres, setExpandedGenres] = useState(false);
+  const [expandedOptionGroups, setExpandedOptionGroups] = useState({});
   const [showQuickPick, setShowQuickPick] = useState(false);
   const [results, setResults] = useState([]);
   const [recommendationStatus, setRecommendationStatus] = useState("idle");
@@ -946,6 +946,7 @@ export default function Home() {
   const [confirmedSeeds, setConfirmedSeeds] = useState({});
   const suggestionCacheRef = useRef(new Map());
   const relatedStripRef = useRef(null);
+  const quickPickSearchRef = useRef(null);
 
   const enteredTitles = useMemo(() => titles.map((title) => title.trim()).filter(Boolean), [titles]);
   const hasOptionPreference = selectedQuickPicks.length > 0 || selectedOtt.length > 0 || selectedTypes.length > 0;
@@ -953,8 +954,8 @@ export default function Home() {
   const heroRecommendations = useMemo(() => buildHeroRecommendations(timeSlot).slice(0, 3), [timeSlot]);
   const optionLabelByValue = useMemo(() => new Map(optionGroups.flatMap((group) => group.options)), [optionGroups]);
   const filteredOptionGroups = useMemo(
-    () => visibleOptionGroups(filterOptionGroups(optionGroups, quickPickSearch), quickPickSearch, expandedGenres),
-    [optionGroups, quickPickSearch, expandedGenres],
+    () => visibleOptionGroups(filterOptionGroups(optionGroups, quickPickSearch), quickPickSearch, expandedOptionGroups),
+    [optionGroups, quickPickSearch, expandedOptionGroups],
   );
   const selectedQuickPickChips = selectedQuickPicks.map((value) => [value, optionLabelByValue.get(value)]).filter(([, label]) => Boolean(label));
   const fallbackRelatedRecommendations = selectedDetail
@@ -1184,6 +1185,43 @@ export default function Home() {
     });
   }
 
+  function setOptionGroupExpanded(groupTitle, expanded) {
+    setExpandedOptionGroups((current) => ({
+      ...current,
+      [groupTitle]: expanded,
+    }));
+  }
+
+  function startRelatedDrag(event) {
+    const node = relatedStripRef.current;
+    if (!node) return;
+    node.dataset.dragging = "true";
+    node.dataset.dragStartX = String(event.clientX);
+    node.dataset.dragScrollLeft = String(node.scrollLeft);
+    node.setPointerCapture?.(event.pointerId);
+  }
+
+  function moveRelatedDrag(event) {
+    const node = relatedStripRef.current;
+    if (!node || node.dataset.dragging !== "true") return;
+    const startX = Number(node.dataset.dragStartX || event.clientX);
+    const startScrollLeft = Number(node.dataset.dragScrollLeft || node.scrollLeft);
+    const deltaX = event.clientX - startX;
+    if (Math.abs(deltaX) > 3) {
+      node.classList.add("is-dragging");
+      node.dataset.dragMoved = "true";
+    }
+    node.scrollLeft = startScrollLeft - deltaX;
+  }
+
+  function endRelatedDrag(event) {
+    const node = relatedStripRef.current;
+    if (!node) return;
+    node.dataset.dragging = "false";
+    node.releasePointerCapture?.(event.pointerId);
+    window.setTimeout(() => node.classList.remove("is-dragging"), 0);
+  }
+
   function updateTitle(index, value) {
     setTitles((current) => normalizeTitleInputs(current.map((item, itemIndex) => (itemIndex === index ? value : item))));
     setConfirmedSeeds((current) => {
@@ -1220,7 +1258,7 @@ export default function Home() {
     setTitles([...initialTitles]);
     setSelectedQuickPicks([]);
     setQuickPickSearch("");
-    setExpandedGenres(false);
+    setExpandedOptionGroups({});
     setShowQuickPick(false);
     setResults([]);
     setRecommendationStatus("idle");
@@ -1433,12 +1471,34 @@ export default function Home() {
 
             <label className="option-search-field">
               옵션 검색
-              <input
-                type="text"
-                value={quickPickSearch}
-                placeholder="옵션 검색..."
-                onChange={(event) => setQuickPickSearch(event.target.value)}
-              />
+              <span className="option-search-control">
+                <input
+                  ref={quickPickSearchRef}
+                  type="text"
+                  value={quickPickSearch}
+                  placeholder="SF, 일본, 긴장감처럼 검색"
+                  onChange={(event) => setQuickPickSearch(event.target.value)}
+                  onKeyDown={(event) => {
+                    if (event.key === "Escape") {
+                      setQuickPickSearch("");
+                      event.currentTarget.focus();
+                    }
+                  }}
+                />
+                {quickPickSearch ? (
+                  <button
+                    className="search-clear-button"
+                    type="button"
+                    onClick={() => {
+                      setQuickPickSearch("");
+                      quickPickSearchRef.current?.focus();
+                    }}
+                    aria-label="옵션 검색어 지우기"
+                  >
+                    ×
+                  </button>
+                ) : null}
+              </span>
             </label>
 
             <div className="selected-filter-panel" aria-live="polite">
@@ -1465,14 +1525,14 @@ export default function Home() {
               {filteredOptionGroups.map((group) => (
                 <fieldset className="quick-group" key={group.title}>
                   <legend>
-                    {group.title}
-                    {group.title === "장르" && group.totalOptions ? (
-                      <button className="group-toggle-button" type="button" onClick={() => setExpandedGenres(true)}>
-                        + 장르 더보기
+                    <span>{group.title}</span>
+                    {group.totalOptions ? (
+                      <button className="group-toggle-button" type="button" onClick={() => setOptionGroupExpanded(group.title, true)}>
+                        + 더보기
                       </button>
                     ) : null}
-                    {group.title === "장르" && expandedGenres && !quickPickSearch ? (
-                      <button className="group-toggle-button" type="button" onClick={() => setExpandedGenres(false)}>
+                    {expandedOptionGroups[group.title] && group.options.length > collapsedOptionCount && !quickPickSearch ? (
+                      <button className="group-toggle-button" type="button" onClick={() => setOptionGroupExpanded(group.title, false)}>
                         접기
                       </button>
                     ) : null}
@@ -1558,12 +1618,29 @@ export default function Home() {
                   <button type="button" onClick={() => scrollRelated(1)} aria-label="다음 Related Picks">›</button>
                 </div>
               </div>
-              <div className="related-strip" aria-label="관련 추천" ref={relatedStripRef}>
+              <div
+                className="related-strip"
+                aria-label="관련 추천"
+                ref={relatedStripRef}
+                onPointerDown={startRelatedDrag}
+                onPointerMove={moveRelatedDrag}
+                onPointerUp={endRelatedDrag}
+                onPointerCancel={endRelatedDrag}
+                onPointerLeave={endRelatedDrag}
+              >
                 {relatedRecommendations.map((item) => (
                   <button
                     className="related-card"
                     type="button"
-                    onClick={() => setSelectedDetail(item)}
+                    onClick={(event) => {
+                      const strip = event.currentTarget.closest(".related-strip");
+                      if (strip?.dataset.dragMoved === "true") {
+                        strip.dataset.dragMoved = "false";
+                        event.preventDefault();
+                        return;
+                      }
+                      setSelectedDetail(item);
+                    }}
                     key={item.id || item.providerContentId || item.title}
                   >
                     <span className="related-thumb" aria-hidden="true"><PosterVisual poster={item.poster} title={item.title} /></span>

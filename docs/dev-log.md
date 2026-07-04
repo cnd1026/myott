@@ -2,6 +2,32 @@
 
 개발 과정에서의 작업 내용, 결정, 아쉬운 점, 다음 개선 사항을 날짜별로 기록합니다.
 
+## 2026-07-04 - MYOTT-S08-T10C
+
+### 오늘 작업
+
+- Related Picks strip에 mouse drag scroll을 추가했습니다.
+- Quick Pick 검색창에 `×` clear button과 ESC 초기화를 추가했습니다.
+- 장르 전용 expand/collapse를 모든 option group에 적용 가능한 공통 rule로 변경했습니다.
+- 국가 option group도 기본 8개 표시 후 더보기/접기를 지원하도록 했습니다.
+- 검색 placeholder와 option group visual polish를 다듬었습니다.
+
+### 결정한 것
+
+- 8개 이하 option group은 모두 표시하고, 9개 이상은 대표 8개와 더보기/접기를 사용합니다.
+- 검색 중에는 expand 상태와 무관하게 전체 option을 label 기준으로 검색합니다.
+- Related Picks는 drag/swipe/trackpad를 기본 UX로 두고, 화살표는 보조 이동 수단으로 유지합니다.
+
+### 아쉬운 점
+
+- Codex in-app browser가 로컬 포트 접근에 실패하는 경우가 있어 실제 drag 체감은 Founder 로컬 확인이 필요합니다.
+- 대표 option 8개의 정렬 기준은 현재 metadata 순서를 따르며, 추후 product 기준으로 조정할 수 있습니다.
+
+### 다음 개선
+
+- Founder 테스트에서 drag 감도와 chip 제거 동작을 확인합니다.
+- 배우/감독/언어 option group이 추가될 때 동일 expand rule이 자연스럽게 적용되는지 재확인합니다.
+
 ## 2026-07-04 - MYOTT-S08-T10B
 
 ### 오늘 작업
