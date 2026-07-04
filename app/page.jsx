@@ -521,6 +521,8 @@ function tagsFromProviderContent(content) {
 }
 
 function contentTypeForUi(content) {
+  const genreIds = normalizedIdList(content.genreIds);
+  if (genreIds.includes(16) || content.type === "animation" || content.contentType === "animation") return "animation";
   if (["drama", "series", "tv"].includes(content.type) || ["drama", "series", "tv"].includes(content.contentType)) return "drama";
   return content.type || content.contentType || "movie";
 }
@@ -777,7 +779,7 @@ function normalizeProviderResult(content, quickPicks = [], reasonSeed = "", labe
 }
 
 function isSelectedContentType(content, selectedTypes) {
-  return selectedTypes.includes(content.type) || selectedTypes.includes(content.contentType);
+  return selectedTypes.includes(contentTypeForUi(content));
 }
 
 function providerStatusFromPayload(payload) {

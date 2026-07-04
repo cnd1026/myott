@@ -2,6 +2,27 @@
 
 프로젝트의 주요 변경 사항을 날짜별로 기록합니다.
 
+## 2026-07-04 - MYOTT-S08-T10D
+
+### 변경 내용
+
+- Related Picks 카드 높이를 고정하고 긴 제목은 최대 2줄 말줄임 처리되도록 했습니다.
+- Related Picks 보조 문구도 한 줄 말줄임 처리해 카드 높이가 늘어나지 않도록 했습니다.
+- 콘텐츠 타입 판정을 `contentTypeForUi`로 정리해 내부 `type`, `contentType`, TMDB `genreId 16` 기준으로 처리하도록 했습니다.
+- option-only TMDB discover에서 animation genre 강제 적용은 애니만 단독 선택했을 때만 동작하도록 수정했습니다.
+- 영화/드라마/애니 option recommendation route가 각각 정상 응답하는지 확인했습니다.
+
+### 이유
+
+- 긴 제목 때문에 Related Picks 카드 높이가 달라지면 독립 strip 탐색성이 깨지기 때문입니다.
+- 기본 전체 선택 상태에서 animation genre가 과하게 적용되면 추천 결과가 애니메이션으로 쏠릴 수 있기 때문입니다.
+- 드라마 선택은 TV discover/recommendation 경로를 우선해야 하며, 실패 시에만 Mock fallback으로 내려가야 하기 때문입니다.
+
+### 다음 작업
+
+- Founder 환경에서 실제 TMDB 응답 기준 영화/드라마/애니 선택별 결과 분포를 확인합니다.
+- 필요한 경우 Sprint 8 후속에서 타입별 result mix policy를 별도 Task로 분리합니다.
+
 ## 2026-07-04 - MYOTT-S08-T10C
 
 ### 변경 내용
