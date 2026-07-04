@@ -45,7 +45,9 @@ function contentMatchesQuery(content, query) {
 
 function contentMatchesTypes(content, contentTypes = []) {
   if (!contentTypes.length) return true;
-  return contentTypes.includes(content.contentType) || contentTypes.includes(content.type);
+  const contentType = content.contentType === "series" || content.contentType === "tv" ? "drama" : content.contentType;
+  const type = content.type === "series" || content.type === "tv" ? "drama" : content.type;
+  return contentTypes.includes(contentType) || contentTypes.includes(type);
 }
 
 function contentMatchesFilters(content, filters = []) {

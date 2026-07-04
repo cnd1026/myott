@@ -527,6 +527,10 @@ function contentTypeForUi(content) {
   return content.type || content.contentType || "movie";
 }
 
+function hasFocusedSelectedTypes(selectedTypes = []) {
+  return selectedTypes.length > 0 && selectedTypes.length < initialTypes.length;
+}
+
 function quickPickSummary(quickPicks, labelByValue = quickPickLabelByValue) {
   return quickPicks.map((quickPick) => labelByValue.get(quickPick)).filter(Boolean).slice(0, 2).join(", ");
 }
@@ -654,20 +658,22 @@ function analyzeProviderResult(item, selectedTypes, quickPicks, selectedOtt, opt
     0,
   );
   const quickPickTagMatches = quickPicks.reduce((score, quickPick) => score + (item.tags.includes(quickPick) ? 1 : 0), 0);
-  const typeMatch = isSelectedContentType(item, selectedTypes) ? 1 : 0;
+  const focusedTypes = hasFocusedSelectedTypes(selectedTypes);
+  const typeMatched = isSelectedContentType(item, selectedTypes);
+  const typeScore = focusedTypes ? (typeMatched ? 10 : -30) : 0;
   const ottMatch = platformMatchesSelectedOtt(item, selectedOtt) ? 1 : 0;
   const rating = Number.parseFloat(item.rating);
   const signals = {
     multipleSeed: item.seedCount > 1,
     genreMatch: seedGenreOverlap > 0,
     optionMatch: quickPickGenreOverlap + quickPickTagMatches > 0,
-    contentType: typeMatch > 0,
+    contentType: focusedTypes && typeMatched,
     ottMatch: ottMatch > 0,
     metadataTieBreak: Number(item.popularity || 0) > 0 || Number.isFinite(rating),
   };
 
   return {
-    score: item.seedCount * 3 + seedGenreOverlap * 2 + quickPickGenreOverlap * 2 + quickPickTagMatches * 2 + typeMatch * 2 + ottMatch,
+    score: item.seedCount * 3 + seedGenreOverlap * 2 + quickPickGenreOverlap * 2 + quickPickTagMatches * 2 + typeScore + ottMatch,
     insight: insightMessages(signals),
   };
 }
@@ -801,7 +807,11 @@ async function fetchProviderRecommendations(titles, selectedTypes, quickPicks, s
   let providerStatus = null;
 
   for (const title of uniqueTitles) {
-    const response = await fetch(`/api/search?q=${encodeURIComponent(title)}`, {
+    const params = new URLSearchParams({
+      q: title,
+      types: selectedTypes.join(","),
+    });
+    const response = await fetch(`/api/search?${params.toString()}`, {
       cache: "no-store",
     });
 

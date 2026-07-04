@@ -1,7 +1,7 @@
 import { getActiveProvider, getFallbackProvider, isTmdbProviderEnabled } from "../../../src/lib/providers/registry";
 
-async function searchProvider(provider, query, message) {
-  const results = await provider.search({ query });
+async function searchProvider(provider, query, contentTypes, message) {
+  const results = await provider.search({ query, contentTypes });
 
   return {
     source: provider.id,
@@ -15,6 +15,7 @@ async function searchProvider(provider, query, message) {
 
 export async function GET(request) {
   const query = request.nextUrl.searchParams.get("q")?.trim() || "";
+  const contentTypes = request.nextUrl.searchParams.get("types")?.split(",").map((value) => value.trim()).filter(Boolean) || [];
   const activeProvider = getActiveProvider();
   const tmdbEnabled = isTmdbProviderEnabled();
 
@@ -35,7 +36,7 @@ export async function GET(request) {
   }
 
   if (activeProvider.id === "mock") {
-    return Response.json(await searchProvider(activeProvider, query, "TMDB API key is not configured. Mock Provider results are used."), {
+    return Response.json(await searchProvider(activeProvider, query, contentTypes, "TMDB API key is not configured. Mock Provider results are used."), {
       headers: {
         "Cache-Control": "no-store",
       },
@@ -43,7 +44,7 @@ export async function GET(request) {
   }
 
   try {
-    return Response.json(await searchProvider(activeProvider, query), {
+    return Response.json(await searchProvider(activeProvider, query, contentTypes), {
       headers: {
         "Cache-Control": "no-store",
       },
@@ -51,7 +52,7 @@ export async function GET(request) {
   } catch (error) {
     const fallbackProvider = getFallbackProvider();
     const message = error instanceof Error ? error.message : "TMDb search failed.";
-    return Response.json(await searchProvider(fallbackProvider, query, `${message} Mock Provider results are used.`), {
+    return Response.json(await searchProvider(fallbackProvider, query, contentTypes, `${message} Mock Provider results are used.`), {
       headers: {
         "Cache-Control": "no-store",
       },

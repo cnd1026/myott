@@ -845,13 +845,13 @@ input[type="text"]:focus {
 
 .related-card {
   display: grid;
-  grid-template-columns: 52px 1fr;
-  align-items: center;
+  grid-template-columns: 58px 1fr;
+  align-items: start;
   gap: 10px;
-  height: 92px;
+  height: 124px;
   border: 1px solid var(--line);
   border-radius: 8px;
-  padding: 9px;
+  padding: 11px;
   background: #fff;
   color: var(--text);
   text-align: left;
@@ -879,20 +879,20 @@ input[type="text"]:focus {
 }
 
 .related-card small {
-  margin-top: 3px;
+  display: -webkit-box;
+  margin-top: 6px;
   color: var(--muted);
   font-size: 11px;
   line-height: 1.35;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
 }
 
 .related-thumb {
   display: grid;
   place-items: center;
-  width: 52px;
-  height: 52px;
-  aspect-ratio: 1;
+  width: 58px;
+  height: 72px;
   border-radius: 7px;
   overflow: hidden;
   background: var(--surface-soft);

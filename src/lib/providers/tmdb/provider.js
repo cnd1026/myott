@@ -45,8 +45,8 @@ export const tmdbProvider = {
     return hasTmdbKey();
   },
 
-  async search({ query = "" } = {}) {
-    const payload = await searchTmdb(query);
+  async search({ query = "", contentTypes = [] } = {}) {
+    const payload = await searchTmdb(query, contentTypes);
     return (payload.results || []).map((item) =>
       toUnifiedContentModel({
         ...item,
