@@ -47,6 +47,8 @@ Project Memory의 목적:
 | PM-006 | 2026-07-04 | Content Type 후보 분리 | 콘텐츠 타입은 score 보정 전에 후보 수집 단계에서 분리한다. | Movie/TV/Animation이 섞인 뒤 score로 밀어내면 추천 신뢰가 깨진다. | TMDB discover/search request를 타입별로 분리하는 기준 수립. | Active |
 | PM-007 | 2026-07-04 | Prompt Guide 생성 | `PROMPT_GUIDE.md`를 공식 Prompt Engineering 표준으로 둔다. | Founder, ChatGPT, Codex가 같은 Task 구조를 사용해야 한다. | Prompt Template, Codex Mode, Architecture Check, Global Ready Check 정착. | Active |
 | PM-008 | 2026-07-04 | AI Collaboration 문서 생성 | `AI_COLLABORATION.md`를 공식 협업 Workflow 문서로 둔다. | 새 AI 도구가 추가되어도 역할과 책임이 흔들리지 않아야 한다. | Founder/ChatGPT/Codex/CTO/Future AI 역할 분리. | Active |
+| MEM-0008 | 2026-07-04 | Development Governance | MyOTT는 Prompt, Documentation, Workflow, QA, Lessons Learned를 코드와 동일한 프로젝트 자산으로 관리한다. | 장기 프로젝트에서는 코드뿐 아니라 개발 문화가 프로젝트 경쟁력이 되기 때문이다. | Core Operating Documents 체계 수립, Prompt Version 관리, Documentation Sprint 운영. | Active |
+| MEM-0009 | 2026-07-04 | Company Vision | MyOTT의 최종 목표는 다른 기업들이 "저 회사의 아이템과 개발 문화를 갖고 싶다."라고 느끼는 수준의 제품과 운영 체계를 만드는 것이다. | 좋은 서비스는 좋은 코드만으로 만들어지지 않고 좋은 개발 문화와 운영 체계가 함께 만들어야 하기 때문이다. | 제품 품질과 개발 문화 모두를 경쟁력으로 관리하는 기준 확립. | Active |
 
 ---
 

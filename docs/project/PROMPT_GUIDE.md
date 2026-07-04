@@ -1,6 +1,6 @@
 # Prompt Guide
 
-Version: 1.0
+Version: 1.3
 
 Last Updated: 2026-07-04
 
@@ -55,6 +55,9 @@ Task:
 Codex Mode:
 낮음 / 보통 / 높음 / 매우높음
 
+Codex Mode Reason:
+<왜 이 Mode가 필요한지>
+
 Codex Stage:
 <현재 작업 단계>
 
@@ -69,6 +72,13 @@ Goal:
 
 Priority:
 <LOW / MEDIUM / HIGH / CRITICAL>
+
+ROI:
+사용자 가치: ★★★★☆
+추천 품질: ★★★☆☆
+기술부채 감소: ★★☆☆☆
+문서화: ★☆☆☆☆
+신규 기능: 해당 없음
 
 Out of Scope:
 - <이번 Task에서 하지 않을 일>
@@ -125,6 +135,12 @@ Known Issues:
 | 매우높음 | Sprint 마감, 아키텍처 전환, 신뢰도/보안/데이터 품질 핵심 작업 | 기존 구조와 장기 유지보수를 우선하고 검증을 강화 |
 
 Codex Mode는 작업 난이도가 아니라 실패했을 때의 제품 영향도와 검증 강도를 나타냅니다.
+
+Codex Mode Reason:
+
+- Mode를 선택한 이유를 한 줄 이상 작성한다.
+- 기능 개발이 아니더라도 운영 체계, QA, 보안, 문서 표준처럼 장기 영향이 크면 높은 Mode를 사용할 수 있다.
+- Reason은 Codex가 검증 강도와 작업 보수성을 조절하는 기준이 된다.
 
 ---
 
@@ -236,7 +252,94 @@ Task 종료 시 문서 업데이트 여부를 확인합니다.
 
 ---
 
-## 11. Prompt Version Rule
+## 11. Core Operating Documents
+
+MyOTT의 공식 운영 문서는 아래 체계를 중심으로 확장합니다.
+
+| Document | Role |
+| --- | --- |
+| `PLAYBOOK.md` | 제품 운영 방식과 팀 문화 기준 |
+| `docs/project/PROMPT_GUIDE.md` | Prompt 작성, 검증, version 표준 |
+| `docs/project/AI_COLLABORATION.md` | Founder, ChatGPT, Codex, CTO, future AI 협업 Workflow |
+| `docs/project/PROJECT_MEMORY.md` | 장기적으로 기억해야 하는 결정과 원칙 |
+| `docs/project/LESSONS_LEARNED.md` | 실패, 교훈, preventive rule |
+
+확장 원칙:
+
+- 새 운영 문서는 위 문서의 역할과 충돌하지 않아야 한다.
+- 새 운영 문서는 어떤 문제를 해결하는지 명확해야 한다.
+- Prompt, Documentation, QA, Workflow, Architecture는 모두 코드와 동일한 프로젝트 자산으로 관리한다.
+
+---
+
+## 12. Prompt Review Checklist
+
+Prompt 작성 후 아래 항목을 확인합니다.
+
+- [ ] Codex Mode가 적절한가
+- [ ] Codex Mode Reason을 작성했는가
+- [ ] Goal이 명확한가
+- [ ] Priority 순서가 맞는가
+- [ ] ROI가 표시되어 있는가
+- [ ] Out of Scope가 있는가
+- [ ] Architecture Check를 포함했는가
+- [ ] Global Ready Check를 포함했는가
+- [ ] Data Quality Gate를 포함했는가
+- [ ] Verification이 충분한가
+- [ ] Definition of Done이 명확한가
+- [ ] Recommended Commit Message가 있는가
+- [ ] 완료 보고 형식이 있는가
+
+---
+
+## 13. ROI Check
+
+Prompt 작성 시 이번 작업이 무엇을 위한 것인지 명확히 표시합니다.
+
+예시:
+
+| 항목 | 점수 |
+| --- | --- |
+| 사용자 가치 | ★★★★★ |
+| 추천 품질 | ★★★★☆ |
+| 기술부채 감소 | ★★★☆☆ |
+| 문서화 | ★★☆☆☆ |
+| 신규 기능 | ★☆☆☆☆ |
+
+사용 기준:
+
+- 사용자 가치: 사용자가 직접 느끼는 개선 정도
+- 추천 품질: 추천 결과, 신뢰, 설명 가능성 개선 정도
+- 기술부채 감소: 구조 안정화, 중복 제거, 유지보수성 개선 정도
+- 문서화: 운영 지식 축적 정도
+- 신규 기능: 새로운 기능 추가 여부
+
+ROI Check는 우선순위 판단을 돕기 위한 기준이며, 모든 항목을 높게 만들 필요는 없습니다.
+
+---
+
+## 14. Governance Rule
+
+MyOTT는 다음 항목을 모두 코드와 동일한 프로젝트 자산으로 관리합니다.
+
+- Prompt
+- Documentation
+- QA
+- Workflow
+- Architecture
+- Lessons Learned
+
+Governance 원칙:
+
+- 운영 문서는 한 번 쓰고 방치하는 문서가 아니라 Sprint와 함께 진화하는 자산이다.
+- 중요한 결정은 `PROJECT_MEMORY.md`에 남긴다.
+- 실패와 예방 규칙은 `LESSONS_LEARNED.md`에 남긴다.
+- Prompt 변경은 version과 changelog로 추적한다.
+- AI 도구가 바뀌어도 동일한 운영 기준을 유지한다.
+
+---
+
+## 15. Prompt Version Rule
 
 Prompt Guide는 Semantic Versioning을 사용합니다.
 
@@ -244,36 +347,56 @@ Prompt Guide는 Semantic Versioning을 사용합니다.
 | --- | --- |
 | v1.0 | 초기 Prompt 표준화 |
 | v1.1 | Minor Rule 추가 |
-| v1.2 | Template 개선 |
+| v1.2 | Template 개선 또는 Project Asset 관점 강화 |
+| v1.3 | Governance, Checklist, ROI, Documentation Sprint 기준 추가 |
 | v2.0 | Major Workflow 변경 |
 
 Version 변경 기준:
 
-- Patch 수준의 오타 수정은 changelog에만 기록할 수 있다.
+- Major: Workflow 변경
+- Minor: Rule 추가
+- Patch: 오타 또는 문구 수정
 - 새 check 항목이나 template 항목 추가는 minor version 후보입니다.
-- Sprint 운영 방식 자체가 바뀌면 major version 후보입니다.
 
 ---
 
-## 12. Prompt Changelog
+## 16. Prompt Changelog
 
 ### v1.0
 
-- Prompt 표준화
-- MYOTT Standard Prompt Template 정의
-- Codex Mode 기준 정의
+- 초기 Prompt Template
+
+### v1.1
+
 - Architecture Check 추가
-- Global Ready Check 추가
-- Consistency First / Founder First / Regression Zero / Reuse First 원칙 정리
+
+### v1.2
+
+- Prompt를 Project Asset으로 정의
+
+### v1.3
+
+- Codex Mode Reason 추가
+- Documentation Sprint 추가
+- Core Operating Documents 정의
+- Prompt Review Checklist 추가
+- ROI Check 추가
+- Governance Rule 추가
 
 ---
 
-## 13. Future Expansion
+## 17. Future Expansion
 
 Prompt Guide는 Sprint와 함께 발전합니다.
 
 확장 후보:
 
+- v1.4 후보: Performance Check
+- v1.4 후보: Accessibility Check
+- v1.4 후보: Security Check
+- v1.4 후보: Reuse Check
+- v1.4 후보: ADR 도입
+- v1.4 후보: Decision Log 정리
 - Task 유형별 Prompt Template
 - UI Polish Prompt Template
 - Provider Integration Prompt Template
