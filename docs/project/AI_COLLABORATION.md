@@ -1,105 +1,156 @@
 # AI Collaboration
 
-이 문서는 MyOTT에서 Product Owner, GPT, Codex가 어떻게 협업하는지 정의합니다.
+Version: 1.0
 
-## 1. Product Owner
+Last Updated: 2026-07-04
 
-역할:
+Status: ACTIVE
 
-- 제품 방향을 결정합니다.
-- Sprint와 Task 목표를 제시합니다.
-- 우선순위와 금지사항을 정합니다.
-- 최종 제품 감각과 철학을 유지합니다.
+이 문서는 MyOTT에서 Founder, ChatGPT, Codex, CTO, 그리고 향후 추가될 AI 도구가 같은 Workflow로 협업하기 위한 기준을 정의합니다.
 
-책임:
+---
 
-- "무엇을 만들 것인가"를 정합니다.
-- MVP와 Parking Lot의 경계를 결정합니다.
-- Founder Note와 제품 철학의 최종 기준을 잡습니다.
+## 1. Purpose
 
-## 2. GPT
+AI 협업의 목적은 더 많은 작업을 빠르게 밀어붙이는 것이 아니라, 같은 기준으로 제품을 판단하고 장기적으로 유지 가능한 결과를 만드는 것입니다.
 
-역할:
+목표:
 
-- 제품 기획, 문서 초안, 사고 정리를 돕습니다.
-- 사용자 여정, 기능 범위, 정책, 운영 규칙을 구조화합니다.
-- 창업자의 생각을 명확한 문서와 Task로 바꾸는 파트너 역할을 합니다.
+- Founder의 제품 의도를 명확한 작업 단위로 전달한다.
+- ChatGPT와 Codex가 같은 Sprint 목표와 검증 기준을 공유한다.
+- CTO 관점의 구조 판단을 Prompt와 Review에 반영한다.
+- 새 AI 도구가 추가되어도 동일한 Workflow를 유지한다.
+- 결정, 구현, QA, 문서화가 끊기지 않게 한다.
 
-책임:
+---
 
-- 아이디어를 Sprint/Task 단위로 정리합니다.
-- 제품 철학과 사용자 경험을 언어로 다듬습니다.
-- Codex가 실행할 수 있는 요구사항을 선명하게 만듭니다.
+## 2. Role Definition
 
-## 3. Codex
+| Role | Primary Role | First Question |
+| --- | --- | --- |
+| Founder | 제품 방향, 우선순위, 최종 QA | 사용자는 어디에서 망설이는가? |
+| ChatGPT | 기획, 사양 정리, Prompt 작성, Review 보조 | 이 문제를 어떤 Task로 정의해야 하는가? |
+| Codex | 구현, 로컬 검증, 문서 반영, Git 작업 | 기존 구조를 깨지 않고 어떻게 반영할 수 있는가? |
+| CTO | 아키텍처, 확장성, 기술 부채 판단 | 이 결정은 장기 유지보수에 안전한가? |
+| Future AI | 정해진 Workflow 안에서 특정 역할 보조 | 현재 문서 기준을 따르고 있는가? |
 
-역할:
+역할은 겹칠 수 있지만 최종 책임은 분리합니다. Founder는 제품 결정을, Codex는 저장소 변경을, ChatGPT는 사고 정리와 사양화를, CTO는 구조 판단을 우선합니다.
 
-- 코드와 문서를 실제 파일로 반영합니다.
-- 로컬 프로젝트 상태를 확인합니다.
-- 구현, 테스트, 커밋, 푸시를 수행합니다.
-- 기존 변경사항을 되돌리지 않고 현재 작업과 조심스럽게 합칩니다.
+---
 
-책임:
+## 3. Standard Workflow
 
-- 작업 전 현재 파일과 Git 상태를 확인합니다.
-- 수정 범위를 지킵니다.
-- 금지된 작업을 하지 않습니다.
-- 완료 후 커밋 해시, 테스트 결과, 남은 리스크를 보고합니다.
+```mermaid
+flowchart TD
+  Founder["Founder"] --> Planning["Planning"]
+  Planning --> ChatGPT["ChatGPT"]
+  ChatGPT --> Specification["Specification"]
+  Specification --> Codex["Codex"]
+  Codex --> Implementation["Implementation"]
+  Implementation --> FounderQA["Founder QA"]
+  FounderQA --> Documentation["Documentation"]
+  Documentation --> SprintReview["Sprint Review"]
+```
 
-## 4. 협업 방식
+Workflow 설명:
 
-기본 흐름:
+1. Founder가 User Friction, Evidence, 목표를 제시한다.
+2. ChatGPT가 목표를 Sprint/Task/Prompt로 구조화한다.
+3. Codex가 현재 저장소 상태와 기존 패턴을 확인한다.
+4. Codex가 구현 또는 문서 작업을 수행한다.
+5. Codex가 build, dev, browser/API smoke, diff check 등 가능한 검증을 수행한다.
+6. Founder가 로컬 환경에서 제품 감각과 실제 QA를 확인한다.
+7. 결과와 교훈을 운영 문서에 남긴다.
+8. Sprint Review에서 다음 작업의 Evidence로 사용한다.
 
-1. Product Owner가 Sprint/Task를 정의합니다.
-2. GPT 또는 Codex가 요구사항을 구조화합니다.
-3. Codex가 로컬 상태를 확인합니다.
-4. Codex가 필요한 파일을 수정합니다.
-5. Codex가 검토와 테스트를 수행합니다.
-6. Codex가 커밋하고 푸시합니다.
-7. PMS와 기록 문서를 업데이트합니다.
+---
 
-## 5. 역할 분리 원칙
+## 4. Responsibility
 
-- Product Owner는 방향을 정합니다.
-- GPT는 생각을 정리합니다.
-- Codex는 저장소에 반영합니다.
+| Role | Responsibility |
+| --- | --- |
+| Founder | Product Mission, Sprint Goal, Prioritization, Founder QA, final acceptance |
+| ChatGPT | Problem framing, Prompt drafting, Specification, Review language, trade-off explanation |
+| Codex | Repository inspection, implementation, verification, documentation update, commit/push |
+| CTO | Architecture Review, Technical Debt control, Provider/API/DB boundary decisions |
+| Future AI | Assigned support work inside the same Prompt Guide and Playbook rules |
 
-다만 실제 작업에서는 세 역할이 자연스럽게 겹칠 수 있습니다. 중요한 것은 결정의 근거와 결과를 문서에 남기는 것입니다.
+책임 원칙:
 
-## 6. 좋은 Task의 조건
+- Founder의 QA가 Codex의 PASS보다 우선합니다.
+- ChatGPT는 구현을 직접 대체하지 않고 사양과 판단을 선명하게 만듭니다.
+- Codex는 설계 없는 변경을 피하고 기존 패턴을 먼저 찾습니다.
+- CTO 관점은 속도보다 유지보수성과 확장성을 우선합니다.
 
-좋은 Task는 다음을 포함합니다.
+---
 
-- 목표
-- 요구사항
-- 수정 범위
-- 금지사항
-- 완료 조건
-- 추천 커밋 메시지
-- 필요한 경우 Local Test 조건
+## 5. QA Process
 
-## 7. Codex 작업 원칙
+### Founder QA
 
-- 기존 기능을 불필요하게 수정하지 않습니다.
-- 문서 작업과 기능 작업을 가능한 한 분리합니다.
-- 큰 구조 변경 전에는 먼저 설계 문서를 만듭니다.
-- 테스트가 필요한 작업은 로컬에서 확인합니다.
-- 커밋 전 변경 범위를 확인합니다.
+- 실제 로컬 환경에서 제품을 사용한다.
+- User Friction이 줄었는지 확인한다.
+- 화면 흐름, 문구, 신뢰감, 사용 속도를 판단한다.
+- 실패 사례는 다음 Task의 Evidence로 기록한다.
 
-## 8. PMS와 AI 협업
+### Codex QA
 
-PMS는 AI가 프로젝트를 이어받기 위한 기억 장치입니다.
+- 작업 전 `git status`와 관련 파일을 확인한다.
+- 변경 후 `pnpm build`, `pnpm dev`, API/browser smoke 등 가능한 검증을 수행한다.
+- `git diff --check`로 whitespace와 patch 품질을 확인한다.
+- known limitation을 숨기지 않고 완료 보고에 남긴다.
 
-새 스레드나 새 작업자는 먼저 다음 문서를 읽습니다.
+### Documentation QA
 
-- `docs/project/APS_PUBLIC_NOTICE.md`
-- `docs/project/PROJECT_CONTEXT.md`
-- `docs/project/PROJECT_STATUS.md`
-- `docs/project/TASK_HISTORY.md`
-- `docs/project/DECISION_LOG.md`
-- `README.md`
+- Markdown 구조와 heading을 확인한다.
+- Version과 Status를 확인한다.
+- 기존 문서와 역할이 충돌하지 않는지 확인한다.
+- 새 결정이나 교훈은 적절한 문서에 남긴다.
 
-APS 핵심 운영 문서는 private Platform repository `cnd1026/Nd_core`를 Source of Truth로 둡니다.
+---
 
-그 다음 현재 Task 요구사항을 확인하고 작업합니다.
+## 6. Escalation
+
+| 상황 | 결정권자 | 처리 방식 |
+| --- | --- | --- |
+| Product direction conflict | Founder | 사용자 가치와 MVP 목표 기준으로 결정 |
+| Architecture risk | CTO | 구조 대안과 technical debt를 설명 후 결정 |
+| Prompt ambiguity | ChatGPT / Founder | Task scope와 Definition of Done을 재정의 |
+| Implementation blocker | Codex | 원인, 시도한 방법, 남은 선택지를 보고 |
+| Founder QA failure | Founder | 실패 Evidence를 남기고 후속 Task 생성 |
+| Security or public/private boundary | Founder / CTO | 노출 범위와 repository authority 기준으로 결정 |
+
+Escalation 원칙:
+
+- 결정권자가 명확해야 작업이 흔들리지 않는다.
+- 반대 의견은 근거와 대안을 함께 제시한다.
+- 불확실성은 숨기지 않고 Known Issues에 남긴다.
+
+---
+
+## 7. Future AI
+
+향후 아래 AI 도구가 추가되어도 같은 Workflow를 사용합니다.
+
+- Claude
+- Gemini
+- Cursor
+- Copilot
+- Future internal AI agents
+
+Future AI 적용 규칙:
+
+- `PROMPT_GUIDE.md`의 Prompt Template을 따른다.
+- `PLAYBOOK.md`의 Product 운영 원칙을 따른다.
+- `PROJECT_MEMORY.md`의 결정 기록을 먼저 확인한다.
+- `LESSONS_LEARNED.md`의 preventive rule을 회귀 방지 기준으로 사용한다.
+- 도구가 달라져도 Founder QA와 Documentation Update 기준은 유지한다.
+
+---
+
+## Related Documents
+
+- `PLAYBOOK.md`: 제품 운영 방식과 팀 문화 기준
+- `docs/project/PROMPT_GUIDE.md`: Prompt 작성과 검증 표준
+- `docs/project/PROJECT_MEMORY.md`: 중요한 결정과 원칙의 기억
+- `docs/project/LESSONS_LEARNED.md`: 실패와 교훈, 예방 규칙
