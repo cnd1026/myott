@@ -2,6 +2,36 @@
 
 개발 과정에서의 작업 내용, 결정, 아쉬운 점, 다음 개선 사항을 날짜별로 기록합니다.
 
+## 2026-07-04 - MYOTT-S08-T10F
+
+### 오늘 작업
+
+- TMDB discover 요청을 콘텐츠 타입별 request unit으로 분리했습니다.
+- Movie/TV/Animation 후보를 먼저 섞어 가져온 뒤 score로 제거하던 여지를 줄이고, 후보 수집 단계에서 타입을 보장했습니다.
+- TV 스릴러용 genre mapping을 보강해 영국 드라마 추천 경로가 더 자연스럽게 동작하도록 했습니다.
+- 서버와 클라이언트 양쪽에 content diversity 보정을 추가했습니다.
+- Related Picks 클릭이 stale drag flag 때문에 막힐 수 있는 문제를 수정했습니다.
+- Related 카드 텍스트 표시를 제목 3줄, 보조 문구 1줄 기준으로 안정화했습니다.
+- 장르 metadata 정렬과 SF/SF·판타지 label을 정리했습니다.
+- OTT filter 표시와 fallback mock QA 데이터를 보강했습니다.
+
+### 결정한 것
+
+- 콘텐츠 타입은 국가/장르/OTT보다 우선합니다.
+- Animation은 명시 선택된 경우에만 animation discover path를 사용합니다.
+- TV Thriller는 TMDB TV 장르 체계에 맞춰 Crime/Mystery/Drama 계열로 해석합니다.
+- Related Picks click은 기존 `openDetail` 흐름을 재사용해 상세 전환과 related reload를 같은 패턴으로 처리합니다.
+
+### 아쉬운 점
+
+- Codex 환경에서는 TMDB 외부 fetch가 mock fallback으로 동작해 실제 TMDB 순위는 Founder 로컬에서 확인해야 합니다.
+- TMDB watch provider id는 지역별 노출 품질 차이가 있어 실제 제공처 검증은 별도 QA가 필요합니다.
+
+### 다음 개선
+
+- Founder 로컬에서 TV + UK + Thriller가 Sherlock/Broadchurch/Luther/Bodyguard 계열로 나오는지 확인합니다.
+- 실제 TMDB 결과에서 content diversity가 과하지 않은지, 또는 타입별 fallback 정책이 필요한지 점검합니다.
+
 ## 2026-07-04 - MYOTT-S08-T10E
 
 ### 오늘 작업

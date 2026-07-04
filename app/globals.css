@@ -848,7 +848,7 @@ input[type="text"]:focus {
   grid-template-columns: 58px 1fr;
   align-items: start;
   gap: 10px;
-  height: 124px;
+  height: 132px;
   border: 1px solid var(--line);
   border-radius: 8px;
   padding: 11px;
@@ -871,21 +871,20 @@ input[type="text"]:focus {
 
 .related-card strong {
   display: -webkit-box;
-  min-height: 38px;
-  max-height: 38px;
+  min-height: 57px;
+  max-height: 57px;
   line-height: 1.35;
   -webkit-box-orient: vertical;
-  -webkit-line-clamp: 2;
+  -webkit-line-clamp: 3;
 }
 
 .related-card small {
-  display: -webkit-box;
   margin-top: 6px;
   color: var(--muted);
   font-size: 11px;
   line-height: 1.35;
-  -webkit-box-orient: vertical;
-  -webkit-line-clamp: 2;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .related-thumb {

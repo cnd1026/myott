@@ -52,6 +52,10 @@ function contentMatchesTypes(content, contentTypes = []) {
 
 function contentMatchesFilters(content, filters = []) {
   if (!filters.length) return true;
+  return filters.some((filter) => searchableTagsForContent(content).has(filter));
+}
+
+function searchableTagsForContent(content) {
   const searchableTags = new Set([
     content.contentType,
     content.type,
@@ -64,7 +68,13 @@ function contentMatchesFilters(content, filters = []) {
     ...content.tags,
   ]);
 
-  return filters.some((filter) => searchableTags.has(filter));
+  return searchableTags;
+}
+
+function filterMatchCount(content, filters = []) {
+  if (!filters.length) return 0;
+  const searchableTags = searchableTagsForContent(content);
+  return filters.reduce((score, filter) => score + (searchableTags.has(filter) ? 1 : 0), 0);
 }
 
 function fallbackResults(contentTypes = [], limit = DEFAULT_LIMIT) {
@@ -94,6 +104,7 @@ export const mockProvider = {
     const matched = mockContents
       .filter((content) => contentMatchesTypes(content, contentTypes))
       .filter((content) => contentMatchesFilters(content, filters))
+      .sort((left, right) => filterMatchCount(right, filters) - filterMatchCount(left, filters))
       .slice(0, limit)
       .map(cloneContent);
 

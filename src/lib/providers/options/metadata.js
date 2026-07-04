@@ -63,6 +63,7 @@ export const fallbackLanguageOptions = [
 
 const genreValueByName = new Map([
   ["Action", "genre-action"],
+  ["Action & Adventure", "genre-action-adventure"],
   ["Adventure", "genre-adventure"],
   ["Animation", "genre-animation"],
   ["Comedy", "genre-comedy"],
@@ -74,9 +75,41 @@ const genreValueByName = new Map([
   ["Mystery", "genre-mystery"],
   ["Romance", "genre-romance"],
   ["Science Fiction", "genre-sf"],
-  ["Sci-Fi & Fantasy", "genre-sf"],
+  ["Sci-Fi & Fantasy", "genre-sf-fantasy"],
   ["Thriller", "genre-thriller"],
+  ["TV Movie", "genre-tv-movie"],
+  ["Kids", "genre-kids"],
+  ["Reality", "genre-reality"],
+  ["Talk", "genre-talk"],
+  ["Soap", "genre-soap"],
+  ["News", "genre-news"],
+  ["War & Politics", "genre-war-politics"],
 ]);
+
+const genreOrder = [
+  "genre-action",
+  "genre-action-adventure",
+  "genre-sf",
+  "genre-sf-fantasy",
+  "genre-thriller",
+  "genre-horror",
+  "genre-crime",
+  "genre-fantasy",
+  "genre-adventure",
+  "genre-drama",
+  "genre-romance",
+  "genre-comedy",
+  "genre-mystery",
+  "genre-family",
+  "genre-animation",
+  "tmdb-genre-99",
+  "genre-news",
+  "genre-reality",
+  "genre-talk",
+  "genre-tv-movie",
+  "genre-soap",
+  "genre-war-politics",
+];
 
 function normalizeGenreName(name) {
   const mapping = {
@@ -93,7 +126,7 @@ function normalizeGenreName(name) {
     Mystery: "미스터리",
     Romance: "로맨스",
     "Science Fiction": "SF",
-    "Sci-Fi & Fantasy": "SF",
+    "Sci-Fi & Fantasy": "SF·판타지",
     "TV Movie": "TV 영화",
     Thriller: "스릴러",
     Kids: "키즈",
@@ -105,6 +138,15 @@ function normalizeGenreName(name) {
   };
 
   return mapping[name] || name;
+}
+
+function sortGenreOptions(left, right) {
+  const leftOrder = genreOrder.indexOf(left.value);
+  const rightOrder = genreOrder.indexOf(right.value);
+  const normalizedLeftOrder = leftOrder === -1 ? 100 : leftOrder;
+  const normalizedRightOrder = rightOrder === -1 ? 100 : rightOrder;
+
+  return normalizedLeftOrder - normalizedRightOrder || left.label.localeCompare(right.label, "ko");
 }
 
 function optionValueForGenre(genre) {
@@ -131,7 +173,7 @@ function normalizeGenreOptions(metadata) {
     }
   }
 
-  return Array.from(genres.values()).sort((a, b) => a.label.localeCompare(b.label, "ko"));
+  return Array.from(genres.values()).sort(sortGenreOptions);
 }
 
 function toLegacyOptions(options) {

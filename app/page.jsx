@@ -277,9 +277,20 @@ const relatedPickCount = 12;
 const collapsedOptionCount = 8;
 const autocompleteDebounceMs = 150;
 const quickPickGenreIds = new Map([
-  ["genre-sf", [878, 10765]],
+  ["genre-sf", [878]],
+  ["genre-sf-fantasy", [10765]],
   ["genre-romance", [10749]],
-  ["genre-thriller", [53]],
+  ["genre-thriller", [53, 80, 9648, 18]],
+  ["genre-action", [28]],
+  ["genre-action-adventure", [10759]],
+  ["genre-adventure", [12]],
+  ["genre-crime", [80]],
+  ["genre-fantasy", [14, 10765]],
+  ["genre-horror", [27]],
+  ["genre-tv-movie", [10770]],
+  ["genre-news", [10763]],
+  ["genre-reality", [10764]],
+  ["genre-talk", [10767]],
 ]);
 const recommendationInsightText = {
   multipleSeed: "여러 입력 작품에서 함께 추천되었습니다.",
@@ -485,11 +496,13 @@ function tagsFromProviderContent(content) {
 
   genres.forEach((genre) => {
     if (genre.includes("SF")) tags.add("genre-sf");
+    if (genre.includes("SF·판타지")) tags.add("genre-sf-fantasy");
     if (genre.includes("로맨스")) tags.add("genre-romance");
     if (genre.includes("스릴러") || genre.includes("범죄")) tags.add("genre-thriller");
   });
 
   if (intersects(genreIds, quickPickGenreIds.get("genre-sf"))) tags.add("genre-sf");
+  if (intersects(genreIds, quickPickGenreIds.get("genre-sf-fantasy"))) tags.add("genre-sf-fantasy");
   if (intersects(genreIds, quickPickGenreIds.get("genre-romance"))) tags.add("genre-romance");
   if (intersects(genreIds, quickPickGenreIds.get("genre-thriller"))) tags.add("genre-thriller");
 
@@ -748,16 +761,66 @@ function balanceSeedDiversity(sortedResults, seedTitles) {
   return balanced;
 }
 
-function normalizeProviderResult(content, quickPicks = [], reasonSeed = "", labelByValue = quickPickLabelByValue) {
+function filterFocusedContentTypes(results, selectedTypes) {
+  if (!hasFocusedSelectedTypes(selectedTypes)) return results;
+  return results.filter((item) => isSelectedContentType(item, selectedTypes));
+}
+
+function balanceContentDiversity(sortedResults, selectedTypes) {
+  const typeOrder = selectedTypes.length ? selectedTypes : initialTypes;
+  if (typeOrder.length <= 1) return sortedResults;
+
+  const groups = new Map(typeOrder.map((type) => [type, []]));
+  const ungrouped = [];
+
+  for (const item of sortedResults) {
+    const type = contentTypeForUi(item);
+    if (groups.has(type)) {
+      groups.get(type).push(item);
+    } else {
+      ungrouped.push(item);
+    }
+  }
+
+  const balanced = [];
+  let cursor = 0;
+
+  while (balanced.length < targetProviderResultCount) {
+    let added = false;
+    for (const type of typeOrder) {
+      const item = groups.get(type)?.[cursor];
+      if (!item) continue;
+      balanced.push(item);
+      added = true;
+      if (balanced.length >= targetProviderResultCount) break;
+    }
+    if (!added) break;
+    cursor += 1;
+  }
+
+  for (const item of sortedResults) {
+    if (balanced.length >= targetProviderResultCount) break;
+    if (!balanced.includes(item)) balanced.push(item);
+  }
+
+  return balanced;
+}
+
+function normalizeProviderResult(content, quickPicks = [], reasonSeed = "", labelByValue = quickPickLabelByValue, selectedOtt = []) {
   const title = content.title || "제목 없음";
   const type = contentTypeForUi(content);
   const genres = Array.isArray(content.genres) && content.genres.length ? content.genres : ["장르 확인 필요"];
-  const ott = Array.isArray(content.ott) && content.ott.length ? content.ott : content.platforms || ["검색 필요"];
+  const selectedProviderLabels = selectedOttLabels(selectedOtt);
+  const rawOtt = Array.isArray(content.ott) && content.ott.length ? content.ott : content.platforms || ["검색 필요"];
+  const hasUnknownOtt = rawOtt.length === 1 && rawOtt[0] === "검색 필요";
+  const ott = hasUnknownOtt && selectedProviderLabels.length ? selectedProviderLabels : rawOtt;
   const actors = Array.isArray(content.actors) && content.actors.length ? content.actors : ["정보 없음"];
   const runtime = Number(content.runtime);
   const rating = Number(content.rating);
   const poster = content.backdrop || content.poster || thumbnailText(title);
   const optionSummary = quickPickSummary(quickPicks, labelByValue);
+  const ottSummary = selectedProviderLabels.slice(0, 2).join(", ");
+  const reason = content.reason || (ottSummary ? `${ottSummary} 제공 작품 기준 추천입니다.` : optionSummary ? `${optionSummary} 옵션까지 함께 참고한 실제 검색 결과입니다.` : "입력한 작품과 연결해 확인해볼 만한 실제 검색 결과입니다.");
 
   return {
     ...content,
@@ -775,7 +838,7 @@ function normalizeProviderResult(content, quickPicks = [], reasonSeed = "", labe
     rating: Number.isFinite(rating) && rating > 0 ? rating.toFixed(1) : "정보 없음",
     runtime: Number.isFinite(runtime) && runtime > 0 ? `${runtime}분` : "상세 확인",
     ott,
-    reason: content.reason || (optionSummary ? `${optionSummary} 옵션까지 함께 참고한 실제 검색 결과입니다.` : "입력한 작품과 연결해 확인해볼 만한 실제 검색 결과입니다."),
+    reason,
     synopsis: content.synopsis || content.overview || "줄거리 정보가 아직 없습니다.",
     poster,
     detailPoster: content.poster || content.backdrop || thumbnailText(title),
@@ -822,14 +885,16 @@ async function fetchProviderRecommendations(titles, selectedTypes, quickPicks, s
     const payload = await response.json();
     providerStatus = providerStatus || providerStatusFromPayload(payload);
     const normalizedResults = (payload.results || [])
-      .map((item) => normalizeProviderResult(item, quickPicks, title, labelByValue))
+      .map((item) => normalizeProviderResult(item, quickPicks, title, labelByValue, selectedOtt))
       .filter((item) => !titleMatchesSeed(item, title));
     providerResults.push(...normalizedResults);
   }
 
   const mergedResults = mergeProviderResults(filterSeedResults(providerResults, uniqueTitles));
-  const sortedResults = sortProviderResults(mergedResults, selectedTypes, quickPicks, selectedOtt, optionMetadata);
-  const balancedResults = balanceSeedDiversity(sortedResults, uniqueTitles);
+  const eligibleResults = filterFocusedContentTypes(mergedResults, selectedTypes);
+  const sortedResults = sortProviderResults(eligibleResults, selectedTypes, quickPicks, selectedOtt, optionMetadata);
+  const seedBalancedResults = balanceSeedDiversity(sortedResults, uniqueTitles);
+  const balancedResults = balanceContentDiversity(seedBalancedResults, selectedTypes);
 
   return { results: balancedResults.slice(0, targetProviderResultCount), providerStatus };
 }
@@ -849,11 +914,13 @@ async function fetchOptionRecommendations(selectedTypes, quickPicks, selectedOtt
   }
 
   const payload = await response.json();
-  const normalizedResults = (payload.results || []).map((item) => normalizeProviderResult(item, quickPicks, "", labelByValue));
-  const sortedResults = sortProviderResults(mergeProviderResults(normalizedResults), selectedTypes, quickPicks, selectedOtt, optionMetadata);
+  const normalizedResults = (payload.results || []).map((item) => normalizeProviderResult(item, quickPicks, "", labelByValue, selectedOtt));
+  const eligibleResults = filterFocusedContentTypes(mergeProviderResults(normalizedResults), selectedTypes);
+  const sortedResults = sortProviderResults(eligibleResults, selectedTypes, quickPicks, selectedOtt, optionMetadata);
+  const balancedResults = balanceContentDiversity(sortedResults, selectedTypes);
 
   return {
-    results: sortedResults.slice(0, targetProviderResultCount),
+    results: balancedResults.slice(0, targetProviderResultCount),
     providerStatus: providerStatusFromPayload(payload),
   };
 }
@@ -1185,6 +1252,7 @@ export default function Home() {
 
   function openDetail(item) {
     setShowQuickPick(false);
+    setRelatedItems([]);
     setSelectedDetail(item);
   }
 
@@ -1208,6 +1276,7 @@ export default function Home() {
     const node = relatedStripRef.current;
     if (!node) return;
     node.dataset.dragging = "true";
+    node.dataset.dragMoved = "false";
     node.dataset.dragStartX = String(event.clientX);
     node.dataset.dragScrollLeft = String(node.scrollLeft);
     node.setPointerCapture?.(event.pointerId);
@@ -1651,7 +1720,7 @@ export default function Home() {
                         event.preventDefault();
                         return;
                       }
-                      setSelectedDetail(item);
+                      openDetail(item);
                     }}
                     key={item.id || item.providerContentId || item.title}
                   >

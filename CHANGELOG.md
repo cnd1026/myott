@@ -2,6 +2,32 @@
 
 프로젝트의 주요 변경 사항을 날짜별로 기록합니다.
 
+## 2026-07-04 - MYOTT-S08-T10F
+
+### 변경 내용
+
+- TMDB discover 후보 수집을 `movie`, `drama(tv)`, `animation(movie+tv)` request 단위로 완전히 분리했습니다.
+- Movie/TV 선택 시 animation genre를 제외하고, Animation 선택 시에만 movie/tv animation discover를 호출하도록 정리했습니다.
+- TV + UK + Thriller 조합이 TV discover에서 Crime/Mystery/Drama 계열 장르로 해석되도록 genre mapping을 보강했습니다.
+- TMDB discover 결과가 한 타입에 쏠리지 않도록 서버 응답 직전 content diversity round-robin을 적용했습니다.
+- 선택 타입이 좁혀진 경우 클라이언트 결과 상태에 들어가기 전 타입 mismatch를 제거하도록 안전장치를 추가했습니다.
+- Related Picks 클릭 시 이전 drag flag가 남아 클릭을 막지 않도록 초기화하고, 클릭 시 기존 상세 열기 흐름을 재사용하도록 수정했습니다.
+- Related Picks 제목은 최대 3줄, 보조 문구는 1줄 말줄임으로 카드 높이를 안정화했습니다.
+- TMDB 장르 metadata 정렬을 사용 빈도 중심으로 바꾸고 `SF` / `SF·판타지` label을 분리했습니다.
+- OTT 필터가 TMDB discover의 watch provider 힌트로 전달되고, 선택 provider가 카드 OTT/추천 이유에 표시되도록 보강했습니다.
+- Mock fallback에도 영국 스릴러 드라마와 일본 SF 영화 샘플을 보강해 fallback QA에서 타입/국가/장르가 어긋나지 않도록 했습니다.
+
+### 이유
+
+- 콘텐츠 종류 선택은 score 보정이 아니라 후보 수집 단계에서 먼저 보장되어야 하기 때문입니다.
+- 드라마 + 영국 + 스릴러에서 애니메이션이나 movie가 노출되면 추천 엔진 신뢰가 크게 떨어지기 때문입니다.
+- Related Picks 클릭이 동작하지 않으면 상세 탐색 흐름이 끊기기 때문입니다.
+
+### 다음 작업
+
+- Founder 로컬 TMDB 환경에서 Sherlock, Broadchurch, Luther, Bodyguard 계열이 실제로 상단에 오는지 확인합니다.
+- 실제 TMDB watch provider id와 지역별 provider 노출 품질은 후속 QA에서 점검합니다.
+
 ## 2026-07-04 - MYOTT-S08-T10E
 
 ### 변경 내용
