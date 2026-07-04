@@ -2,6 +2,32 @@
 
 개발 과정에서의 작업 내용, 결정, 아쉬운 점, 다음 개선 사항을 날짜별로 기록합니다.
 
+## 2026-07-04 - MYOTT-S08-T10B
+
+### 오늘 작업
+
+- 현재 상세 작품 기준 Related Picks API를 추가했습니다.
+- TMDB recommendations/similar 우선, Mock/current results fallback 구조로 related 탐색을 정리했습니다.
+- Related Picks에 좌우 이동 버튼과 가로 scroll snap을 추가했습니다.
+- Quick Pick 장르 더보기/접기와 선택 필터 chip을 추가했습니다.
+- 국가 옵션을 대표 글로벌 국가로 확장했습니다.
+
+### 결정한 것
+
+- Recommendation Engine scoring weight는 변경하지 않고 탐색 UX만 개선합니다.
+- Related Picks는 현재 작품 id 기반을 우선하되, TMDB 실패 시 앱이 비어 보이지 않도록 fallback을 유지합니다.
+- 옵션 검색은 더보기 상태와 무관하게 전체 label을 대상으로 유지합니다.
+
+### 아쉬운 점
+
+- Codex 환경에서는 TMDB TLS 제약 때문에 실제 recommendations/similar 성공 경로는 Founder 로컬 확인이 필요합니다.
+- 국가 옵션은 아직 제작 국가/discover 힌트이며, OTT 제공 국가 필터와는 다릅니다.
+
+### 다음 개선
+
+- Founder 환경에서 Related Pick 클릭 후 새 작품 기준으로 related가 갱신되는지 확인합니다.
+- 국가/OTT/언어 옵션의 의미를 사용자에게 어떻게 설명할지 후속 UX에서 정리합니다.
+
 ## 2026-07-04 - MYOTT-S08-T10A
 
 ### 오늘 작업

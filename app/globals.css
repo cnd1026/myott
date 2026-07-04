@@ -798,6 +798,32 @@ input[type="text"]:focus {
   box-shadow: 0 18px 46px rgba(10, 18, 24, 0.18);
 }
 
+.related-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.related-controls {
+  display: flex;
+  gap: 6px;
+}
+
+.related-controls button {
+  display: grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #fff;
+  color: var(--accent-strong);
+  font-size: 22px;
+  font-weight: 900;
+  line-height: 1;
+}
+
 .related-strip {
   display: grid;
   grid-auto-flow: column;
@@ -806,6 +832,9 @@ input[type="text"]:focus {
   overflow-x: auto;
   padding-bottom: 4px;
   overscroll-behavior-inline: contain;
+  scroll-behavior: smooth;
+  scroll-snap-type: x proximity;
+  touch-action: pan-x;
 }
 
 .related-card {
@@ -820,6 +849,7 @@ input[type="text"]:focus {
   color: var(--text);
   text-align: left;
   cursor: pointer;
+  scroll-snap-align: start;
 }
 
 .related-card strong,
@@ -930,6 +960,50 @@ input[type="text"]:focus {
   min-height: 44px;
 }
 
+.selected-filter-panel {
+  display: grid;
+  gap: 8px;
+  margin-bottom: 14px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 10px;
+  background: var(--surface-soft);
+}
+
+.selected-filter-panel > span {
+  color: var(--text);
+  font-size: 12px;
+  font-weight: 900;
+}
+
+.selected-filter-panel p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.4;
+}
+
+.selected-filter-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px;
+}
+
+.selected-filter-chip {
+  min-height: 32px;
+  border: 1px solid rgba(47, 125, 104, 0.24);
+  border-radius: 999px;
+  padding: 0 10px;
+  background: #fff;
+  color: var(--accent-strong);
+  font-size: 12px;
+  font-weight: 900;
+}
+
+.selected-filter-chip span {
+  margin-left: 4px;
+}
+
 .quick-pick-groups {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
@@ -957,9 +1031,23 @@ input[type="text"]:focus {
 }
 
 .quick-group legend {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
   grid-column: 1 / -1;
   padding: 0 4px;
   color: var(--text);
+  font-weight: 900;
+}
+
+.group-toggle-button {
+  border: 0;
+  border-radius: 999px;
+  padding: 4px 8px;
+  background: var(--surface-soft);
+  color: var(--accent-strong);
+  font-size: 11px;
   font-weight: 900;
 }
 

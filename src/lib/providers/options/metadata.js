@@ -1,5 +1,25 @@
 import { getTmdbGenreMetadata, hasTmdbKey } from "../../../../lib/tmdb";
 
+export const fallbackCountryOptions = [
+  ["country-kr", "한국"],
+  ["country-us", "미국"],
+  ["country-jp", "일본"],
+  ["country-gb", "영국"],
+  ["country-fr", "프랑스"],
+  ["country-de", "독일"],
+  ["country-cn", "중국"],
+  ["country-hk", "홍콩"],
+  ["country-tw", "대만"],
+  ["country-in", "인도"],
+  ["country-ca", "캐나다"],
+  ["country-au", "호주"],
+  ["country-es", "스페인"],
+  ["country-it", "이탈리아"],
+  ["country-th", "태국"],
+  ["country-br", "브라질"],
+  ["country-mx", "멕시코"],
+];
+
 export const fallbackOptionGroups = [
   {
     title: "장르",
@@ -13,11 +33,7 @@ export const fallbackOptionGroups = [
   {
     title: "국가",
     source: "fallback",
-    options: [
-      ["country-kr", "한국"],
-      ["country-us", "미국"],
-      ["country-jp", "일본"],
-    ],
+    options: fallbackCountryOptions,
   },
   {
     title: "분위기",
@@ -37,12 +53,6 @@ export const fallbackOptionGroups = [
       ["runtime-long", "긴 작품"],
     ],
   },
-];
-
-export const fallbackCountryOptions = [
-  ["country-kr", "한국"],
-  ["country-us", "미국"],
-  ["country-jp", "일본"],
 ];
 
 export const fallbackLanguageOptions = [

@@ -211,6 +211,26 @@ const contentTypeOptions = [
   ["animation", "애니"],
 ];
 
+const expandedCountryOptions = [
+  ["country-kr", "한국"],
+  ["country-us", "미국"],
+  ["country-jp", "일본"],
+  ["country-gb", "영국"],
+  ["country-fr", "프랑스"],
+  ["country-de", "독일"],
+  ["country-cn", "중국"],
+  ["country-hk", "홍콩"],
+  ["country-tw", "대만"],
+  ["country-in", "인도"],
+  ["country-ca", "캐나다"],
+  ["country-au", "호주"],
+  ["country-es", "스페인"],
+  ["country-it", "이탈리아"],
+  ["country-th", "태국"],
+  ["country-br", "브라질"],
+  ["country-mx", "멕시코"],
+];
+
 const quickPickGroups = [
   {
     title: "장르",
@@ -222,11 +242,7 @@ const quickPickGroups = [
   },
   {
     title: "국가",
-    options: [
-      ["country-kr", "한국"],
-      ["country-us", "미국"],
-      ["country-jp", "일본"],
-    ],
+    options: expandedCountryOptions,
   },
   {
     title: "분위기",
@@ -249,11 +265,7 @@ const quickPickGroups = [
 const quickPickLabelByValue = new Map(quickPickGroups.flatMap((group) => group.options));
 const initialOptionMetadata = {
   genres: [],
-  countries: [
-    ["country-kr", "한국"],
-    ["country-us", "미국"],
-    ["country-jp", "일본"],
-  ],
+  countries: expandedCountryOptions,
   languages: [
     ["language-ko", "한국어"],
     ["language-en", "영어"],
@@ -261,6 +273,8 @@ const initialOptionMetadata = {
   ],
 };
 const targetProviderResultCount = 12;
+const relatedPickCount = 12;
+const collapsedGenreCount = 8;
 const autocompleteDebounceMs = 150;
 const quickPickGenreIds = new Map([
   ["genre-sf", [878, 10765]],
@@ -484,6 +498,20 @@ function tagsFromProviderContent(content) {
   if (country === "한국") tags.add("country-kr");
   if (country === "일본") tags.add("country-jp");
   if (country === "미국") tags.add("country-us");
+  if (country === "영국") tags.add("country-gb");
+  if (country === "프랑스") tags.add("country-fr");
+  if (country === "독일") tags.add("country-de");
+  if (country === "중국") tags.add("country-cn");
+  if (country === "홍콩") tags.add("country-hk");
+  if (country === "대만") tags.add("country-tw");
+  if (country === "인도") tags.add("country-in");
+  if (country === "캐나다") tags.add("country-ca");
+  if (country === "호주") tags.add("country-au");
+  if (country === "스페인") tags.add("country-es");
+  if (country === "이탈리아") tags.add("country-it");
+  if (country === "태국") tags.add("country-th");
+  if (country === "브라질") tags.add("country-br");
+  if (country === "멕시코") tags.add("country-mx");
 
   if (runtime > 140) tags.add("runtime-long");
   else if (runtime > 0 && runtime <= 70) tags.add("runtime-short");
@@ -515,6 +543,19 @@ function filterOptionGroups(groups, query) {
       options: group.options.filter(([, label]) => normalizeOptionSearch(label).includes(normalizedQuery)),
     }))
     .filter((group) => group.options.length);
+}
+
+function visibleOptionGroups(groups, query, expandedGenres) {
+  if (normalizeOptionSearch(query)) return groups;
+
+  return groups.map((group) => {
+    if (group.title !== "장르" || expandedGenres || group.options.length <= collapsedGenreCount) return group;
+    return {
+      ...group,
+      options: group.options.slice(0, collapsedGenreCount),
+      totalOptions: group.options.length,
+    };
+  });
 }
 
 function normalizedIdList(values = []) {
@@ -805,6 +846,29 @@ async function fetchOptionRecommendations(selectedTypes, quickPicks, selectedOtt
   };
 }
 
+async function fetchRelatedRecommendations(item, quickPicks, labelByValue) {
+  const providerContentId = item.providerContentId || item.tmdbId || "";
+  if (!providerContentId) return [];
+
+  const params = new URLSearchParams({
+    id: String(providerContentId),
+    type: item.type || item.contentType || "movie",
+  });
+  const response = await fetch(`/api/related?${params.toString()}`, {
+    cache: "no-store",
+  });
+
+  if (!response.ok) {
+    throw new Error(`Related request failed: ${response.status}`);
+  }
+
+  const payload = await response.json();
+  return (payload.results || [])
+    .map((content) => normalizeProviderResult(content, quickPicks, "", labelByValue))
+    .filter((relatedItem) => contentKey(relatedItem) !== contentKey(item))
+    .slice(0, relatedPickCount);
+}
+
 function toggleValue(values, value) {
   return values.includes(value) ? values.filter((item) => item !== value) : [...values, value];
 }
@@ -869,26 +933,34 @@ export default function Home() {
   const [optionGroups, setOptionGroups] = useState(quickPickGroups);
   const [optionMetadata, setOptionMetadata] = useState(initialOptionMetadata);
   const [quickPickSearch, setQuickPickSearch] = useState("");
+  const [expandedGenres, setExpandedGenres] = useState(false);
   const [showQuickPick, setShowQuickPick] = useState(false);
   const [results, setResults] = useState([]);
   const [recommendationStatus, setRecommendationStatus] = useState("idle");
   const [selectedDetail, setSelectedDetail] = useState(null);
+  const [relatedItems, setRelatedItems] = useState([]);
   const [providerStatus, setProviderStatus] = useState(initialProviderStatus);
   const [timeSlot, setTimeSlot] = useState("evening");
   const [suggestions, setSuggestions] = useState({});
   const [activeSuggestionIndex, setActiveSuggestionIndex] = useState(null);
   const [confirmedSeeds, setConfirmedSeeds] = useState({});
   const suggestionCacheRef = useRef(new Map());
+  const relatedStripRef = useRef(null);
 
   const enteredTitles = useMemo(() => titles.map((title) => title.trim()).filter(Boolean), [titles]);
   const hasOptionPreference = selectedQuickPicks.length > 0 || selectedOtt.length > 0 || selectedTypes.length > 0;
   const canRecommend = enteredTitles.length > 0 || hasOptionPreference;
   const heroRecommendations = useMemo(() => buildHeroRecommendations(timeSlot).slice(0, 3), [timeSlot]);
   const optionLabelByValue = useMemo(() => new Map(optionGroups.flatMap((group) => group.options)), [optionGroups]);
-  const filteredOptionGroups = useMemo(() => filterOptionGroups(optionGroups, quickPickSearch), [optionGroups, quickPickSearch]);
-  const relatedRecommendations = selectedDetail
-    ? results.filter((item) => contentKey(item) !== contentKey(selectedDetail)).slice(0, 4)
+  const filteredOptionGroups = useMemo(
+    () => visibleOptionGroups(filterOptionGroups(optionGroups, quickPickSearch), quickPickSearch, expandedGenres),
+    [optionGroups, quickPickSearch, expandedGenres],
+  );
+  const selectedQuickPickChips = selectedQuickPicks.map((value) => [value, optionLabelByValue.get(value)]).filter(([, label]) => Boolean(label));
+  const fallbackRelatedRecommendations = selectedDetail
+    ? results.filter((item) => contentKey(item) !== contentKey(selectedDetail)).slice(0, relatedPickCount)
     : [];
+  const relatedRecommendations = relatedItems.length ? relatedItems : fallbackRelatedRecommendations;
 
   useEffect(() => {
     function handleEscape(event) {
@@ -953,6 +1025,31 @@ export default function Home() {
       isMounted = false;
     };
   }, []);
+
+  useEffect(() => {
+    let isMounted = true;
+
+    async function loadRelatedRecommendations() {
+      if (!selectedDetail) {
+        setRelatedItems([]);
+        return;
+      }
+
+      try {
+        const nextRelated = await fetchRelatedRecommendations(selectedDetail, selectedQuickPicks, optionLabelByValue);
+        if (isMounted) setRelatedItems(nextRelated);
+      } catch {
+        if (isMounted) setRelatedItems([]);
+      }
+    }
+
+    setRelatedItems([]);
+    loadRelatedRecommendations();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [selectedDetail, selectedQuickPicks, optionLabelByValue]);
 
   useEffect(() => {
     if (activeSuggestionIndex === null) return undefined;
@@ -1078,6 +1175,15 @@ export default function Home() {
     setSelectedDetail(item);
   }
 
+  function scrollRelated(direction) {
+    const node = relatedStripRef.current;
+    if (!node) return;
+    node.scrollBy({
+      left: direction * Math.max(240, node.clientWidth * 0.75),
+      behavior: "smooth",
+    });
+  }
+
   function updateTitle(index, value) {
     setTitles((current) => normalizeTitleInputs(current.map((item, itemIndex) => (itemIndex === index ? value : item))));
     setConfirmedSeeds((current) => {
@@ -1114,10 +1220,12 @@ export default function Home() {
     setTitles([...initialTitles]);
     setSelectedQuickPicks([]);
     setQuickPickSearch("");
+    setExpandedGenres(false);
     setShowQuickPick(false);
     setResults([]);
     setRecommendationStatus("idle");
     setSelectedDetail(null);
+    setRelatedItems([]);
     setSuggestions({});
     setActiveSuggestionIndex(null);
     setConfirmedSeeds({});
@@ -1333,10 +1441,42 @@ export default function Home() {
               />
             </label>
 
+            <div className="selected-filter-panel" aria-live="polite">
+              <span>선택됨</span>
+              {selectedQuickPickChips.length ? (
+                <div className="selected-filter-list">
+                  {selectedQuickPickChips.map(([value, label]) => (
+                    <button
+                      className="selected-filter-chip"
+                      type="button"
+                      onClick={() => setSelectedQuickPicks((current) => current.filter((item) => item !== value))}
+                      key={value}
+                    >
+                      {label} <span aria-hidden="true">×</span>
+                    </button>
+                  ))}
+                </div>
+              ) : (
+                <p>선택한 추천 옵션이 없습니다.</p>
+              )}
+            </div>
+
             <div className="quick-pick-groups">
               {filteredOptionGroups.map((group) => (
                 <fieldset className="quick-group" key={group.title}>
-                  <legend>{group.title}</legend>
+                  <legend>
+                    {group.title}
+                    {group.title === "장르" && group.totalOptions ? (
+                      <button className="group-toggle-button" type="button" onClick={() => setExpandedGenres(true)}>
+                        + 장르 더보기
+                      </button>
+                    ) : null}
+                    {group.title === "장르" && expandedGenres && !quickPickSearch ? (
+                      <button className="group-toggle-button" type="button" onClick={() => setExpandedGenres(false)}>
+                        접기
+                      </button>
+                    ) : null}
+                  </legend>
                   {group.options.map(([value, label]) => (
                     <label className="check-option" key={value}>
                       <input
@@ -1408,11 +1548,17 @@ export default function Home() {
           </section>
           {relatedRecommendations.length ? (
             <section className="related-panel" aria-labelledby="relatedRecommendationTitle">
-              <div>
-                <p className="trust-label" id="relatedRecommendationTitle">Related Picks</p>
-                <p className="trust-copy">현재 추천 결과에서 이어서 볼 만한 작품입니다.</p>
+              <div className="related-heading">
+                <div>
+                  <p className="trust-label" id="relatedRecommendationTitle">Related Picks</p>
+                  <p className="trust-copy">현재 작품을 기준으로 이어서 볼 만한 추천입니다.</p>
+                </div>
+                <div className="related-controls" aria-label="Related Picks 이동">
+                  <button type="button" onClick={() => scrollRelated(-1)} aria-label="이전 Related Picks">‹</button>
+                  <button type="button" onClick={() => scrollRelated(1)} aria-label="다음 Related Picks">›</button>
+                </div>
               </div>
-              <div className="related-strip" aria-label="관련 추천">
+              <div className="related-strip" aria-label="관련 추천" ref={relatedStripRef}>
                 {relatedRecommendations.map((item) => (
                   <button
                     className="related-card"

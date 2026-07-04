@@ -98,6 +98,19 @@ export const mockProvider = {
     return matched.length ? matched : fallbackResults(contentTypes, limit);
   },
 
+  async getRelated({ providerContentId, contentTypes = [], limit = DEFAULT_LIMIT } = {}) {
+    const current = mockContents.find((item) => item.providerContentId === providerContentId || item.id === providerContentId);
+    const filters = current ? [...current.tags, ...current.genres, current.country] : [];
+    const matched = mockContents
+      .filter((content) => content.providerContentId !== providerContentId && content.id !== providerContentId)
+      .filter((content) => contentMatchesTypes(content, contentTypes))
+      .filter((content) => contentMatchesFilters(content, filters))
+      .slice(0, limit)
+      .map(cloneContent);
+
+    return matched.length ? matched : fallbackResults(contentTypes, limit).filter((content) => content.providerContentId !== providerContentId);
+  },
+
   async getTrending({ contentTypes = [], limit = DEFAULT_LIMIT } = {}) {
     return fallbackResults(contentTypes, limit);
   },
