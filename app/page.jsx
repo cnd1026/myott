@@ -301,6 +301,7 @@ const recommendationInsightText = {
   optionMatch: "선택한 추천 옵션과 잘 맞습니다.",
   contentType: "선택한 콘텐츠 종류와 맞습니다.",
   ottMatch: "선택한 OTT 정보와 연결됩니다.",
+  relaxedFallback: "조건을 조금 넓혀 함께 추천합니다.",
   metadataTieBreak: "평점과 인기도를 보조 기준으로 참고했습니다.",
 };
 
@@ -644,6 +645,7 @@ function insightMessages(signals) {
   if (signals.optionMatch) messages.push(recommendationInsightText.optionMatch);
   if (signals.contentType) messages.push(recommendationInsightText.contentType);
   if (signals.ottMatch) messages.push(recommendationInsightText.ottMatch);
+  if (signals.relaxedFallback) messages.push(recommendationInsightText.relaxedFallback);
   if (!messages.length && signals.metadataTieBreak) messages.push(recommendationInsightText.metadataTieBreak);
   return messages.slice(0, 3);
 }
@@ -699,6 +701,7 @@ function analyzeProviderResult(item, selectedTypes, quickPicks, selectedOtt, opt
     optionMatch: quickPickGenreOverlap + quickPickTagMatches > 0,
     contentType: focusedTypes && typeMatched,
     ottMatch: ottMatch > 0,
+    relaxedFallback: Boolean(item.fallbackRelaxed),
     metadataTieBreak: Number(item.popularity || 0) > 0 || Number.isFinite(rating),
   };
 

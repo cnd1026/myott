@@ -2,6 +2,39 @@
 
 개발 과정에서의 작업 내용, 결정, 아쉬운 점, 다음 개선 사항을 날짜별로 기록합니다.
 
+## 2026-07-05 - MYOTT-S08-BUG-002
+
+### 오늘 작업
+
+- 강한 옵션 조합에서 결과가 1~2개로 끝나는 문제를 해결하기 위해 progressive fallback을 추가했습니다.
+- TMDB discover는 content type request를 유지한 채 genre/country 조건만 단계적으로 완화합니다.
+- Mock Provider도 동일한 fallback 단계로 정리해 TMDB 실패 환경에서도 같은 UX를 제공합니다.
+- fallback 보강 결과에는 `fallbackRelaxed` 신호를 붙이고, UI에서는 실제 신호가 있을 때만 조건 완화 Insight를 표시합니다.
+- Mock QA 샘플에 드라마/애니 콘텐츠를 보강해 narrow filter smoke에서 타입별 결과가 너무 적게 보이지 않도록 했습니다.
+
+### 결정한 것
+
+- Content type은 hard filter입니다.
+- Genre와 country는 결과 부족 시 soft fallback 대상입니다.
+- OTT option은 provider truth source가 아니며, 결과 확보 단계에서 hard filter로 취급하지 않습니다.
+- fallback 안내는 점수가 아니라 사용자가 이해할 수 있는 짧은 문구로만 표시합니다.
+
+### 검증
+
+- `drama + country-jp + genre-sf-fantasy`: Mock fallback 기준 6개, type `drama` 유지.
+- `movie + country-jp + genre-sf-fantasy`: Mock fallback 기준 4개, type `movie` 유지.
+- `animation + country-jp + genre-sf-fantasy`: Mock fallback 기준 3개, type `animation` 유지.
+
+### 아쉬운 점
+
+- Codex 환경에서는 TMDB 실제 fetch가 mock fallback으로 내려갈 수 있어 실제 TMDB 결과 품질은 Founder 로컬에서 확인해야 합니다.
+- 장르/국가 fallback의 완화 정도가 사용자에게 얼마나 자연스러운지는 추가 Founder QA가 필요합니다.
+
+### 다음 개선
+
+- 실제 TMDB 환경에서 narrow filter fallback 단계별 결과 품질을 확인합니다.
+- 조건 완화가 발생한 결과를 카드/상세 중 어디까지 설명할지 UX 기준을 더 다듬습니다.
+
 ## 2026-07-05 - MYOTT-S08-BUG-001B
 
 ### 오늘 작업

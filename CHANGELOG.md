@@ -2,6 +2,29 @@
 
 프로젝트의 주요 변경 사항을 날짜별로 기록합니다.
 
+## 2026-07-05 - MYOTT-S08-BUG-002
+
+### 변경 내용
+
+- TMDB option recommendation/discover에 progressive fallback 단계를 추가했습니다.
+- fallback 순서는 `content type + genre + country` → `content type + genre` → `content type + country` → `content type 인기 fallback`입니다.
+- 콘텐츠 타입은 모든 fallback 단계에서 hard filter로 유지합니다.
+- 결과가 완화 단계에서 보강된 경우 `fallbackRelaxed` 신호와 `조건을 조금 넓혀 함께 추천합니다.` 안내 문구를 함께 전달합니다.
+- Recommendation Insight에 실제 fallback 신호가 있을 때만 조건 완화 안내를 표시하도록 연결했습니다.
+- Mock Provider도 같은 단계적 fallback 흐름을 사용하도록 정리했습니다.
+- Mock fallback QA에서 드라마/애니 강한 필터 조합이 1개로 끝나지 않도록 QA 샘플을 보강했습니다.
+
+### 이유
+
+- 사용자가 정상적인 강한 조건을 선택했는데 결과가 1~2개로 끝나면 추천 서비스가 비어 보이기 때문입니다.
+- content type은 사용자 의도가 강한 조건이므로 절대 완화하지 않고, genre/country만 soft fallback으로 풀어야 하기 때문입니다.
+- fallback이 발생했을 때 앱이 왜 결과를 넓혔는지 사용자가 이해할 수 있어야 합니다.
+
+### 다음 작업
+
+- Founder 로컬 TMDB 환경에서 드라마 + 일본 + SF·판타지 조합의 실제 결과 수와 품질을 확인합니다.
+- 조건 완화 안내 문구가 Detail Layer에서 과하지 않은지 Founder QA로 확인합니다.
+
 ## 2026-07-05 - MYOTT-S08-BUG-001B
 
 ### 변경 내용

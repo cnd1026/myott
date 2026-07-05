@@ -1,6 +1,13 @@
 import { mockContents } from "./data";
 
 const DEFAULT_LIMIT = 8;
+const RELAXED_REASON = "조건을 조금 넓혀 함께 추천합니다.";
+const FALLBACK_STAGES = [
+  { id: "strict", useGenre: true, useCountry: true, relaxed: false },
+  { id: "genre", useGenre: true, useCountry: false, relaxed: true },
+  { id: "country", useGenre: false, useCountry: true, relaxed: true },
+  { id: "type", useGenre: false, useCountry: false, relaxed: true },
+];
 
 function cloneContent(content) {
   return {
@@ -55,6 +62,19 @@ function contentMatchesFilters(content, filters = []) {
   return filters.some((filter) => searchableTagsForContent(content).has(filter));
 }
 
+function contentMatchesEveryFilter(content, filters = []) {
+  if (!filters.length) return true;
+  const searchableTags = searchableTagsForContent(content);
+  return filters.every((filter) => searchableTags.has(filter));
+}
+
+function optionFilterGroups(filters = []) {
+  return {
+    genres: filters.filter((filter) => filter.startsWith("genre-") || filter.startsWith("tmdb-genre-")),
+    countries: filters.filter((filter) => filter.startsWith("country-")),
+  };
+}
+
 function searchableTagsForContent(content) {
   const searchableTags = new Set([
     content.contentType,
@@ -81,6 +101,39 @@ function fallbackResults(contentTypes = [], limit = DEFAULT_LIMIT) {
   return mockContents.filter((content) => contentMatchesTypes(content, contentTypes)).slice(0, limit).map(cloneContent);
 }
 
+function progressiveRecommendationResults(filters = [], contentTypes = [], limit = DEFAULT_LIMIT) {
+  const { genres, countries } = optionFilterGroups(filters);
+  const seen = new Set();
+  const results = [];
+
+  for (const stage of FALLBACK_STAGES) {
+    if (results.length >= limit) break;
+    const stageFilters = [
+      ...(stage.useGenre ? genres : []),
+      ...(stage.useCountry ? countries : []),
+    ];
+    const matched = mockContents
+      .filter((content) => contentMatchesTypes(content, contentTypes))
+      .filter((content) => contentMatchesEveryFilter(content, stageFilters))
+      .sort((left, right) => filterMatchCount(right, filters) - filterMatchCount(left, filters));
+
+    for (const content of matched) {
+      const key = content.providerContentId || content.id || content.title;
+      if (seen.has(key)) continue;
+      seen.add(key);
+      results.push({
+        ...cloneContent(content),
+        fallbackRelaxed: Boolean(stage.relaxed),
+        fallbackStage: stage.id,
+        reason: stage.relaxed ? RELAXED_REASON : content.reason,
+      });
+      if (results.length >= limit) break;
+    }
+  }
+
+  return results;
+}
+
 export const mockProvider = {
   id: "mock",
   name: "MyOTT Mock Provider",
@@ -101,12 +154,7 @@ export const mockProvider = {
   },
 
   async getRecommendations({ filters = [], contentTypes = [], limit = DEFAULT_LIMIT } = {}) {
-    const matched = mockContents
-      .filter((content) => contentMatchesTypes(content, contentTypes))
-      .filter((content) => contentMatchesFilters(content, filters))
-      .sort((left, right) => filterMatchCount(right, filters) - filterMatchCount(left, filters))
-      .slice(0, limit)
-      .map(cloneContent);
+    const matched = progressiveRecommendationResults(filters, contentTypes, limit);
 
     return matched.length ? matched : fallbackResults(contentTypes, limit);
   },
