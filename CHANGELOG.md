@@ -2,6 +2,28 @@
 
 프로젝트의 주요 변경 사항을 날짜별로 기록합니다.
 
+## 2026-07-05 - MYOTT-S08-BUG-003
+
+### 변경 내용
+
+- TMDB discover 요청에 runtime option을 반영하도록 `with_runtime.lte` / `with_runtime.gte` 파라미터를 추가했습니다.
+- `runtime-short`는 60분 이하, `runtime-medium`은 120분 이하, `runtime-long`은 140분 이상 기준으로 정리했습니다.
+- Recommendation scoring에서 runtime match를 일반 tag match보다 강하게 반영하도록 별도 score를 추가했습니다.
+- Recommendation Insight에 runtime 조건이 실제로 맞을 때만 `선택한 러닝타임 조건과 맞습니다.` 문구를 표시하도록 연결했습니다.
+- Mock Provider progressive fallback에서도 runtime filter를 모든 fallback 단계에 유지하도록 수정했습니다.
+- Mock fallback QA에서 긴 작품 결과가 1개로 끝나지 않도록 긴 러닝타임 샘플을 보강했습니다.
+
+### 이유
+
+- 60분 이하와 긴 작품을 선택해도 결과가 동일하면 추천 옵션이 더미처럼 보이기 때문입니다.
+- runtime은 사용자가 직접 고른 시청 제약이므로 discover와 scoring 모두에 반영되어야 합니다.
+- fallback에서도 runtime 조건을 유지해야 사용자가 선택한 시간 의도가 깨지지 않습니다.
+
+### 다음 작업
+
+- Founder 로컬 TMDB 환경에서 runtime-short/runtime-long 선택 시 실제 결과 분포를 확인합니다.
+- runtime-medium 기준이 사용자에게 충분히 직관적인지 후속 QA에서 점검합니다.
+
 ## 2026-07-05 - MYOTT-S08-BUG-002
 
 ### 변경 내용

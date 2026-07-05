@@ -72,6 +72,7 @@ function optionFilterGroups(filters = []) {
   return {
     genres: filters.filter((filter) => filter.startsWith("genre-") || filter.startsWith("tmdb-genre-")),
     countries: filters.filter((filter) => filter.startsWith("country-")),
+    runtimes: filters.filter((filter) => filter.startsWith("runtime-")),
   };
 }
 
@@ -102,7 +103,7 @@ function fallbackResults(contentTypes = [], limit = DEFAULT_LIMIT) {
 }
 
 function progressiveRecommendationResults(filters = [], contentTypes = [], limit = DEFAULT_LIMIT) {
-  const { genres, countries } = optionFilterGroups(filters);
+  const { genres, countries, runtimes } = optionFilterGroups(filters);
   const seen = new Set();
   const results = [];
 
@@ -111,6 +112,7 @@ function progressiveRecommendationResults(filters = [], contentTypes = [], limit
     const stageFilters = [
       ...(stage.useGenre ? genres : []),
       ...(stage.useCountry ? countries : []),
+      ...runtimes,
     ];
     const matched = mockContents
       .filter((content) => contentMatchesTypes(content, contentTypes))

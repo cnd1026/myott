@@ -2,6 +2,41 @@
 
 개발 과정에서의 작업 내용, 결정, 아쉬운 점, 다음 개선 사항을 날짜별로 기록합니다.
 
+## 2026-07-05 - MYOTT-S08-BUG-003
+
+### 오늘 작업
+
+- runtime option 전달 경로를 UI → API → TMDB discover → Provider normalization → scoring → UI Insight까지 추적했습니다.
+- TMDB discover에서 runtime option을 `with_runtime.lte` / `with_runtime.gte`로 전달하도록 수정했습니다.
+- runtime scoring을 일반 option tag match보다 강하게 분리했습니다.
+- runtime 조건이 맞는 결과에는 Recommendation Insight로 러닝타임 조건 반영 문구를 표시합니다.
+- Mock fallback에서도 runtime filter가 genre/country fallback 단계와 함께 풀리지 않도록 유지했습니다.
+- 긴 작품 Mock QA 샘플을 보강했습니다.
+
+### 결정한 것
+
+- `runtime-short`: 60분 이하
+- `runtime-medium`: 120분 이하
+- `runtime-long`: 140분 이상
+- genre/country는 결과 부족 시 완화할 수 있지만 runtime은 사용자의 시간 제약이므로 fallback에서도 유지합니다.
+
+### 검증
+
+- `runtime-short`: Mock fallback 기준 7개, 23~60분 결과.
+- `runtime-long`: Mock fallback 기준 3개, 164~169분 결과.
+- `pnpm build`: PASS
+- `git diff --check`: PASS
+
+### 아쉬운 점
+
+- TMDB의 TV runtime 데이터는 작품별 episode runtime 품질에 영향을 받을 수 있습니다.
+- Founder 로컬에서 실제 TMDB 결과가 runtime 조건에 얼마나 안정적으로 반응하는지 추가 확인이 필요합니다.
+
+### 다음 개선
+
+- 런타임 조건이 강한 경우 결과 수와 품질의 균형을 Founder QA 기준으로 점검합니다.
+- 필요하면 runtime 조건을 hard filter와 scoring hint 중 어떤 수준으로 유지할지 제품 정책을 문서화합니다.
+
 ## 2026-07-05 - MYOTT-S08-BUG-002
 
 ### 오늘 작업
