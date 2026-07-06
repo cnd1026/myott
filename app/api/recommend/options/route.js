@@ -1,19 +1,31 @@
 import { getActiveProvider, getFallbackProvider, isTmdbProviderEnabled } from "../../../../src/lib/providers/registry";
 
-async function recommendWithProvider(provider, filters, contentTypes, message) {
+function sourceMetadata(provider, { message = "", fallbackUsed = false, fallbackReason = "", dataSource } = {}) {
+  return {
+    source: provider.id,
+    dataSource: dataSource || (fallbackUsed ? "fallback" : provider.id),
+    providerId: provider.id,
+    providerName: provider.name,
+    tmdbEnabled: isTmdbProviderEnabled(),
+    fallbackUsed,
+    fallbackReason,
+    message,
+  };
+}
+
+async function recommendWithProvider(provider, filters, contentTypes, sourceOptions = {}) {
   const results = await provider.getRecommendations({
     filters,
     contentTypes,
     limit: 12,
   });
+  const metadata = sourceMetadata(provider, sourceOptions);
+  const dataSource = !metadata.fallbackUsed && !results.length ? "empty" : metadata.dataSource;
 
   return {
-    source: provider.id,
-    providerId: provider.id,
-    providerName: provider.name,
-    tmdbEnabled: isTmdbProviderEnabled(),
+    ...metadata,
+    dataSource,
     results,
-    message,
   };
 }
 
@@ -26,8 +38,11 @@ export async function GET(request) {
     return Response.json(
       {
         source: "empty",
+        dataSource: "empty",
         providerId: activeProvider.id,
         tmdbEnabled: isTmdbProviderEnabled(),
+        fallbackUsed: false,
+        fallbackReason: "",
         results: [],
       },
       {
@@ -40,7 +55,12 @@ export async function GET(request) {
 
   if (activeProvider.id === "mock") {
     return Response.json(
-      await recommendWithProvider(activeProvider, filters, contentTypes, "TMDB API key is not configured. Mock Provider results are used."),
+      await recommendWithProvider(activeProvider, filters, contentTypes, {
+        dataSource: "fallback",
+        fallbackUsed: true,
+        fallbackReason: "TMDB API key is not configured.",
+        message: "TMDB API key is not configured. Mock Provider results are used.",
+      }),
       {
         headers: {
           "Cache-Control": "no-store",
@@ -58,7 +78,12 @@ export async function GET(request) {
   } catch (error) {
     const fallbackProvider = getFallbackProvider();
     const message = error instanceof Error ? error.message : "TMDb option recommendation failed.";
-    return Response.json(await recommendWithProvider(fallbackProvider, filters, contentTypes, `${message} Mock Provider results are used.`), {
+    return Response.json(await recommendWithProvider(fallbackProvider, filters, contentTypes, {
+      dataSource: "fallback",
+      fallbackUsed: true,
+      fallbackReason: message,
+      message: `${message} Mock Provider results are used.`,
+    }), {
       headers: {
         "Cache-Control": "no-store",
       },

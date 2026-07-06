@@ -2,6 +2,27 @@
 
 프로젝트의 주요 변경 사항을 날짜별로 기록합니다.
 
+## 2026-07-06 - MYOTT-S08-BUG-006
+
+### 변경 내용
+
+- `/api/search`와 `/api/recommend/options` 응답에 `dataSource`, `fallbackUsed`, `fallbackReason`을 명시했습니다.
+- TMDB 요청이 성공했지만 결과가 없으면 `dataSource: "empty"`로 구분합니다.
+- TMDB 실패 또는 API key 미설정으로 Mock Provider를 사용할 때만 `fallbackUsed: true`를 반환합니다.
+- UI에서 provider 결과가 비었다는 이유만으로 로컬 Mock 추천을 자동 표시하던 경로를 제거했습니다.
+- 여러 입력값 중 일부가 TMDB 결과를 반환하면 Mock fallback 결과를 섞지 않고 TMDB 결과만 사용합니다.
+- 개발 환경 console에 추천 응답의 data source, fallback 여부, fallback reason, result count를 기록하도록 보강했습니다.
+- Provider badge가 `TMDB` / `Fallback` / `Empty` 상태를 실제 결과 소스에 맞춰 표시하도록 정리했습니다.
+
+### 이유
+
+- 화면에 `TMDB / Fallback: No`가 표시되는데 Mock 샘플이 노출되면 추천 신뢰가 무너집니다.
+- Mock 결과는 API가 명시적으로 fallback을 선언한 경우에만 UI에 표시되어야 합니다.
+
+### 다음 작업
+
+- Founder 로컬 TMDB 환경에서 TMDB 결과, Empty, Fallback 케이스를 각각 확인합니다.
+
 ## 2026-07-06 - MYOTT-S08-BUG-005
 
 ### 변경 내용

@@ -2,6 +2,39 @@
 
 개발 과정에서의 작업 내용, 결정, 아쉬운 점, 다음 개선 사항을 날짜별로 기록합니다.
 
+## 2026-07-06 - MYOTT-S08-BUG-006
+
+### 오늘 작업
+
+- 추천 데이터 흐름을 UI submit → `/api/search` / `/api/recommend/options` → Provider → UI source display 순서로 점검했습니다.
+- API 응답에 `dataSource`, `fallbackUsed`, `fallbackReason`을 추가해 TMDB / Fallback / Empty를 명확히 구분했습니다.
+- UI에서 provider 결과가 비면 로컬 `dummyRecommendations`를 자동으로 채우던 경로를 제거했습니다.
+- multi-input 검색에서 TMDB 결과가 하나라도 있으면 Mock fallback 결과를 함께 섞지 않도록 분리했습니다.
+- API가 명시적으로 fallback을 반환한 경우에만 Mock 결과를 화면에 표시합니다.
+- 개발 환경 console에서 추천 응답의 source integrity 정보를 확인할 수 있게 로그를 추가했습니다.
+
+### 결정한 것
+
+- `dataSource: "tmdb"`: 실제 TMDB 결과만 표시한다.
+- `dataSource: "fallback"`: 명시적 Mock fallback이며 `fallbackUsed: true`여야 한다.
+- `dataSource: "empty"`: 결과가 없는 정상 상태이며 Mock으로 자동 보강하지 않는다.
+- UI badge는 결과 데이터와 같은 source truth를 사용한다.
+
+### 검증
+
+- `pnpm build`: PASS
+- `pnpm dev`: PASS
+- `git diff --check`: PASS
+- Codex 환경에서는 TMDB 외부 fetch가 실패할 수 있어 fallback path 중심으로 smoke 확인했습니다.
+
+### 아쉬운 점
+
+- Founder 로컬 TMDB key 환경에서 TMDB success와 TMDB empty를 별도로 QA해야 합니다.
+
+### 다음 개선
+
+- API response contract를 별도 문서 또는 provider guide에 정리하는 것을 검토합니다.
+
 ## 2026-07-06 - MYOTT-S08-BUG-005
 
 ### 오늘 작업

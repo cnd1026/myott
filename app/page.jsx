@@ -312,9 +312,11 @@ const initialTitles = ["", "", ""];
 const titlePlaceholders = ["예: 인터스텔라", "예: 오징어 게임", "예: 너의 이름은"];
 const showDevProviderStatus = process.env.NODE_ENV !== "production";
 const initialProviderStatus = {
+  dataSource: "checking",
   providerId: "checking",
   providerName: "Checking",
   fallback: false,
+  fallbackReason: "",
   tmdbEnabled: false,
   message: "",
   checked: false,
@@ -879,21 +881,87 @@ function isSelectedContentType(content, selectedTypes) {
 
 function providerStatusFromPayload(payload) {
   const providerId = payload.providerId || payload.source || "unknown";
+  const dataSource = payload.dataSource || (payload.fallbackUsed ? "fallback" : providerId);
 
   return {
+    dataSource,
     providerId,
     providerName: payload.providerName || providerId,
-    fallback: providerId === "mock" && Boolean(payload.tmdbEnabled),
+    fallback: Boolean(payload.fallbackUsed) || dataSource === "fallback" || (providerId === "mock" && Boolean(payload.tmdbEnabled)),
+    fallbackReason: payload.fallbackReason || "",
     tmdbEnabled: Boolean(payload.tmdbEnabled),
     message: payload.message || "",
     checked: true,
   };
 }
 
+function isTmdbResult(item) {
+  return item.providerId === "tmdb" || item.source === "tmdb" || item.dataSource === "tmdb";
+}
+
+function isFallbackStatus(status) {
+  return Boolean(status?.fallback) || status?.dataSource === "fallback" || status?.providerId === "mock";
+}
+
+function combineProviderStatuses(statuses, selectedResults = []) {
+  const checkedStatuses = statuses.filter(Boolean);
+  if (!checkedStatuses.length) return initialProviderStatus;
+
+  const hasTmdbResults = selectedResults.some(isTmdbResult);
+  if (hasTmdbResults) {
+    const tmdbStatus = checkedStatuses.find((status) => status.providerId === "tmdb" || status.dataSource === "tmdb") || checkedStatuses[0];
+    return {
+      ...tmdbStatus,
+      dataSource: "tmdb",
+      providerId: "tmdb",
+      providerName: "TMDB Provider",
+      fallback: false,
+      fallbackReason: "",
+      message: "TMDB Provider results are used.",
+      checked: true,
+    };
+  }
+
+  const fallbackStatus = checkedStatuses.find(isFallbackStatus);
+  if (fallbackStatus) {
+    return {
+      ...fallbackStatus,
+      dataSource: "fallback",
+      fallback: true,
+      checked: true,
+    };
+  }
+
+  if (!selectedResults.length) {
+    return {
+      ...checkedStatuses[0],
+      dataSource: "empty",
+      fallback: false,
+      message: checkedStatuses[0].message || "No recommendation results were returned.",
+      checked: true,
+    };
+  }
+
+  return checkedStatuses[0];
+}
+
+function logRecommendationSource(context, payload, resultCount = 0) {
+  if (!showDevProviderStatus) return;
+  console.info("[MyOTT Recommendation Source]", {
+    context,
+    dataSource: payload.dataSource || payload.source || "unknown",
+    providerId: payload.providerId || payload.source || "unknown",
+    fallbackUsed: Boolean(payload.fallbackUsed),
+    fallbackReason: payload.fallbackReason || "",
+    resultCount,
+  });
+}
+
 async function fetchProviderRecommendations(titles, selectedTypes, quickPicks, selectedOtt, optionMetadata, labelByValue) {
   const uniqueTitles = [...new Set(titles)];
-  const providerResults = [];
-  let providerStatus = null;
+  const tmdbResults = [];
+  const fallbackResults = [];
+  const providerStatuses = [];
 
   for (const title of uniqueTitles) {
     const params = new URLSearchParams({
@@ -909,20 +977,41 @@ async function fetchProviderRecommendations(titles, selectedTypes, quickPicks, s
     }
 
     const payload = await response.json();
-    providerStatus = providerStatus || providerStatusFromPayload(payload);
+    logRecommendationSource(`search:${title}`, payload, payload.results?.length || 0);
+    const status = providerStatusFromPayload(payload);
+    providerStatuses.push(status);
     const normalizedResults = (payload.results || [])
-      .map((item) => normalizeProviderResult(item, quickPicks, title, labelByValue, selectedOtt))
+      .map((item) =>
+        normalizeProviderResult(
+          {
+            ...item,
+            dataSource: payload.dataSource || payload.source,
+            fallbackUsed: Boolean(payload.fallbackUsed),
+          },
+          quickPicks,
+          title,
+          labelByValue,
+          selectedOtt,
+        ),
+      )
       .filter((item) => !titleMatchesSeed(item, title));
-    providerResults.push(...normalizedResults);
+
+    if (status.fallback) {
+      fallbackResults.push(...normalizedResults);
+    } else {
+      tmdbResults.push(...normalizedResults);
+    }
   }
 
-  const mergedResults = mergeProviderResults(filterSeedResults(providerResults, uniqueTitles));
+  const sourceResults = tmdbResults.length ? tmdbResults : fallbackResults;
+  const mergedResults = mergeProviderResults(filterSeedResults(sourceResults, uniqueTitles));
   const eligibleResults = filterFocusedContentTypes(mergedResults, selectedTypes);
   const sortedResults = sortProviderResults(eligibleResults, selectedTypes, quickPicks, selectedOtt, optionMetadata);
   const seedBalancedResults = balanceSeedDiversity(sortedResults, uniqueTitles);
   const balancedResults = balanceContentDiversity(seedBalancedResults, selectedTypes);
+  const results = balancedResults.slice(0, targetProviderResultCount);
 
-  return { results: balancedResults.slice(0, targetProviderResultCount), providerStatus };
+  return { results, providerStatus: combineProviderStatuses(providerStatuses, results) };
 }
 
 async function fetchOptionRecommendations(selectedTypes, quickPicks, selectedOtt, optionMetadata, labelByValue) {
@@ -940,14 +1029,28 @@ async function fetchOptionRecommendations(selectedTypes, quickPicks, selectedOtt
   }
 
   const payload = await response.json();
-  const normalizedResults = (payload.results || []).map((item) => normalizeProviderResult(item, quickPicks, "", labelByValue, selectedOtt));
+  logRecommendationSource("options", payload, payload.results?.length || 0);
+  const normalizedResults = (payload.results || []).map((item) =>
+    normalizeProviderResult(
+      {
+        ...item,
+        dataSource: payload.dataSource || payload.source,
+        fallbackUsed: Boolean(payload.fallbackUsed),
+      },
+      quickPicks,
+      "",
+      labelByValue,
+      selectedOtt,
+    ),
+  );
   const eligibleResults = filterFocusedContentTypes(mergeProviderResults(normalizedResults), selectedTypes);
   const sortedResults = sortProviderResults(eligibleResults, selectedTypes, quickPicks, selectedOtt, optionMetadata);
   const balancedResults = balanceContentDiversity(sortedResults, selectedTypes);
+  const results = balancedResults.slice(0, targetProviderResultCount);
 
   return {
-    results: balancedResults.slice(0, targetProviderResultCount),
-    providerStatus: providerStatusFromPayload(payload),
+    results,
+    providerStatus: combineProviderStatuses([providerStatusFromPayload(payload)], results),
   };
 }
 
@@ -1002,6 +1105,8 @@ function normalizeTitleInputs(values) {
 
 function providerStatusLabel(providerStatus) {
   if (!providerStatus.checked) return "Checking";
+  if (providerStatus.dataSource === "empty") return "Empty";
+  if (providerStatus.fallback || providerStatus.dataSource === "fallback") return "Fallback";
   if (providerStatus.providerId === "mock") return "Mock Provider";
   if (providerStatus.providerId === "tmdb") return "TMDB";
   return providerStatus.providerName || providerStatus.providerId || "Unknown";
@@ -1240,8 +1345,6 @@ export default function Home() {
     setShowQuickPick(false);
     closeSuggestions();
 
-    const fallbackResults = filterSeedResults(buildRecommendations(selectedTypes, selectedQuickPicks, selectedOtt), currentTitles).slice(0, targetProviderResultCount);
-
     if (!currentTitles.length) {
       try {
         const { results: optionResults, providerStatus: nextProviderStatus } = await fetchOptionRecommendations(
@@ -1251,16 +1354,26 @@ export default function Home() {
           optionMetadata,
           optionLabelByValue,
         );
-        const nextResults = optionResults.length ? optionResults : fallbackResults;
-        setResults(nextResults);
-        setRecommendationStatus(nextResults.length ? "success" : "empty");
+        setResults(optionResults);
+        setRecommendationStatus(optionResults.length ? "success" : "empty");
         if (showDevProviderStatus && nextProviderStatus) {
           setProviderStatus(nextProviderStatus);
         }
       } catch {
-        setResults(fallbackResults);
-        setRecommendationStatus(fallbackResults.length ? "success" : "error");
-        refreshProviderStatus("interstellar");
+        setResults([]);
+        setRecommendationStatus("error");
+        if (showDevProviderStatus) {
+          setProviderStatus({
+            dataSource: "error",
+            providerId: "error",
+            providerName: "Recommendation request failed",
+            fallback: false,
+            fallbackReason: "",
+            tmdbEnabled: false,
+            message: "Option recommendation request failed before an explicit fallback response.",
+            checked: true,
+          });
+        }
       }
       return;
     }
@@ -1274,16 +1387,26 @@ export default function Home() {
         optionMetadata,
         optionLabelByValue,
       );
-      const nextResults = providerResults.length ? providerResults : fallbackResults;
-      setResults(nextResults);
-      setRecommendationStatus(nextResults.length ? "success" : "empty");
+      setResults(providerResults);
+      setRecommendationStatus(providerResults.length ? "success" : "empty");
       if (showDevProviderStatus && nextProviderStatus) {
         setProviderStatus(nextProviderStatus);
       }
     } catch {
-      setResults(fallbackResults);
-      setRecommendationStatus(fallbackResults.length ? "success" : "error");
-      refreshProviderStatus(currentTitles[0] || "interstellar");
+      setResults([]);
+      setRecommendationStatus("error");
+      if (showDevProviderStatus) {
+        setProviderStatus({
+          dataSource: "error",
+          providerId: "error",
+          providerName: "Recommendation request failed",
+          fallback: false,
+          fallbackReason: "",
+          tmdbEnabled: false,
+          message: "Search recommendation request failed before an explicit fallback response.",
+          checked: true,
+        });
+      }
     }
   }
 
