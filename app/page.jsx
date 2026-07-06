@@ -429,8 +429,8 @@ function trustSignals(item, titles) {
       value: item.label,
     },
     {
-      label: "감상 단서",
-      value: item.runtime || "상세에서 확인",
+      label: "러닝타임",
+      value: item.runtime || "정보 확인 필요",
     },
   ];
 }
@@ -862,7 +862,7 @@ function normalizeProviderResult(content, quickPicks = [], reasonSeed = "", labe
     director: content.director || "정보 없음",
     actors,
     rating: Number.isFinite(rating) && rating > 0 ? rating.toFixed(1) : "정보 없음",
-    runtime: Number.isFinite(runtime) && runtime > 0 ? `${runtime}분` : "상세 확인",
+    runtime: Number.isFinite(runtime) && runtime > 0 ? `${runtime}분` : "정보 확인 필요",
     ott,
     reason,
     synopsis: content.synopsis || content.overview || "줄거리 정보가 아직 없습니다.",
@@ -1024,7 +1024,6 @@ function DecisionCard({ item, enteredTitles, onOpen, badge, reasonOverride, clas
           <span><strong>평점</strong>{item.rating}</span>
           <span><strong>OTT</strong>{item.ott.join(", ")}</span>
         </div>
-        <span className="card-action">신뢰 단서 보기</span>
       </div>
     </button>
   );

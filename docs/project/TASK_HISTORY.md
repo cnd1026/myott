@@ -67,7 +67,8 @@
 | MYOTT-S08-BUG-001 | Sprint 8 Detail Layer interaction and OTT provider accuracy | `70c79e1` | Related Picks drag/click 충돌을 분리하고, 선택한 OTT option을 실제 제공처처럼 표시하지 않도록 provider 표시를 안전화. | 완료 |
 | MYOTT-S08-BUG-001B | Re-fix Related Picks interaction and OTT Provider display | `a3da385` | Founder Local QA 재현 기준으로 pointer capture를 제거하고 mouse drag/click guard로 Related Picks 상호작용을 재수정. selected OTT와 actual provider 표시 분리 유지. | 완료 |
 | MYOTT-S08-BUG-002 | Narrow filter progressive fallback | `1530fbb` | 콘텐츠 타입은 hard filter로 유지하고 genre/country만 단계적으로 완화해 강한 조건에서도 결과 수를 보강. fallback 안내 Insight와 Mock QA 샘플 추가. | 완료 |
-| MYOTT-S08-BUG-003 | Runtime filter enforcement | `이번 커밋` | runtime option을 TMDB discover와 scoring에 연결하고 Mock fallback에서도 runtime 조건을 유지. short/long 결과 차이 smoke 확인. | 완료 |
+| MYOTT-S08-BUG-003 | Runtime filter enforcement | `062454c` | runtime option을 TMDB discover와 scoring에 연결하고 Mock fallback에서도 runtime 조건을 유지. short/long 결과 차이 smoke 확인. | 완료 |
+| MYOTT-S08-BUG-004 | Provider detail and related card UX polish | `이번 커밋` | TMDB watch provider 보강, selected OTT와 actual provider 표시 분리 유지, 비동작 상세 문구 제거, Related Picks 텍스트 clamp 개선. | 완료 |
 
 ## Sprint 7
 

@@ -2,6 +2,40 @@
 
 개발 과정에서의 작업 내용, 결정, 아쉬운 점, 다음 개선 사항을 날짜별로 기록합니다.
 
+## 2026-07-06 - MYOTT-S08-BUG-004
+
+### 오늘 작업
+
+- 추천 카드/상세 레이어의 OTT 표시 경로를 다시 추적했습니다.
+- TMDB 목록형 응답에는 watch provider가 기본 포함되지 않아, 최종 노출 결과만 detail endpoint의 `append_to_response=watch/providers`로 보강하도록 수정했습니다.
+- 실제 provider가 없는 결과는 계속 `OTT 정보 확인 필요`로 표시합니다.
+- 선택한 OTT 필터는 scoring hint로만 사용하고, provider display truth source로 사용하지 않는 원칙을 유지했습니다.
+- 추천 카드 안의 `신뢰 단서 보기` 보조 CTA를 제거했습니다.
+- `상세 확인` fallback을 `정보 확인 필요`로 바꿔 비동작 요소처럼 보이는 문구를 줄였습니다.
+- Related Picks 카드의 제목/설명 줄 수와 카드 높이를 다시 맞췄습니다.
+
+### 결정한 것
+
+- 카드와 상세 레이어의 OTT 표시는 `actualProviders`가 있을 때만 신뢰 가능한 제공처로 본다.
+- selected OTT option은 추천 점수에는 영향을 줄 수 있지만 실제 제공처 표시에는 절대 사용하지 않는다.
+- Related Picks는 drag/click/arrow 동작은 유지하고, 텍스트 clamp와 높이만 조정한다.
+
+### 검증
+
+- `pnpm build`: PASS
+- `pnpm dev`: PASS
+- `git diff --check`: PASS
+- Codex 환경에서는 TMDB 외부 fetch가 sandbox/TLS 환경에 영향을 받을 수 있어 실제 provider 노출은 Founder 로컬 TMDB 환경에서 최종 확인이 필요합니다.
+
+### 아쉬운 점
+
+- TMDB watch provider 데이터는 region과 콘텐츠별 품질 편차가 있어 모든 결과에서 provider가 나오지는 않습니다.
+
+### 다음 개선
+
+- OTT provider data quality를 별도 QA 케이스로 분리합니다.
+- OTT deep link는 실제 provider path와 region 정책이 안정화된 뒤 연결합니다.
+
 ## 2026-07-05 - MYOTT-S08-BUG-003
 
 ### 오늘 작업
