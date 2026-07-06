@@ -2,6 +2,26 @@
 
 프로젝트의 주요 변경 사항을 날짜별로 기록합니다.
 
+## 2026-07-06 - MYOTT-S08-BUG-005
+
+### 변경 내용
+
+- Detail Layer의 Related Picks에 `idle` / `loading` / `success` / `empty` / `error` 상태를 추가했습니다.
+- 상세 작품이 변경되면 기존 Related 결과를 즉시 비우고 loading 상태를 먼저 표시하도록 수정했습니다.
+- `/api/related` 응답이 도착하기 전에는 기존 추천 결과 목록을 임시 Related Picks로 보여주지 않습니다.
+- Related Picks 로딩 중에는 동일한 카드 높이의 skeleton strip을 표시해 하단 레이아웃 흔들림을 줄였습니다.
+- API 응답이 비어 있거나 실패한 경우 실제 카드 대신 안전한 안내 문구를 표시합니다.
+- Related Picks 성공 상태에서는 기존 click / drag / arrow interaction을 그대로 유지합니다.
+
+### 이유
+
+- 이전 추천 결과가 새 상세 작품의 Related Picks처럼 잠깐 보이면 사용자는 화면이 오류처럼 바뀐다고 느낄 수 있습니다.
+- Related Picks는 현재 선택한 작품 기준으로 새로 로드되는 정보이므로 stale data를 UI에 노출하지 않아야 합니다.
+
+### 다음 작업
+
+- Founder 로컬 QA에서 상세 카드 전환 시 skeleton → Related 카드 전환 체감을 확인합니다.
+
 ## 2026-07-06 - MYOTT-S08-BUG-004
 
 ### 변경 내용

@@ -2,6 +2,37 @@
 
 개발 과정에서의 작업 내용, 결정, 아쉬운 점, 다음 개선 사항을 날짜별로 기록합니다.
 
+## 2026-07-06 - MYOTT-S08-BUG-005
+
+### 오늘 작업
+
+- Detail Layer에서 Related Picks가 기존 추천 결과를 fallback으로 즉시 보여주는 경로를 제거했습니다.
+- `relatedStatus`를 추가해 Related Picks를 `idle` / `loading` / `success` / `empty` / `error`로 분리했습니다.
+- `selectedDetail` 변경 시 `relatedItems`를 즉시 비우고 loading 상태를 먼저 표시하도록 정리했습니다.
+- Related API 응답 후에만 실제 Related Picks 카드를 렌더링합니다.
+- loading 상태에서는 카드와 같은 높이의 skeleton strip을 표시해 하단 영역이 크게 흔들리지 않도록 했습니다.
+- empty/error 상태는 Related 카드가 아닌 안내 문구로 처리합니다.
+
+### 결정한 것
+
+- Related Picks는 현재 상세 작품 기준의 데이터가 준비되기 전까지 어떤 카드도 보여주지 않는다.
+- 기존 추천 결과 목록은 Related API 실패 시 UI 카드 fallback으로 재사용하지 않는다.
+- Related click/drag/arrow interaction은 success 상태에서만 활성화한다.
+
+### 검증
+
+- `pnpm build`: PASS
+- `pnpm dev`: PASS
+- `git diff --check`: PASS
+
+### 아쉬운 점
+
+- 실제 네트워크 지연에서 skeleton 체감은 Founder 로컬 브라우저 QA로 최종 확인이 필요합니다.
+
+### 다음 개선
+
+- Related API의 평균 응답 시간이 길어지면 skeleton 표시 시간과 문구를 다시 다듬습니다.
+
 ## 2026-07-06 - MYOTT-S08-BUG-004
 
 ### 오늘 작업

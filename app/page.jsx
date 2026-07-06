@@ -1043,6 +1043,7 @@ export default function Home() {
   const [recommendationStatus, setRecommendationStatus] = useState("idle");
   const [selectedDetail, setSelectedDetail] = useState(null);
   const [relatedItems, setRelatedItems] = useState([]);
+  const [relatedStatus, setRelatedStatus] = useState("idle");
   const [providerStatus, setProviderStatus] = useState(initialProviderStatus);
   const [timeSlot, setTimeSlot] = useState("evening");
   const [suggestions, setSuggestions] = useState({});
@@ -1069,10 +1070,7 @@ export default function Home() {
     [optionGroups, quickPickSearch, expandedOptionGroups],
   );
   const selectedQuickPickChips = selectedQuickPicks.map((value) => [value, optionLabelByValue.get(value)]).filter(([, label]) => Boolean(label));
-  const fallbackRelatedRecommendations = selectedDetail
-    ? results.filter((item) => contentKey(item) !== contentKey(selectedDetail)).slice(0, relatedPickCount)
-    : [];
-  const relatedRecommendations = relatedItems.length ? relatedItems : fallbackRelatedRecommendations;
+  const relatedRecommendations = relatedStatus === "success" ? relatedItems : [];
 
   useEffect(() => {
     function handleEscape(event) {
@@ -1144,18 +1142,25 @@ export default function Home() {
     async function loadRelatedRecommendations() {
       if (!selectedDetail) {
         setRelatedItems([]);
+        setRelatedStatus("idle");
         return;
       }
 
+      setRelatedStatus("loading");
       try {
         const nextRelated = await fetchRelatedRecommendations(selectedDetail, selectedQuickPicks, optionLabelByValue);
-        if (isMounted) setRelatedItems(nextRelated);
+        if (!isMounted) return;
+        setRelatedItems(nextRelated);
+        setRelatedStatus(nextRelated.length ? "success" : "empty");
       } catch {
-        if (isMounted) setRelatedItems([]);
+        if (!isMounted) return;
+        setRelatedItems([]);
+        setRelatedStatus("error");
       }
     }
 
     setRelatedItems([]);
+    if (selectedDetail) setRelatedStatus("loading");
     loadRelatedRecommendations();
 
     return () => {
@@ -1285,6 +1290,7 @@ export default function Home() {
   function openDetail(item) {
     setShowQuickPick(false);
     setRelatedItems([]);
+    setRelatedStatus("loading");
     setSelectedDetail(item);
   }
 
@@ -1410,6 +1416,7 @@ export default function Home() {
     setRecommendationStatus("idle");
     setSelectedDetail(null);
     setRelatedItems([]);
+    setRelatedStatus("idle");
     setSuggestions({});
     setActiveSuggestionIndex(null);
     setConfirmedSeeds({});
@@ -1752,44 +1759,72 @@ export default function Home() {
               </div>
             </div>
           </section>
-          {relatedRecommendations.length ? (
+          {relatedStatus !== "idle" ? (
             <section className="related-panel" aria-labelledby="relatedRecommendationTitle">
               <div className="related-heading">
                 <div>
                   <p className="trust-label" id="relatedRecommendationTitle">Related Picks</p>
-                  <p className="trust-copy">현재 작품을 기준으로 이어서 볼 만한 추천입니다.</p>
+                  <p className="trust-copy">
+                    {relatedStatus === "loading"
+                      ? "연관 추천을 불러오는 중입니다."
+                      : relatedStatus === "error"
+                        ? "연관 추천을 불러오지 못했습니다. 잠시 후 다시 시도해 주세요."
+                        : relatedStatus === "empty"
+                          ? "지금은 이어서 볼 추천을 찾지 못했습니다."
+                          : "현재 작품을 기준으로 이어서 볼 만한 추천입니다."}
+                  </p>
                 </div>
-                <div className="related-controls" aria-label="Related Picks 이동">
-                  <button type="button" onClick={() => scrollRelated(-1)} aria-label="이전 Related Picks">‹</button>
-                  <button type="button" onClick={() => scrollRelated(1)} aria-label="다음 Related Picks">›</button>
+                {relatedRecommendations.length ? (
+                  <div className="related-controls" aria-label="Related Picks 이동">
+                    <button type="button" onClick={() => scrollRelated(-1)} aria-label="이전 Related Picks">‹</button>
+                    <button type="button" onClick={() => scrollRelated(1)} aria-label="다음 Related Picks">›</button>
+                  </div>
+                ) : null}
+              </div>
+              {relatedStatus === "loading" ? (
+                <div className="related-strip related-strip-loading" aria-label="연관 추천 로딩 중" aria-live="polite">
+                  {Array.from({ length: 4 }).map((_, index) => (
+                    <div className="related-card related-card-skeleton" key={`related-loading-${index}`} aria-hidden="true">
+                      <span className="related-thumb related-skeleton-block" />
+                      <span>
+                        <strong className="related-skeleton-line" />
+                        <small className="related-skeleton-line short" />
+                      </span>
+                    </div>
+                  ))}
                 </div>
-              </div>
-              <div
-                className="related-strip"
-                aria-label="관련 추천"
-                ref={relatedStripRef}
-                onMouseDown={startRelatedDrag}
-                onMouseMove={moveRelatedDrag}
-                onMouseUp={endRelatedDrag}
-                onMouseLeave={endRelatedDrag}
-                onClickCapture={suppressRelatedClick}
-                onContextMenu={preventRelatedContextMenu}
-              >
-                {relatedRecommendations.map((item) => (
-                  <button
-                    className="related-card"
-                    type="button"
-                    onClick={(event) => openRelatedPick(item, event)}
-                    key={item.id || item.providerContentId || item.title}
-                  >
-                    <span className="related-thumb" aria-hidden="true"><PosterVisual poster={item.poster} title={item.title} /></span>
-                    <span>
-                      <strong>{item.title}</strong>
-                      <small>{decisionReason(item, enteredTitles)}</small>
-                    </span>
-                  </button>
-                ))}
-              </div>
+              ) : relatedRecommendations.length ? (
+                <div
+                  className="related-strip"
+                  aria-label="관련 추천"
+                  ref={relatedStripRef}
+                  onMouseDown={startRelatedDrag}
+                  onMouseMove={moveRelatedDrag}
+                  onMouseUp={endRelatedDrag}
+                  onMouseLeave={endRelatedDrag}
+                  onClickCapture={suppressRelatedClick}
+                  onContextMenu={preventRelatedContextMenu}
+                >
+                  {relatedRecommendations.map((item) => (
+                    <button
+                      className="related-card"
+                      type="button"
+                      onClick={(event) => openRelatedPick(item, event)}
+                      key={item.id || item.providerContentId || item.title}
+                    >
+                      <span className="related-thumb" aria-hidden="true"><PosterVisual poster={item.poster} title={item.title} /></span>
+                      <span>
+                        <strong>{item.title}</strong>
+                        <small>{decisionReason(item, enteredTitles)}</small>
+                      </span>
+                    </button>
+                  ))}
+                </div>
+              ) : (
+                <div className="related-empty" role="status">
+                  {relatedStatus === "error" ? "네트워크 상태를 확인한 뒤 다시 열어보세요." : "다른 추천 카드를 열면 새로운 연관 추천을 다시 확인할 수 있습니다."}
+                </div>
+              )}
             </section>
           ) : null}
           </div>
