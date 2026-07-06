@@ -45,8 +45,8 @@ export const tmdbProvider = {
     return hasTmdbKey();
   },
 
-  async search({ query = "", contentTypes = [] } = {}) {
-    const payload = await searchTmdb(query, contentTypes);
+  async search({ query = "", contentTypes = [], filters = [] } = {}) {
+    const payload = await searchTmdb(query, contentTypes, filters);
     return (payload.results || []).map((item) =>
       toUnifiedContentModel({
         ...item,
@@ -63,7 +63,7 @@ export const tmdbProvider = {
   },
 
   async getRecommendations({ query = "", filters = [], contentTypes = [], limit } = {}) {
-    if (query) return this.search({ query });
+    if (query) return this.search({ query, filters, contentTypes });
     const payload = await discoverTmdb({ filters, contentTypes, limit });
     return (payload.results || []).map(toUnifiedContentModel);
   },

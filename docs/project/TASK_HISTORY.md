@@ -70,7 +70,8 @@
 | MYOTT-S08-BUG-003 | Runtime filter enforcement | `062454c` | runtime option을 TMDB discover와 scoring에 연결하고 Mock fallback에서도 runtime 조건을 유지. short/long 결과 차이 smoke 확인. | 완료 |
 | MYOTT-S08-BUG-004 | Provider detail and related card UX polish | `9b9163f` | TMDB watch provider 보강, selected OTT와 actual provider 표시 분리 유지, 비동작 상세 문구 제거, Related Picks 텍스트 clamp 개선. | 완료 |
 | MYOTT-S08-BUG-005 | Related Picks loading state stabilization | `d68ed40` | selectedDetail 변경 시 stale related data를 비우고 loading/success/empty/error 상태로 분리. skeleton strip과 실패 안내 추가. | 완료 |
-| MYOTT-S08-BUG-006 | Recommendation source integrity and fallback flow | `이번 커밋` | API response에 dataSource/fallbackUsed/fallbackReason을 추가하고 UI의 로컬 Mock 자동 보강을 제거. TMDB 결과와 Mock fallback 혼합 방지. | 완료 |
+| MYOTT-S08-BUG-006 | Recommendation source integrity and fallback flow | `93e7f4f` | API response에 dataSource/fallbackUsed/fallbackReason을 추가하고 UI의 로컬 Mock 자동 보강을 제거. TMDB 결과와 Mock fallback 혼합 방지. | 완료 |
+| MYOTT-S08-BUG-007 | Country filter integrity | `이번 커밋` | 국가 옵션을 search/discover/provider/fallback 경로에 연결하고 country-first hard filter 및 fallback 순서 적용. relaxed fallback scoring 보정. | 완료 |
 
 ## Sprint 7
 

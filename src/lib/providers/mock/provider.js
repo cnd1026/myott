@@ -4,8 +4,8 @@ const DEFAULT_LIMIT = 8;
 const RELAXED_REASON = "조건을 조금 넓혀 함께 추천합니다.";
 const FALLBACK_STAGES = [
   { id: "strict", useGenre: true, useCountry: true, relaxed: false },
-  { id: "genre", useGenre: true, useCountry: false, relaxed: true },
   { id: "country", useGenre: false, useCountry: true, relaxed: true },
+  { id: "genre", useGenre: true, useCountry: false, relaxed: true },
   { id: "type", useGenre: false, useCountry: false, relaxed: true },
 ];
 
@@ -140,14 +140,29 @@ export const mockProvider = {
   id: "mock",
   name: "MyOTT Mock Provider",
 
-  async search({ query = "", contentTypes = [], limit = DEFAULT_LIMIT } = {}) {
+  async search({ query = "", contentTypes = [], filters = [], limit = DEFAULT_LIMIT } = {}) {
     const matched = mockContents
       .filter((content) => contentMatchesTypes(content, contentTypes))
       .filter((content) => contentMatchesQuery(content, query))
+      .filter((content) => contentMatchesEveryFilter(content, filters))
       .slice(0, limit)
       .map(cloneContent);
 
-    return matched.length ? matched : fallbackResults(contentTypes, limit);
+    if (matched.length >= limit) return matched;
+
+    const fallbackMatched = progressiveRecommendationResults(filters, contentTypes, limit);
+    const seen = new Set(matched.map((content) => content.providerContentId || content.id || content.title));
+    const supplemented = [...matched];
+
+    for (const content of fallbackMatched) {
+      const key = content.providerContentId || content.id || content.title;
+      if (seen.has(key)) continue;
+      seen.add(key);
+      supplemented.push(content);
+      if (supplemented.length >= limit) break;
+    }
+
+    return supplemented.length ? supplemented : fallbackResults(contentTypes, limit);
   },
 
   async getDetail({ providerContentId } = {}) {

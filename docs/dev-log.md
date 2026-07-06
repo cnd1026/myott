@@ -2,6 +2,40 @@
 
 개발 과정에서의 작업 내용, 결정, 아쉬운 점, 다음 개선 사항을 날짜별로 기록합니다.
 
+## 2026-07-06 - MYOTT-S08-BUG-007
+
+### 오늘 작업
+
+- country option 전달 경로를 UI → `/api/search` / `/api/recommend/options` → TMDB Provider → Mock fallback → UI scoring 순서로 점검했습니다.
+- 옵션 추천 discover의 fallback 순서를 country 유지 우선으로 바꿨습니다.
+- TMDB discover 결과에 `origin_country` hard check를 추가했습니다.
+- 작품 입력 검색 경로에도 Quick Pick filters를 전달해 국가 옵션이 search recommendation에도 반영되도록 했습니다.
+- TMDB search recommendation은 선택 국가 결과를 먼저 모으고, 부족할 때만 relaxed fallback 결과를 보강합니다.
+- Mock Provider도 country-first progressive fallback을 사용하도록 맞췄습니다.
+- relaxed fallback 결과가 strict 결과보다 위로 올라오지 않도록 UI scoring penalty를 추가했습니다.
+
+### 결정한 것
+
+- content type은 계속 hard filter로 유지한다.
+- country는 genre보다 먼저 유지한다.
+- country 결과가 부족한 경우에만 country 조건을 완화하고, 이때 `조건을 조금 넓혀 함께 추천합니다.` 안내를 유지한다.
+- Mock fallback도 TMDB와 같은 country-first 정책을 따른다.
+
+### 검증
+
+- `pnpm build`: PASS
+- `pnpm dev`: PASS
+- `git diff --check`: PASS
+- Codex 환경 smoke에서 fallback path 기준 한국 + 드라마, 일본 + SF 응답을 확인했습니다.
+
+### 아쉬운 점
+
+- TMDB 실제 결과 품질은 Founder 로컬 key 환경에서 최종 확인해야 합니다.
+
+### 다음 개선
+
+- 국가 옵션이 복수 선택될 때의 정책을 별도 Product Rule로 정리할지 검토합니다.
+
 ## 2026-07-06 - MYOTT-S08-BUG-006
 
 ### 오늘 작업

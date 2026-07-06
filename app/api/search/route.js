@@ -13,8 +13,8 @@ function sourceMetadata(provider, { message = "", fallbackUsed = false, fallback
   };
 }
 
-async function searchProvider(provider, query, contentTypes, sourceOptions = {}) {
-  const results = await provider.search({ query, contentTypes });
+async function searchProvider(provider, query, contentTypes, filters, sourceOptions = {}) {
+  const results = await provider.search({ query, contentTypes, filters });
   const metadata = sourceMetadata(provider, sourceOptions);
   const dataSource = !metadata.fallbackUsed && !results.length ? "empty" : metadata.dataSource;
 
@@ -28,6 +28,7 @@ async function searchProvider(provider, query, contentTypes, sourceOptions = {})
 export async function GET(request) {
   const query = request.nextUrl.searchParams.get("q")?.trim() || "";
   const contentTypes = request.nextUrl.searchParams.get("types")?.split(",").map((value) => value.trim()).filter(Boolean) || [];
+  const filters = request.nextUrl.searchParams.get("filters")?.split(",").map((value) => value.trim()).filter(Boolean) || [];
   const activeProvider = getActiveProvider();
   const tmdbEnabled = isTmdbProviderEnabled();
 
@@ -51,7 +52,7 @@ export async function GET(request) {
   }
 
   if (activeProvider.id === "mock") {
-    return Response.json(await searchProvider(activeProvider, query, contentTypes, {
+    return Response.json(await searchProvider(activeProvider, query, contentTypes, filters, {
       dataSource: "fallback",
       fallbackUsed: true,
       fallbackReason: "TMDB API key is not configured.",
@@ -64,7 +65,7 @@ export async function GET(request) {
   }
 
   try {
-    return Response.json(await searchProvider(activeProvider, query, contentTypes), {
+    return Response.json(await searchProvider(activeProvider, query, contentTypes, filters), {
       headers: {
         "Cache-Control": "no-store",
       },
@@ -72,7 +73,7 @@ export async function GET(request) {
   } catch (error) {
     const fallbackProvider = getFallbackProvider();
     const message = error instanceof Error ? error.message : "TMDb search failed.";
-    return Response.json(await searchProvider(fallbackProvider, query, contentTypes, {
+    return Response.json(await searchProvider(fallbackProvider, query, contentTypes, filters, {
       dataSource: "fallback",
       fallbackUsed: true,
       fallbackReason: message,

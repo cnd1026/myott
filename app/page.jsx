@@ -701,6 +701,7 @@ function analyzeProviderResult(item, selectedTypes, quickPicks, selectedOtt, opt
   const runtimePicks = runtimeQuickPicks(quickPicks);
   const runtimeMatched = runtimePicks.length > 0 && runtimePicks.some((quickPick) => item.tags.includes(quickPick));
   const runtimeScore = runtimePicks.length ? (runtimeMatched ? 14 : -10) : 0;
+  const relaxedFallbackScore = item.fallbackRelaxed ? -20 : 0;
   const focusedTypes = hasFocusedSelectedTypes(selectedTypes);
   const typeMatched = isSelectedContentType(item, selectedTypes);
   const typeScore = focusedTypes ? (typeMatched ? 10 : -30) : 0;
@@ -718,7 +719,7 @@ function analyzeProviderResult(item, selectedTypes, quickPicks, selectedOtt, opt
   };
 
   return {
-    score: item.seedCount * 3 + seedGenreOverlap * 2 + quickPickGenreOverlap * 2 + quickPickTagMatches * 2 + runtimeScore + typeScore + ottMatch,
+    score: item.seedCount * 3 + seedGenreOverlap * 2 + quickPickGenreOverlap * 2 + quickPickTagMatches * 2 + runtimeScore + typeScore + ottMatch + relaxedFallbackScore,
     insight: insightMessages(signals),
   };
 }
@@ -959,6 +960,7 @@ function logRecommendationSource(context, payload, resultCount = 0) {
 
 async function fetchProviderRecommendations(titles, selectedTypes, quickPicks, selectedOtt, optionMetadata, labelByValue) {
   const uniqueTitles = [...new Set(titles)];
+  const filters = [...quickPicks, ...selectedOtt];
   const tmdbResults = [];
   const fallbackResults = [];
   const providerStatuses = [];
@@ -967,6 +969,7 @@ async function fetchProviderRecommendations(titles, selectedTypes, quickPicks, s
     const params = new URLSearchParams({
       q: title,
       types: selectedTypes.join(","),
+      filters: filters.join(","),
     });
     const response = await fetch(`/api/search?${params.toString()}`, {
       cache: "no-store",

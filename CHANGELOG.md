@@ -2,6 +2,27 @@
 
 프로젝트의 주요 변경 사항을 날짜별로 기록합니다.
 
+## 2026-07-06 - MYOTT-S08-BUG-007
+
+### 변경 내용
+
+- TMDB discover fallback 순서를 `strict` → `country 유지` → `genre 유지` → `type fallback`으로 조정했습니다.
+- TMDB discover 결과에서 `with_origin_country`만 믿지 않고 `origin_country`가 선택 국가를 포함하는지 한 번 더 확인합니다.
+- 작품 입력 기반 `/api/search` 경로에도 Quick Pick filters를 전달하도록 연결했습니다.
+- TMDB search recommendation 결과도 선택 국가를 우선 hard filter로 적용하고, 부족할 때만 country relaxed fallback을 사용합니다.
+- Mock Provider fallback도 같은 country-first 단계로 정리했습니다.
+- Mock search에서도 country/genre/runtime filters를 반영하고, query 결과가 없을 때 country-aware progressive fallback을 사용합니다.
+- relaxed fallback 결과가 strict country 결과보다 위로 올라오지 않도록 scoring penalty를 추가했습니다.
+
+### 이유
+
+- 국가 옵션은 단순 점수 보정이 아니라 사용자가 기대하는 실제 조건에 가깝게 동작해야 합니다.
+- 국가 결과가 충분한데 외국 작품이 섞이면 추천 옵션 전체의 신뢰도가 떨어집니다.
+
+### 다음 작업
+
+- Founder 로컬 TMDB 환경에서 한국 + 드라마, 한국 + 액션, 일본 + SF 조합을 최종 확인합니다.
+
 ## 2026-07-06 - MYOTT-S08-BUG-006
 
 ### 변경 내용
