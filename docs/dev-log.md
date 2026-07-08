@@ -2,6 +2,38 @@
 
 개발 과정에서의 작업 내용, 결정, 아쉬운 점, 다음 개선 사항을 날짜별로 기록합니다.
 
+## 2026-07-09 - MYOTT-S09-004
+
+### 오늘 작업
+
+- Recommendation Weight Engine 기반 파일을 추가했습니다.
+- `recommendationWeights.js`에서 초기 Weight와 penalty 값을 분리했습니다.
+- `recommendationWeightEngine.js`에서 `calculateRecommendationScore`와 `rankRecommendationsByWeight` 순수 함수를 작성했습니다.
+- title, genre, country, content type, mood, runtime, rating, popularity, diversity signal을 normalized score로 계산하도록 했습니다.
+- Architecture 문서에 현재 구현 위치와 기존 추천 흐름에 대규모 적용하지 않는 경계를 기록했습니다.
+
+### 결정한 것
+
+- Content Type은 점수 가산 대상이 아니라 hard filter로 유지한다.
+- country fallback과 relaxed fallback은 추천 근거를 투명하게 설명할 수 있도록 penalty에 남긴다.
+- runtime metadata가 없을 때는 추천을 크게 망가뜨리지 않도록 약한 unknown penalty만 적용한다.
+- 이번 Task에서는 UI/API를 바꾸지 않고 안전한 유틸리티 기반만 추가한다.
+
+### 검증
+
+- Weight Engine sample import: PASS
+- Signal / penalty sample calculation: PASS
+- `pnpm build`: PASS
+- `git diff --check`: PASS
+
+### 아쉬운 점
+
+- 아직 기존 Recommendation Flow에는 대규모로 연결하지 않았습니다. 다음 단계에서 작은 경로부터 점진 연결이 필요합니다.
+
+### 다음 개선
+
+- QA Dataset Evaluator와 Weight Engine을 함께 사용하는 smoke runner를 만들고, Founder QA 기준으로 weight 조정 루프를 시작합니다.
+
 ## 2026-07-08 - MYOTT-S09-003
 
 ### 오늘 작업

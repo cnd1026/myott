@@ -2,6 +2,26 @@
 
 프로젝트의 주요 변경 사항을 날짜별로 기록합니다.
 
+## 2026-07-09 - MYOTT-S09-004
+
+### 변경 내용
+
+- `src/lib/recommendation/scoring/recommendationWeights.js`를 추가했습니다.
+- `src/lib/recommendation/scoring/recommendationWeightEngine.js`를 추가했습니다.
+- title, genre, country, content type, mood, runtime, rating, popularity, diversity signal을 0~1 normalized score로 계산하는 순수 유틸리티를 작성했습니다.
+- `finalScore`, `signals`, `weights`, `reasons`, `penalties`를 반환해 향후 Recommendation Insight와 QA evaluator에 연결 가능한 구조로 만들었습니다.
+- Content Type은 weighted boost가 아니라 hard filter로 유지하고, country fallback과 runtime unknown은 penalty로 기록합니다.
+- `RECOMMENDATION_ARCHITECTURE.md`에 Weight Engine 구현 위치와 적용 경계를 연결했습니다.
+
+### 이유
+
+- 추천 품질을 조건별 버그 수정만으로 관리하면 장르, 국가, 런타임, 분위기 가중치를 일관되게 조정하기 어렵습니다.
+- Signal / Weight / Score를 분리해야 Founder QA 결과를 바탕으로 추천 품질을 지속적으로 튜닝할 수 있습니다.
+
+### 다음 작업
+
+- Weight Engine을 기존 Recommendation Flow에 작은 단위로 연결하고 QA Dataset Evaluator와 함께 smoke runner를 검토합니다.
+
 ## 2026-07-08 - MYOTT-S09-003
 
 ### 변경 내용
