@@ -2,6 +2,35 @@
 
 개발 과정에서의 작업 내용, 결정, 아쉬운 점, 다음 개선 사항을 날짜별로 기록합니다.
 
+## 2026-07-08 - MYOTT-S09-002
+
+### 오늘 작업
+
+- Recommendation QA Dataset을 JSON 자산으로 생성했습니다.
+- 총 12개 케이스를 작성하고, Sprint 8에서 발견된 country, runtime, data source, fallback, multi-seed regression을 반영했습니다.
+- 각 케이스에 `input`, `expected`, `minimumMatchRatio`, `priority`, `scope`를 포함해 향후 자동 테스트로 변환하기 쉽게 구성했습니다.
+- `RECOMMENDATION_ARCHITECTURE.md`의 Test Strategy에서 dataset 파일을 canonical dataset으로 연결했습니다.
+
+### 결정한 것
+
+- Architecture 문서는 전략을 설명하고, 실제 QA 케이스 목록은 JSON dataset에서 관리한다.
+- Mock/Fallback 전용 케이스와 TMDB 실데이터 케이스는 `scope`로 구분한다.
+- expected 값은 모호한 문장보다 ratio, topN, failIf 조건을 우선 사용한다.
+
+### 검증
+
+- JSON 유효성 확인: PASS
+- Architecture link 확인: PASS
+- `git diff --check`: PASS
+
+### 아쉬운 점
+
+- 아직 자동 테스트 runner는 없습니다. 이번 Task는 QA dataset 자산 생성이 범위입니다.
+
+### 다음 개선
+
+- Sprint 10에서 `recommendation-qa-dataset.json`을 읽어 API smoke를 실행하는 script를 검토합니다.
+
 ## 2026-07-08 - MYOTT-S09-001
 
 ### 오늘 작업

@@ -240,6 +240,12 @@ Content Type은 절대 완화하지 않는다.
 
 대표 QA Dataset은 Sprint마다 유지하고 확장합니다. 각 케이스는 input, expected distribution, fail condition을 함께 기록합니다.
 
+Canonical dataset:
+
+- [recommendation-qa-dataset.json](./recommendation-qa-dataset.json)
+
+이 JSON 파일은 Founder 수동 QA와 향후 자동 테스트의 공통 기준 데이터입니다. Architecture 문서는 테스트 전략을 설명하고, 실제 케이스 목록은 dataset 파일에서 관리합니다.
+
 | ID | Input | Expected Result | Fail Condition |
 | --- | --- | --- | --- |
 | QA-01 | 김부장 + 한국 + 드라마 | 한국 드라마 비중 80% 이상 | 외국 드라마가 상단 대부분 차지 |

@@ -2,6 +2,25 @@
 
 프로젝트의 주요 변경 사항을 날짜별로 기록합니다.
 
+## 2026-07-08 - MYOTT-S09-002
+
+### 변경 내용
+
+- `docs/project/recommendation-qa-dataset.json`을 생성했습니다.
+- Founder QA와 향후 자동 테스트에 재사용할 Recommendation QA Dataset 12개 케이스를 작성했습니다.
+- 한국 + 드라마, 한국 + 액션, 일본 + SF/Fantasy, runtime, data source integrity 등 Sprint 8 회귀 케이스를 포함했습니다.
+- Mock/Fallback 전용 케이스와 TMDB 실데이터 케이스를 `scope` 필드로 구분했습니다.
+- `RECOMMENDATION_ARCHITECTURE.md`의 Recommendation Test Strategy에 dataset 링크를 추가했습니다.
+
+### 이유
+
+- 추천 품질 QA를 Founder 기억에 의존하지 않고 반복 가능한 데이터 자산으로 관리하기 위해서입니다.
+- Sprint 10 이후 Recommendation Engine 변경 시 같은 기준으로 품질 변화를 비교할 수 있어야 합니다.
+
+### 다음 작업
+
+- Sprint 10에서 dataset을 읽는 자동 QA runner 또는 smoke script를 검토합니다.
+
 ## 2026-07-08 - MYOTT-S09-001
 
 ### 변경 내용

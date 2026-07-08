@@ -1,0 +1,329 @@
+[
+  {
+    "id": "REC-QA-001",
+    "title": "Kim Manager Korean drama seed",
+    "contentType": ["drama"],
+    "country": ["KR"],
+    "genre": ["drama"],
+    "mood": [],
+    "runtime": null,
+    "input": {
+      "titles": ["김부장"],
+      "filters": ["country-kr", "genre-drama"],
+      "contentTypes": ["drama"]
+    },
+    "expected": {
+      "topN": 10,
+      "match": {
+        "country": ["KR"],
+        "contentType": ["drama"]
+      },
+      "minimumCountryRatio": 0.8,
+      "minimumContentTypeRatio": 1,
+      "mustShowFallbackNoticeOnlyIfRelaxed": true,
+      "failIf": ["foreign-drama-dominates-top-results", "movie-or-animation-appears-in-top-results"]
+    },
+    "minimumMatchRatio": 0.8,
+    "priority": "critical",
+    "scope": ["tmdb", "mock-fallback"],
+    "notes": "Founder QA core case. Korean drama should remain dominant even when a seed title is fuzzy."
+  },
+  {
+    "id": "REC-QA-002",
+    "title": "Korean action option recommendation",
+    "contentType": ["movie"],
+    "country": ["KR"],
+    "genre": ["action", "crime", "thriller"],
+    "mood": ["tense"],
+    "runtime": null,
+    "input": {
+      "titles": [],
+      "filters": ["country-kr", "genre-action"],
+      "contentTypes": ["movie"]
+    },
+    "expected": {
+      "topN": 10,
+      "match": {
+        "country": ["KR"],
+        "contentType": ["movie"],
+        "genreAny": ["action", "crime", "thriller"]
+      },
+      "minimumCountryRatio": 0.8,
+      "minimumGenreFamilyRatio": 0.8,
+      "failIf": ["us-action-dominates-top-results", "non-movie-type-appears"]
+    },
+    "minimumMatchRatio": 0.8,
+    "priority": "critical",
+    "scope": ["tmdb", "mock-fallback"],
+    "notes": "Regression case for country option behaving as weak score boost instead of real condition."
+  },
+  {
+    "id": "REC-QA-003",
+    "title": "Japan SF fantasy recommendation",
+    "contentType": ["movie", "drama", "animation"],
+    "country": ["JP"],
+    "genre": ["sf", "fantasy"],
+    "mood": ["brainy"],
+    "runtime": null,
+    "input": {
+      "titles": [],
+      "filters": ["country-jp", "genre-sf-fantasy"],
+      "contentTypes": ["movie", "drama", "animation"]
+    },
+    "expected": {
+      "topN": 10,
+      "match": {
+        "country": ["JP"],
+        "genreAny": ["sf", "fantasy", "animation"]
+      },
+      "minimumCountryRatio": 0.8,
+      "avoidSingleTypeDominanceUnlessAnimationSelectedOnly": true,
+      "failIf": ["non-japanese-results-dominate", "animation-only-results-when-all-types-selected"]
+    },
+    "minimumMatchRatio": 0.8,
+    "priority": "critical",
+    "scope": ["tmdb", "mock-fallback"],
+    "notes": "Covers Japan + SF/Fantasy and content diversity checks from Sprint 8."
+  },
+  {
+    "id": "REC-QA-004",
+    "title": "US horror movie recommendation",
+    "contentType": ["movie"],
+    "country": ["US"],
+    "genre": ["horror"],
+    "mood": ["tense"],
+    "runtime": null,
+    "input": {
+      "titles": [],
+      "filters": ["country-us", "genre-horror"],
+      "contentTypes": ["movie"]
+    },
+    "expected": {
+      "topN": 10,
+      "match": {
+        "country": ["US"],
+        "contentType": ["movie"],
+        "genreAny": ["horror", "thriller"]
+      },
+      "minimumCountryRatio": 0.8,
+      "minimumGenreFamilyRatio": 0.8,
+      "failIf": ["tv-or-animation-dominates", "non-us-results-dominate"]
+    },
+    "minimumMatchRatio": 0.8,
+    "priority": "major",
+    "scope": ["tmdb"],
+    "notes": "Validates country + genre hard filtering for a globally common genre."
+  },
+  {
+    "id": "REC-QA-005",
+    "title": "UK thriller drama recommendation",
+    "contentType": ["drama"],
+    "country": ["GB"],
+    "genre": ["thriller", "crime", "mystery"],
+    "mood": ["tense"],
+    "runtime": null,
+    "input": {
+      "titles": [],
+      "filters": ["country-gb", "genre-thriller"],
+      "contentTypes": ["drama"]
+    },
+    "expected": {
+      "topN": 10,
+      "match": {
+        "country": ["GB"],
+        "contentType": ["drama"],
+        "genreAny": ["thriller", "crime", "mystery", "drama"]
+      },
+      "minimumCountryRatio": 0.7,
+      "minimumContentTypeRatio": 1,
+      "failIf": ["animation-results-appear", "movie-results-appear", "uk-not-represented-in-top-results"]
+    },
+    "minimumMatchRatio": 0.7,
+    "priority": "critical",
+    "scope": ["tmdb", "mock-fallback"],
+    "notes": "Regression case for TV + UK + Thriller returning animation or fallback noise."
+  },
+  {
+    "id": "REC-QA-006",
+    "title": "Drama Japan SF fantasy narrow filter",
+    "contentType": ["drama"],
+    "country": ["JP"],
+    "genre": ["sf", "fantasy"],
+    "mood": ["brainy"],
+    "runtime": null,
+    "input": {
+      "titles": [],
+      "filters": ["country-jp", "genre-sf-fantasy"],
+      "contentTypes": ["drama"]
+    },
+    "expected": {
+      "topN": 10,
+      "match": {
+        "country": ["JP"],
+        "contentType": ["drama"]
+      },
+      "minimumContentTypeRatio": 1,
+      "allowRelaxedFallback": true,
+      "requiresFallbackNoticeWhenRelaxed": true,
+      "failIf": ["movie-or-animation-appears", "fallback-notice-missing-when-relaxed"]
+    },
+    "minimumMatchRatio": 0.7,
+    "priority": "critical",
+    "scope": ["tmdb", "mock-fallback"],
+    "notes": "Narrow-filter fallback case. Content type must remain hard even when genre/country is relaxed."
+  },
+  {
+    "id": "REC-QA-007",
+    "title": "Animation Japan SF fantasy recommendation",
+    "contentType": ["animation"],
+    "country": ["JP"],
+    "genre": ["sf", "fantasy", "animation"],
+    "mood": ["brainy"],
+    "runtime": null,
+    "input": {
+      "titles": [],
+      "filters": ["country-jp", "genre-sf-fantasy"],
+      "contentTypes": ["animation"]
+    },
+    "expected": {
+      "topN": 10,
+      "match": {
+        "country": ["JP"],
+        "contentType": ["animation"],
+        "genreAny": ["sf", "fantasy", "animation"]
+      },
+      "minimumCountryRatio": 0.8,
+      "minimumContentTypeRatio": 1,
+      "failIf": ["non-animation-result-appears", "non-japanese-results-dominate"]
+    },
+    "minimumMatchRatio": 0.8,
+    "priority": "major",
+    "scope": ["tmdb", "mock-fallback"],
+    "notes": "Animation-only is allowed to prioritize animation heavily."
+  },
+  {
+    "id": "REC-QA-008",
+    "title": "Short runtime recommendation",
+    "contentType": ["movie", "drama", "animation"],
+    "country": [],
+    "genre": [],
+    "mood": [],
+    "runtime": "short",
+    "input": {
+      "titles": [],
+      "filters": ["runtime-short"],
+      "contentTypes": ["movie", "drama", "animation"]
+    },
+    "expected": {
+      "topN": 10,
+      "match": {
+        "runtimeMaxMinutes": 60
+      },
+      "minimumRuntimeRatio": 0.7,
+      "failIf": ["same-results-as-runtime-long", "long-runtime-dominates-top-results"]
+    },
+    "minimumMatchRatio": 0.7,
+    "priority": "major",
+    "scope": ["tmdb", "mock-fallback"],
+    "notes": "Runtime option must visibly change results."
+  },
+  {
+    "id": "REC-QA-009",
+    "title": "Long runtime recommendation",
+    "contentType": ["movie", "drama", "animation"],
+    "country": [],
+    "genre": [],
+    "mood": [],
+    "runtime": "long",
+    "input": {
+      "titles": [],
+      "filters": ["runtime-long"],
+      "contentTypes": ["movie", "drama", "animation"]
+    },
+    "expected": {
+      "topN": 10,
+      "match": {
+        "runtimeMinMinutes": 140
+      },
+      "minimumRuntimeRatio": 0.6,
+      "failIf": ["same-results-as-runtime-short", "short-runtime-dominates-top-results"]
+    },
+    "minimumMatchRatio": 0.6,
+    "priority": "major",
+    "scope": ["tmdb", "mock-fallback"],
+    "notes": "Long runtime should favor long movies or long-form content where provider metadata supports it."
+  },
+  {
+    "id": "REC-QA-010",
+    "title": "Data source integrity",
+    "contentType": ["movie", "drama", "animation"],
+    "country": [],
+    "genre": [],
+    "mood": [],
+    "runtime": null,
+    "input": {
+      "titles": ["interstellar"],
+      "filters": [],
+      "contentTypes": ["movie", "drama", "animation"]
+    },
+    "expected": {
+      "topN": 10,
+      "dataSourceStates": ["tmdb", "fallback", "empty"],
+      "mustMatchDisplayedSource": true,
+      "failIf": ["tmdb-label-with-mock-results", "fallback-no-with-mock-results", "empty-state-auto-filled-by-mock"]
+    },
+    "minimumMatchRatio": 1,
+    "priority": "critical",
+    "scope": ["tmdb", "mock-fallback"],
+    "notes": "UI Data Source, API dataSource, fallbackUsed, and actual result providerId must match."
+  },
+  {
+    "id": "REC-QA-011",
+    "title": "Multi-seed mixed taste balance",
+    "contentType": ["movie", "drama", "animation"],
+    "country": [],
+    "genre": ["sf", "romance", "animation"],
+    "mood": ["moving", "brainy"],
+    "runtime": null,
+    "input": {
+      "titles": ["인터스텔라", "라라랜드", "너의 이름은"],
+      "filters": [],
+      "contentTypes": ["movie", "drama", "animation"]
+    },
+    "expected": {
+      "topN": 12,
+      "requiresSeedDiversity": true,
+      "maxSingleSeedDominanceRatio": 0.6,
+      "failIf": ["one-seed-dominates-results", "seed-title-reappears-as-recommendation"]
+    },
+    "minimumMatchRatio": 0.7,
+    "priority": "major",
+    "scope": ["tmdb", "mock-fallback"],
+    "notes": "Protects multi-seed balancing and seed exclusion behavior."
+  },
+  {
+    "id": "REC-QA-012",
+    "title": "Provider fallback transparency",
+    "contentType": ["movie"],
+    "country": ["KR"],
+    "genre": ["action"],
+    "mood": ["tense"],
+    "runtime": null,
+    "input": {
+      "titles": [],
+      "filters": ["country-kr", "genre-action"],
+      "contentTypes": ["movie"]
+    },
+    "expected": {
+      "topN": 10,
+      "dataSourceStates": ["fallback"],
+      "requiresFallbackUsedTrue": true,
+      "requiresFallbackReason": true,
+      "failIf": ["mock-results-without-fallback-flag", "fallback-reason-empty"]
+    },
+    "minimumMatchRatio": 1,
+    "priority": "major",
+    "scope": ["mock-fallback"],
+    "notes": "Fallback results are allowed only when the API explicitly declares fallbackUsed."
+  }
+]
