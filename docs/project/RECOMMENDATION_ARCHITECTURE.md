@@ -244,6 +244,10 @@ Canonical dataset:
 
 - [recommendation-qa-dataset.json](./recommendation-qa-dataset.json)
 
+Evaluation utility:
+
+- [evaluateRecommendationCase.js](../../src/lib/recommendation/qa/evaluateRecommendationCase.js)
+
 이 JSON 파일은 Founder 수동 QA와 향후 자동 테스트의 공통 기준 데이터입니다. Architecture 문서는 테스트 전략을 설명하고, 실제 케이스 목록은 dataset 파일에서 관리합니다.
 
 | ID | Input | Expected Result | Fail Condition |

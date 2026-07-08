@@ -2,6 +2,25 @@
 
 프로젝트의 주요 변경 사항을 날짜별로 기록합니다.
 
+## 2026-07-08 - MYOTT-S09-003
+
+### 변경 내용
+
+- `src/lib/recommendation/qa/evaluateRecommendationCase.js`를 추가했습니다.
+- Recommendation QA Dataset case와 추천 결과 배열을 받아 pass/fail, score, matchRatio, failedReasons를 반환하는 순수 평가 함수를 작성했습니다.
+- country, genre, contentType, runtime 조건 평가를 지원합니다.
+- Dataset의 `failIf` 조건을 평가해 Founder QA 기준에 가까운 실패 이유를 반환합니다.
+- `RECOMMENDATION_ARCHITECTURE.md`에 평가 유틸리티 위치를 연결했습니다.
+
+### 이유
+
+- Founder QA를 눈으로만 반복하면 추천 품질 개선 여부를 비교하기 어렵습니다.
+- Dataset을 실제 평가 함수에 연결해야 Sprint 10 이후 자동 테스트로 확장할 수 있습니다.
+
+### 다음 작업
+
+- QA Dataset을 읽고 API 결과를 넣어 평가하는 자동 smoke runner를 검토합니다.
+
 ## 2026-07-08 - MYOTT-S09-002
 
 ### 변경 내용

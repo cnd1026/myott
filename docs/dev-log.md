@@ -2,6 +2,37 @@
 
 개발 과정에서의 작업 내용, 결정, 아쉬운 점, 다음 개선 사항을 날짜별로 기록합니다.
 
+## 2026-07-08 - MYOTT-S09-003
+
+### 오늘 작업
+
+- Recommendation QA Dataset을 실제 추천 결과 배열과 비교할 수 있는 평가 유틸리티를 추가했습니다.
+- `evaluateRecommendationCase(testCase, recommendationResults)` 순수 함수로 pass/fail, score, matchedCount, totalCount, matchRatio, failedReasons를 반환하도록 했습니다.
+- country, contentType, genreAny, runtime min/max 조건을 우선 지원했습니다.
+- Dataset의 `failIf` 조건을 사람이 이해할 수 있는 failed reason으로 변환하도록 했습니다.
+- `evaluateRecommendationCases` helper를 추가해 여러 케이스 평가로 확장 가능하게 했습니다.
+
+### 결정한 것
+
+- 평가 함수는 API 호출을 하지 않는다.
+- Dataset 읽기, API 호출, runner 실행은 다음 단계로 분리한다.
+- 이번 유틸리티는 case와 결과 배열만 받아 같은 입력이면 같은 결과를 반환하는 순수 함수로 유지한다.
+
+### 검증
+
+- Evaluator module import: PASS
+- Dataset sample compatibility: PASS
+- `pnpm build`: PASS
+- `git diff --check`: PASS
+
+### 아쉬운 점
+
+- 아직 자동 테스트 runner는 없습니다. 이번 Task는 평가 로직까지만 연결합니다.
+
+### 다음 개선
+
+- Sprint 10에서 dataset runner를 추가해 `/api/recommend/options`와 `/api/search` 결과를 자동 평가합니다.
+
 ## 2026-07-08 - MYOTT-S09-002
 
 ### 오늘 작업

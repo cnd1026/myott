@@ -46,7 +46,8 @@
 | Task ID | Task | Commit | Review | 상태 |
 | --- | --- | --- | --- | --- |
 | MYOTT-S09-001 | Recommendation Architecture v1 | `b8747c8` | Recommendation Flow, Feature, Signal, Weight, Score, Fallback Strategy, QA Dataset, Evolution Roadmap을 문서화. Sprint 10 구현 기준 마련. | 완료 |
-| MYOTT-S09-002 | Recommendation QA Dataset | `이번 커밋` | Founder QA와 향후 자동 테스트에 재사용할 JSON dataset 12개 케이스 생성. Architecture Test Strategy에 canonical dataset 링크 추가. | 완료 |
+| MYOTT-S09-002 | Recommendation QA Dataset | `ddfc3eb` | Founder QA와 향후 자동 테스트에 재사용할 JSON dataset 12개 케이스 생성. Architecture Test Strategy에 canonical dataset 링크 추가. | 완료 |
+| MYOTT-S09-003 | Recommendation QA Dataset Evaluator | `이번 커밋` | QA Dataset case와 추천 결과 배열을 비교하는 순수 평가 유틸리티 추가. pass/fail, score, matchRatio, failIf reason 반환. | 완료 |
 
 ## Sprint 8
 
