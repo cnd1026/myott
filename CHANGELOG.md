@@ -2,6 +2,25 @@
 
 프로젝트의 주요 변경 사항을 날짜별로 기록합니다.
 
+## 2026-07-08 - MYOTT-S09-001
+
+### 변경 내용
+
+- `docs/project/RECOMMENDATION_ARCHITECTURE.md`를 생성했습니다.
+- Recommendation Vision, Flow, Feature, Signal, Weight, Score 구조를 정의했습니다.
+- Recommendation Fallback Strategy와 source integrity 정책을 문서화했습니다.
+- Sprint별 Recommendation Score 품질 지표를 정의했습니다.
+- Sprint 10부터 구현 가능한 Recommendation Engine module 후보를 정리했습니다.
+
+### 이유
+
+- Sprint 8에서 추천은 동작하는 수준까지 왔지만, 품질 개선 기준이 명확히 분리되어 있지 않았습니다.
+- Feature, Signal, Weight, Score를 분리해야 추천 품질을 지속적으로 조정할 수 있습니다.
+
+### 다음 작업
+
+- Sprint 10에서 Recommendation Engine module, feature extraction, signal calculation을 구현합니다.
+
 ## 2026-07-06 - MYOTT-S08-BUG-007
 
 ### 변경 내용

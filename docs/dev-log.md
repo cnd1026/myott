@@ -2,6 +2,37 @@
 
 개발 과정에서의 작업 내용, 결정, 아쉬운 점, 다음 개선 사항을 날짜별로 기록합니다.
 
+## 2026-07-08 - MYOTT-S09-001
+
+### 오늘 작업
+
+- Sprint 9 Recommendation Engine 설계를 시작했습니다.
+- 새 문서 `docs/project/RECOMMENDATION_ARCHITECTURE.md`를 생성했습니다.
+- Recommendation Flow를 User Input → Search → Feature Extraction → Signal Calculation → Weight → Score → Ranking → Fallback → Recommendation으로 정의했습니다.
+- Feature와 Signal을 분리하고, 초기 Weight와 Sprint별 Recommendation Score 지표를 작성했습니다.
+- Fallback Strategy와 QA Dataset을 Sprint 10 구현 기준으로 정리했습니다.
+
+### 결정한 것
+
+- Recommendation Engine은 더 많은 결과가 아니라 첫 번째 선택 품질을 높이는 구조로 설계한다.
+- Score는 사용자에게 숫자로 노출하지 않고 Reason / Insight / Trust Signal로 설명한다.
+- Weight는 Founder QA 결과에 따라 지속적으로 조정한다.
+- Content Type은 hard filter로 유지하고, Country는 선택 조건일 때 우선 hard filter로 처리한다.
+
+### 검증
+
+- Markdown 구조 확인: PASS
+- Architecture Check: PASS
+- Global Ready Check: PASS
+
+### 아쉬운 점
+
+- 아직 구현 모듈은 분리하지 않았습니다. 이번 Task는 설계 문서화가 범위입니다.
+
+### 다음 개선
+
+- Sprint 10에서 Feature Extraction, Signal Calculation, Weight Configuration을 코드 구조로 분리합니다.
+
 ## 2026-07-06 - MYOTT-S08-BUG-007
 
 ### 오늘 작업
