@@ -48,7 +48,8 @@
 | MYOTT-S09-001 | Recommendation Architecture v1 | `b8747c8` | Recommendation Flow, Feature, Signal, Weight, Score, Fallback Strategy, QA Dataset, Evolution Roadmap을 문서화. Sprint 10 구현 기준 마련. | 완료 |
 | MYOTT-S09-002 | Recommendation QA Dataset | `ddfc3eb` | Founder QA와 향후 자동 테스트에 재사용할 JSON dataset 12개 케이스 생성. Architecture Test Strategy에 canonical dataset 링크 추가. | 완료 |
 | MYOTT-S09-003 | Recommendation QA Dataset Evaluator | `041260a` | QA Dataset case와 추천 결과 배열을 비교하는 순수 평가 유틸리티 추가. pass/fail, score, matchRatio, failIf reason 반환. | 완료 |
-| MYOTT-S09-004 | Recommendation Weight Engine | `이번 커밋` | Signal + Weight 기반 scoreDetail 순수 유틸리티와 조정 가능한 weight config 추가. UI/API 대규모 연결 없이 Architecture 구현 위치 연결. | 완료 |
+| MYOTT-S09-004 | Recommendation Weight Engine | `58ba203` | Signal + Weight 기반 scoreDetail 순수 유틸리티와 조정 가능한 weight config 추가. UI/API 대규모 연결 없이 Architecture 구현 위치 연결. | 완료 |
+| MYOTT-S09-005 | Weight Engine Ranking Integration | `이번 커밋` | provider result ranking 단계에 Weight Engine을 연결하고 모든 추천 결과에 scoreDetail을 추가. finalScore 우선 정렬과 legacyScore tie-break 유지. | 완료 |
 
 ## Sprint 8
 

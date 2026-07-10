@@ -2,6 +2,25 @@
 
 프로젝트의 주요 변경 사항을 날짜별로 기록합니다.
 
+## 2026-07-10 - MYOTT-S09-005
+
+### 변경 내용
+
+- Recommendation Weight Engine을 실제 provider result ranking 단계에 연결했습니다.
+- 추천 결과 item마다 `scoreDetail`을 추가하고, `finalScore`, `signals`, `weights`, `reasons`, `penalties`를 포함하도록 했습니다.
+- 정렬 기준을 `scoreDetail.finalScore` 우선으로 변경하고, 기존 rule-based 점수는 `legacyScore`로 보존해 tie-break에 사용합니다.
+- provider result 정규화 단계에서 숫자형 `runtimeMinutes`를 보존해 runtime signal이 화면 표시 문자열에 의존하지 않게 했습니다.
+- `RECOMMENDATION_ARCHITECTURE.md`에 실제 ranking 연결 상태와 적용 경계를 업데이트했습니다.
+
+### 이유
+
+- S09-004에서 만든 Weight Engine이 실제 추천 결과에 반영되지 않으면 Founder QA와 추천 품질 튜닝이 연결되지 않습니다.
+- Signal / Weight / Score 기반 정렬을 ranking 단계에 붙여야 Sprint 9 Architecture가 실제 제품 흐름으로 이어집니다.
+
+### 다음 작업
+
+- QA Dataset Evaluator와 Weight Engine 결과를 함께 확인하는 smoke runner를 검토합니다.
+
 ## 2026-07-09 - MYOTT-S09-004
 
 ### 변경 내용

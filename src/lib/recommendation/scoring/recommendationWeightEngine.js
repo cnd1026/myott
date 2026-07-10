@@ -103,6 +103,14 @@ const getPreferenceTitles = (preferences) =>
     ...asArray(preferences.inputs),
   ]);
 
+const getItemSeedValues = (item) =>
+  unique([
+    item.reasonSeed,
+    item.seedTitle,
+    ...asArray(item.reasonSeeds),
+    ...asArray(item.seedTitles),
+  ]);
+
 const getItemGenres = (item) =>
   canonicalizeValues([
     ...asArray(item.genreIds),
@@ -229,14 +237,16 @@ const overlapRatio = (itemValues, preferenceValues) => {
 
 const titleMatchSignal = (item, preferences) => {
   const itemTitles = getTitleValues(item);
+  const itemSeeds = getItemSeedValues(item);
   const preferenceTitles = getPreferenceTitles(preferences);
   if (preferenceTitles.length === 0) return 0.5;
-  if (itemTitles.length === 0) return 0;
+  if (itemTitles.length === 0 && itemSeeds.length === 0) return 0;
 
+  if (preferenceTitles.some((title) => itemSeeds.includes(title))) return 1;
   if (preferenceTitles.some((title) => itemTitles.includes(title))) return 1;
   if (
     preferenceTitles.some((seed) =>
-      itemTitles.some((title) => title.includes(seed) || seed.includes(title))
+      [...itemTitles, ...itemSeeds].some((title) => title.includes(seed) || seed.includes(title))
     )
   ) {
     return 0.7;

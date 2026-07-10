@@ -2,6 +2,37 @@
 
 개발 과정에서의 작업 내용, 결정, 아쉬운 점, 다음 개선 사항을 날짜별로 기록합니다.
 
+## 2026-07-10 - MYOTT-S09-005
+
+### 오늘 작업
+
+- `app/page.jsx`의 `sortProviderResults` ranking 단계에 Weight Engine을 연결했습니다.
+- 모든 provider result에 `scoreDetail`을 추가하고 `finalScore` 기준으로 우선 정렬하도록 했습니다.
+- 기존 분석 점수는 `legacyScore`로 유지해 기존 정렬 감각과 fallback 흐름이 급격히 흔들리지 않게 했습니다.
+- 입력 seed titles, selected content types, Quick Pick filters, TMDB genre ids를 Weight Engine preferences로 전달했습니다.
+- runtime signal이 동작하도록 정규화 결과에 `runtimeMinutes`를 보존했습니다.
+
+### 결정한 것
+
+- UI에는 아직 score 숫자를 노출하지 않는다.
+- Recommendation Reason / Insight 문구는 이번 Task에서 변경하지 않는다.
+- content type hard filter와 country/fallback 정책은 기존 흐름을 유지한다.
+- Weight Engine 적용은 ranking 단계에 한정하고 Provider/API 구조는 변경하지 않는다.
+
+### 검증
+
+- `pnpm build`: PASS
+- `pnpm dev`: PASS
+- `git diff --check`: PASS
+
+### 아쉬운 점
+
+- 아직 scoreDetail을 Founder QA 화면이나 자동 runner로 직접 확인하는 도구는 없습니다.
+
+### 다음 개선
+
+- Recommendation QA Dataset 기준으로 `scoreDetail` 분포와 pass/fail을 함께 확인하는 smoke runner를 추가합니다.
+
 ## 2026-07-09 - MYOTT-S09-004
 
 ### 오늘 작업

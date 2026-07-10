@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import { calculateRecommendationScore } from "../src/lib/recommendation/scoring/recommendationWeightEngine.js";
 
 const dummyRecommendations = [
   {
@@ -724,13 +725,27 @@ function analyzeProviderResult(item, selectedTypes, quickPicks, selectedOtt, opt
   };
 }
 
-function sortProviderResults(results, selectedTypes, quickPicks, selectedOtt, optionMetadata) {
+function weightPreferenceFromSelection(selectedTypes, quickPicks, optionMetadata, seedTitles = []) {
+  return {
+    seedTitles,
+    filters: quickPicks,
+    contentTypes: selectedTypes,
+    genreIds: uniqueNumbers(quickPicks.flatMap((quickPick) => genreIdsForQuickPick(quickPick, optionMetadata))),
+  };
+}
+
+function sortProviderResults(results, selectedTypes, quickPicks, selectedOtt, optionMetadata, seedTitles = []) {
+  const weightPreferences = weightPreferenceFromSelection(selectedTypes, quickPicks, optionMetadata, seedTitles);
+
   return results
     .map((item) => {
       const analysis = analyzeProviderResult(item, selectedTypes, quickPicks, selectedOtt, optionMetadata);
+      const scoreDetail = calculateRecommendationScore(item, weightPreferences);
       return {
         ...item,
-        score: analysis.score,
+        score: scoreDetail.finalScore,
+        legacyScore: analysis.score,
+        scoreDetail,
         recommendationInsight: analysis.insight,
       };
     })
@@ -741,7 +756,8 @@ function sortProviderResults(results, selectedTypes, quickPicks, selectedOtt, op
       const ratingB = Number.parseFloat(b.rating);
 
       return (
-        b.score - a.score ||
+        (b.scoreDetail?.finalScore || 0) - (a.scoreDetail?.finalScore || 0) ||
+        b.legacyScore - a.legacyScore ||
         popularityB - popularityA ||
         (Number.isFinite(ratingB) ? ratingB : 0) - (Number.isFinite(ratingA) ? ratingA : 0) ||
         Number(b.match || 0) - Number(a.match || 0)
@@ -858,6 +874,7 @@ function normalizeProviderResult(content, quickPicks = [], reasonSeed = "", labe
     type,
     genreIds: normalizedIdList(content.genreIds),
     seedGenreIds: normalizedIdList(content.seedGenreIds),
+    runtimeMinutes: Number.isFinite(runtime) && runtime > 0 ? runtime : content.runtimeMinutes,
     popularity: Number(content.popularity || 0),
     label: content.label || (type === "animation" ? "애니" : type === "movie" ? "영화" : "드라마"),
     tags: tagsFromProviderContent(content),
@@ -1009,7 +1026,7 @@ async function fetchProviderRecommendations(titles, selectedTypes, quickPicks, s
   const sourceResults = tmdbResults.length ? tmdbResults : fallbackResults;
   const mergedResults = mergeProviderResults(filterSeedResults(sourceResults, uniqueTitles));
   const eligibleResults = filterFocusedContentTypes(mergedResults, selectedTypes);
-  const sortedResults = sortProviderResults(eligibleResults, selectedTypes, quickPicks, selectedOtt, optionMetadata);
+  const sortedResults = sortProviderResults(eligibleResults, selectedTypes, quickPicks, selectedOtt, optionMetadata, uniqueTitles);
   const seedBalancedResults = balanceSeedDiversity(sortedResults, uniqueTitles);
   const balancedResults = balanceContentDiversity(seedBalancedResults, selectedTypes);
   const results = balancedResults.slice(0, targetProviderResultCount);

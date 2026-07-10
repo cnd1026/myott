@@ -2,7 +2,7 @@
 
 Version: 1.0
 
-Last Updated: 2026-07-09
+Last Updated: 2026-07-10
 
 Status: ACTIVE
 
@@ -126,7 +126,7 @@ Current implementation:
 - Weight config: [recommendationWeights.js](../../src/lib/recommendation/scoring/recommendationWeights.js)
 - Weight engine: [recommendationWeightEngine.js](../../src/lib/recommendation/scoring/recommendationWeightEngine.js)
 
-Sprint 9의 Weight Engine은 API 호출이나 UI 변경이 없는 순수 유틸리티입니다. 기존 추천 흐름에 대규모로 연결하기 전, Signal / Weight / Score 구조를 안전하게 검증하는 기반으로 사용합니다.
+Sprint 9의 Weight Engine은 API 호출이 없는 순수 유틸리티입니다. `app/page.jsx`의 provider result ranking 단계에서 `scoreDetail`을 생성하고 `finalScore`를 1순위 정렬 기준으로 사용합니다. 기존 Recommendation Reason / Insight UI는 유지하며, `scoreDetail`은 향후 Insight와 Debug QA에 연결 가능한 데이터로 둡니다.
 
 ---
 
@@ -171,6 +171,8 @@ Implementation boundary:
 
 - `calculateRecommendationScore(item, preferences)`는 `finalScore`, `signals`, `weights`, `reasons`, `penalties`를 반환한다.
 - 각 Signal은 0~1 사이 normalized value로 계산한다.
+- ranking 단계에서는 모든 후보에 `scoreDetail`을 붙이고 `finalScore` 기준으로 먼저 정렬한다.
+- 기존 rule-based score는 `legacyScore`로 보존해 tie-break와 회귀 완충에 사용한다.
 - Content Type은 weighted boost가 아니라 hard filter로 유지한다.
 - Runtime metadata가 없을 때는 약한 unknown penalty만 적용한다.
 - Country fallback 또는 relaxed fallback은 penalty로 기록해 향후 Recommendation Insight와 QA evaluator에 연결할 수 있게 한다.
