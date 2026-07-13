@@ -292,7 +292,7 @@ function contentKey(item = {}) {
 function scoreCandidate(item, preferences) {
   return {
     ...item,
-    scoreDetail: item.scoreDetail || calculateRecommendationScore(item, preferences),
+    scoreDetail: calculateRecommendationScore(item, preferences),
   };
 }
 
@@ -376,6 +376,48 @@ function balanceTypes(items = [], contentTypes = [], limit = PRIMARY_RESULT_LIMI
   return balanced;
 }
 
+export function roundRobinCandidates(items = [], limit = RAW_CANDIDATE_LIMIT) {
+  const bucketOrder = ["movie", "drama", "animation"];
+  const buckets = new Map(bucketOrder.map((type) => [type, []]));
+  for (const item of items) buckets.get(normalizeContentType(item))?.push(item);
+
+  const results = [];
+  let cursor = 0;
+  while (results.length < limit) {
+    let added = false;
+    for (const type of bucketOrder) {
+      const item = buckets.get(type)?.[cursor];
+      if (!item) continue;
+      results.push(item);
+      added = true;
+      if (results.length >= limit) break;
+    }
+    if (!added) break;
+    cursor += 1;
+  }
+  return results;
+}
+
+function dedupeAgainst(items = [], selected = []) {
+  const selectedContent = new Set(selected.map(contentKey));
+  const selectedFranchises = new Set(selected.map((item) => item.franchiseKey).filter(Boolean));
+  const eligible = [];
+  const excluded = [];
+
+  for (const item of items) {
+    if (selectedContent.has(contentKey(item))) {
+      excluded.push({ ...item, exclusionReason: "duplicate-content" });
+      continue;
+    }
+    if (item.franchiseKey && selectedFranchises.has(item.franchiseKey)) {
+      excluded.push({ ...item, exclusionReason: "duplicate-franchise" });
+      continue;
+    }
+    eligible.push(item);
+  }
+  return { eligible, excluded };
+}
+
 function diagnosticCandidate(item = {}) {
   return {
     title: item.title,
@@ -396,7 +438,14 @@ function diagnosticCandidate(item = {}) {
 
 export function finalizeCandidatePool(
   candidates = [],
-  { filters = [], contentTypes = [], limit = PRIMARY_RESULT_LIMIT } = {},
+  {
+    filters = [],
+    contentTypes = [],
+    limit = PRIMARY_RESULT_LIMIT,
+    seedTitles = [],
+    seedGenreIds = [],
+    diversity = {},
+  } = {},
 ) {
   const country = selectedCountryCode(filters);
   const exclusions = [];
@@ -421,33 +470,60 @@ export function finalizeCandidatePool(
   const preferences = {
     filters,
     contentTypes,
+    seedTitles,
     countryCodes: country ? [country] : [],
     genreIds: uniqueNumbers(
-      ["movie", "tv"].flatMap((mediaType) => genreFamilyIds(filters, mediaType)),
+      [
+        ...seedGenreIds,
+        ...["movie", "tv"].flatMap((mediaType) => genreFamilyIds(filters, mediaType)),
+      ],
     ),
+    diversity,
   };
   const scored = classified.map((item) => scoreCandidate(item, preferences)).sort(compareCandidates);
-  const primaryEligible = scored.filter((item) => !country || item.resultTier !== "country-relaxed");
   const relaxedEligible = country ? scored.filter((item) => item.resultTier === "country-relaxed") : [];
-  const primaryDedupe = dedupeCandidates(primaryEligible);
-  const primaryResults = balanceTypes(primaryDedupe.kept, contentTypes, limit);
+  const exactDedupe = dedupeCandidates(scored.filter((item) => item.resultTier === "exact"));
+  const exactResults = balanceTypes(exactDedupe.kept, contentTypes, limit);
+  const sameCountryDedupe = dedupeCandidates(scored.filter((item) => item.resultTier === "same-country-relaxed"));
+  const sameCountryEligible = dedupeAgainst(sameCountryDedupe.kept, exactResults);
+  const remainingSlots = Math.max(0, limit - exactResults.length);
+  const maxSameCountryRelaxed = Math.min(remainingSlots, Math.floor(exactResults.length * 0.25));
+  const sameCountryResults = balanceTypes(sameCountryEligible.eligible, contentTypes, maxSameCountryRelaxed);
+  const primaryResults = [...exactResults, ...sameCountryResults];
   const relaxedDedupe = dedupeCandidates(relaxedEligible);
+  const allExclusions = [
+    ...exclusions,
+    ...exactDedupe.excluded,
+    ...sameCountryDedupe.excluded,
+    ...sameCountryEligible.excluded,
+    ...relaxedDedupe.excluded,
+  ];
+  const exactResultRatio = primaryResults.length ? exactResults.length / primaryResults.length : 0;
+  const sameCountryRelaxedRatio = primaryResults.length ? sameCountryResults.length / primaryResults.length : 0;
+  const rawCandidateCountByType = boundedCandidates.reduce((counts, item) => {
+    const type = normalizeContentType(item);
+    counts[type] = (counts[type] || 0) + 1;
+    return counts;
+  }, { movie: 0, drama: 0, animation: 0 });
 
   return {
     results: primaryResults,
     relaxedResults: relaxedDedupe.kept.slice(0, limit),
-    exclusions: [...exclusions, ...primaryDedupe.excluded, ...relaxedDedupe.excluded],
+    exclusions: allExclusions,
     diagnostics: {
       rawCandidateCount: Math.min(candidates.length, RAW_CANDIDATE_LIMIT),
+      rawCandidateCountByType,
       classifiedCount: classified.length,
       primaryCount: primaryResults.length,
+      exactCandidateCount: exactResults.length,
+      sameCountryRelaxedCount: sameCountryResults.length,
+      primaryExactRatio: exactResultRatio,
+      primaryRelaxedRatio: sameCountryRelaxedRatio,
       relaxedCount: Math.min(relaxedDedupe.kept.length, limit),
       candidates: primaryResults.map(diagnosticCandidate),
       relaxedCandidates: relaxedDedupe.kept.slice(0, limit).map(diagnosticCandidate),
-      exclusions: [...exclusions, ...primaryDedupe.excluded, ...relaxedDedupe.excluded]
-        .slice(0, 24)
-        .map(diagnosticCandidate),
-      exclusionCounts: [...exclusions, ...primaryDedupe.excluded, ...relaxedDedupe.excluded].reduce((counts, item) => {
+      exclusions: allExclusions.slice(0, 24).map(diagnosticCandidate),
+      exclusionCounts: allExclusions.reduce((counts, item) => {
         const reason = item.exclusionReason || "unknown";
         counts[reason] = (counts[reason] || 0) + 1;
         return counts;

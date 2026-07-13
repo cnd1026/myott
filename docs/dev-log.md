@@ -2,6 +2,85 @@
 
 개발 과정에서의 작업 내용, 결정, 아쉬운 점, 다음 개선 사항을 날짜별로 기록합니다.
 
+## 2026-07-13 - MYOTT-S09-006A
+
+### 변경 전 요청 Baseline
+
+코드 경로 기준 예상 최대치이며 실제 TMDB 공식 제한을 뜻하지 않습니다.
+
+| 경로 | 목록 호출 | Detail 호출 | 중복 위험 | 예상 최대 |
+| --- | ---: | ---: | --- | ---: |
+| Option Discover | 최대 20 | candidate 36 + watch provider 12 | 동일 작품 Detail/Provider 재호출 가능 | 약 68 |
+| Seed Search | search/recommendations/similar/discover 최대 23 | seed/discover detail 68 + watch provider 24 | seed supplement와 provider 보강 중복 가능 | 약 115 |
+
+- Request Budget: 없음
+- Cache: 없음
+- 429 retry: 없음
+- Progressive early stop: 없음
+- 동일 URL in-flight deduplication: 없음
+- Detail과 Watch Provider: 별도 보강 경로
+
+### 변경 전 Mock Baseline
+
+아래는 Fixture/Mock 결과이며 Live TMDB PASS가 아닙니다.
+
+| 조합 | Primary | Exact | Same-country-relaxed |
+| --- | ---: | ---: | ---: |
+| 한국 + 액션 + 영화 | 5 | 5 | 0 |
+| 한국 + 드라마 + 김부장 | 6 | 6 | 0 |
+| 일본 + SF + 전체 | 6 | 4 | 2 |
+| 일본 + SF + 드라마 | 2 | 1 | 1 |
+| 일본 + SF + 애니 | 3 | 2 | 1 |
+| 영국 + 스릴러 + 드라마 | 2 | 2 | 0 |
+| 미국 + 공포 + 영화 | 5 | 1 | 4 |
+
+### 오늘 작업
+
+- TMDB 요청을 하나의 Request Context로 통합하고 요청당 24/8/16 예산과 동시 4회 제한을 적용했습니다.
+- 동일 URL/parameter와 동일 Detail 요청을 Promise 수준에서 deduplicate했습니다.
+- 목록 7분, Detail 30분, 장르 60분의 process-local best-effort cache를 추가했습니다.
+- 429, 500, 502, 503, 504와 일시적 network failure에 Retry-After 우선, exponential backoff+jitter, 최대 2회 재시도를 적용했습니다.
+- Discover stage를 순차 실행하고 exact 목표 및 타입 커버리지 달성 시 조기 종료하도록 변경했습니다.
+- raw candidate와 exact result의 타입 round-robin, exact 80% / same-country-relaxed 20% 조립 규칙을 적용했습니다.
+- 모든 seed title을 final Weight Engine에 전달하고 stale scoreDetail 재사용을 제거했습니다.
+- 상위 16개 이하만 Detail 보강하고 watch providers/credits/keywords를 동일 Detail 호출에 통합했습니다.
+- Evaluator에 tier, country validation, seed, request budget metric을 추가하고 Dataset을 20개로 확장했습니다.
+- deterministic QA와 Founder Live TMDB QA runner를 추가했습니다.
+- Codex 번들 Node의 `UNABLE_TO_VERIFY_LEAF_SIGNATURE` 원인을 확인하고 TLS 검증을 끄지 않은 `--use-system-ca` 실행 옵션으로 Live Runner 연결을 복구했습니다.
+
+### 변경 후 Mock 측정
+
+| 조합 | Primary | 국가 일치 | 장르 일치 | Exact / Relaxed |
+| --- | ---: | ---: | ---: | ---: |
+| 한국 + 액션 + 영화 | 5 | 5 | 5 | 5 / 0 |
+| 한국 + 드라마 + 김부장 | 6 | 6 | 6 | 6 / 0 |
+| 일본 + SF + 전체 | 5 | 5 | 4 | 4 / 1 |
+| 일본 + SF + 드라마 | 1 | 1 | 1 | 1 / 0 |
+| 일본 + SF + 애니 | 2 | 2 | 2 | 2 / 0 |
+| 영국 + 스릴러 + 드라마 | 2 | 2 | 2 | 2 / 0 |
+| 미국 + 공포 + 영화 | 1 | 1 | 1 | 1 / 0 |
+
+Mock 후보 부족 시 부정확한 완화 결과로 수를 채우지 않습니다. Dataset runner 20/20은 deterministic fixture를 Candidate Pipeline과 실제 Evaluator에 전달한 결과이며, Live TMDB 품질 PASS를 의미하지 않습니다.
+
+### Live TMDB QA
+
+- Credential: configured, 로그 미노출
+- TLS root cause: bundled Node가 system CA를 기본 사용하지 않아 leaf certificate chain 검증 실패
+- Applied solution: `node --use-system-ca`
+- Live Dataset: 19/19 PASS
+- 단일 Provider 요청 최대 사용량: 22 / 24
+- List/Detail 상한: 각 케이스에서 8 / 16 이하
+- Cache: 반복 실행에서 다수 케이스 0~1회 외부 요청으로 감소
+- Founder 제품 UX Review: Pending
+
+### 결정한 것
+
+- 추천 정확도와 외부 API 안정성은 함께 관리합니다.
+- Cache Hit는 요청 예산을 소비하지 않으며 실패 Promise는 cache에 남기지 않습니다.
+- 일부 TMDB 요청이 성공하면 확보한 TMDB 결과만 사용하고 Mock을 섞지 않습니다.
+- exact 후보가 적으면 결과 수 감소를 허용하고 same-country-relaxed로 12개를 강제 충전하지 않습니다.
+- Founder 로컬 Live Runner 결과 전까지 실제 TMDB 품질은 Pending입니다.
+
 ## 2026-07-13 - MYOTT-S09-006
 
 ### 변경 전 Baseline

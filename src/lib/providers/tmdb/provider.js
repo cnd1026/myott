@@ -1,4 +1,4 @@
-import { discoverTmdb, hasTmdbKey, relatedTmdb, searchTmdb } from "../../../../lib/tmdb";
+import { discoverTmdb, hasTmdbKey, relatedTmdb, searchTmdb } from "../../../../lib/tmdb.js";
 
 function typeLabel(contentType) {
   if (contentType === "movie") return "영화";
@@ -53,8 +53,8 @@ export const tmdbProvider = {
     return hasTmdbKey();
   },
 
-  async search({ query = "", contentTypes = [], filters = [] } = {}) {
-    const payload = await searchTmdb(query, contentTypes, filters);
+  async search({ query = "", contentTypes = [], filters = [], seedTitles = [] } = {}) {
+    const payload = await searchTmdb(query, contentTypes, filters, { seedTitles });
     return {
       ...toUnifiedRecommendationPayload(payload),
       results: (payload.results || []).map((item) =>
@@ -73,8 +73,8 @@ export const tmdbProvider = {
     return null;
   },
 
-  async getRecommendations({ query = "", filters = [], contentTypes = [], limit } = {}) {
-    if (query) return this.search({ query, filters, contentTypes });
+  async getRecommendations({ query = "", filters = [], contentTypes = [], limit, seedTitles = [] } = {}) {
+    if (query) return this.search({ query, filters, contentTypes, seedTitles });
     const payload = await discoverTmdb({ filters, contentTypes, limit });
     return toUnifiedRecommendationPayload(payload);
   },

@@ -992,6 +992,7 @@ async function fetchProviderRecommendations(titles, selectedTypes, quickPicks, s
       q: title,
       types: selectedTypes.join(","),
       filters: filters.join(","),
+      seeds: JSON.stringify(uniqueTitles),
     });
     const response = await fetch(`/api/search?${params.toString()}`, {
       cache: "no-store",

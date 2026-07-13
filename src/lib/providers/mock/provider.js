@@ -1,7 +1,7 @@
 import { mockContents } from "./data.js";
 import { finalizeCandidatePool } from "../../recommendation/candidates/candidatePipeline.js";
 
-const DEFAULT_LIMIT = 8;
+const DEFAULT_LIMIT = 12;
 
 const MOCK_GENRE_IDS = Object.freeze({
   "SF": 878,
@@ -135,7 +135,7 @@ export const mockProvider = {
   id: "mock",
   name: "MyOTT Mock Provider",
 
-  async search({ query = "", contentTypes = [], filters = [], limit = DEFAULT_LIMIT } = {}) {
+  async search({ query = "", contentTypes = [], filters = [], limit = DEFAULT_LIMIT, seedTitles = [] } = {}) {
     const matched = mockContents
       .filter((content) => contentMatchesTypes(content, contentTypes))
       .filter((content) => contentMatchesQuery(content, query))
@@ -147,7 +147,12 @@ export const mockProvider = {
       candidateSource: content.candidateSource || "mock-seed-supplement",
       seedSupplement: true,
     }));
-    return finalizeCandidatePool([...matched, ...fallbackMatched], { filters, contentTypes, limit });
+    return finalizeCandidatePool([...matched, ...fallbackMatched], {
+      filters,
+      contentTypes,
+      limit,
+      seedTitles: [...new Set([...seedTitles, query].filter(Boolean))],
+    });
   },
 
   async getDetail({ providerContentId } = {}) {

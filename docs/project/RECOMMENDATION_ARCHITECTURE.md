@@ -1,6 +1,6 @@
 # Recommendation Architecture
 
-Version: 2.0
+Version: 2.1
 
 Author: MYOTT Team
 
@@ -8,11 +8,11 @@ Last Updated: 2026-07-13
 
 Related Sprint: Sprint 9
 
-Breaking Change: Yes
+Breaking Change: No
 
 Decision Log: [DECISION_LOG.md](./DECISION_LOG.md)
 
-Architecture Version: v2.0
+Architecture Version: v2.1
 
 Status: ACTIVE
 
@@ -97,6 +97,42 @@ flowchart TD
 7. Final Ranking
 
 `Weight Engine`은 적격 후보의 순위를 정하며, 국가 또는 콘텐츠 타입 hard constraint를 대신하지 않습니다. Raw 후보는 최대 72개까지 수집하고 TMDB 요청은 동시 4개 이하로 제한합니다.
+
+### Candidate Quality Contract
+
+- Primary는 `exact` 후보를 먼저 조립하고 `same-country-relaxed`는 최종 결과의 최대 20%만 허용한다.
+- `exact` 후보가 3개 이하이면 장르 완화 후보로 결과 수를 채우지 않는다.
+- `country-relaxed` 후보는 Primary에 포함하지 않는다.
+- 영화, 드라마, 애니를 함께 요청하면 raw 후보와 최종 exact 후보를 타입별 round-robin으로 구성한다.
+- Seed 경로는 입력한 모든 `seedTitles`와 seed genre ID를 최종 Weight Engine에 전달한다.
+- Seed recommendations, similar, discover supplement의 출처와 `reasonSeed`는 Detail 보강 뒤에도 보존한다.
+
+### TMDB Request Reliability
+
+Recommendation 요청은 [requestContext.js](../../src/lib/providers/tmdb/requestContext.js)의 공유 Request Context를 사용합니다.
+
+| Guardrail | Limit / Policy |
+| --- | --- |
+| Total TMDB calls | 요청당 최대 24회 |
+| List calls | Search, Discover, Recommendations, Similar 합계 최대 8회 |
+| Detail calls | 최대 16회 |
+| Concurrency | 최대 4회 |
+| Retry | 429/일시적 5xx/network failure에 최대 2회 |
+| Backoff | Retry-After 우선, 아니면 exponential backoff와 jitter |
+| List cache | 7분 best-effort server cache |
+| Detail cache | 30분 best-effort server cache |
+| Genre metadata cache | 60분 best-effort server cache |
+
+요청 정책:
+
+1. Exact popularity page 1
+2. Exact vote average page 1, 후보 부족 시에만
+3. Exact popularity page 2, 후보 부족 시에만
+4. Same-country genre relaxation, 정확 후보가 있고 부족할 때만
+
+각 단계 뒤 exact 후보 수, 타입별 커버리지, 남은 예산을 확인하고 충분하면 조기 종료합니다. 동일 path와 정규화한 parameter는 in-flight Promise를 공유하며 Cache Hit는 요청 예산을 소비하지 않습니다. 예산이 소진되면 확보한 TMDB 결과만 반환하고 Mock을 섞지 않습니다.
+
+Detail 보강은 목록 metadata로 부적격 후보를 먼저 제거한 뒤 상위 16개 이하에만 수행합니다. runtime, country, genres, collection, watch providers, credits, keywords를 하나의 append response로 가져오며 별도 Watch Provider Detail을 반복 호출하지 않습니다.
 
 Result tier:
 
@@ -330,6 +366,15 @@ Evaluation utility:
 
 - [evaluateRecommendationCase.js](../../src/lib/recommendation/qa/evaluateRecommendationCase.js)
 
+QA runners:
+
+- Deterministic: `pnpm qa:recommendation`
+- Unit and pipeline: `pnpm test:recommendation`
+- Live TMDB: `pnpm qa:recommendation:live`
+- Full local check: `pnpm check`
+
+Live Runner는 TMDB credential이 없으면 `SKIP`으로 종료하며 Mock을 Live PASS로 대체하지 않습니다. 개발 diagnostics에는 요청 예산, list/detail 사용량, cache/dedup/retry 횟수, early stop, 후보 타입 분포, exact/relaxed 비율을 기록하되 API key는 포함하지 않습니다.
+
 이 JSON 파일은 Founder 수동 QA와 향후 자동 테스트의 공통 기준 데이터입니다. Architecture 문서는 테스트 전략을 설명하고, 실제 케이스 목록은 dataset 파일에서 관리합니다.
 
 | ID | Input | Expected Result | Fail Condition |
@@ -399,16 +444,25 @@ AI Recommendation 원칙:
 
 ## 14. Next Implementation Candidates
 
-1. Founder 로컬 TMDB dataset 실행 기록 자동화
-2. country metadata detail enrichment cache
-3. candidate request budget 관측
-4. keyword/director/actor signal 고도화
-5. exact/relaxed user notice 검증
-6. Recommendation score logging 자동화
+1. Founder 로컬 Live TMDB QA 결과 이력화
+2. keyword/director/actor signal 고도화
+3. exact/relaxed user notice 검증
+4. Recommendation score logging 자동화
 
 ---
 
 ## Changelog
+
+### v2.1
+
+- Application-level 24/8/16 TMDB Request Budget와 동시 요청 4회 제한 추가
+- 요청 단위 deduplication, best-effort TTL cache, 429/일시 오류 retry/backoff 정책 추가
+- Progressive Candidate Fetching과 exact 후보 조기 종료 정책 추가
+- Primary exact 최소 80%, same-country-relaxed 최대 20% 조립 정책 추가
+- 타입별 round-robin raw candidate와 Seed Title final scoring 계약 추가
+- Detail/Watch Provider 통합 보강과 최대 16개 Detail 상한 추가
+- 20개 QA Dataset, Deterministic Runner, Live TMDB Runner 운영 경로 추가
+- v2.0 hard constraint와 API primary/relaxed 계약은 유지하므로 Breaking Change `No`
 
 ### v2.0
 

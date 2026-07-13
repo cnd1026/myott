@@ -227,7 +227,30 @@ function unknownCountryRatio(results = []) {
   );
 }
 
-export function evaluateRecommendationCase(testCase, recommendationResults = []) {
+function resultTierRatio(results, tier) {
+  return ratio(countBy(results, (result) => result.resultTier === tier), results.length);
+}
+
+function seedTitleMatchesResult(result, titles = []) {
+  const resultTitle = normalizeValue(result.title || result.name);
+  return normalizeValues(titles).includes(resultTitle);
+}
+
+function seedRelatedRatio(results = []) {
+  return ratio(
+    countBy(results, (result) => (
+      Boolean(result.reasonSeed || result.seedTitle || result.seedSupplement) ||
+      Number(result.scoreDetail?.signals?.titleMatch || 0) > 0
+    )),
+    results.length,
+  );
+}
+
+function evaluationDiagnostics(context = {}) {
+  return context.diagnostics || context.recommendationDebug || context || {};
+}
+
+export function evaluateRecommendationCase(testCase, recommendationResults = [], context = {}) {
   const expected = testCase?.expected || {};
   const topN = expected.topN || recommendationResults.length;
   const scopedResults = recommendationResults.slice(0, topN);
@@ -235,6 +258,8 @@ export function evaluateRecommendationCase(testCase, recommendationResults = [])
   const matchedCount = countBy(scopedResults, (result) => resultMatchesExpected(result, expected));
   const matchRatio = ratio(matchedCount, totalCount);
   const minimumMatchRatio = Number.isFinite(testCase?.minimumMatchRatio) ? testCase.minimumMatchRatio : 0;
+  const diagnostics = evaluationDiagnostics(context);
+  const inputTitles = testCase.input?.titles || [];
 
   const metrics = {
     countryRatio: ratio(countBy(scopedResults, (result) => resultCountryMatches(result, expected.match?.country || [])), totalCount),
@@ -244,6 +269,23 @@ export function evaluateRecommendationCase(testCase, recommendationResults = [])
     singleSeedDominanceRatio: seedDominanceRatio(scopedResults),
     maxSingleFranchiseCount: maxSingleFranchiseCount(scopedResults),
     unknownCountryRatio: unknownCountryRatio(scopedResults),
+    exactResultRatio: resultTierRatio(scopedResults, "exact"),
+    sameCountryRelaxedRatio: resultTierRatio(scopedResults, "same-country-relaxed"),
+    countryRelaxedRatio: resultTierRatio(scopedResults, "country-relaxed"),
+    verifiedCountryRatio: ratio(
+      countBy(scopedResults, (result) => normalizeValue(result.countryValidation) === "verified"),
+      totalCount,
+    ),
+    providerFilteredCountryRatio: ratio(
+      countBy(scopedResults, (result) => normalizeValue(result.countryValidation) === "provider-filtered"),
+      totalCount,
+    ),
+    seedRelatedRatio: seedRelatedRatio(scopedResults),
+    seedTitleExcluded: !scopedResults.some((result) => seedTitleMatchesResult(result, inputTitles)),
+    tmdbRequestCount: Number(diagnostics.requestsUsed || 0),
+    detailRequestCount: Number(diagnostics.detailRequestsUsed || 0),
+    duplicateDetailRequestCount: Number(diagnostics.duplicateDetailRequestCount || 0),
+    requestBudgetExceeded: Boolean(diagnostics.budgetExhausted),
   };
 
   const failedReasons = [];
@@ -261,6 +303,9 @@ export function evaluateRecommendationCase(testCase, recommendationResults = [])
   if (Number.isFinite(expected.minimumContentTypeRatio) && metrics.contentTypeRatio < expected.minimumContentTypeRatio) {
     failedReasons.push("content-type-mismatch");
   }
+  if (Number.isFinite(expected.minimumRuntimeRatio) && metrics.runtimeRatio < expected.minimumRuntimeRatio) {
+    failedReasons.push("runtime-ratio-below-threshold");
+  }
   if (Number.isFinite(expected.maxSingleFranchiseCount) && metrics.maxSingleFranchiseCount > expected.maxSingleFranchiseCount) {
     failedReasons.push("franchise-dominance");
   }
@@ -275,6 +320,45 @@ export function evaluateRecommendationCase(testCase, recommendationResults = [])
   }
   if (Number.isFinite(expected.maximumUnknownCountryRatio) && metrics.unknownCountryRatio > expected.maximumUnknownCountryRatio) {
     failedReasons.push("unverified-country-metadata");
+  }
+  if (Number.isFinite(expected.minimumExactResultRatio) && metrics.exactResultRatio < expected.minimumExactResultRatio) {
+    failedReasons.push("exact-ratio-below-threshold");
+  }
+  if (
+    Number.isFinite(expected.maximumSameCountryRelaxedRatio) &&
+    metrics.sameCountryRelaxedRatio > expected.maximumSameCountryRelaxedRatio
+  ) {
+    failedReasons.push("same-country-relaxed-ratio-above-threshold");
+  }
+  if (Number.isFinite(expected.maximumCountryRelaxedRatio) && metrics.countryRelaxedRatio > expected.maximumCountryRelaxedRatio) {
+    failedReasons.push("country-relaxed-result-in-primary");
+  }
+  if (Number.isFinite(expected.minimumVerifiedCountryRatio) && metrics.verifiedCountryRatio < expected.minimumVerifiedCountryRatio) {
+    failedReasons.push("verified-country-ratio-below-threshold");
+  }
+  if (Number.isFinite(expected.minimumProviderFilteredCountryRatio) && metrics.providerFilteredCountryRatio < expected.minimumProviderFilteredCountryRatio) {
+    failedReasons.push("provider-filtered-country-ratio-below-threshold");
+  }
+  if (Number.isFinite(expected.minimumSeedRelatedRatio) && metrics.seedRelatedRatio < expected.minimumSeedRelatedRatio) {
+    failedReasons.push("seed-score-not-applied");
+  }
+  if (expected.requiresSeedTitleScoring && !scopedResults.some((result) => Number(result.scoreDetail?.signals?.titleMatch || 0) > 0)) {
+    failedReasons.push("seed-score-not-applied");
+  }
+  if (expected.seedTitleExcluded && !metrics.seedTitleExcluded) {
+    failedReasons.push("seed-title-present-in-results");
+  }
+  if (Number.isFinite(expected.maximumTmdbRequestCount) && metrics.tmdbRequestCount > expected.maximumTmdbRequestCount) {
+    failedReasons.push("request-budget-exceeded");
+  }
+  if (Number.isFinite(expected.maximumDetailRequestCount) && metrics.detailRequestCount > expected.maximumDetailRequestCount) {
+    failedReasons.push("request-budget-exceeded");
+  }
+  if (expected.requestBudgetExceeded === false && metrics.requestBudgetExceeded) {
+    failedReasons.push("request-budget-exceeded");
+  }
+  if (metrics.duplicateDetailRequestCount > Number(expected.maximumDuplicateDetailRequestCount || 0)) {
+    failedReasons.push("duplicate-detail-request");
   }
 
   for (const condition of expected.failIf || []) {
@@ -295,8 +379,12 @@ export function evaluateRecommendationCase(testCase, recommendationResults = [])
   };
 }
 
-export function evaluateRecommendationCases(testCases = [], resultsByCaseId = {}) {
-  return testCases.map((testCase) => evaluateRecommendationCase(testCase, resultsByCaseId[testCase.id] || []));
+export function evaluateRecommendationCases(testCases = [], resultsByCaseId = {}, contextsByCaseId = {}) {
+  return testCases.map((testCase) => evaluateRecommendationCase(
+    testCase,
+    resultsByCaseId[testCase.id] || [],
+    contextsByCaseId[testCase.id] || {},
+  ));
 }
 
 /*

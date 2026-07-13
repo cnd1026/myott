@@ -465,5 +465,169 @@
     "priority": "critical",
     "scope": ["tmdb", "mock-fallback"],
     "notes": "The first 12 primary results must contain no duplicate TMDB id and no franchise more than once."
+  },
+  {
+    "id": "REC-QA-016",
+    "title": "Japan SF drama exact genre integrity",
+    "contentType": ["drama"],
+    "country": ["JP"],
+    "genre": ["sf"],
+    "mood": ["brainy"],
+    "runtime": null,
+    "input": {
+      "titles": [],
+      "filters": ["country-jp", "genre-sf"],
+      "contentTypes": ["drama"]
+    },
+    "expected": {
+      "topN": 10,
+      "match": {
+        "country": ["JP"],
+        "contentType": ["drama"],
+        "genreAny": ["sf"]
+      },
+      "minimumCountryRatio": 0.8,
+      "minimumGenreFamilyRatio": 0.8,
+      "minimumContentTypeRatio": 1,
+      "minimumExactResultRatio": 0.8,
+      "maximumSameCountryRelaxedRatio": 0.2,
+      "maximumCountryRelaxedRatio": 0,
+      "forbidCrossCountryPrimary": true,
+      "allowFewerAccurateResults": true
+    },
+    "minimumMatchRatio": 0.8,
+    "priority": "critical",
+    "scope": ["tmdb", "mock-fallback"],
+    "notes": "TV genre 10765 is provider-combined Sci-Fi & Fantasy metadata; diagnostics must retain that limitation."
+  },
+  {
+    "id": "REC-QA-017",
+    "title": "Japan SF animation exact genre integrity",
+    "contentType": ["animation"],
+    "country": ["JP"],
+    "genre": ["sf"],
+    "mood": ["brainy"],
+    "runtime": null,
+    "input": {
+      "titles": [],
+      "filters": ["country-jp", "genre-sf"],
+      "contentTypes": ["animation"]
+    },
+    "expected": {
+      "topN": 10,
+      "match": {
+        "country": ["JP"],
+        "contentType": ["animation"],
+        "genreAny": ["sf"]
+      },
+      "minimumCountryRatio": 0.8,
+      "minimumGenreFamilyRatio": 0.8,
+      "minimumContentTypeRatio": 1,
+      "minimumExactResultRatio": 0.8,
+      "maximumSameCountryRelaxedRatio": 0.2,
+      "maximumCountryRelaxedRatio": 0,
+      "maxSingleFranchiseCount": 1,
+      "forbidCrossCountryPrimary": true,
+      "allowFewerAccurateResults": true
+    },
+    "minimumMatchRatio": 0.8,
+    "priority": "critical",
+    "scope": ["tmdb", "mock-fallback"],
+    "notes": "Animation genre 16 alone must not qualify as an exact SF match."
+  },
+  {
+    "id": "REC-QA-018",
+    "title": "US horror exact genre integrity",
+    "contentType": ["movie"],
+    "country": ["US"],
+    "genre": ["horror", "thriller"],
+    "mood": ["tense"],
+    "runtime": null,
+    "input": {
+      "titles": [],
+      "filters": ["country-us", "genre-horror"],
+      "contentTypes": ["movie"]
+    },
+    "expected": {
+      "topN": 10,
+      "match": {
+        "country": ["US"],
+        "contentType": ["movie"],
+        "genreAny": ["horror", "thriller"]
+      },
+      "minimumResultCount": 6,
+      "minimumCountryRatio": 0.8,
+      "minimumGenreFamilyRatio": 0.8,
+      "minimumContentTypeRatio": 1,
+      "minimumExactResultRatio": 0.8,
+      "maximumSameCountryRelaxedRatio": 0.2,
+      "maximumCountryRelaxedRatio": 0,
+      "allowFewerAccurateResults": true
+    },
+    "minimumMatchRatio": 0.8,
+    "priority": "critical",
+    "scope": ["tmdb", "mock-fallback"],
+    "notes": "Regression guard for a historically strong country and genre combination."
+  },
+  {
+    "id": "REC-QA-019",
+    "title": "Primary exact ratio integrity",
+    "contentType": ["movie", "drama", "animation"],
+    "country": ["JP"],
+    "genre": ["sf"],
+    "mood": [],
+    "runtime": null,
+    "input": {
+      "titles": [],
+      "filters": ["country-jp", "genre-sf"],
+      "contentTypes": ["movie", "drama", "animation"]
+    },
+    "expected": {
+      "topN": 12,
+      "match": {
+        "country": ["JP"]
+      },
+      "minimumExactResultRatio": 0.8,
+      "maximumSameCountryRelaxedRatio": 0.2,
+      "maximumCountryRelaxedRatio": 0,
+      "forbidCrossCountryPrimary": true,
+      "allowFewerAccurateResults": true
+    },
+    "minimumMatchRatio": 1,
+    "priority": "critical",
+    "scope": ["tmdb", "mock-fallback"],
+    "notes": "Primary assembly may return fewer accurate results but may not exceed the relaxation ratio."
+  },
+  {
+    "id": "REC-QA-020",
+    "title": "Seed title scoring integrity",
+    "contentType": ["drama"],
+    "country": ["KR"],
+    "genre": ["drama"],
+    "mood": [],
+    "runtime": null,
+    "input": {
+      "titles": ["김부장"],
+      "filters": ["country-kr", "genre-drama"],
+      "contentTypes": ["drama"]
+    },
+    "expected": {
+      "topN": 10,
+      "match": {
+        "country": ["KR"],
+        "contentType": ["drama"],
+        "genreAny": ["drama"]
+      },
+      "minimumSeedRelatedRatio": 0.5,
+      "requiresSeedTitleScoring": true,
+      "seedTitleExcluded": true,
+      "minimumExactResultRatio": 0.8,
+      "maximumSameCountryRelaxedRatio": 0.2,
+      "maximumCountryRelaxedRatio": 0
+    },
+    "minimumMatchRatio": 0.8,
+    "priority": "critical",
+    "scope": ["tmdb", "mock-fallback"],
+    "notes": "Seed-related candidates must receive titleMatch signal while the input seed itself remains excluded."
   }
 ]

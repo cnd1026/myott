@@ -13,8 +13,8 @@ function sourceMetadata(provider, { message = "", fallbackUsed = false, fallback
   };
 }
 
-async function searchProvider(provider, query, contentTypes, filters, sourceOptions = {}) {
-  const providerPayload = await provider.search({ query, contentTypes, filters });
+async function searchProvider(provider, query, contentTypes, filters, seedTitles, sourceOptions = {}) {
+  const providerPayload = await provider.search({ query, contentTypes, filters, seedTitles });
   const results = Array.isArray(providerPayload) ? providerPayload : providerPayload.results || [];
   const relaxedResults = Array.isArray(providerPayload) ? [] : providerPayload.relaxedResults || [];
   const metadata = sourceMetadata(provider, sourceOptions);
@@ -35,6 +35,13 @@ export async function GET(request) {
   const query = request.nextUrl.searchParams.get("q")?.trim() || "";
   const contentTypes = request.nextUrl.searchParams.get("types")?.split(",").map((value) => value.trim()).filter(Boolean) || [];
   const filters = request.nextUrl.searchParams.get("filters")?.split(",").map((value) => value.trim()).filter(Boolean) || [];
+  let seedTitles = [];
+  try {
+    const parsed = JSON.parse(request.nextUrl.searchParams.get("seeds") || "[]");
+    seedTitles = Array.isArray(parsed) ? parsed.map((value) => String(value).trim()).filter(Boolean) : [];
+  } catch {
+    seedTitles = [];
+  }
   const activeProvider = getActiveProvider();
   const tmdbEnabled = isTmdbProviderEnabled();
 
@@ -58,7 +65,7 @@ export async function GET(request) {
   }
 
   if (activeProvider.id === "mock") {
-    return Response.json(await searchProvider(activeProvider, query, contentTypes, filters, {
+    return Response.json(await searchProvider(activeProvider, query, contentTypes, filters, seedTitles, {
       dataSource: "fallback",
       fallbackUsed: true,
       fallbackReason: "TMDB API key is not configured.",
@@ -71,7 +78,7 @@ export async function GET(request) {
   }
 
   try {
-    return Response.json(await searchProvider(activeProvider, query, contentTypes, filters), {
+    return Response.json(await searchProvider(activeProvider, query, contentTypes, filters, seedTitles), {
       headers: {
         "Cache-Control": "no-store",
       },
@@ -79,7 +86,7 @@ export async function GET(request) {
   } catch (error) {
     const fallbackProvider = getFallbackProvider();
     const message = error instanceof Error ? error.message : "TMDb search failed.";
-    return Response.json(await searchProvider(fallbackProvider, query, contentTypes, filters, {
+    return Response.json(await searchProvider(fallbackProvider, query, contentTypes, filters, seedTitles, {
       dataSource: "fallback",
       fallbackUsed: true,
       fallbackReason: message,

@@ -5,7 +5,11 @@
   "scripts": {
     "dev": "next dev",
     "build": "next build",
-    "start": "next start"
+    "start": "next start",
+    "test:recommendation": "node --test src/lib/recommendation/candidates/candidatePipeline.test.mjs src/lib/providers/tmdb/requestContext.test.mjs",
+    "qa:recommendation": "node scripts/recommendation-qa.mjs",
+    "qa:recommendation:live": "node --use-system-ca --env-file-if-exists=.env.local scripts/recommendation-live-qa.mjs",
+    "check": "pnpm test:recommendation && pnpm qa:recommendation && pnpm build"
   },
   "dependencies": {
     "next": "^15.3.4",

@@ -2,6 +2,26 @@
 
 프로젝트의 주요 변경 사항을 날짜별로 기록합니다.
 
+## 2026-07-13 - MYOTT-S09-006A
+
+### 변경 내용
+
+- Recommendation 요청마다 전체 24회, 목록 8회, Detail 16회, 동시 4회의 TMDB Request Context를 적용했습니다.
+- 동일 요청 in-flight deduplication, 7/30/60분 best-effort cache, 429/일시 오류 최대 2회 retry/backoff를 추가했습니다.
+- Discover를 exact popularity, exact rating, exact page 2, same-country-relaxed 순으로 단계 실행하고 충분한 후보 확보 시 조기 종료하도록 변경했습니다.
+- raw 후보를 movie/drama/animation round-robin으로 구성하고 Primary exact 장르 비율 최소 80%, same-country-relaxed 최대 20%를 적용했습니다.
+- 모든 seed title을 Candidate Pipeline final scoring에 전달하고 Detail과 Watch Provider 보강을 단일 요청으로 통합했습니다.
+- QA Dataset을 20개로 확장하고 deterministic/live runner 및 요청 예산 단위 테스트를 추가했습니다.
+- Recommendation Architecture를 v2.1로 갱신했습니다.
+
+### 검증
+
+- Recommendation unit/pipeline tests: 18/18 PASS
+- Deterministic Recommendation QA: 20/20 PASS
+- Live TMDB Recommendation QA: 19/19 PASS (`--use-system-ca`, per-request maximum 22/24)
+- `pnpm build`: PASS
+- Founder Review: Pending
+
 ## 2026-07-13 - MYOTT-S09-006
 
 ### 변경 내용
