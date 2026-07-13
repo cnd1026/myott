@@ -629,5 +629,118 @@
     "priority": "critical",
     "scope": ["tmdb", "mock-fallback"],
     "notes": "Seed-related candidates must receive titleMatch signal while the input seed itself remains excluded."
+  },
+  {
+    "id": "REC-QA-021",
+    "title": "Multi-seed shared request budget",
+    "contentType": ["movie", "drama", "animation"],
+    "country": [],
+    "genre": [],
+    "mood": [],
+    "runtime": null,
+    "input": {
+      "titles": ["인터스텔라", "라라랜드", "너의 이름은"],
+      "filters": [],
+      "contentTypes": ["movie", "drama", "animation"]
+    },
+    "expected": {
+      "topN": 12,
+      "minimumResultCount": 6,
+      "maximumTmdbRequestCount": 24,
+      "requestContextCount": 1,
+      "aggregateRequestsMustEqualRequests": true,
+      "minimumContributingSeedCount": 2,
+      "maxSingleSeedDominanceRatio": 0.6,
+      "seedTitleExcluded": true
+    },
+    "minimumMatchRatio": 0,
+    "priority": "critical",
+    "scope": ["tmdb", "fixture"],
+    "notes": "The real product multi-seed path must share one request context and preserve contribution from at least two seeds."
+  },
+  {
+    "id": "REC-QA-022",
+    "title": "Large multi-seed budget safety",
+    "contentType": ["movie", "drama", "animation"],
+    "country": [],
+    "genre": [],
+    "mood": [],
+    "runtime": null,
+    "input": {
+      "titles": ["인터스텔라", "라라랜드", "너의 이름은", "기생충", "듄", "컨택트", "매트릭스", "인셉션", "타이타닉", "아바타"],
+      "filters": [],
+      "contentTypes": ["movie", "drama", "animation"]
+    },
+    "expected": {
+      "topN": 12,
+      "minimumResultCount": 1,
+      "maximumTmdbRequestCount": 24,
+      "requestContextCount": 1,
+      "aggregateRequestsMustEqualRequests": true,
+      "requiresDeferredSeedMetadata": true,
+      "seedTitleExcluded": true
+    },
+    "minimumMatchRatio": 0,
+    "priority": "critical",
+    "scope": ["tmdb", "fixture"],
+    "notes": "Ten unique titles may be partially deferred, but the recommendation action must remain within one 24-call budget."
+  },
+  {
+    "id": "REC-QA-023",
+    "title": "Partial seed failure integrity",
+    "contentType": ["movie", "drama", "animation"],
+    "country": [],
+    "genre": [],
+    "mood": [],
+    "runtime": null,
+    "input": {
+      "titles": ["존재하지않는작품12345", "기생충", "인터스텔라"],
+      "filters": [],
+      "contentTypes": ["movie", "drama", "animation"]
+    },
+    "expected": {
+      "topN": 12,
+      "minimumResultCount": 1,
+      "maximumTmdbRequestCount": 24,
+      "requestContextCount": 1,
+      "aggregateRequestsMustEqualRequests": true,
+      "requiresUnresolvedOrDeferredSeeds": true,
+      "seedTitleExcluded": true,
+      "failIf": ["tmdb-label-with-mock-results", "mock-results-without-fallback-flag"]
+    },
+    "minimumMatchRatio": 0,
+    "priority": "critical",
+    "scope": ["tmdb", "fixture"],
+    "notes": "Successful TMDB seed candidates must survive when another title cannot be resolved, without Mock mixing."
+  },
+  {
+    "id": "REC-QA-024",
+    "title": "Recommendation deadline safety",
+    "contentType": ["movie"],
+    "country": [],
+    "genre": [],
+    "mood": [],
+    "runtime": null,
+    "input": {
+      "titles": ["Seed Alpha", "Seed Beta"],
+      "filters": [],
+      "contentTypes": ["movie"]
+    },
+    "expected": {
+      "topN": 12,
+      "minimumResultCount": 1,
+      "maximumTmdbRequestCount": 24,
+      "requestContextCount": 1,
+      "aggregateRequestsMustEqualRequests": true,
+      "deadlineExceeded": true,
+      "maximumElapsedMs": 500,
+      "requiresPartialResultsOnDeadline": true,
+      "requiresDeferredSeedMetadata": true,
+      "seedTitleExcluded": true
+    },
+    "minimumMatchRatio": 0,
+    "priority": "critical",
+    "scope": ["fixture"],
+    "notes": "A fixed stalled-response fixture must stop at the shared deadline and return already collected TMDB candidates."
   }
 ]

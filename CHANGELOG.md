@@ -2,6 +2,29 @@
 
 프로젝트의 주요 변경 사항을 날짜별로 기록합니다.
 
+## 2026-07-13 - MYOTT-S09-006A1
+
+### 변경 내용
+
+- 실제 추천 Submit을 Seed별 `/api/search` 반복 호출에서 단일 `POST /api/recommend/seeds`로 전환했습니다.
+- 모든 Seed Search, Recommendations, Similar, Discover, Detail이 하나의 TMDB Request Context와 24/8/16 예산을 공유합니다.
+- 입력 Seed 정규화와 중복 제거, phase별 round-robin, processed/unresolved/deferred metadata를 추가했습니다.
+- Recommendations가 충분하면 Similar와 Discover를 생략하고 통합 후보를 한 번만 scoring하도록 변경했습니다.
+- 개별 Fetch 8초 Timeout, 전체 Action 15초 Deadline, Retry-After 5초 상한을 적용했습니다.
+- 부분 성공 TMDB 결과를 유지하고 전체 실패에서만 명시적 Mock fallback을 수행하도록 정리했습니다.
+- Dataset을 24개로 확장하고 고정 Fetch Fixture, Product 경로 Live Cold/Warm Runner를 추가했습니다.
+- Recommendation Architecture를 v2.2로 갱신했습니다.
+
+### 검증
+
+- Recommendation unit/integration tests: 29/29 PASS
+- Deterministic Recommendation QA: 24/24 PASS
+- Live TMDB Cold QA: 22/22 PASS, maximum aggregate 24/24
+- Live TMDB Warm QA: 22/22 PASS, measured external requests 0, cache hits 433
+- Dev/API and browser smoke: PASS
+- `pnpm build`: PASS
+- Founder Review: Pending
+
 ## 2026-07-13 - MYOTT-S09-006A
 
 ### 변경 내용

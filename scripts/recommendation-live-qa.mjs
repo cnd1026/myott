@@ -2,12 +2,15 @@ import { writeFile } from "node:fs/promises";
 import { readFile } from "node:fs/promises";
 
 import { tmdbProvider } from "../src/lib/providers/tmdb/provider.js";
+import { clearTmdbRequestCache } from "../src/lib/providers/tmdb/requestContext.js";
 import { evaluateRecommendationCase } from "../src/lib/recommendation/qa/evaluateRecommendationCase.js";
 
 if (!tmdbProvider.isEnabled()) {
-  console.log("SKIP Live TMDB Recommendation QA: TMDB_API_KEY/TMDB_ACCESS_TOKEN is not configured.");
+  console.log("SKIP Live TMDB Recommendation QA: TMDB_API_KEY/TMDB_BEARER_TOKEN is not configured.");
   process.exit(0);
 }
+
+const qaMode = process.argv.includes("--warm") ? "warm" : "cold";
 
 const dataset = JSON.parse(
   await readFile(new URL("../docs/project/recommendation-qa-dataset.json", import.meta.url), "utf8"),
@@ -16,74 +19,30 @@ const liveCases = dataset.filter((testCase) => testCase.scope?.includes("tmdb"))
 const output = [];
 let hasFailure = false;
 
-function normalizedTitle(value) {
-  return String(value || "")
-    .trim()
-    .toLowerCase()
-    .replace(/[\s.!?。！？]+$/g, "");
-}
-
-function mergeSeedPayloads(payloads, seedTitles, limit = 12) {
-  const excludedTitles = new Set(seedTitles.map(normalizedTitle));
-  const groups = payloads.map((payload) => payload.results || []);
-  const seen = new Set();
-  const results = [];
-  let cursor = 0;
-
-  while (results.length < limit) {
-    let added = false;
-    for (const group of groups) {
-      const item = group[cursor];
-      if (!item) continue;
-      added = true;
-      const itemTitles = [item.title, item.originalTitle].map(normalizedTitle);
-      if (itemTitles.some((title) => excludedTitles.has(title))) continue;
-      const key = `${item.mediaType || item.type}:${item.tmdbId || item.providerContentId || item.title}`;
-      if (seen.has(key)) continue;
-      seen.add(key);
-      results.push(item);
-      if (results.length >= limit) break;
-    }
-    if (!added) break;
-    cursor += 1;
+async function executeProductCase(testCase) {
+  const input = testCase.input || {};
+  if (input.titles?.length) {
+    return tmdbProvider.getSeedRecommendations({
+      titles: input.titles,
+      filters: input.filters || [],
+      contentTypes: input.contentTypes || [],
+      limit: 12,
+    });
   }
-
-  const diagnostics = payloads.map((payload) => payload.diagnostics || {});
-  return {
-    results,
-    diagnostics: {
-      requestsUsed: Math.max(0, ...diagnostics.map((item) => Number(item.requestsUsed || 0))),
-      aggregateRequestsUsed: diagnostics.reduce((sum, item) => sum + Number(item.requestsUsed || 0), 0),
-      listRequestsUsed: Math.max(0, ...diagnostics.map((item) => Number(item.listRequestsUsed || 0))),
-      detailRequestsUsed: Math.max(0, ...diagnostics.map((item) => Number(item.detailRequestsUsed || 0))),
-      cacheHits: diagnostics.reduce((sum, item) => sum + Number(item.cacheHits || 0), 0),
-      retryCount: diagnostics.reduce((sum, item) => sum + Number(item.retryCount || 0), 0),
-      budgetExhausted: diagnostics.some((item) => item.budgetExhausted),
-    },
-  };
+  return tmdbProvider.getRecommendations({
+    filters: input.filters || [],
+    contentTypes: input.contentTypes || [],
+    limit: 12,
+  });
 }
+
+if (qaMode === "warm") clearTmdbRequestCache();
+console.log(`Live TMDB Recommendation QA mode: ${qaMode.toUpperCase()}`);
 
 for (const testCase of liveCases) {
-  const input = testCase.input || {};
-  let payload;
-  if (input.titles?.length) {
-    const seedPayloads = [];
-    for (const query of input.titles) {
-      seedPayloads.push(await tmdbProvider.search({
-        query,
-        seedTitles: input.titles,
-        filters: input.filters || [],
-        contentTypes: input.contentTypes || [],
-      }));
-    }
-    payload = mergeSeedPayloads(seedPayloads, input.titles);
-  } else {
-    payload = await tmdbProvider.getRecommendations({
-        filters: input.filters || [],
-        contentTypes: input.contentTypes || [],
-        limit: 12,
-      });
-  }
+  if (qaMode === "cold") clearTmdbRequestCache();
+  if (qaMode === "warm") await executeProductCase(testCase);
+  const payload = await executeProductCase(testCase);
   const results = payload.results || [];
   const report = evaluateRecommendationCase(testCase, results, { diagnostics: payload.diagnostics || {} });
   hasFailure ||= !report.pass;
@@ -101,20 +60,27 @@ for (const testCase of liveCases) {
       contentType: item.contentType || item.type,
       resultTier: item.resultTier,
       franchiseKey: item.franchiseKey || "",
+      reasonSeeds: item.reasonSeeds || (item.reasonSeed ? [item.reasonSeed] : []),
     })),
   };
   output.push(caseOutput);
   const requestSummary = {
     requestsUsed: caseOutput.diagnostics.requestsUsed,
+    aggregateRequestsUsed: caseOutput.diagnostics.aggregateRequestsUsed,
     listRequestsUsed: caseOutput.diagnostics.listRequestsUsed,
     detailRequestsUsed: caseOutput.diagnostics.detailRequestsUsed,
+    requestContextCount: caseOutput.diagnostics.requestContextCount,
     cacheHits: caseOutput.diagnostics.cacheHits,
     retryCount: caseOutput.diagnostics.retryCount,
     budgetExhausted: caseOutput.diagnostics.budgetExhausted,
+    deadlineExceeded: caseOutput.diagnostics.deadlineExceeded,
+    elapsedMs: caseOutput.diagnostics.elapsedMs,
+    processedSeedCount: caseOutput.diagnostics.processedSeedCount,
+    deferredSeedCount: caseOutput.diagnostics.deferredSeedCount,
   };
   console.log(
     `${report.pass ? "PASS" : "FAIL"} ${testCase.id} ` +
-      `${results.length} results; requests=${requestSummary.requestsUsed ?? 0}; ` +
+      `${results.length} results; requests=${requestSummary.aggregateRequestsUsed ?? requestSummary.requestsUsed ?? 0}; ` +
       `${report.failedReasons.join(", ") || "criteria-met"}`,
   );
   if (process.env.QA_VERBOSE === "1") {
@@ -129,6 +95,20 @@ if (process.env.QA_OUTPUT) {
 }
 
 const failures = output.filter((item) => !item.pass);
-console.log(`Live TMDB Recommendation QA: ${output.length - failures.length}/${output.length} passed.`);
+const maximumAggregateRequests = Math.max(
+  0,
+  ...output.map((item) => Number(item.diagnostics.aggregateRequestsUsed ?? item.diagnostics.requestsUsed ?? 0)),
+);
+const maximumElapsedMs = Math.max(0, ...output.map((item) => Number(item.diagnostics.elapsedMs || 0)));
+const totalCacheHits = output.reduce((sum, item) => sum + Number(item.diagnostics.cacheHits || 0), 0);
+if (qaMode === "warm" && totalCacheHits === 0) {
+  hasFailure = true;
+  console.log("FAIL warm-cache: no cache hits were recorded after priming.");
+}
+console.log(`Live TMDB Recommendation QA (${qaMode}): ${output.length - failures.length}/${output.length} passed.`);
+console.log(
+  `Live QA summary: maximumAggregateRequests=${maximumAggregateRequests}; ` +
+    `maximumElapsedMs=${maximumElapsedMs}; totalCacheHits=${totalCacheHits}`,
+);
 if (failures.length) console.log(`Failed cases: ${failures.map((item) => item.caseId).join(", ")}`);
 if (hasFailure) process.exitCode = 1;

@@ -177,9 +177,19 @@ test("QA dataset contains the Sprint 9 candidate integrity contract", async () =
     "REC-QA-014",
     "REC-QA-015",
   ];
-  const addedCaseIds = ["REC-QA-016", "REC-QA-017", "REC-QA-018", "REC-QA-019", "REC-QA-020"];
+  const addedCaseIds = [
+    "REC-QA-016",
+    "REC-QA-017",
+    "REC-QA-018",
+    "REC-QA-019",
+    "REC-QA-020",
+    "REC-QA-021",
+    "REC-QA-022",
+    "REC-QA-023",
+    "REC-QA-024",
+  ];
 
-  assert.ok(dataset.length >= 20);
+  assert.ok(dataset.length >= 24);
   for (const caseId of requiredCaseIds) {
     const qaCase = dataset.find((item) => item.id === caseId);
     assert.ok(qaCase, `${caseId} must exist`);

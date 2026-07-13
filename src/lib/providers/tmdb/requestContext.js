@@ -8,6 +8,12 @@ export const TMDB_REQUEST_LIMITS = Object.freeze({
   retries: 2,
 });
 
+export const TMDB_TIME_LIMITS = Object.freeze({
+  fetchTimeoutMs: 8_000,
+  recommendationDeadlineMs: 15_000,
+  maximumRetryAfterMs: 5_000,
+});
+
 export const TMDB_CACHE_TTL = Object.freeze({
   metadata: 60 * 60 * 1000,
   detail: 30 * 60 * 1000,
@@ -23,6 +29,22 @@ export class TmdbBudgetError extends Error {
     super(message);
     this.name = "TmdbBudgetError";
     this.code = "TMDB_BUDGET_EXHAUSTED";
+  }
+}
+
+export class TmdbDeadlineError extends Error {
+  constructor(message = "TMDB recommendation deadline exceeded.") {
+    super(message);
+    this.name = "TmdbDeadlineError";
+    this.code = "TMDB_RECOMMENDATION_DEADLINE_EXCEEDED";
+  }
+}
+
+export class TmdbFetchTimeoutError extends Error {
+  constructor(message = "TMDB fetch timed out.") {
+    super(message);
+    this.name = "TmdbFetchTimeoutError";
+    this.code = "TMDB_FETCH_TIMEOUT";
   }
 }
 
@@ -71,6 +93,8 @@ function retryAfterMs(response, now) {
 }
 
 function shouldRetry(error) {
+  if (error instanceof TmdbDeadlineError) return false;
+  if (error instanceof TmdbFetchTimeoutError) return true;
   if (error?.name === "AbortError") return false;
   if (Number.isFinite(error?.status)) return RETRYABLE_STATUSES.has(error.status);
   return error instanceof TypeError || error?.code === "ECONNRESET" || error?.code === "ETIMEDOUT";
@@ -89,14 +113,27 @@ export function createTmdbRequestContext({
   now = Date.now,
   sleep = defaultSleep,
   random = Math.random,
+  fetchTimeoutMs = TMDB_TIME_LIMITS.fetchTimeoutMs,
+  recommendationDeadlineMs = TMDB_TIME_LIMITS.recommendationDeadlineMs,
+  maximumRetryAfterMs = TMDB_TIME_LIMITS.maximumRetryAfterMs,
 } = {}) {
   const requestLimits = { ...TMDB_REQUEST_LIMITS, ...limits };
+  const startedAt = now();
+  const deadlineAt = startedAt + Math.max(0, recommendationDeadlineMs);
   const inFlight = new Map();
   const requestedKeys = new Set();
   const detailRequestKeys = new Set();
   const waiters = [];
   let activeRequests = 0;
   let earlyStopReason = "";
+  const seedDiagnostics = {
+    requestedSeeds: [],
+    normalizedSeeds: [],
+    processedSeeds: [],
+    unresolvedSeeds: [],
+    deferredSeeds: [],
+    perSeedCandidateCounts: {},
+  };
 
   const state = {
     requestsUsed: 0,
@@ -109,17 +146,32 @@ export function createTmdbRequestContext({
     failedRequestCount: 0,
     duplicateDetailRequestCount: 0,
     budgetExhausted: false,
+    deadlineExceeded: false,
     maxConcurrentObserved: 0,
+    perSeedRequestCounts: {},
   };
 
+  function remainingDeadlineMs() {
+    return Math.max(0, deadlineAt - now());
+  }
+
+  function hasTimeRemaining() {
+    if (remainingDeadlineMs() > 0) return true;
+    state.deadlineExceeded = true;
+    if (!earlyStopReason) earlyStopReason = "recommendation-deadline-exceeded";
+    return false;
+  }
+
   function hasBudget(kind = "list", count = 1) {
+    if (!hasTimeRemaining()) return false;
     if (state.requestsUsed + count > requestLimits.total) return false;
     if (kind === "detail" && state.detailRequestsUsed + count > requestLimits.detail) return false;
     if (kind !== "detail" && state.listRequestsUsed + count > requestLimits.list) return false;
     return true;
   }
 
-  function reserveRequest(kind, requestKey) {
+  function reserveRequest(kind, requestKey, seedKey = "") {
+    if (!hasTimeRemaining()) throw new TmdbDeadlineError();
     if (!hasBudget(kind)) {
       state.budgetExhausted = true;
       throw new TmdbBudgetError();
@@ -131,6 +183,9 @@ export function createTmdbRequestContext({
       state.detailRequestsUsed += 1;
     } else {
       state.listRequestsUsed += 1;
+    }
+    if (seedKey) {
+      state.perSeedRequestCounts[seedKey] = (state.perSeedRequestCounts[seedKey] || 0) + 1;
     }
     requestedKeys.add(requestKey);
   }
@@ -148,18 +203,31 @@ export function createTmdbRequestContext({
     waiters.shift()?.();
   }
 
-  async function fetchOnce(path, params, kind, requestKey) {
-    reserveRequest(kind, requestKey);
+  async function fetchOnce(path, params, kind, requestKey, seedKey) {
     const searchParams = normalizedSearchParams(params, language);
     if (apiKey) searchParams.set("api_key", apiKey);
     const headers = { accept: "application/json" };
     if (bearer) headers.Authorization = `Bearer ${bearer}`;
 
     await acquireSlot();
+    let timeoutId;
+    let timedOut = false;
+    let deadlineBound = false;
     try {
+      if (!hasTimeRemaining()) throw new TmdbDeadlineError();
+      reserveRequest(kind, requestKey, seedKey);
+      const remainingMs = remainingDeadlineMs();
+      const controller = new AbortController();
+      const effectiveTimeoutMs = Math.max(1, Math.min(fetchTimeoutMs, remainingMs));
+      deadlineBound = remainingMs <= fetchTimeoutMs;
+      timeoutId = setTimeout(() => {
+        timedOut = true;
+        controller.abort();
+      }, effectiveTimeoutMs);
       const response = await fetchImpl(`${baseUrl}${path}?${searchParams.toString()}`, {
         headers,
         cache: "no-store",
+        signal: controller.signal,
       });
       if (!response.ok) {
         state.failedRequestCount += 1;
@@ -169,17 +237,26 @@ export function createTmdbRequestContext({
       return response.json();
     } catch (error) {
       if (!(error instanceof TmdbHttpError)) state.failedRequestCount += 1;
+      if (timedOut) {
+        if (deadlineBound || remainingDeadlineMs() <= 0) {
+          state.deadlineExceeded = true;
+          if (!earlyStopReason) earlyStopReason = "recommendation-deadline-exceeded";
+          throw new TmdbDeadlineError();
+        }
+        throw new TmdbFetchTimeoutError();
+      }
       throw error;
     } finally {
+      if (timeoutId) clearTimeout(timeoutId);
       releaseSlot();
     }
   }
 
-  async function fetchWithRetry(path, params, kind, requestKey) {
+  async function fetchWithRetry(path, params, kind, requestKey, seedKey) {
     let attempt = 0;
     while (true) {
       try {
-        return await fetchOnce(path, params, kind, requestKey);
+        return await fetchOnce(path, params, kind, requestKey, seedKey);
       } catch (error) {
         if (!shouldRetry(error) || attempt >= requestLimits.retries) throw error;
         if (!hasBudget(kind)) {
@@ -188,7 +265,19 @@ export function createTmdbRequestContext({
         }
         const exponentialDelay = 150 * 2 ** attempt;
         const jitter = Math.floor(random() * 100);
-        const delay = error.retryAfterMs > 0 ? error.retryAfterMs : exponentialDelay + jitter;
+        const requestedDelay = error.retryAfterMs > 0 ? error.retryAfterMs : exponentialDelay + jitter;
+        const remainingMs = remainingDeadlineMs();
+        if (remainingMs <= 0) {
+          state.deadlineExceeded = true;
+          if (!earlyStopReason) earlyStopReason = "recommendation-deadline-exceeded";
+          throw new TmdbDeadlineError();
+        }
+        const delay = Math.min(requestedDelay, maximumRetryAfterMs, remainingMs);
+        if (delay <= 0 || delay >= remainingMs) {
+          state.deadlineExceeded = true;
+          if (!earlyStopReason) earlyStopReason = "recommendation-deadline-exceeded";
+          throw new TmdbDeadlineError();
+        }
         state.retryCount += 1;
         attempt += 1;
         await sleep(delay);
@@ -196,7 +285,12 @@ export function createTmdbRequestContext({
     }
   }
 
-  async function get(path, params = {}, { kind = "list", ttlMs = TMDB_CACHE_TTL.list } = {}) {
+  async function get(
+    path,
+    params = {},
+    { kind = "list", ttlMs = TMDB_CACHE_TTL.list, seedKey = "" } = {},
+  ) {
+    if (!hasTimeRemaining()) throw new TmdbDeadlineError();
     const requestKey = safeRequestKey(path, params, language, region);
     const cacheEntry = responseCache.get(requestKey);
     if (cacheEntry && cacheEntry.expiresAt > now()) {
@@ -210,7 +304,7 @@ export function createTmdbRequestContext({
       return inFlight.get(requestKey);
     }
 
-    const requestPromise = fetchWithRetry(path, params, kind, requestKey)
+    const requestPromise = fetchWithRetry(path, params, kind, requestKey, seedKey)
       .then((value) => {
         pruneCache(now());
         responseCache.set(requestKey, { value, expiresAt: now() + ttlMs });
@@ -226,10 +320,30 @@ export function createTmdbRequestContext({
     if (reason && !earlyStopReason) earlyStopReason = reason;
   }
 
+  function setSeedDiagnostics({
+    requestedSeeds,
+    normalizedSeeds,
+    processedSeeds,
+    unresolvedSeeds,
+    deferredSeeds,
+    perSeedCandidateCounts,
+  } = {}) {
+    if (Array.isArray(requestedSeeds)) seedDiagnostics.requestedSeeds = [...requestedSeeds];
+    if (Array.isArray(normalizedSeeds)) seedDiagnostics.normalizedSeeds = [...normalizedSeeds];
+    if (Array.isArray(processedSeeds)) seedDiagnostics.processedSeeds = [...processedSeeds];
+    if (Array.isArray(unresolvedSeeds)) seedDiagnostics.unresolvedSeeds = [...unresolvedSeeds];
+    if (Array.isArray(deferredSeeds)) seedDiagnostics.deferredSeeds = [...deferredSeeds];
+    if (perSeedCandidateCounts && typeof perSeedCandidateCounts === "object") {
+      seedDiagnostics.perSeedCandidateCounts = { ...perSeedCandidateCounts };
+    }
+  }
+
   function diagnostics() {
+    const elapsedMs = Math.max(0, now() - startedAt);
     return {
       requestBudget: requestLimits.total,
       requestsUsed: state.requestsUsed,
+      aggregateRequestsUsed: state.requestsUsed,
       remainingBudget: Math.max(0, requestLimits.total - state.requestsUsed),
       listRequestBudget: requestLimits.list,
       listRequestsUsed: state.listRequestsUsed,
@@ -245,7 +359,24 @@ export function createTmdbRequestContext({
       failedRequestCount: state.failedRequestCount,
       duplicateDetailRequestCount: state.duplicateDetailRequestCount,
       budgetExhausted: state.budgetExhausted,
+      deadlineExceeded: state.deadlineExceeded,
+      elapsedMs,
+      maximumFetchTimeoutMs: fetchTimeoutMs,
+      maximumRetryAfterMs,
+      recommendationDeadlineMs,
       earlyStopReason,
+      requestContextCount: 1,
+      requestedSeedCount: seedDiagnostics.normalizedSeeds.length,
+      processedSeedCount: seedDiagnostics.processedSeeds.length,
+      unresolvedSeedCount: seedDiagnostics.unresolvedSeeds.length,
+      deferredSeedCount: seedDiagnostics.deferredSeeds.length,
+      requestedSeeds: [...seedDiagnostics.requestedSeeds],
+      normalizedSeeds: [...seedDiagnostics.normalizedSeeds],
+      processedSeeds: [...seedDiagnostics.processedSeeds],
+      unresolvedSeeds: [...seedDiagnostics.unresolvedSeeds],
+      deferredSeeds: [...seedDiagnostics.deferredSeeds],
+      perSeedRequestCounts: { ...state.perSeedRequestCounts },
+      perSeedCandidateCounts: { ...seedDiagnostics.perSeedCandidateCounts },
       requestedUrls: [...requestedKeys],
     };
   }
@@ -253,7 +384,10 @@ export function createTmdbRequestContext({
   return {
     get,
     hasBudget,
+    hasTimeRemaining,
+    remainingDeadlineMs,
     setEarlyStop,
+    setSeedDiagnostics,
     diagnostics,
     limits: requestLimits,
   };

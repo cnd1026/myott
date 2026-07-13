@@ -57,3 +57,9 @@ Sprint 9 Founder QA에서 국가가 선택된 요청도 기존 progressive fallb
 Candidate 품질을 높이기 위해 TMDB 호출량을 무제한 늘리는 방식은 응답 지연과 Rate Limit 위험을 제품 신뢰 문제로 바꿉니다. Recommendation Architecture v2.1부터 요청당 전체 24회, 목록 8회, Detail 16회, 동시 4회의 application-level budget을 적용합니다.
 
 Discover는 exact 조건을 단계적으로 실행하고 충분한 후보가 확보되면 조기 종료합니다. 동일 요청은 deduplicate하고, 짧은 TTL의 best-effort cache를 사용하며, 429와 일시 오류만 최대 두 번 재시도합니다. Primary는 exact 장르 후보를 최소 80% 유지하고 same-country-relaxed를 최대 20%로 제한합니다. 예산이 소진되면 확보한 TMDB 결과만 반환하며 Mock 또는 외국 작품으로 조용히 채우지 않습니다.
+
+## DL-014 TMDB 예산을 Multi-Seed Recommendation Action 단위로 공유
+
+Seed마다 별도 `/api/search`와 Request Context를 생성하면 개별 24회 제한을 지켜도 사용자 추천 동작 전체 호출량이 Seed 수에 비례해 증가합니다. Recommendation Architecture v2.2부터 실제 Submit은 단일 `POST /api/recommend/seeds`를 사용하고 모든 Search, Recommendations, Similar, Discover, Detail 요청이 하나의 Context와 24/8/16 예산을 공유합니다.
+
+Seed는 Search, Recommendations, Similar, Discover phase 순으로 round-robin 처리합니다. 일부 Seed 실패나 전체 Deadline 도달 시 성공한 TMDB 결과를 유지하며 Mock과 혼합하지 않습니다. 처리하지 못한 Seed는 deferred, 검색 결과가 없는 Seed는 unresolved로 명시합니다. 개별 Fetch 8초, 전체 Action 15초, Retry-After 5초 상한을 적용하며 Live QA는 Product 경로의 Cold/Warm 실행을 분리합니다.

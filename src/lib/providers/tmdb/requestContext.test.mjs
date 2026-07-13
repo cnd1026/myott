@@ -3,6 +3,8 @@ import assert from "node:assert/strict";
 
 import {
   TmdbBudgetError,
+  TmdbDeadlineError,
+  TmdbFetchTimeoutError,
   clearTmdbRequestCache,
   createTmdbRequestContext,
 } from "./requestContext.js";
@@ -165,4 +167,80 @@ test("concurrent work never exceeds the configured request limit", async () => {
 
   assert.equal(maximumActive, 4);
   assert.equal(context.diagnostics().maxConcurrentObserved, 4);
+});
+
+test("individual fetch timeout aborts a stalled request", async () => {
+  const context = createTmdbRequestContext({
+    fetchImpl: async (url, { signal }) => new Promise((resolve, reject) => {
+      signal.addEventListener("abort", () => reject(Object.assign(new Error("aborted"), { name: "AbortError" })));
+    }),
+    limits: { retries: 0 },
+    fetchTimeoutMs: 10,
+    recommendationDeadlineMs: 100,
+  });
+
+  await assert.rejects(
+    context.get("/search/multi", { query: "stalled" }),
+    (error) => error instanceof TmdbFetchTimeoutError,
+  );
+  assert.equal(context.diagnostics().requestsUsed, 1);
+  assert.equal(context.diagnostics().deadlineExceeded, false);
+});
+
+test("Retry-After waits are capped at five seconds", async () => {
+  let fetchCount = 0;
+  const delays = [];
+  const context = createTmdbRequestContext({
+    fetchImpl: async () => {
+      fetchCount += 1;
+      return fetchCount === 1
+        ? response(429, {}, { "retry-after": "30" })
+        : response(200, { ok: true });
+    },
+    sleep: async (delay) => delays.push(delay),
+    maximumRetryAfterMs: 5_000,
+  });
+
+  await context.get("/discover/movie", { page: 1 });
+  assert.deepEqual(delays, [5_000]);
+  assert.equal(context.diagnostics().maximumRetryAfterMs, 5_000);
+});
+
+test("retry does not wait through the remaining recommendation deadline", async () => {
+  const delays = [];
+  const context = createTmdbRequestContext({
+    fetchImpl: async () => response(429, {}, { "retry-after": "30" }),
+    sleep: async (delay) => delays.push(delay),
+    recommendationDeadlineMs: 2_000,
+    maximumRetryAfterMs: 5_000,
+  });
+
+  await assert.rejects(
+    context.get("/discover/movie", { page: 1 }),
+    (error) => error instanceof TmdbDeadlineError,
+  );
+  assert.deepEqual(delays, []);
+  assert.equal(context.diagnostics().deadlineExceeded, true);
+});
+
+test("request diagnostics report one aggregate context", async () => {
+  const context = createTmdbRequestContext({
+    fetchImpl: async () => response(200, { ok: true }),
+  });
+  context.setSeedDiagnostics({
+    requestedSeeds: ["A", "B"],
+    normalizedSeeds: ["A", "B"],
+    processedSeeds: ["A"],
+    unresolvedSeeds: [],
+    deferredSeeds: ["B"],
+    perSeedCandidateCounts: { A: 4, B: 0 },
+  });
+
+  await context.get("/search/multi", { query: "A" }, { seedKey: "A" });
+  const diagnostics = context.diagnostics();
+  assert.equal(diagnostics.requestContextCount, 1);
+  assert.equal(diagnostics.aggregateRequestsUsed, diagnostics.requestsUsed);
+  assert.deepEqual(diagnostics.perSeedRequestCounts, { A: 1 });
+  assert.equal(diagnostics.processedSeedCount, 1);
+  assert.equal(diagnostics.deferredSeedCount, 1);
 });

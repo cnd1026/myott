@@ -1,5 +1,9 @@
 import { mockContents } from "./data.js";
 import { finalizeCandidatePool } from "../../recommendation/candidates/candidatePipeline.js";
+import {
+  mergeMultiSeedCandidates,
+  normalizeSeedTitles,
+} from "../../recommendation/seeds/multiSeed.js";
 
 const DEFAULT_LIMIT = 12;
 
@@ -166,6 +170,71 @@ export const mockProvider = {
     if (payload.results.length) return payload;
     if (filters.some((filter) => filter.startsWith("country-"))) return payload;
     return finalizeCandidatePool(fallbackResults(contentTypes, limit), { filters, contentTypes, limit });
+  },
+
+  async getSeedRecommendations({ titles = [], filters = [], contentTypes = [], limit = DEFAULT_LIMIT } = {}) {
+    const normalizedInput = normalizeSeedTitles(titles);
+    const supplement = progressiveRecommendationPayload(filters, contentTypes, limit).results;
+    const seedGroups = normalizedInput.entries.map((entry) => ({
+      title: entry.title,
+      seed: { title: entry.title, genreIds: [] },
+      candidates: [
+        ...mockContents
+          .filter((content) => contentMatchesTypes(content, contentTypes))
+          .filter((content) => contentMatchesQuery(content, entry.title))
+          .map((content) => ({ ...cloneContent(content), candidateSource: "mock-seed-match" })),
+        ...supplement.map((content) => ({
+          ...cloneContent(content),
+          candidateSource: "mock-seed-supplement",
+          seedSupplement: true,
+        })),
+      ],
+    }));
+    const merged = mergeMultiSeedCandidates(seedGroups, normalizedInput.normalizedSeeds);
+    const finalized = finalizeCandidatePool(merged, {
+      filters,
+      contentTypes,
+      limit,
+      seedTitles: normalizedInput.normalizedSeeds,
+    });
+    const processedSeeds = normalizedInput.normalizedSeeds;
+
+    return {
+      ...finalized,
+      seedResults: processedSeeds.map((title) => ({
+        title,
+        normalizedTitle: title,
+        status: "processed",
+        tmdbId: null,
+        resolvedTitle: title,
+        contentType: "",
+        candidateCount: seedGroups.find((group) => group.title === title)?.candidates.length || 0,
+        phases: ["mock-fallback"],
+      })),
+      requestedSeedCount: processedSeeds.length,
+      processedSeedCount: processedSeeds.length,
+      unresolvedSeedCount: 0,
+      deferredSeedCount: 0,
+      processedSeeds,
+      unresolvedSeeds: [],
+      deferredSeeds: [],
+      diagnostics: {
+        ...finalized.diagnostics,
+        requestContextCount: 0,
+        requestBudget: 0,
+        requestsUsed: 0,
+        aggregateRequestsUsed: 0,
+        listRequestsUsed: 0,
+        detailRequestsUsed: 0,
+        requestedSeedCount: processedSeeds.length,
+        processedSeedCount: processedSeeds.length,
+        unresolvedSeedCount: 0,
+        deferredSeedCount: 0,
+        processedSeeds,
+        unresolvedSeeds: [],
+        deferredSeeds: [],
+      },
+    };
   },
 
   async getRelated({ providerContentId, contentTypes = [], limit = DEFAULT_LIMIT } = {}) {

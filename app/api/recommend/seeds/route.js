@@ -1,0 +1,131 @@
+import {
+  getActiveProvider,
+  getFallbackProvider,
+  isTmdbProviderEnabled,
+} from "../../../../src/lib/providers/registry";
+
+function sourceMetadata(provider, {
+  message = "",
+  fallbackUsed = false,
+  fallbackReason = "",
+  dataSource,
+} = {}) {
+  return {
+    source: provider.id,
+    dataSource: dataSource || (fallbackUsed ? "fallback" : provider.id),
+    providerId: provider.id,
+    providerName: provider.name,
+    tmdbEnabled: isTmdbProviderEnabled(),
+    fallbackUsed,
+    fallbackReason,
+    message,
+  };
+}
+
+function stringArray(value) {
+  return (Array.isArray(value) ? value : [])
+    .filter((item) => typeof item === "string")
+    .map((item) => item.trim())
+    .filter(Boolean);
+}
+
+async function recommendWithProvider(
+  provider,
+  { titles, filters, contentTypes },
+  sourceOptions = {},
+) {
+  const payload = await provider.getSeedRecommendations({
+    titles,
+    filters,
+    contentTypes,
+    limit: 12,
+  });
+  const results = Array.isArray(payload) ? payload : payload.results || [];
+  const metadata = sourceMetadata(provider, sourceOptions);
+  const dataSource = !metadata.fallbackUsed && !results.length ? "empty" : metadata.dataSource;
+
+  return {
+    ...metadata,
+    dataSource,
+    results,
+    relaxedResults: Array.isArray(payload) ? [] : payload.relaxedResults || [],
+    seedResults: Array.isArray(payload) ? [] : payload.seedResults || [],
+    processedSeeds: Array.isArray(payload) ? [] : payload.processedSeeds || [],
+    unresolvedSeeds: Array.isArray(payload) ? [] : payload.unresolvedSeeds || [],
+    deferredSeeds: Array.isArray(payload) ? [] : payload.deferredSeeds || [],
+    requestedSeedCount: Array.isArray(payload) ? titles.length : payload.requestedSeedCount || 0,
+    processedSeedCount: Array.isArray(payload) ? 0 : payload.processedSeedCount || 0,
+    unresolvedSeedCount: Array.isArray(payload) ? 0 : payload.unresolvedSeedCount || 0,
+    deferredSeedCount: Array.isArray(payload) ? 0 : payload.deferredSeedCount || 0,
+    diagnostics: Array.isArray(payload) ? {} : payload.diagnostics || {},
+  };
+}
+
+export async function POST(request) {
+  let body;
+  try {
+    body = await request.json();
+  } catch {
+    return Response.json({ error: "Invalid JSON body." }, { status: 400 });
+  }
+
+  const input = {
+    titles: stringArray(body?.titles),
+    contentTypes: stringArray(body?.contentTypes),
+    filters: stringArray(body?.filters),
+  };
+  const activeProvider = getActiveProvider();
+
+  if (!input.titles.length) {
+    return Response.json({
+      source: "empty",
+      dataSource: "empty",
+      providerId: activeProvider.id,
+      providerName: activeProvider.name,
+      tmdbEnabled: isTmdbProviderEnabled(),
+      fallbackUsed: false,
+      fallbackReason: "",
+      results: [],
+      relaxedResults: [],
+      seedResults: [],
+      processedSeeds: [],
+      unresolvedSeeds: [],
+      deferredSeeds: [],
+      requestedSeedCount: 0,
+      processedSeedCount: 0,
+      unresolvedSeedCount: 0,
+      deferredSeedCount: 0,
+      diagnostics: {},
+    }, {
+      headers: { "Cache-Control": "no-store" },
+    });
+  }
+
+  if (activeProvider.id === "mock") {
+    return Response.json(await recommendWithProvider(activeProvider, input, {
+      dataSource: "fallback",
+      fallbackUsed: true,
+      fallbackReason: "TMDB API key is not configured.",
+      message: "TMDB API key is not configured. Mock Provider results are used.",
+    }), {
+      headers: { "Cache-Control": "no-store" },
+    });
+  }
+
+  try {
+    return Response.json(await recommendWithProvider(activeProvider, input), {
+      headers: { "Cache-Control": "no-store" },
+    });
+  } catch (error) {
+    const fallbackProvider = getFallbackProvider();
+    const message = error instanceof Error ? error.message : "TMDB multi-seed recommendation failed.";
+    return Response.json(await recommendWithProvider(fallbackProvider, input, {
+      dataSource: "fallback",
+      fallbackUsed: true,
+      fallbackReason: message,
+      message: `${message} Mock Provider results are used.`,
+    }), {
+      headers: { "Cache-Control": "no-store" },
+    });
+  }
+}

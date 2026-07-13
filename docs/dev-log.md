@@ -2,6 +2,48 @@
 
 개발 과정에서의 작업 내용, 결정, 아쉬운 점, 다음 개선 사항을 날짜별로 기록합니다.
 
+## 2026-07-13 - MYOTT-S09-006A1
+
+### 변경 전 Multi-Seed Baseline
+
+- `app/page.jsx`의 실제 추천 Submit은 고유 Seed를 순회하며 Seed마다 `GET /api/search`를 한 번씩 호출합니다.
+- 각 `/api/search` 요청은 `searchTmdb()` 안에서 독립 `createRequestContext()`를 생성합니다.
+- Recommendation Action 기준 예상 최대 TMDB 호출은 Seed 1개 24회, 3개 72회, 5개 120회입니다.
+- Live Runner는 Seed별 `tmdbProvider.search()`를 호출한 뒤 결과를 자체 병합합니다. `requestsUsed`는 Seed별 최대값, `aggregateRequestsUsed`는 독립 Context 사용량의 사후 합계입니다.
+- 개별 외부 Fetch Timeout은 없습니다.
+- 전체 Recommendation Deadline은 없습니다.
+- `Retry-After` 대기 상한은 없으며 응답 값 전체를 기다릴 수 있습니다.
+- 현재 Context 예산은 개별 서버 요청에는 적용되지만 사용자 추천 동작 전체에는 적용되지 않습니다.
+
+### 구현 결과
+
+- 실제 Submit을 단일 `POST /api/recommend/seeds`로 변경하고 Provider의 통합 Seed 경로를 사용합니다.
+- 하나의 Context가 Search, Recommendations, Similar, Discover Supplement, Detail과 retry/cache diagnostics를 공유합니다.
+- Cold Search는 목록 예산의 절반인 최대 4개 Seed를 예약하고 나머지는 `deferredSeeds`로 명시합니다.
+- Recommendations가 충분하면 Similar와 Discover를 실행하지 않으며, 부족한 Seed부터 다음 phase를 round-robin 처리합니다.
+- 모든 입력 Seed를 통합 후보의 최종 Weight Engine에 한 번 전달하고 공통 후보, Seed별 후보, supplement 순으로 조립합니다.
+- 개별 Fetch 8초, 전체 Action 15초, Retry-After 5초 상한을 추가했습니다.
+- 일부 Seed 실패 또는 Deadline에서는 성공한 TMDB 결과를 유지하고 Mock을 혼합하지 않습니다.
+- `TMDB_BEARER_TOKEN`을 canonical Bearer 환경 변수명으로 Runner 안내까지 통일했습니다.
+
+### 검증 결과
+
+| 검증 | 결과 |
+| --- | --- |
+| Unit / Integration | 29 / 29 PASS |
+| Deterministic Dataset | 24 / 24 PASS |
+| Seed 3개 Fixed Fixture | Context 1개, aggregate 22회, 세 Seed 기여 |
+| Seed 10개 Fixed Fixture | Context 1개, aggregate 24회, processed 4 / deferred 6 |
+| Partial Failure Fixture | 성공 Seed TMDB 결과 유지, Mock 혼합 없음 |
+| Deadline Fixture | 부분 결과 반환, deadlineExceeded 기록, 후속 phase 미호출 |
+| Live Cold | 22 / 22 PASS, 최대 aggregate 24회, 최대 2,097ms |
+| Live Warm | 22 / 22 PASS, 측정 외부 호출 0회, cache hit 433회, 최대 27ms |
+| Production Build | PASS |
+| Dev / API Smoke | 3001 PASS, 1/3/10 Seed와 partial failure 확인 |
+| Browser Smoke | 3 Seed 결과 12개, Detail Layer, Related Pick 전환 PASS |
+
+브라우저 런타임 오류는 발견되지 않았으며 Founder의 실제 UI 체감 Review는 Pending입니다.
+
 ## 2026-07-13 - MYOTT-S09-006A
 
 ### 변경 전 요청 Baseline

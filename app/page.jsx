@@ -383,10 +383,6 @@ function titleMatchesSeed(item, seedTitle) {
   return [item.title, item.originalTitle, item.name, item.originalName].some((title) => normalizeTitleKey(title) === seedKey);
 }
 
-function filterSeedResults(results, seedTitles) {
-  return results.filter((item) => !seedTitles.some((seedTitle) => titleMatchesSeed(item, seedTitle)));
-}
-
 function isImageUrl(value) {
   return typeof value === "string" && /^https?:\/\//.test(value);
 }
@@ -770,51 +766,6 @@ function sortProviderResults(results, selectedTypes, quickPicks, selectedOtt, op
     });
 }
 
-function balanceSeedDiversity(sortedResults, seedTitles) {
-  if (seedTitles.length <= 1) return sortedResults;
-
-  const seedOrder = seedTitles.map(cleanSeedTitleForDisplay).filter(Boolean);
-  const commonResults = sortedResults.filter((item) => item.seedCount > 1);
-  const singleSeedGroups = new Map(seedOrder.map((seed) => [seed, []]));
-  const ungrouped = [];
-
-  for (const item of sortedResults) {
-    if (item.seedCount > 1) continue;
-    const seed = cleanSeedTitleForDisplay(item.reasonSeed || item.reasonSeeds?.[0]);
-    if (singleSeedGroups.has(seed)) {
-      singleSeedGroups.get(seed).push(item);
-    } else {
-      ungrouped.push(item);
-    }
-  }
-
-  const balanced = [...commonResults];
-  let cursor = 0;
-
-  while (balanced.length < targetProviderResultCount) {
-    let added = false;
-
-    for (const seed of seedOrder) {
-      const group = singleSeedGroups.get(seed) || [];
-      const item = group[cursor];
-      if (!item) continue;
-      balanced.push(item);
-      added = true;
-      if (balanced.length >= targetProviderResultCount) break;
-    }
-
-    if (!added) break;
-    cursor += 1;
-  }
-
-  for (const item of ungrouped) {
-    if (balanced.length >= targetProviderResultCount) break;
-    balanced.push(item);
-  }
-
-  return balanced;
-}
-
 function filterFocusedContentTypes(results, selectedTypes) {
   if (!hasFocusedSelectedTypes(selectedTypes)) return results;
   return results.filter((item) => isSelectedContentType(item, selectedTypes));
@@ -977,67 +928,72 @@ function logRecommendationSource(context, payload, resultCount = 0) {
     fallbackUsed: Boolean(payload.fallbackUsed),
     fallbackReason: payload.fallbackReason || "",
     resultCount,
+    requestsUsed: payload.diagnostics?.requestsUsed,
+    aggregateRequestsUsed: payload.diagnostics?.aggregateRequestsUsed,
+    processedSeedCount: payload.processedSeedCount,
+    unresolvedSeedCount: payload.unresolvedSeedCount,
+    deferredSeedCount: payload.deferredSeedCount,
   });
 }
 
 async function fetchProviderRecommendations(titles, selectedTypes, quickPicks, selectedOtt, optionMetadata, labelByValue) {
   const uniqueTitles = [...new Set(titles)];
   const filters = [...quickPicks, ...selectedOtt];
-  const tmdbResults = [];
-  const fallbackResults = [];
-  const providerStatuses = [];
+  const response = await fetch("/api/recommend/seeds", {
+    method: "POST",
+    cache: "no-store",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      titles: uniqueTitles,
+      contentTypes: selectedTypes,
+      filters,
+    }),
+  });
 
-  for (const title of uniqueTitles) {
-    const params = new URLSearchParams({
-      q: title,
-      types: selectedTypes.join(","),
-      filters: filters.join(","),
-      seeds: JSON.stringify(uniqueTitles),
-    });
-    const response = await fetch(`/api/search?${params.toString()}`, {
-      cache: "no-store",
-    });
-
-    if (!response.ok) {
-      throw new Error(`Search request failed: ${response.status}`);
-    }
-
-    const payload = await response.json();
-    logRecommendationSource(`search:${title}`, payload, payload.results?.length || 0);
-    const status = providerStatusFromPayload(payload);
-    providerStatuses.push(status);
-    const normalizedResults = (payload.results || [])
-      .map((item) =>
-        normalizeProviderResult(
-          {
-            ...item,
-            dataSource: payload.dataSource || payload.source,
-            fallbackUsed: Boolean(payload.fallbackUsed),
-          },
-          quickPicks,
-          title,
-          labelByValue,
-          selectedOtt,
-        ),
-      )
-      .filter((item) => !titleMatchesSeed(item, title));
-
-    if (status.fallback) {
-      fallbackResults.push(...normalizedResults);
-    } else {
-      tmdbResults.push(...normalizedResults);
-    }
+  if (!response.ok) {
+    throw new Error(`Multi-seed recommendation request failed: ${response.status}`);
   }
 
-  const sourceResults = tmdbResults.length ? tmdbResults : fallbackResults;
-  const mergedResults = mergeProviderResults(filterSeedResults(sourceResults, uniqueTitles));
-  const eligibleResults = filterFocusedContentTypes(mergedResults, selectedTypes);
-  const sortedResults = sortProviderResults(eligibleResults, selectedTypes, quickPicks, selectedOtt, optionMetadata, uniqueTitles);
-  const seedBalancedResults = balanceSeedDiversity(sortedResults, uniqueTitles);
-  const balancedResults = balanceContentDiversity(seedBalancedResults, selectedTypes);
-  const results = balancedResults.slice(0, targetProviderResultCount);
+  const payload = await response.json();
+  logRecommendationSource("multi-seed", payload, payload.results?.length || 0);
+  const normalizedResults = (payload.results || [])
+    .map((item) =>
+      normalizeProviderResult(
+        {
+          ...item,
+          dataSource: payload.dataSource || payload.source,
+          fallbackUsed: Boolean(payload.fallbackUsed),
+        },
+        quickPicks,
+        item.reasonSeed || item.seedTitle || "",
+        labelByValue,
+        selectedOtt,
+      ),
+    )
+    .filter((item) => !uniqueTitles.some((title) => titleMatchesSeed(item, title)))
+    .filter((item) => !hasFocusedSelectedTypes(selectedTypes) || isSelectedContentType(item, selectedTypes))
+    .map((item) => ({
+      ...item,
+      score: item.scoreDetail?.finalScore ?? 0,
+      recommendationInsight: analyzeProviderResult(
+        item,
+        selectedTypes,
+        quickPicks,
+        selectedOtt,
+        optionMetadata,
+      ).insight,
+    }));
+  const results = normalizedResults.slice(0, targetProviderResultCount);
 
-  return { results, providerStatus: combineProviderStatuses(providerStatuses, results) };
+  return {
+    results,
+    providerStatus: providerStatusFromPayload(payload),
+    seedDiagnostics: {
+      processedSeeds: payload.processedSeeds || [],
+      unresolvedSeeds: payload.unresolvedSeeds || [],
+      deferredSeeds: payload.deferredSeeds || [],
+    },
+  };
 }
 
 async function fetchOptionRecommendations(selectedTypes, quickPicks, selectedOtt, optionMetadata, labelByValue) {

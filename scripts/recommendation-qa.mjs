@@ -1,5 +1,11 @@
 import { readFile } from "node:fs/promises";
 
+import { recommendSeedsTmdb } from "../lib/tmdb.js";
+import { clearTmdbRequestCache } from "../src/lib/providers/tmdb/requestContext.js";
+import {
+  createFixtureFetch,
+  createRecommendationContextFactory,
+} from "../src/lib/providers/tmdb/testing/multiSeedFixture.mjs";
 import { finalizeCandidatePool } from "../src/lib/recommendation/candidates/candidatePipeline.js";
 import { evaluateRecommendationCase } from "../src/lib/recommendation/qa/evaluateRecommendationCase.js";
 
@@ -148,9 +154,37 @@ const diagnostics = {
   duplicateDetailRequestCount: 0,
   budgetExhausted: false,
 };
-const reports = dataset.map((testCase) =>
-  evaluateRecommendationCase(testCase, buildCaseResults(testCase), { diagnostics }),
-);
+const multiSeedCaseIds = new Set(["REC-QA-021", "REC-QA-022", "REC-QA-023", "REC-QA-024"]);
+const reports = [];
+
+for (const testCase of dataset) {
+  if (!multiSeedCaseIds.has(testCase.id)) {
+    reports.push(evaluateRecommendationCase(testCase, buildCaseResults(testCase), { diagnostics }));
+    continue;
+  }
+
+  clearTmdbRequestCache();
+  const fixture = createFixtureFetch(
+    testCase.id === "REC-QA-024"
+      ? { stallRecommendationTitles: ["Seed Beta"] }
+      : {},
+  );
+  const contextFactory = createRecommendationContextFactory(
+    fixture,
+    testCase.id === "REC-QA-024"
+      ? { fetchTimeoutMs: 100, recommendationDeadlineMs: 30 }
+      : {},
+  );
+  const payload = await recommendSeedsTmdb({
+    titles: testCase.input?.titles || [],
+    contentTypes: testCase.input?.contentTypes || [],
+    filters: testCase.input?.filters || [],
+    requestContextFactory: contextFactory.factory,
+  });
+  reports.push(evaluateRecommendationCase(testCase, payload.results || [], {
+    diagnostics: payload.diagnostics || {},
+  }));
+}
 
 for (const report of reports) {
   const status = report.pass ? "PASS" : "FAIL";

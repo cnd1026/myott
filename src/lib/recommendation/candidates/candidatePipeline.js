@@ -302,12 +302,60 @@ function compareCandidates(left, right) {
     Number(right.countryMatched) - Number(left.countryMatched) ||
     Number(right.genreMatched) - Number(left.genreMatched) ||
     Number(right.contentTypeMatched) - Number(left.contentTypeMatched) ||
+    Number(right.seedCount || 0) - Number(left.seedCount || 0) ||
     Number(right.scoreDetail?.finalScore || 0) - Number(left.scoreDetail?.finalScore || 0) ||
     Number(right.voteCount || right.vote_count || 0) - Number(left.voteCount || left.vote_count || 0) ||
     Number(right.popularity || 0) - Number(left.popularity || 0) ||
     Number(right.rating || right.vote_average || 0) - Number(left.rating || left.vote_average || 0) ||
     String(left.title || "").localeCompare(String(right.title || ""), "ko")
   );
+}
+
+function balanceSeedSources(items = [], seedTitles = [], contentTypes = [], limit = PRIMARY_RESULT_LIMIT) {
+  if (seedTitles.length <= 1) return balanceTypes(items, contentTypes, limit);
+
+  const normalizedSeedOrder = seedTitles.map(normalizeText).filter(Boolean);
+  const common = items.filter((item) => Number(item.seedCount || item.reasonSeeds?.length || 0) > 1);
+  const directGroups = new Map(normalizedSeedOrder.map((seed) => [seed, []]));
+  const supplementGroups = new Map(normalizedSeedOrder.map((seed) => [seed, []]));
+  const ungrouped = [];
+
+  for (const item of items) {
+    if (common.includes(item)) continue;
+    const seed = normalizeText(item.reasonSeed || item.seedTitle || item.reasonSeeds?.[0]);
+    const target = item.seedSupplement ? supplementGroups : directGroups;
+    if (target.has(seed)) target.get(seed).push(item);
+    else ungrouped.push(item);
+  }
+
+  for (const groups of [directGroups, supplementGroups]) {
+    for (const [seed, group] of groups) {
+      groups.set(seed, balanceTypes(group, contentTypes, group.length));
+    }
+  }
+
+  const balanced = common.slice(0, limit);
+  for (const groups of [directGroups, supplementGroups]) {
+    let cursor = 0;
+    while (balanced.length < limit) {
+      let added = false;
+      for (const seed of normalizedSeedOrder) {
+        const item = groups.get(seed)?.[cursor];
+        if (!item) continue;
+        balanced.push(item);
+        added = true;
+        if (balanced.length >= limit) break;
+      }
+      if (!added) break;
+      cursor += 1;
+    }
+  }
+
+  for (const item of ungrouped) {
+    if (balanced.length >= limit) break;
+    balanced.push(item);
+  }
+  return balanced;
 }
 
 function dedupeCandidates(items = [], { franchiseLimit = 1 } = {}) {
@@ -483,12 +531,17 @@ export function finalizeCandidatePool(
   const scored = classified.map((item) => scoreCandidate(item, preferences)).sort(compareCandidates);
   const relaxedEligible = country ? scored.filter((item) => item.resultTier === "country-relaxed") : [];
   const exactDedupe = dedupeCandidates(scored.filter((item) => item.resultTier === "exact"));
-  const exactResults = balanceTypes(exactDedupe.kept, contentTypes, limit);
+  const exactResults = balanceSeedSources(exactDedupe.kept, seedTitles, contentTypes, limit);
   const sameCountryDedupe = dedupeCandidates(scored.filter((item) => item.resultTier === "same-country-relaxed"));
   const sameCountryEligible = dedupeAgainst(sameCountryDedupe.kept, exactResults);
   const remainingSlots = Math.max(0, limit - exactResults.length);
   const maxSameCountryRelaxed = Math.min(remainingSlots, Math.floor(exactResults.length * 0.25));
-  const sameCountryResults = balanceTypes(sameCountryEligible.eligible, contentTypes, maxSameCountryRelaxed);
+  const sameCountryResults = balanceSeedSources(
+    sameCountryEligible.eligible,
+    seedTitles,
+    contentTypes,
+    maxSameCountryRelaxed,
+  );
   const primaryResults = [...exactResults, ...sameCountryResults];
   const relaxedDedupe = dedupeCandidates(relaxedEligible);
   const allExclusions = [

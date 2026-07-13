@@ -203,11 +203,35 @@ function evaluateFailIf(condition, results, testCase, metrics) {
 function seedDominanceRatio(results = []) {
   if (!results.length) return 0;
   const counts = results.reduce((map, result) => {
-    const seed = normalizeValue(result.reasonSeed || result.seedTitle || result.reasonSeeds?.[0] || "unknown");
-    map.set(seed, (map.get(seed) || 0) + 1);
+    const seeds = [...new Set([
+      ...(result.reasonSeeds || []),
+      ...(result.seedTitles || []),
+      result.reasonSeed,
+      result.seedTitle,
+    ].map(normalizeValue).filter(Boolean))];
+    const contributionSeeds = seeds.length ? seeds : ["unknown"];
+    const contribution = 1 / contributionSeeds.length;
+    for (const seed of contributionSeeds) map.set(seed, (map.get(seed) || 0) + contribution);
     return map;
   }, new Map());
   return Math.max(...counts.values()) / results.length;
+}
+
+function contributingSeedCount(results = [], inputTitles = []) {
+  const expectedSeeds = new Set(inputTitles.map(normalizeValue).filter(Boolean));
+  const contributing = new Set();
+  for (const result of results) {
+    const seeds = [
+      ...(result.reasonSeeds || []),
+      ...(result.seedTitles || []),
+      result.reasonSeed,
+      result.seedTitle,
+    ].map(normalizeValue).filter(Boolean);
+    for (const seed of seeds) {
+      if (!expectedSeeds.size || expectedSeeds.has(seed)) contributing.add(seed);
+    }
+  }
+  return contributing.size;
 }
 
 function maxSingleFranchiseCount(results = []) {
@@ -281,11 +305,19 @@ export function evaluateRecommendationCase(testCase, recommendationResults = [],
       totalCount,
     ),
     seedRelatedRatio: seedRelatedRatio(scopedResults),
+    contributingSeedCount: contributingSeedCount(scopedResults, inputTitles),
     seedTitleExcluded: !scopedResults.some((result) => seedTitleMatchesResult(result, inputTitles)),
     tmdbRequestCount: Number(diagnostics.requestsUsed || 0),
+    aggregateTmdbRequestCount: Number(diagnostics.aggregateRequestsUsed ?? diagnostics.requestsUsed ?? 0),
     detailRequestCount: Number(diagnostics.detailRequestsUsed || 0),
     duplicateDetailRequestCount: Number(diagnostics.duplicateDetailRequestCount || 0),
     requestBudgetExceeded: Boolean(diagnostics.budgetExhausted),
+    requestContextCount: Number(diagnostics.requestContextCount || 0),
+    processedSeedCount: Number(diagnostics.processedSeedCount || 0),
+    unresolvedSeedCount: Number(diagnostics.unresolvedSeedCount || 0),
+    deferredSeedCount: Number(diagnostics.deferredSeedCount || 0),
+    deadlineExceeded: Boolean(diagnostics.deadlineExceeded),
+    elapsedMs: Number(diagnostics.elapsedMs || 0),
   };
 
   const failedReasons = [];
@@ -348,7 +380,10 @@ export function evaluateRecommendationCase(testCase, recommendationResults = [],
   if (expected.seedTitleExcluded && !metrics.seedTitleExcluded) {
     failedReasons.push("seed-title-present-in-results");
   }
-  if (Number.isFinite(expected.maximumTmdbRequestCount) && metrics.tmdbRequestCount > expected.maximumTmdbRequestCount) {
+  if (
+    Number.isFinite(expected.maximumTmdbRequestCount) &&
+    metrics.aggregateTmdbRequestCount > expected.maximumTmdbRequestCount
+  ) {
     failedReasons.push("request-budget-exceeded");
   }
   if (Number.isFinite(expected.maximumDetailRequestCount) && metrics.detailRequestCount > expected.maximumDetailRequestCount) {
@@ -359,6 +394,45 @@ export function evaluateRecommendationCase(testCase, recommendationResults = [],
   }
   if (metrics.duplicateDetailRequestCount > Number(expected.maximumDuplicateDetailRequestCount || 0)) {
     failedReasons.push("duplicate-detail-request");
+  }
+  if (Number.isFinite(expected.requestContextCount) && metrics.requestContextCount !== expected.requestContextCount) {
+    failedReasons.push("request-context-count-mismatch");
+  }
+  if (
+    Number.isFinite(expected.minimumContributingSeedCount) &&
+    metrics.contributingSeedCount < expected.minimumContributingSeedCount
+  ) {
+    failedReasons.push("insufficient-seed-contribution");
+  }
+  if (
+    Number.isFinite(expected.maxSingleSeedDominanceRatio) &&
+    metrics.singleSeedDominanceRatio > expected.maxSingleSeedDominanceRatio
+  ) {
+    failedReasons.push("single-seed-dominance");
+  }
+  if (expected.requiresDeferredSeedMetadata && metrics.deferredSeedCount === 0) {
+    failedReasons.push("deferred-seed-metadata-missing");
+  }
+  if (
+    expected.requiresUnresolvedOrDeferredSeeds &&
+    metrics.unresolvedSeedCount + metrics.deferredSeedCount === 0
+  ) {
+    failedReasons.push("failed-seed-metadata-missing");
+  }
+  if (typeof expected.deadlineExceeded === "boolean" && metrics.deadlineExceeded !== expected.deadlineExceeded) {
+    failedReasons.push("deadline-state-mismatch");
+  }
+  if (Number.isFinite(expected.maximumElapsedMs) && metrics.elapsedMs > expected.maximumElapsedMs) {
+    failedReasons.push("recommendation-deadline-exceeded");
+  }
+  if (expected.requiresPartialResultsOnDeadline && metrics.deadlineExceeded && totalCount === 0) {
+    failedReasons.push("deadline-partial-results-missing");
+  }
+  if (
+    expected.aggregateRequestsMustEqualRequests &&
+    metrics.aggregateTmdbRequestCount !== metrics.tmdbRequestCount
+  ) {
+    failedReasons.push("aggregate-request-count-mismatch");
   }
 
   for (const condition of expected.failIf || []) {

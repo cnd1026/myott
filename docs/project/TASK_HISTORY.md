@@ -54,6 +54,7 @@
 | MYOTT-S09-DOC-002 | AI Execution Profile Platform Alignment | `이번 커밋` | Prompt Guide v1.4.1에서 ChatGPT/Codex Profile을 분리하고 Session Review의 Target Platform/Reason 기준 및 ROADMAP 기록을 보정. 제품 코드 미수정. | 완료 |
 | MYOTT-S09-006 | Country-integrity Candidate Generation | `이번 커밋` | Candidate Collection과 Ranking을 분리하고 국가 hard constraint, primary/relaxed tier, seed discover supplement, franchise deduplication, QA evaluator 기준을 적용. Founder TMDB 품질 QA 대기. | 완료 |
 | MYOTT-S09-006A | Candidate quality and TMDB request budget | `이번 커밋` | 24/8/16 request budget, progressive fetch, cache/dedup/retry, exact 80% ratio, seed scoring, 20-case deterministic/live QA runner 적용. Founder Live TMDB QA 대기. | 완료 |
+| MYOTT-S09-006A1 | Shared Multi-Seed Request Budget | `이번 커밋` | 단일 Multi-Seed API, Shared Context, 15초 deadline, Seed phase scheduling, 부분 성공, 24-case QA와 Product 경로 Cold/Warm Live Runner 적용. Founder QA 대기. | 완료 |
 
 ## Sprint 8
 

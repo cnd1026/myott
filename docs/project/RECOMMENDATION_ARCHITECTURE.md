@@ -1,6 +1,6 @@
 # Recommendation Architecture
 
-Version: 2.1
+Version: 2.2
 
 Author: MYOTT Team
 
@@ -12,7 +12,7 @@ Breaking Change: No
 
 Decision Log: [DECISION_LOG.md](./DECISION_LOG.md)
 
-Architecture Version: v2.1
+Architecture Version: v2.2
 
 Status: ACTIVE
 
@@ -109,16 +109,19 @@ flowchart TD
 
 ### TMDB Request Reliability
 
-Recommendation 요청은 [requestContext.js](../../src/lib/providers/tmdb/requestContext.js)의 공유 Request Context를 사용합니다.
+Recommendation Action은 [requestContext.js](../../src/lib/providers/tmdb/requestContext.js)의 공유 Request Context를 정확히 하나 사용합니다. Seed 수가 늘어나도 예산은 증가하지 않습니다.
 
 | Guardrail | Limit / Policy |
 | --- | --- |
-| Total TMDB calls | 요청당 최대 24회 |
+| Total TMDB calls | Recommendation Action당 최대 24회 |
 | List calls | Search, Discover, Recommendations, Similar 합계 최대 8회 |
 | Detail calls | 최대 16회 |
 | Concurrency | 최대 4회 |
 | Retry | 429/일시적 5xx/network failure에 최대 2회 |
 | Backoff | Retry-After 우선, 아니면 exponential backoff와 jitter |
+| Fetch timeout | 개별 외부 요청 최대 8초 |
+| Action deadline | 전체 다중 Seed 추천 최대 15초 |
+| Retry-After cap | 최대 5초, 남은 Action deadline보다 길게 대기하지 않음 |
 | List cache | 7분 best-effort server cache |
 | Detail cache | 30분 best-effort server cache |
 | Genre metadata cache | 60분 best-effort server cache |
@@ -133,6 +136,30 @@ Recommendation 요청은 [requestContext.js](../../src/lib/providers/tmdb/reques
 각 단계 뒤 exact 후보 수, 타입별 커버리지, 남은 예산을 확인하고 충분하면 조기 종료합니다. 동일 path와 정규화한 parameter는 in-flight Promise를 공유하며 Cache Hit는 요청 예산을 소비하지 않습니다. 예산이 소진되면 확보한 TMDB 결과만 반환하고 Mock을 섞지 않습니다.
 
 Detail 보강은 목록 metadata로 부적격 후보를 먼저 제거한 뒤 상위 16개 이하에만 수행합니다. runtime, country, genres, collection, watch providers, credits, keywords를 하나의 append response로 가져오며 별도 Watch Provider Detail을 반복 호출하지 않습니다.
+
+### Shared Multi-Seed Recommendation Action
+
+실제 추천 Submit은 `POST /api/recommend/seeds` 한 번으로 모든 Seed를 전달합니다. 기존 `GET /api/search`는 자동완성 및 단일 검색 호환 경로로 유지합니다.
+
+Seed scheduling:
+
+1. 모든 예약된 Seed의 Search Resolution
+2. 해결된 Seed의 Recommendations를 round-robin으로 수집
+3. 전체 후보와 Seed별 대표성이 부족할 때만 Similar
+4. Similar 이후에도 부족하고 예산이 남을 때만 Seed Discover Supplement
+5. 통합 후보를 한 번만 Detail 보강하고 Candidate Pipeline에서 최종 scoring
+
+Cold 요청에서는 목록 예산의 절반까지만 Search에 배정하여 각 해결 Seed의 Recommendations 호출 여지를 남깁니다. 예산이나 Deadline으로 처리하지 못한 입력은 `deferredSeeds`, 검색을 완료했지만 TMDB Seed를 찾지 못한 입력은 `unresolvedSeeds`, 후보 수집에 기여한 입력은 `processedSeeds`로 구분합니다.
+
+부분 성공 정책:
+
+- 성공한 TMDB Seed 후보는 유지한다.
+- 실패한 Seed 때문에 전체 결과를 Mock으로 교체하지 않는다.
+- TMDB 결과와 Mock 결과를 한 배열에 혼합하지 않는다.
+- 전체 후보 요청이 실패한 경우에만 API Route가 명시적 Provider fallback을 수행한다.
+- Deadline 도달 시 새 요청을 시작하지 않고 이미 확보한 결과를 반환한다.
+
+Diagnostics의 `requestContextCount`는 `1`이며 `aggregateRequestsUsed`는 사후 합산값이 아니라 동일 Context의 `requestsUsed`와 항상 같습니다. Seed별 호출 및 후보 수는 `perSeedRequestCounts`, `perSeedCandidateCounts`로 기록합니다.
 
 Result tier:
 
@@ -370,10 +397,11 @@ QA runners:
 
 - Deterministic: `pnpm qa:recommendation`
 - Unit and pipeline: `pnpm test:recommendation`
-- Live TMDB: `pnpm qa:recommendation:live`
+- Live TMDB Cold: `pnpm qa:recommendation:live:cold`
+- Live TMDB Warm: `pnpm qa:recommendation:live:warm`
 - Full local check: `pnpm check`
 
-Live Runner는 TMDB credential이 없으면 `SKIP`으로 종료하며 Mock을 Live PASS로 대체하지 않습니다. 개발 diagnostics에는 요청 예산, list/detail 사용량, cache/dedup/retry 횟수, early stop, 후보 타입 분포, exact/relaxed 비율을 기록하되 API key는 포함하지 않습니다.
+Live Runner는 실제 Product Provider의 통합 Seed 함수를 사용하며 TMDB credential이 없으면 `SKIP`으로 종료합니다. Cold는 케이스마다 Cache를 비우고, Warm은 같은 케이스를 예열한 뒤 Cache Hit와 외부 호출 감소를 측정합니다. Mock을 Live PASS로 대체하지 않으며 API key는 diagnostics에 포함하지 않습니다.
 
 이 JSON 파일은 Founder 수동 QA와 향후 자동 테스트의 공통 기준 데이터입니다. Architecture 문서는 테스트 전략을 설명하고, 실제 케이스 목록은 dataset 파일에서 관리합니다.
 
@@ -452,6 +480,18 @@ AI Recommendation 원칙:
 ---
 
 ## Changelog
+
+### v2.2
+
+- 실제 추천 Submit을 단일 Multi-Seed API와 Shared Request Context로 전환
+- Seed Search, Recommendations, Similar, Discover를 phase별 round-robin으로 실행
+- Action 단위 24/8/16 예산과 `aggregateRequestsUsed === requestsUsed` 계약 추가
+- 개별 Fetch 8초 Timeout, 전체 15초 Deadline, Retry-After 5초 상한 추가
+- processed/unresolved/deferred Seed와 Seed별 호출·후보 diagnostics 추가
+- 부분 성공 TMDB 결과 보존 및 전체 실패에서만 명시적 Mock fallback 적용
+- QA Dataset 24개와 고정 Fetch Fixture 기반 Multi-Seed/Timeout 검증 추가
+- Product 경로 기반 Live Cold/Warm Runner 추가
+- 기존 API 소비자와 v2.1 hard constraint는 유지하므로 Breaking Change `No`
 
 ### v2.1
 
