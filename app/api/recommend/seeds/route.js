@@ -29,13 +29,29 @@ function stringArray(value) {
     .filter(Boolean);
 }
 
+function confirmedSeedArray(value) {
+  return (Array.isArray(value) ? value : [])
+    .filter((seed) => seed && typeof seed === "object")
+    .map((seed) => ({
+      inputTitle: typeof seed.inputTitle === "string" ? seed.inputTitle : "",
+      inputAliases: stringArray(seed.inputAliases),
+      tmdbId: Number(seed.tmdbId || seed.providerContentId),
+      mediaType: typeof seed.mediaType === "string" ? seed.mediaType : "",
+      contentType: typeof seed.contentType === "string" ? seed.contentType : "",
+      resolvedTitle: typeof seed.resolvedTitle === "string" ? seed.resolvedTitle : "",
+      originalTitle: typeof seed.originalTitle === "string" ? seed.originalTitle : "",
+    }))
+    .filter((seed) => Number.isFinite(seed.tmdbId));
+}
+
 async function recommendWithProvider(
   provider,
-  { titles, filters, contentTypes },
+  { titles, seeds, filters, contentTypes },
   sourceOptions = {},
 ) {
   const payload = await provider.getSeedRecommendations({
     titles,
+    seeds,
     filters,
     contentTypes,
     limit: 12,
@@ -57,6 +73,13 @@ async function recommendWithProvider(
     processedSeedCount: Array.isArray(payload) ? 0 : payload.processedSeedCount || 0,
     unresolvedSeedCount: Array.isArray(payload) ? 0 : payload.unresolvedSeedCount || 0,
     deferredSeedCount: Array.isArray(payload) ? 0 : payload.deferredSeedCount || 0,
+    uniqueResolvedWorkCount: Array.isArray(payload) ? 0 : payload.uniqueResolvedWorkCount || 0,
+    confirmedSeedCount: Array.isArray(payload) ? 0 : payload.confirmedSeedCount || 0,
+    unconfirmedSeedCount: Array.isArray(payload) ? titles.length : payload.unconfirmedSeedCount || 0,
+    searchSkippedSeedCount: Array.isArray(payload) ? 0 : payload.searchSkippedSeedCount || 0,
+    resolvedByConfirmedMetadataCount: Array.isArray(payload) ? 0 : payload.resolvedByConfirmedMetadataCount || 0,
+    resolvedBySearchCount: Array.isArray(payload) ? 0 : payload.resolvedBySearchCount || 0,
+    inputAliasCount: Array.isArray(payload) ? titles.length : payload.inputAliasCount || 0,
     diagnostics: Array.isArray(payload) ? {} : payload.diagnostics || {},
   };
 }
@@ -71,12 +94,13 @@ export async function POST(request) {
 
   const input = {
     titles: stringArray(body?.titles),
+    seeds: confirmedSeedArray(body?.seeds),
     contentTypes: stringArray(body?.contentTypes),
     filters: stringArray(body?.filters),
   };
   const activeProvider = getActiveProvider();
 
-  if (!input.titles.length) {
+  if (!input.titles.length && !input.seeds.length) {
     return Response.json({
       source: "empty",
       dataSource: "empty",

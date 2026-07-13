@@ -21,6 +21,7 @@ export const FIXTURE_SEEDS = Object.freeze({
   인셉션: { id: 208, title: "인셉션" },
   타이타닉: { id: 209, title: "타이타닉" },
   아바타: { id: 210, title: "아바타" },
+  마션: { id: 211, title: "마션" },
 });
 
 function jsonResponse(status, payload = {}, headers = {}) {

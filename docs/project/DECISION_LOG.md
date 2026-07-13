@@ -63,3 +63,11 @@ Discover는 exact 조건을 단계적으로 실행하고 충분한 후보가 확
 Seed마다 별도 `/api/search`와 Request Context를 생성하면 개별 24회 제한을 지켜도 사용자 추천 동작 전체 호출량이 Seed 수에 비례해 증가합니다. Recommendation Architecture v2.2부터 실제 Submit은 단일 `POST /api/recommend/seeds`를 사용하고 모든 Search, Recommendations, Similar, Discover, Detail 요청이 하나의 Context와 24/8/16 예산을 공유합니다.
 
 Seed는 Search, Recommendations, Similar, Discover phase 순으로 round-robin 처리합니다. 일부 Seed 실패나 전체 Deadline 도달 시 성공한 TMDB 결과를 유지하며 Mock과 혼합하지 않습니다. 처리하지 못한 Seed는 deferred, 검색 결과가 없는 Seed는 unresolved로 명시합니다. 개별 Fetch 8초, 전체 Action 15초, Retry-After 5초 상한을 적용하며 Live QA는 Product 경로의 Cold/Warm 실행을 분리합니다.
+
+## DL-015 장르와 Seed 확인 상태를 공통 계약으로 관리
+
+프런트와 서버가 장르 ID를 따로 유지하면 같은 `genre-sf`가 Movie `878`로만 해석되거나 TV `10765`를 누락하여 브라우저 결과가 Provider 직접 호출과 달라질 수 있습니다. Recommendation Architecture v2.3부터 `genreContract.js`를 Quick Pick, Option Metadata, TMDB Discover, Candidate Pipeline, Weight Engine, Mock Provider, Evaluator의 장르 Source of Truth로 사용합니다.
+
+TMDB TV가 SF와 Fantasy를 `10765`로 결합하고 독립 Thriller 장르를 제공하지 않는 한계는 숨기지 않습니다. TV SF는 `provider-combined`, TV Thriller는 Crime/Mystery provider evidence 또는 제한된 semantic evidence로 구분하며 단순 Drama는 Thriller로 인정하지 않습니다.
+
+자동완성으로 확인된 작품은 사용자 입력 문자열과 resolved TMDB metadata를 분리합니다. 입력창은 원문을 유지하고 서버는 confirmed ID로 Search를 생략합니다. 고정 Search 개수 대신 unresolved Seed가 사용하지 않은 Recommendation 예약을 뒤의 Seed Search에 재사용하며, 총 24/8/16 예산은 유지합니다. 기존 `titles`와 `results` 계약은 유지하므로 Breaking Change는 아닙니다.

@@ -2,6 +2,30 @@
 
 프로젝트의 주요 변경 사항을 날짜별로 기록합니다.
 
+## 2026-07-13 - MYOTT-S09-006A2
+
+### 변경 내용
+
+- Quick Pick, Option Metadata, TMDB Discover, Candidate Pipeline, Weight Engine, Mock Provider, Evaluator가 공유하는 Unified Genre Contract를 추가했습니다.
+- Movie SF `878`, Movie SF·Fantasy `878/14`, TV combined `10765`와 TV Thriller provider/semantic 판정 계약을 적용했습니다.
+- 자동완성 선택 후 입력 언어를 유지하면서 confirmed TMDB ID를 서버에 전달하고 Search를 생략하도록 변경했습니다.
+- 고정 Search capacity를 Adaptive Search Budget Recycling으로 교체해 앞의 미해결 제목 뒤에 있는 정상 Seed도 8회 List 예산 안에서 처리합니다.
+- 번역 제목이 같은 TMDB 작품으로 확인되면 후보 요청을 한 번만 수행하고 입력 alias를 보존합니다.
+- 결과 상단에 실제 Seed 반영 수를 안내하고 타입 미선택, 결과 없음, 전체 미해결, 부분 처리, Provider 오류의 Empty State를 분리했습니다.
+- 접힌 장르 상단 8개를 액션, SF, 드라마, 로맨스, 미스터리, 스릴러, 코미디, 공포 순서로 통일했습니다.
+- Dataset을 31개로 확장하고 semantic genre, confirmed Seed, adaptive search, 입력 언어, 옵션 순서, 빈 상태 평가를 추가했습니다.
+- Recommendation Architecture를 v2.3으로 갱신했습니다.
+
+### 검증
+
+- Recommendation unit/integration tests: 37/37 PASS
+- Deterministic Recommendation QA: 31/31 PASS
+- Live TMDB Cold QA: 24/24 PASS, maximum aggregate 24/24
+- Live TMDB Warm QA: 24/24 PASS, maximum external requests 6, cache hits 460
+- Browser: input language, confirmed Seed, JP+SF+Drama, GB+Thriller+Drama, Quick Pick order PASS
+- `pnpm build`: PASS
+- Founder Review: Pending
+
 ## 2026-07-13 - MYOTT-S09-006A1
 
 ### 변경 내용

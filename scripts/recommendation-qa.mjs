@@ -7,43 +7,26 @@ import {
   createRecommendationContextFactory,
 } from "../src/lib/providers/tmdb/testing/multiSeedFixture.mjs";
 import { finalizeCandidatePool } from "../src/lib/recommendation/candidates/candidatePipeline.js";
+import {
+  GENRE_TOP_EIGHT_VALUES,
+  genreContractTokens,
+  genreIdsForFilters,
+  prioritizeGenreOptions,
+} from "../src/lib/recommendation/genres/genreContract.js";
 import { evaluateRecommendationCase } from "../src/lib/recommendation/qa/evaluateRecommendationCase.js";
+import {
+  applySuggestionSelection,
+  buildSeedRequestPayload,
+  resolveEmptyStateMessage,
+} from "../src/lib/recommendation/seeds/seedRequest.js";
 
 const dataset = JSON.parse(
   await readFile(new URL("../docs/project/recommendation-qa-dataset.json", import.meta.url), "utf8"),
 );
 
-const MOVIE_GENRE_IDS = Object.freeze({
-  action: 28,
-  animation: 16,
-  comedy: 35,
-  crime: 80,
-  drama: 18,
-  fantasy: 14,
-  horror: 27,
-  mystery: 9648,
-  romance: 10749,
-  sf: 878,
-  thriller: 53,
-});
-
-const TV_GENRE_IDS = Object.freeze({
-  action: 10759,
-  animation: 16,
-  comedy: 35,
-  crime: 80,
-  drama: 18,
-  fantasy: 10765,
-  horror: 9648,
-  mystery: 9648,
-  romance: 18,
-  sf: 10765,
-  thriller: 80,
-});
-
 function fixtureGenreIds(genres, contentType) {
-  const genreMap = contentType === "drama" ? TV_GENRE_IDS : MOVIE_GENRE_IDS;
-  const ids = genres.map((genre) => genreMap[String(genre).toLowerCase()]).filter(Boolean);
+  const filters = genreContractTokens(genres);
+  const ids = genreIdsForFilters(filters, contentType === "drama" ? "tv" : "movie");
   if (contentType === "animation" && !ids.includes(16)) ids.unshift(16);
   return ids.length ? ids : [18];
 }
@@ -154,10 +137,71 @@ const diagnostics = {
   duplicateDetailRequestCount: 0,
   budgetExhausted: false,
 };
-const multiSeedCaseIds = new Set(["REC-QA-021", "REC-QA-022", "REC-QA-023", "REC-QA-024"]);
+const multiSeedCaseIds = new Set(["REC-QA-021", "REC-QA-022", "REC-QA-023", "REC-QA-024", "REC-QA-027"]);
 const reports = [];
 
 for (const testCase of dataset) {
+  if (testCase.id === "REC-QA-028") {
+    const selection = applySuggestionSelection("home alone", {
+      providerContentId: 201,
+      mediaType: "movie",
+      type: "movie",
+      title: "나 홀로 집에",
+      originalTitle: "Home Alone",
+    });
+    const request = buildSeedRequestPayload({
+      titles: [selection.inputValue],
+      confirmedSeeds: { 0: selection.confirmedSeed },
+      contentTypes: ["movie"],
+    });
+    reports.push(evaluateRecommendationCase(testCase, [{ title: "UI contract" }], {
+      diagnostics: {
+        inputLanguagePreserved: selection.inputValue === "home alone",
+        confirmedSeedCount: request.seeds.length,
+        searchSkippedSeedCount: request.seeds.length,
+      },
+    }));
+    continue;
+  }
+  if (testCase.id === "REC-QA-029") {
+    clearTmdbRequestCache();
+    const fixture = createFixtureFetch();
+    const contextFactory = createRecommendationContextFactory(fixture);
+    const payload = await recommendSeedsTmdb({
+      seeds: ["나 홀로 집에", "Home Alone", "home alone"].map((inputTitle) => ({
+        inputTitle,
+        tmdbId: 201,
+        mediaType: "movie",
+        resolvedTitle: "나 홀로 집에",
+        originalTitle: "Home Alone",
+      })),
+      contentTypes: ["movie"],
+      requestContextFactory: contextFactory.factory,
+    });
+    reports.push(evaluateRecommendationCase(testCase, payload.results || [], { diagnostics: payload.diagnostics }));
+    continue;
+  }
+  if (testCase.id === "REC-QA-030") {
+    const options = prioritizeGenreOptions(dataset
+      .flatMap((item) => item.input?.filters || [])
+      .filter((value) => value.startsWith("genre-"))
+      .map((value) => [value, value]));
+    const topValues = prioritizeGenreOptions([
+      ...GENRE_TOP_EIGHT_VALUES.map((value) => [value, value]),
+      ...options,
+    ]).slice(0, 8).map(([value]) => value);
+    reports.push(evaluateRecommendationCase(testCase, [{ title: "UI contract" }], {
+      diagnostics: { genreOptionOrderMatched: JSON.stringify(topValues) === JSON.stringify(testCase.expected.genreOptionOrder) },
+    }));
+    continue;
+  }
+  if (testCase.id === "REC-QA-031") {
+    const message = resolveEmptyStateMessage({ recommendationStatus: "empty", selectedTypes: ["drama"] });
+    reports.push(evaluateRecommendationCase(testCase, [{ title: "UI contract" }], {
+      diagnostics: { emptyStateMessageMatched: !message.includes("하나 이상 선택") },
+    }));
+    continue;
+  }
   if (!multiSeedCaseIds.has(testCase.id)) {
     reports.push(evaluateRecommendationCase(testCase, buildCaseResults(testCase), { diagnostics }));
     continue;

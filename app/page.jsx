@@ -2,6 +2,18 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { calculateRecommendationScore } from "../src/lib/recommendation/scoring/recommendationWeightEngine.js";
+import {
+  GENRE_CONTRACT,
+  genreIdsForFilters,
+  genreValuesForItem,
+  prioritizeGenreOptions,
+} from "../src/lib/recommendation/genres/genreContract.js";
+import {
+  applySuggestionSelection,
+  buildSeedCoverageMessage,
+  buildSeedRequestPayload,
+  resolveEmptyStateMessage,
+} from "../src/lib/recommendation/seeds/seedRequest.js";
 
 const dummyRecommendations = [
   {
@@ -235,11 +247,7 @@ const expandedCountryOptions = [
 const quickPickGroups = [
   {
     title: "장르",
-    options: [
-      ["genre-sf", "SF"],
-      ["genre-romance", "로맨스"],
-      ["genre-thriller", "스릴러"],
-    ],
+    options: GENRE_CONTRACT.map((entry) => [entry.value, entry.label]),
   },
   {
     title: "국가",
@@ -280,22 +288,6 @@ const relatedClickSuppressMs = 220;
 const unknownOttLabel = "OTT 정보 확인 필요";
 const collapsedOptionCount = 8;
 const autocompleteDebounceMs = 150;
-const quickPickGenreIds = new Map([
-  ["genre-sf", [878]],
-  ["genre-sf-fantasy", [10765]],
-  ["genre-romance", [10749]],
-  ["genre-thriller", [53, 80, 9648, 18]],
-  ["genre-action", [28]],
-  ["genre-action-adventure", [10759]],
-  ["genre-adventure", [12]],
-  ["genre-crime", [80]],
-  ["genre-fantasy", [14, 10765]],
-  ["genre-horror", [27]],
-  ["genre-tv-movie", [10770]],
-  ["genre-news", [10763]],
-  ["genre-reality", [10764]],
-  ["genre-talk", [10767]],
-]);
 const recommendationInsightText = {
   multipleSeed: "여러 입력 작품에서 함께 추천되었습니다.",
   genreMatch: "입력한 작품들과 공통 장르가 많습니다.",
@@ -321,6 +313,15 @@ const initialProviderStatus = {
   tmdbEnabled: false,
   message: "",
   checked: false,
+};
+const initialSeedDiagnostics = {
+  requestedSeedCount: 0,
+  processedSeedCount: 0,
+  unresolvedSeedCount: 0,
+  deferredSeedCount: 0,
+  uniqueResolvedWorkCount: 0,
+  confirmedSeedCount: 0,
+  inputAliasCount: 0,
 };
 
 const timeSlotContent = {
@@ -492,23 +493,11 @@ function buildRecommendations(selectedTypes, quickPicks, selectedOtt = []) {
 
 function tagsFromProviderContent(content) {
   const tags = new Set(Array.isArray(content.tags) ? content.tags : []);
-  const genres = Array.isArray(content.genres) ? content.genres : [];
-  const genreIds = normalizedIdList(content.genreIds);
   const moods = Array.isArray(content.moods) ? content.moods : content.mood || [];
   const country = content.country || "";
   const runtime = Number(content.runtime);
 
-  genres.forEach((genre) => {
-    if (genre.includes("SF")) tags.add("genre-sf");
-    if (genre.includes("SF·판타지")) tags.add("genre-sf-fantasy");
-    if (genre.includes("로맨스")) tags.add("genre-romance");
-    if (genre.includes("스릴러") || genre.includes("범죄")) tags.add("genre-thriller");
-  });
-
-  if (intersects(genreIds, quickPickGenreIds.get("genre-sf"))) tags.add("genre-sf");
-  if (intersects(genreIds, quickPickGenreIds.get("genre-sf-fantasy"))) tags.add("genre-sf-fantasy");
-  if (intersects(genreIds, quickPickGenreIds.get("genre-romance"))) tags.add("genre-romance");
-  if (intersects(genreIds, quickPickGenreIds.get("genre-thriller"))) tags.add("genre-thriller");
+  genreValuesForItem(content).forEach((value) => tags.add(value));
 
   moods.forEach((mood) => tags.add(`mood-${mood}`));
 
@@ -680,7 +669,11 @@ function platformMatchesSelectedOtt(item, selectedOtt) {
 }
 
 function genreIdsForQuickPick(quickPick, optionMetadata) {
-  if (quickPickGenreIds.has(quickPick)) return quickPickGenreIds.get(quickPick);
+  const contractIds = uniqueNumbers([
+    ...genreIdsForFilters([quickPick], "movie"),
+    ...genreIdsForFilters([quickPick], "tv"),
+  ]);
+  if (contractIds.length) return contractIds;
   const metadataGenre = (optionMetadata.genres || []).find((genre) => genre.value === quickPick);
   if (metadataGenre?.tmdbIds?.length) return normalizedIdList(metadataGenre.tmdbIds);
   if (quickPick.startsWith("tmdb-genre-")) return normalizedIdList([quickPick.replace("tmdb-genre-", "")]);
@@ -936,18 +929,20 @@ function logRecommendationSource(context, payload, resultCount = 0) {
   });
 }
 
-async function fetchProviderRecommendations(titles, selectedTypes, quickPicks, selectedOtt, optionMetadata, labelByValue) {
-  const uniqueTitles = [...new Set(titles)];
+async function fetchProviderRecommendations(titles, confirmedSeeds, selectedTypes, quickPicks, selectedOtt, optionMetadata, labelByValue) {
+  const uniqueTitles = [...new Set(titles.filter((title) => title.trim()))];
   const filters = [...quickPicks, ...selectedOtt];
+  const seedPayload = buildSeedRequestPayload({
+    titles,
+    confirmedSeeds,
+    contentTypes: selectedTypes,
+    filters,
+  });
   const response = await fetch("/api/recommend/seeds", {
     method: "POST",
     cache: "no-store",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      titles: uniqueTitles,
-      contentTypes: selectedTypes,
-      filters,
-    }),
+    body: JSON.stringify(seedPayload),
   });
 
   if (!response.ok) {
@@ -989,6 +984,13 @@ async function fetchProviderRecommendations(titles, selectedTypes, quickPicks, s
     results,
     providerStatus: providerStatusFromPayload(payload),
     seedDiagnostics: {
+      requestedSeedCount: payload.requestedSeedCount || 0,
+      processedSeedCount: payload.processedSeedCount || 0,
+      unresolvedSeedCount: payload.unresolvedSeedCount || 0,
+      deferredSeedCount: payload.deferredSeedCount || 0,
+      uniqueResolvedWorkCount: payload.uniqueResolvedWorkCount || 0,
+      confirmedSeedCount: payload.confirmedSeedCount || 0,
+      inputAliasCount: payload.inputAliasCount || 0,
       processedSeeds: payload.processedSeeds || [],
       unresolvedSeeds: payload.unresolvedSeeds || [],
       deferredSeeds: payload.deferredSeeds || [],
@@ -1136,6 +1138,7 @@ export default function Home() {
   const [suggestions, setSuggestions] = useState({});
   const [activeSuggestionIndex, setActiveSuggestionIndex] = useState(null);
   const [confirmedSeeds, setConfirmedSeeds] = useState({});
+  const [seedDiagnostics, setSeedDiagnostics] = useState(initialSeedDiagnostics);
   const suggestionCacheRef = useRef(new Map());
   const relatedStripRef = useRef(null);
   const relatedDragRef = useRef({
@@ -1158,6 +1161,16 @@ export default function Home() {
   );
   const selectedQuickPickChips = selectedQuickPicks.map((value) => [value, optionLabelByValue.get(value)]).filter(([, label]) => Boolean(label));
   const relatedRecommendations = relatedStatus === "success" ? relatedItems : [];
+  const seedCoverageMessage = buildSeedCoverageMessage(seedDiagnostics);
+  const emptyStateMessage = resolveEmptyStateMessage({
+    recommendationStatus,
+    selectedTypes,
+    resultCount: results.length,
+    dataSource: providerStatus.dataSource,
+    hasSeedInput: enteredTitles.length > 0,
+    processedSeedCount: seedDiagnostics.processedSeedCount,
+    unresolvedSeedCount: seedDiagnostics.unresolvedSeedCount,
+  });
 
   useEffect(() => {
     function handleEscape(event) {
@@ -1200,7 +1213,9 @@ export default function Home() {
         const payload = await response.json();
         if (!isMounted) return;
         if (Array.isArray(payload.groups) && payload.groups.length) {
-          setOptionGroups(payload.groups);
+          setOptionGroups(payload.groups.map((group) => (
+            group.title === "장르" ? { ...group, options: prioritizeGenreOptions(group.options) } : group
+          )));
         }
         if (payload.metadata) {
           setOptionMetadata({
@@ -1317,7 +1332,7 @@ export default function Home() {
 
   async function handleSubmit(event) {
     event.preventDefault();
-    const currentTitles = titles.map((title) => title.trim()).filter(Boolean);
+    const currentTitles = titles.filter((title) => title.trim());
     const canSubmit = currentTitles.length > 0 || hasOptionPreference;
     if (!canSubmit) return;
 
@@ -1328,6 +1343,7 @@ export default function Home() {
     closeSuggestions();
 
     if (!currentTitles.length) {
+      setSeedDiagnostics(initialSeedDiagnostics);
       try {
         const { results: optionResults, providerStatus: nextProviderStatus } = await fetchOptionRecommendations(
           selectedTypes,
@@ -1361,8 +1377,13 @@ export default function Home() {
     }
 
     try {
-      const { results: providerResults, providerStatus: nextProviderStatus } = await fetchProviderRecommendations(
-        currentTitles,
+      const {
+        results: providerResults,
+        providerStatus: nextProviderStatus,
+        seedDiagnostics: nextSeedDiagnostics,
+      } = await fetchProviderRecommendations(
+        titles,
+        confirmedSeeds,
         selectedTypes,
         selectedQuickPicks,
         selectedOtt,
@@ -1370,12 +1391,14 @@ export default function Home() {
         optionLabelByValue,
       );
       setResults(providerResults);
+      setSeedDiagnostics(nextSeedDiagnostics || initialSeedDiagnostics);
       setRecommendationStatus(providerResults.length ? "success" : "empty");
       if (showDevProviderStatus && nextProviderStatus) {
         setProviderStatus(nextProviderStatus);
       }
     } catch {
       setResults([]);
+      setSeedDiagnostics(initialSeedDiagnostics);
       setRecommendationStatus("error");
       if (showDevProviderStatus) {
         setProviderStatus({
@@ -1491,8 +1514,8 @@ export default function Home() {
   }
 
   function selectSuggestion(index, suggestion) {
-    setTitles((current) => normalizeTitleInputs(current.map((item, itemIndex) => (itemIndex === index ? suggestion.title : item))));
-    setConfirmedSeeds((current) => ({ ...current, [index]: suggestion }));
+    const selection = applySuggestionSelection(titles[index] || "", suggestion);
+    setConfirmedSeeds((current) => ({ ...current, [index]: selection.confirmedSeed }));
     setSuggestions((current) => ({ ...current, [index]: [] }));
     setActiveSuggestionIndex(null);
   }
@@ -1525,6 +1548,7 @@ export default function Home() {
     setSuggestions({});
     setActiveSuggestionIndex(null);
     setConfirmedSeeds({});
+    setSeedDiagnostics(initialSeedDiagnostics);
   }
 
   return (
@@ -1691,14 +1715,15 @@ export default function Home() {
           </div>
           <p className="result-count" id="resultCount">{results.length}개</p>
         </div>
+        {seedCoverageMessage && recommendationStatus !== "loading" ? (
+          <p className="seed-coverage" role="status">{seedCoverageMessage}</p>
+        ) : null}
         {recommendationStatus === "loading" ? (
           <div className="empty-state loading-state" id="loadingState">추천을 찾는 중입니다...</div>
         ) : null}
         {!results.length && recommendationStatus !== "loading" ? (
           <div className="empty-state" id="emptyState">
-            {recommendationStatus === "empty" || recommendationStatus === "error"
-              ? "선택한 유형에 맞는 결과가 없습니다. 영화, 드라마, 애니 중 하나 이상 선택해 주세요."
-              : "작품을 입력하거나 추천 옵션을 고르면 결과가 여기에 표시됩니다."}
+            {emptyStateMessage}
           </div>
         ) : null}
         <div className="result-grid" id="resultGrid">

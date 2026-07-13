@@ -1,3 +1,8 @@
+import {
+  candidateGenreMatchDetail,
+  genreContractTokens,
+} from "../genres/genreContract.js";
+
 const COUNTRY_ALIASES = {
   KR: ["KR", "한국", "country-kr"],
   JP: ["JP", "일본", "country-jp"],
@@ -16,20 +21,6 @@ const COUNTRY_ALIASES = {
   TH: ["TH", "태국", "country-th"],
   BR: ["BR", "브라질", "country-br"],
   MX: ["MX", "멕시코", "country-mx"],
-};
-
-const GENRE_ALIASES = {
-  action: ["action", "액션", "genre-action", "28", "10759"],
-  animation: ["animation", "애니", "애니메이션", "genre-animation", "16"],
-  comedy: ["comedy", "코미디", "genre-comedy", "35"],
-  crime: ["crime", "범죄", "genre-crime", "80"],
-  drama: ["drama", "드라마", "genre-drama", "18"],
-  fantasy: ["fantasy", "판타지", "genre-fantasy", "14", "10765"],
-  horror: ["horror", "공포", "genre-horror", "27"],
-  mystery: ["mystery", "미스터리", "genre-mystery", "9648"],
-  romance: ["romance", "로맨스", "genre-romance", "10749"],
-  sf: ["sf", "sci-fi", "science fiction", "science-fiction", "SF", "genre-sf", "genre-sf-fantasy", "878", "10765"],
-  thriller: ["thriller", "스릴러", "genre-thriller", "53"],
 };
 
 function normalizeValue(value) {
@@ -91,9 +82,19 @@ function resultContentTypeMatches(result, contentTypes = []) {
 
 function resultGenreMatches(result, genres = []) {
   if (!genres.length) return true;
+  const genreFilters = genreContractTokens(genres);
+  if (genreFilters.length && candidateGenreMatchDetail(result, genreFilters).genreMatched) return true;
   const tokens = collectResultTokens(result);
-  const expectedGenres = genres.flatMap((genre) => GENRE_ALIASES[normalizeValue(genre)] || [genre]);
-  return normalizeValues(expectedGenres).some((genre) => tokens.has(genre));
+  return normalizeValues(genres).some((genre) => tokens.has(genre));
+}
+
+function resultGenreMatchMode(result, genres = []) {
+  const explicitMode = normalizeValue(result.genreMatchMode);
+  if (["provider-exact", "provider-combined", "semantic", "relaxed"].includes(explicitMode)) {
+    return explicitMode;
+  }
+  const filters = genreContractTokens(genres);
+  return filters.length ? candidateGenreMatchDetail(result, filters).genreMatchMode : "provider-exact";
 }
 
 function runtimeMinutes(result = {}) {
@@ -309,6 +310,7 @@ export function evaluateRecommendationCase(testCase, recommendationResults = [],
     seedTitleExcluded: !scopedResults.some((result) => seedTitleMatchesResult(result, inputTitles)),
     tmdbRequestCount: Number(diagnostics.requestsUsed || 0),
     aggregateTmdbRequestCount: Number(diagnostics.aggregateRequestsUsed ?? diagnostics.requestsUsed ?? 0),
+    listRequestCount: Number(diagnostics.listRequestsUsed || 0),
     detailRequestCount: Number(diagnostics.detailRequestsUsed || 0),
     duplicateDetailRequestCount: Number(diagnostics.duplicateDetailRequestCount || 0),
     requestBudgetExceeded: Boolean(diagnostics.budgetExhausted),
@@ -318,6 +320,41 @@ export function evaluateRecommendationCase(testCase, recommendationResults = [],
     deferredSeedCount: Number(diagnostics.deferredSeedCount || 0),
     deadlineExceeded: Boolean(diagnostics.deadlineExceeded),
     elapsedMs: Number(diagnostics.elapsedMs || 0),
+    providerExactGenreRatio: ratio(
+      countBy(scopedResults, (result) => resultGenreMatchMode(result, expected.match?.genreAny || []) === "provider-exact"),
+      totalCount,
+    ),
+    providerCombinedGenreRatio: ratio(
+      countBy(scopedResults, (result) => resultGenreMatchMode(result, expected.match?.genreAny || []) === "provider-combined"),
+      totalCount,
+    ),
+    semanticGenreRatio: ratio(
+      countBy(scopedResults, (result) => resultGenreMatchMode(result, expected.match?.genreAny || []) === "semantic"),
+      totalCount,
+    ),
+    providerOrSemanticGenreRatio: ratio(
+      countBy(scopedResults, (result) => ["provider-exact", "provider-combined", "semantic"].includes(
+        resultGenreMatchMode(result, expected.match?.genreAny || []),
+      )),
+      totalCount,
+    ),
+    plainDramaFalsePositiveCount: countBy(scopedResults, (result) => (
+      genreContractTokens(expected.match?.genreAny || []).includes("genre-thriller") &&
+      resultGenreMatchMode(result, expected.match?.genreAny || []) === "relaxed" &&
+      normalizeValues(result.genreIds || []).includes("18")
+    )),
+    confirmedSeedCount: Number(diagnostics.confirmedSeedCount || 0),
+    unconfirmedSeedCount: Number(diagnostics.unconfirmedSeedCount || 0),
+    searchSkippedSeedCount: Number(diagnostics.searchSkippedSeedCount || 0),
+    uniqueResolvedWorkCount: Number(diagnostics.uniqueResolvedWorkCount || 0),
+    resolvedBySearchCount: Number(diagnostics.resolvedBySearchCount || 0),
+    resolvedByConfirmedMetadataCount: Number(diagnostics.resolvedByConfirmedMetadataCount || 0),
+    recyclableListBudgetUsed: Number(diagnostics.recyclableListBudgetUsed || 0),
+    eligibleLaterSeedDeferredCount: Number(diagnostics.eligibleLaterSeedDeferredCount || 0),
+    duplicateResolvedSeedCount: Number(diagnostics.duplicateResolvedSeedCount || 0),
+    inputLanguagePreserved: diagnostics.inputLanguagePreserved !== false,
+    genreOptionOrderMatched: diagnostics.genreOptionOrderMatched !== false,
+    emptyStateMessageMatched: diagnostics.emptyStateMessageMatched !== false,
   };
 
   const failedReasons = [];
@@ -325,6 +362,9 @@ export function evaluateRecommendationCase(testCase, recommendationResults = [],
   if (matchRatio < minimumMatchRatio) failedReasons.push(`match-ratio-below-minimum:${matchRatio.toFixed(2)}<${minimumMatchRatio}`);
   if (Number.isFinite(expected.minimumResultCount) && totalCount < expected.minimumResultCount) {
     failedReasons.push("insufficient-valid-candidates");
+  }
+  if (Number.isFinite(expected.minimumLiveResultCount) && totalCount < expected.minimumLiveResultCount) {
+    failedReasons.push("live-result-count-below-threshold");
   }
   if (Number.isFinite(expected.minimumCountryRatio) && metrics.countryRatio < expected.minimumCountryRatio) {
     failedReasons.push("country-ratio-below-threshold");
@@ -389,6 +429,9 @@ export function evaluateRecommendationCase(testCase, recommendationResults = [],
   if (Number.isFinite(expected.maximumDetailRequestCount) && metrics.detailRequestCount > expected.maximumDetailRequestCount) {
     failedReasons.push("request-budget-exceeded");
   }
+  if (Number.isFinite(expected.maximumListRequestCount) && metrics.listRequestCount > expected.maximumListRequestCount) {
+    failedReasons.push("request-budget-exceeded");
+  }
   if (expected.requestBudgetExceeded === false && metrics.requestBudgetExceeded) {
     failedReasons.push("request-budget-exceeded");
   }
@@ -413,6 +456,12 @@ export function evaluateRecommendationCase(testCase, recommendationResults = [],
   if (expected.requiresDeferredSeedMetadata && metrics.deferredSeedCount === 0) {
     failedReasons.push("deferred-seed-metadata-missing");
   }
+  if (Number.isFinite(expected.minimumProcessedSeedCount) && metrics.processedSeedCount < expected.minimumProcessedSeedCount) {
+    failedReasons.push("insufficient-processed-seeds");
+  }
+  if (Number.isFinite(expected.minimumUnresolvedSeedCount) && metrics.unresolvedSeedCount < expected.minimumUnresolvedSeedCount) {
+    failedReasons.push("unresolved-seed-metadata-missing");
+  }
   if (
     expected.requiresUnresolvedOrDeferredSeeds &&
     metrics.unresolvedSeedCount + metrics.deferredSeedCount === 0
@@ -433,6 +482,42 @@ export function evaluateRecommendationCase(testCase, recommendationResults = [],
     metrics.aggregateTmdbRequestCount !== metrics.tmdbRequestCount
   ) {
     failedReasons.push("aggregate-request-count-mismatch");
+  }
+  if (
+    Number.isFinite(expected.minimumProviderOrSemanticGenreRatio) &&
+    metrics.providerOrSemanticGenreRatio < expected.minimumProviderOrSemanticGenreRatio
+  ) {
+    failedReasons.push("semantic-genre-ratio-below-threshold");
+  }
+  if (Number.isFinite(expected.maximumPlainDramaFalsePositiveCount) && metrics.plainDramaFalsePositiveCount > expected.maximumPlainDramaFalsePositiveCount) {
+    failedReasons.push("plain-drama-false-positive");
+  }
+  if (Number.isFinite(expected.minimumConfirmedSeedCount) && metrics.confirmedSeedCount < expected.minimumConfirmedSeedCount) {
+    failedReasons.push("confirmed-seed-metadata-missing");
+  }
+  if (Number.isFinite(expected.minimumSearchSkippedSeedCount) && metrics.searchSkippedSeedCount < expected.minimumSearchSkippedSeedCount) {
+    failedReasons.push("confirmed-seed-search-not-skipped");
+  }
+  if (Number.isFinite(expected.minimumUniqueResolvedWorkCount) && metrics.uniqueResolvedWorkCount < expected.minimumUniqueResolvedWorkCount) {
+    failedReasons.push("duplicate-resolved-seed");
+  }
+  if (Number.isFinite(expected.maximumDuplicateResolvedSeedCount) && metrics.duplicateResolvedSeedCount > expected.maximumDuplicateResolvedSeedCount) {
+    failedReasons.push("duplicate-resolved-seed");
+  }
+  if (expected.requiresSearchBudgetRecycling && metrics.recyclableListBudgetUsed <= 0) {
+    failedReasons.push("reusable-search-budget-not-recycled");
+  }
+  if (expected.forbidEligibleLaterSeedDeferred && metrics.eligibleLaterSeedDeferredCount > 0) {
+    failedReasons.push("valid-later-seed-deferred");
+  }
+  if (expected.inputLanguagePreserved && !metrics.inputLanguagePreserved) {
+    failedReasons.push("input-language-not-preserved");
+  }
+  if (expected.genreOptionOrderMatched && !metrics.genreOptionOrderMatched) {
+    failedReasons.push("genre-option-order-mismatch");
+  }
+  if (expected.emptyStateMessageMatched && !metrics.emptyStateMessageMatched) {
+    failedReasons.push("incorrect-empty-state-message");
   }
 
   for (const condition of expected.failIf || []) {

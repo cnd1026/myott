@@ -422,6 +422,13 @@ input[type="text"]:focus {
   font-weight: 900;
 }
 
+.seed-coverage {
+  margin: -4px 0 16px;
+  color: var(--muted);
+  font-size: 14px;
+  line-height: 1.5;
+}
+
 .result-grid {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));

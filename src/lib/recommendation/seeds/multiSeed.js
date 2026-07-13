@@ -24,6 +24,75 @@ export function normalizeSeedTitles(values = []) {
   };
 }
 
+function normalizedMediaType(value) {
+  return ["tv", "drama", "series"].includes(String(value || "").toLowerCase()) ? "tv" : "movie";
+}
+
+export function normalizeSeedInputs({ titles = [], seeds = [] } = {}) {
+  const confirmedByWork = new Map();
+  const confirmedAliasKeys = new Set();
+  const requestedSeeds = [];
+
+  for (const seed of Array.isArray(seeds) ? seeds : []) {
+    if (!seed || typeof seed !== "object") continue;
+    const tmdbId = Number(seed.tmdbId || seed.providerContentId);
+    if (!Number.isFinite(tmdbId)) continue;
+    const mediaType = normalizedMediaType(seed.mediaType || seed.contentType || seed.type);
+    const inputAliases = uniqueStrings([
+      ...(Array.isArray(seed.inputAliases) ? seed.inputAliases : []),
+      seed.inputTitle,
+      seed.displayTitle,
+    ]);
+    const resolvedTitle = normalizeWhitespace(seed.resolvedTitle || seed.title || inputAliases[0]);
+    const originalTitle = normalizeWhitespace(seed.originalTitle || resolvedTitle);
+    if (!inputAliases.length && !resolvedTitle) continue;
+    requestedSeeds.push(...inputAliases);
+    uniqueStrings([...inputAliases, resolvedTitle, originalTitle]).forEach((alias) => {
+      confirmedAliasKeys.add(normalizeSeedKey(alias));
+    });
+    const workKey = `${mediaType}:${tmdbId}`;
+    const current = confirmedByWork.get(workKey);
+    if (current) {
+      current.inputTitles = uniqueStrings([...current.inputTitles, ...inputAliases]);
+      current.inputAliases = [...current.inputTitles];
+      continue;
+    }
+    confirmedByWork.set(workKey, {
+      originalTitle: inputAliases[0] || resolvedTitle,
+      title: inputAliases[0] || resolvedTitle,
+      key: normalizeSeedKey(inputAliases[0] || resolvedTitle),
+      inputTitles: inputAliases.length ? inputAliases : [resolvedTitle],
+      inputAliases: inputAliases.length ? inputAliases : [resolvedTitle],
+      confirmed: true,
+      workKey,
+      seed: {
+        tmdbId,
+        mediaType,
+        type: seed.contentType || (mediaType === "tv" ? "drama" : "movie"),
+        title: resolvedTitle,
+        originalTitle,
+        genreIds: uniqueNumbers(seed.genreIds || []),
+      },
+    });
+  }
+
+  const unconfirmed = normalizeSeedTitles(titles);
+  const unconfirmedEntries = unconfirmed.entries
+    .filter((entry) => !confirmedAliasKeys.has(entry.key))
+    .map((entry) => ({ ...entry, inputTitles: [entry.title], inputAliases: [entry.title], confirmed: false, seed: null }));
+  requestedSeeds.push(...unconfirmed.requestedSeeds);
+  const entries = [...confirmedByWork.values(), ...unconfirmedEntries];
+
+  return {
+    requestedSeeds,
+    normalizedSeeds: entries.map((entry) => entry.title),
+    entries,
+    confirmedSeedCount: confirmedByWork.size,
+    unconfirmedSeedCount: unconfirmedEntries.length,
+    inputAliasCount: new Set(requestedSeeds.map(normalizeSeedKey).filter(Boolean)).size,
+  };
+}
+
 function candidateKey(item = {}) {
   const id = item.tmdbId || item.providerContentId || item.id;
   const mediaType = item.mediaType || item.contentType || item.type || "content";

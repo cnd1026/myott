@@ -1,4 +1,11 @@
 import { calculateRecommendationScore } from "../scoring/recommendationWeightEngine.js";
+import {
+  candidateGenreMatchDetail,
+  genreIdsForFilters,
+  selectedGenreFilters,
+} from "../genres/genreContract.js";
+
+export { selectedGenreFilters };
 
 export const PRIMARY_RESULT_LIMIT = 12;
 export const RAW_CANDIDATE_LIMIT = 72;
@@ -43,77 +50,16 @@ const COUNTRY_CODE_BY_LABEL = Object.freeze({
   멕시코: "MX",
 });
 
-const GENRE_FAMILIES = Object.freeze({
-  "genre-action": {
-    movie: [28, 80, 53],
-    tv: [10759, 80, 9648],
-  },
-  "genre-action-adventure": {
-    movie: [28, 12],
-    tv: [10759],
-  },
-  "genre-adventure": {
-    movie: [12],
-    tv: [10759],
-  },
-  "genre-animation": {
-    movie: [16],
-    tv: [16],
-  },
-  "genre-comedy": {
-    movie: [35],
-    tv: [35],
-  },
-  "genre-crime": {
-    movie: [80, 53],
-    tv: [80, 9648],
-  },
-  "genre-drama": {
-    movie: [18],
-    tv: [18],
-  },
-  "genre-family": {
-    movie: [10751],
-    tv: [10751, 10762],
-  },
-  "genre-fantasy": {
-    movie: [14],
-    tv: [10765],
-  },
-  "genre-horror": {
-    movie: [27, 53],
-    tv: [9648],
-  },
-  "genre-mystery": {
-    movie: [9648, 53],
-    tv: [9648, 80],
-  },
-  "genre-romance": {
-    movie: [10749],
-    tv: [18],
-  },
-  "genre-sf": {
-    movie: [878],
-    tv: [10765],
-  },
-  "genre-sf-fantasy": {
-    movie: [878, 14],
-    tv: [10765],
-  },
-  "genre-thriller": {
-    movie: [53, 80, 9648],
-    tv: [80, 9648],
-  },
-  "genre-tv-movie": {
-    movie: [10770],
-    tv: [],
-  },
-});
-
 const TIER_ORDER = Object.freeze({
   exact: 1,
   "same-country-relaxed": 2,
   "country-relaxed": 3,
+});
+const GENRE_MATCH_MODE_ORDER = Object.freeze({
+  "provider-exact": 1,
+  "provider-combined": 2,
+  semantic: 3,
+  relaxed: 4,
 });
 
 const normalizeText = (value) => String(value || "").trim().toLowerCase();
@@ -151,37 +97,19 @@ export function normalizedCountryCodes(item = {}) {
 }
 
 export function genreFamilyIds(filters = [], mediaType = "movie") {
-  const targetType = mediaType === "tv" || mediaType === "drama" ? "tv" : "movie";
-  return uniqueNumbers(
-    filters.flatMap((filter) => {
-      if (GENRE_FAMILIES[filter]) return GENRE_FAMILIES[filter][targetType] || [];
-      if (filter.startsWith("tmdb-genre-")) return [filter.replace("tmdb-genre-", "")];
-      return [];
-    }),
-  );
-}
-
-export function selectedGenreFilters(filters = []) {
-  return filters.filter((filter) => filter.startsWith("genre-") || filter.startsWith("tmdb-genre-"));
+  return genreIdsForFilters(filters, mediaType);
 }
 
 export function candidateGenreMatches(item = {}, filters = []) {
   const genreFilters = selectedGenreFilters(filters);
   if (!genreFilters.length) return true;
-
-  const mediaType = item.mediaType === "tv" || normalizeContentType(item) === "drama" ? "tv" : "movie";
-  const expectedIds = genreFamilyIds(genreFilters, mediaType);
-  const itemGenreIds = uniqueNumbers(item.genreIds || item.genre_ids || []);
-  if (!expectedIds.length || !itemGenreIds.length) return false;
-
-  const hasExpectedGenre = expectedIds.some((genreId) => itemGenreIds.includes(genreId));
-  if (!hasExpectedGenre) return false;
-
-  if (normalizeContentType(item) === "animation" && genreFilters.some((filter) => filter !== "genre-animation")) {
-    return expectedIds.some((genreId) => genreId !== 16 && itemGenreIds.includes(genreId));
+  const match = candidateGenreMatchDetail(item, genreFilters);
+  if (!match.genreMatched) return false;
+  if (normalizeContentType(item) !== "animation" || genreFilters.every((filter) => filter === "genre-animation")) {
+    return true;
   }
-
-  return true;
+  const itemGenreIds = uniqueNumbers(item.genreIds || item.genre_ids || []);
+  return itemGenreIds.some((genreId) => genreId !== 16);
 }
 
 function selectedTypes(contentTypes = []) {
@@ -241,6 +169,7 @@ export function classifyCandidate(item = {}, { filters = [], contentTypes = [] }
   const country = selectedCountryCode(filters);
   const countryCodes = normalizedCountryCodes(item);
   const contentTypeMatched = candidateContentTypeMatches(item, contentTypes);
+  const genreMatch = candidateGenreMatchDetail(item, filters);
   const genreMatched = candidateGenreMatches(item, filters);
   const providerFiltered = item.countryValidation === "provider-filtered";
   const countryVerified = !country || countryCodes.includes(country) || providerFiltered;
@@ -272,11 +201,17 @@ export function classifyCandidate(item = {}, { filters = [], contentTypes = [] }
     countryValidation,
     countryMatched,
     genreMatched,
+    genreMatchMode: genreMatched ? genreMatch.genreMatchMode : "relaxed",
+    semanticGenreMatched: genreMatched && genreMatch.semanticGenreMatched,
+    semanticGenreReasons: genreMatched ? genreMatch.semanticGenreReasons : [],
     contentTypeMatched,
     resultTier,
     exactMatch,
     fallbackStage: resultTier === "exact" ? "strict" : resultTier,
     fallbackRelaxed,
+    reason: genreMatched && genreMatch.genreMatchMode === "semantic"
+      ? "TMDB의 TV 장르 분류와 범죄·미스터리 신호를 함께 반영한 추천입니다."
+      : item.reason,
     franchiseKey: candidateFranchiseKey(item),
     candidateSource: item.candidateSource || "provider",
   };
@@ -302,6 +237,7 @@ function compareCandidates(left, right) {
     Number(right.countryMatched) - Number(left.countryMatched) ||
     Number(right.genreMatched) - Number(left.genreMatched) ||
     Number(right.contentTypeMatched) - Number(left.contentTypeMatched) ||
+    (GENRE_MATCH_MODE_ORDER[left.genreMatchMode] || 99) - (GENRE_MATCH_MODE_ORDER[right.genreMatchMode] || 99) ||
     Number(right.seedCount || 0) - Number(left.seedCount || 0) ||
     Number(right.scoreDetail?.finalScore || 0) - Number(left.scoreDetail?.finalScore || 0) ||
     Number(right.voteCount || right.vote_count || 0) - Number(left.voteCount || left.vote_count || 0) ||

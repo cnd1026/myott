@@ -15,7 +15,12 @@ const qaMode = process.argv.includes("--warm") ? "warm" : "cold";
 const dataset = JSON.parse(
   await readFile(new URL("../docs/project/recommendation-qa-dataset.json", import.meta.url), "utf8"),
 );
-const liveCases = dataset.filter((testCase) => testCase.scope?.includes("tmdb"));
+const requestedCaseIds = new Set(
+  String(process.env.QA_CASES || "").split(",").map((value) => value.trim()).filter(Boolean),
+);
+const liveCases = dataset.filter((testCase) => (
+  testCase.scope?.includes("tmdb") && (!requestedCaseIds.size || requestedCaseIds.has(testCase.id))
+));
 const output = [];
 let hasFailure = false;
 
@@ -59,6 +64,8 @@ for (const testCase of liveCases) {
       genreIds: item.genreIds || [],
       contentType: item.contentType || item.type,
       resultTier: item.resultTier,
+      genreMatchMode: item.genreMatchMode || "",
+      semanticGenreMatched: Boolean(item.semanticGenreMatched),
       franchiseKey: item.franchiseKey || "",
       reasonSeeds: item.reasonSeeds || (item.reasonSeed ? [item.reasonSeed] : []),
     })),

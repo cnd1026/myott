@@ -3,6 +3,7 @@ import {
   recommendationScoreScale,
   recommendationWeights,
 } from "./recommendationWeights.js";
+import { genreContractTokens } from "../genres/genreContract.js";
 
 const CONTENT_TYPE_ALIASES = Object.freeze({
   movie: ["movie", "film", "영화"],
@@ -20,20 +21,6 @@ const COUNTRY_ALIASES = Object.freeze({
   cn: ["cn", "중국", "country-cn"],
   hk: ["hk", "홍콩", "country-hk"],
   tw: ["tw", "대만", "country-tw"],
-});
-
-const GENRE_ALIASES = Object.freeze({
-  action: ["action", "액션", "28", "10759", "genre-action"],
-  animation: ["animation", "애니", "애니메이션", "16", "genre-animation"],
-  comedy: ["comedy", "코미디", "35", "genre-comedy"],
-  crime: ["crime", "범죄", "80", "genre-crime"],
-  drama: ["drama", "드라마", "18", "genre-drama"],
-  fantasy: ["fantasy", "판타지", "14", "10765", "genre-fantasy"],
-  horror: ["horror", "공포", "27", "genre-horror"],
-  romance: ["romance", "로맨스", "10749", "genre-romance"],
-  sf: ["sf", "sci-fi", "science fiction", "science-fiction", "878", "genre-sf"],
-  "sf-fantasy": ["sf-fantasy", "sf·판타지", "sf & fantasy", "10765", "genre-sf-fantasy"],
-  thriller: ["thriller", "스릴러", "53", "genre-thriller"],
 });
 
 const RUNTIME_PRESETS = Object.freeze({
@@ -112,16 +99,16 @@ const getItemSeedValues = (item) =>
   ]);
 
 const getItemGenres = (item) =>
-  canonicalizeValues([
+  genreContractTokens([
     ...asArray(item.genreIds),
     ...asArray(item.genre_ids),
     ...asArray(item.genres),
     ...asArray(item.genre),
     ...asArray(item.tags).filter((tag) => normalizeText(tag).startsWith("genre-")),
-  ], GENRE_ALIASES);
+  ]);
 
 const getPreferenceGenres = (preferences) =>
-  canonicalizeValues([
+  genreContractTokens([
     ...asArray(preferences.genreIds),
     ...asArray(preferences.genre_ids),
     ...asArray(preferences.genres),
@@ -129,7 +116,7 @@ const getPreferenceGenres = (preferences) =>
     ...asArray(preferences.filters).filter((filter) => normalizeText(filter).startsWith("genre-")),
     ...asArray(getNested(preferences, ["options", "genreIds"])),
     ...asArray(getNested(preferences, ["options", "genres"])),
-  ], GENRE_ALIASES);
+  ]);
 
 const getItemCountries = (item) =>
   canonicalizeValues([
@@ -165,7 +152,7 @@ const normalizeContentType = (value) => {
 };
 
 const getItemContentType = (item) =>
-  getItemGenres(item).includes("animation")
+  getItemGenres(item).includes("genre-animation")
     ? "animation"
     : normalizeContentType(item.contentType || item.type || item.mediaType || item.media_type);
 

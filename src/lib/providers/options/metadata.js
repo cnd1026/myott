@@ -1,4 +1,10 @@
 import { getTmdbGenreMetadata, hasTmdbKey } from "../../../../lib/tmdb";
+import {
+  GENRE_CONTRACT,
+  genreLabelForValue,
+  genreValueForProviderName,
+  prioritizeGenreOptions,
+} from "../../recommendation/genres/genreContract.js";
 
 export const fallbackCountryOptions = [
   ["country-kr", "한국"],
@@ -24,11 +30,7 @@ export const fallbackOptionGroups = [
   {
     title: "장르",
     source: "fallback",
-    options: [
-      ["genre-sf", "SF"],
-      ["genre-romance", "로맨스"],
-      ["genre-thriller", "스릴러"],
-    ],
+    options: GENRE_CONTRACT.map((entry) => [entry.value, entry.label]),
   },
   {
     title: "국가",
@@ -61,107 +63,22 @@ export const fallbackLanguageOptions = [
   ["language-ja", "일본어"],
 ];
 
-const genreValueByName = new Map([
-  ["Action", "genre-action"],
-  ["Action & Adventure", "genre-action-adventure"],
-  ["Adventure", "genre-adventure"],
-  ["Animation", "genre-animation"],
-  ["Comedy", "genre-comedy"],
-  ["Crime", "genre-crime"],
-  ["Drama", "genre-drama"],
-  ["Family", "genre-family"],
-  ["Fantasy", "genre-fantasy"],
-  ["Horror", "genre-horror"],
-  ["Mystery", "genre-mystery"],
-  ["Romance", "genre-romance"],
-  ["Science Fiction", "genre-sf"],
-  ["Sci-Fi & Fantasy", "genre-sf-fantasy"],
-  ["Thriller", "genre-thriller"],
-  ["TV Movie", "genre-tv-movie"],
-  ["Kids", "genre-kids"],
-  ["Reality", "genre-reality"],
-  ["Talk", "genre-talk"],
-  ["Soap", "genre-soap"],
-  ["News", "genre-news"],
-  ["War & Politics", "genre-war-politics"],
-]);
-
-const genreOrder = [
-  "genre-action",
-  "genre-action-adventure",
-  "genre-sf",
-  "genre-sf-fantasy",
-  "genre-thriller",
-  "genre-horror",
-  "genre-crime",
-  "genre-fantasy",
-  "genre-adventure",
-  "genre-drama",
-  "genre-romance",
-  "genre-comedy",
-  "genre-mystery",
-  "genre-family",
-  "genre-animation",
-  "tmdb-genre-99",
-  "genre-news",
-  "genre-reality",
-  "genre-talk",
-  "genre-tv-movie",
-  "genre-soap",
-  "genre-war-politics",
-];
-
-function normalizeGenreName(name) {
-  const mapping = {
-    Action: "액션",
-    "Action & Adventure": "액션·모험",
-    Adventure: "모험",
-    Animation: "애니메이션",
-    Comedy: "코미디",
-    Crime: "범죄",
-    Drama: "드라마",
-    Family: "가족",
-    Fantasy: "판타지",
-    Horror: "공포",
-    Mystery: "미스터리",
-    Romance: "로맨스",
-    "Science Fiction": "SF",
-    "Sci-Fi & Fantasy": "SF·판타지",
-    "TV Movie": "TV 영화",
-    Thriller: "스릴러",
-    Kids: "키즈",
-    Reality: "리얼리티",
-    Talk: "토크",
-    Soap: "소프",
-    News: "뉴스",
-    "War & Politics": "전쟁·정치",
-  };
-
-  return mapping[name] || name;
-}
-
-function sortGenreOptions(left, right) {
-  const leftOrder = genreOrder.indexOf(left.value);
-  const rightOrder = genreOrder.indexOf(right.value);
-  const normalizedLeftOrder = leftOrder === -1 ? 100 : leftOrder;
-  const normalizedRightOrder = rightOrder === -1 ? 100 : rightOrder;
-
-  return normalizedLeftOrder - normalizedRightOrder || left.label.localeCompare(right.label, "ko");
-}
-
-function optionValueForGenre(genre) {
-  return genreValueByName.get(genre.name) || `tmdb-genre-${genre.id}`;
-}
-
 function normalizeGenreOptions(metadata) {
-  const genres = new Map();
+  const genres = new Map(GENRE_CONTRACT.map((entry) => [entry.value, {
+    value: entry.value,
+    label: entry.label,
+    source: "contract",
+    tmdbIds: [...new Set([...entry.movie.exactIds, ...entry.tv.exactIds])],
+    contentTypes: [...entry.contentTypes],
+    providerLimitation: entry.providerLimitation,
+  }]));
 
   for (const contentType of ["movie", "tv"]) {
     for (const genre of metadata[contentType] || []) {
-      const value = optionValueForGenre(genre);
+      const value = genreValueForProviderName(genre.name) || `tmdb-genre-${genre.id}`;
       const current = genres.get(value) || {
         value,
-        label: normalizeGenreName(genre.name),
+        label: genreLabelForValue(value) || genre.name,
         source: "tmdb",
         tmdbIds: [],
         contentTypes: [],
@@ -173,7 +90,7 @@ function normalizeGenreOptions(metadata) {
     }
   }
 
-  return Array.from(genres.values()).sort(sortGenreOptions);
+  return prioritizeGenreOptions(Array.from(genres.values()));
 }
 
 function toLegacyOptions(options) {

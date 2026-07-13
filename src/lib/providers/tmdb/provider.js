@@ -85,8 +85,8 @@ export const tmdbProvider = {
     return toUnifiedRecommendationPayload(payload);
   },
 
-  async getSeedRecommendations({ titles = [], filters = [], contentTypes = [], limit } = {}) {
-    const payload = await recommendSeedsTmdb({ titles, filters, contentTypes, limit });
+  async getSeedRecommendations({ titles = [], seeds = [], filters = [], contentTypes = [], limit } = {}) {
+    const payload = await recommendSeedsTmdb({ titles, seeds, filters, contentTypes, limit });
     return {
       ...payload,
       ...toUnifiedRecommendationPayload(payload),

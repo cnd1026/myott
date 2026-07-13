@@ -2,6 +2,59 @@
 
 개발 과정에서의 작업 내용, 결정, 아쉬운 점, 다음 개선 사항을 날짜별로 기록합니다.
 
+## 2026-07-13 - MYOTT-S09-006A2 Baseline
+
+### Founder Browser / Product Path Gap
+
+- Founder 브라우저에서는 `일본 + SF + 드라마`, `영국 + 스릴러 + 드라마`가 0개로 재현됐다.
+- 변경 전 Provider 직접 Cold 호출은 `일본 + SF + 드라마` 12개, `일본 + SF·판타지 + 드라마` 12개, `영국 + 스릴러 + 드라마` 12개를 반환했다. 따라서 TMDB 데이터 부재보다 브라우저 Quick Pick과 서버 Candidate Pipeline 사이의 장르 계약 불일치가 우선 원인이다.
+
+| 조합 | TMDB 요청 조건 | 결과 | List / Detail | Tier / 제외 |
+| --- | --- | ---: | ---: | --- |
+| JP + SF + Drama | `tv`, `with_origin_country=JP`, `with_genres=10765`, `without_genres=16`, `vote_count.gte=30` | 12 | 1 / 16 | exact 12, 주요 제외 0 |
+| JP + SF·Fantasy + Drama | 위와 동일한 TV provider ID `10765` | 12 | 1 / 16 | exact 12, 주요 제외 0 |
+| GB + Thriller + Drama | `tv`, `with_origin_country=GB`, Crime `80` / Mystery `9648` variant | 12 | 2 / 16 | exact 12, genre/country 주요 제외 0 |
+
+### Adaptive Seed Baseline
+
+- 입력: `나홀로성에`, `나홀로벽에`, `나홀로우주에`, `나홀로아프리카에`, `인터스텔라`, `마션`
+- 앞의 잘못된 4개만 Search하여 List 4회를 사용했고 모두 unresolved가 됐다.
+- List Budget 4회가 남았지만 `인터스텔라`, `마션`은 고정 `coldSearchCapacity=4` 때문에 deferred 처리됐다.
+- processed 0 / unresolved 4 / deferred 2 / 결과 0개로 재현됐다.
+
+### Autocomplete / UI Baseline
+
+- `home alone` 자동완성 선택 전 입력값은 원문이지만 `selectSuggestion()`이 입력값을 `suggestion.title`로 교체한다.
+- `confirmedSeeds`에는 suggestion만 저장하며 `inputTitle`은 없고, 추천 API에는 confirmed metadata 없이 titles 문자열만 전송한다.
+- 접힌 장르 상단 순서는 액션, 액션·모험, SF, SF·판타지, 스릴러, 공포, 범죄, 판타지다.
+- 타입이 선택된 상태의 0개 결과와 타입 미선택 상태가 같은 “영화, 드라마, 애니 중 하나 이상 선택” 문구를 사용한다.
+- 장르 ID는 Candidate Pipeline, Weight Engine, Option Metadata, QA Evaluator, `app/page.jsx`에 중복 정의되어 있다. 특히 프런트 `genre-sf=[878]`, `genre-thriller=[53,80,9648,18]`가 서버 TV 계약과 다르다.
+
+### 구현 및 검증 결과
+
+- `genreContract.js`를 장르 value, 표시 label, Movie/TV exact ID, semantic adjacent family, provider limitation, display priority의 Source of Truth로 추가했다.
+- TV `10765`는 SF/Fantasy combined provider match로 보존하고, TV Thriller는 Crime/Mystery provider evidence 또는 Action & Adventure와 긴장 semantic evidence를 함께 요구한다. 단순 Drama `18`은 Thriller로 인정하지 않는다.
+- 자동완성 confirmed Seed가 `inputTitle`, `tmdbId`, `mediaType`, resolved/original title을 전달하고 입력창에는 사용자의 원문을 유지한다.
+- 고정 `coldSearchCapacity=4`를 제거했다. 미해결 Search가 Recommendation 예약을 만들지 않아 `잘못된 제목 4개 + 인터스텔라 + 마션`은 List 8회 안에서 processed 2 / unresolved 4 / deferred 0으로 개선됐다.
+- 같은 `mediaType + tmdbId` 번역 제목은 한 Seed로 병합하고, 처리 여부와 관계없이 입력한 Seed 작품은 최종 결과에서 제외한다.
+- Seed Coverage 안내와 Empty State 분기를 순수 helper로 분리하고 Quick Pick 상단 8개를 공통 priority로 고정했다.
+
+| 검증 | 결과 |
+| --- | --- |
+| Unit / Integration | 37 / 37 PASS |
+| Deterministic Dataset | 31 / 31 PASS |
+| Live Cold | 24 / 24 PASS, 최대 aggregate 24회, 최대 2,072ms |
+| Live Warm | 24 / 24 PASS, 최대 외부 호출 6회, cache hit 460회, 최대 823ms |
+| JP + SF + Drama | 12개, JP/Drama 100%, provider-combined `10765` |
+| JP + SF·Fantasy + Drama | 12개, TV taxonomy상 동일 `10765`, 선택 value는 분리 유지 |
+| GB + Thriller + Drama | 12개, GB/Drama 100%, Crime/Mystery provider exact |
+| Browser Home Alone | 입력값 `home alone` 유지, confirmed Seed true, 결과 12개 |
+| Browser Quick Pick | 상단 8개 Founder 지정 순서 PASS |
+| Browser Console | Error 0건 |
+| Production Build | PASS |
+
+Founder Review는 Pending이며, 특정 Live 결과 제목은 TMDB의 현재 metadata와 정렬 시점에 따라 달라질 수 있다.
+
 ## 2026-07-13 - MYOTT-S09-006A1
 
 ### 변경 전 Multi-Seed Baseline

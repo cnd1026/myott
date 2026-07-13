@@ -2,36 +2,19 @@ import { mockContents } from "./data.js";
 import { finalizeCandidatePool } from "../../recommendation/candidates/candidatePipeline.js";
 import {
   mergeMultiSeedCandidates,
-  normalizeSeedTitles,
+  normalizeSeedInputs,
 } from "../../recommendation/seeds/multiSeed.js";
+import {
+  genreContractTokens,
+  genreIdsForFilters,
+} from "../../recommendation/genres/genreContract.js";
 
 const DEFAULT_LIMIT = 12;
 
-const MOCK_GENRE_IDS = Object.freeze({
-  "SF": 878,
-  판타지: 14,
-  애니메이션: 16,
-  드라마: 18,
-  공포: 27,
-  액션: 28,
-  코미디: 35,
-  스릴러: 53,
-  범죄: 80,
-  다큐멘터리: 99,
-  로맨스: 10749,
-  가족: 10751,
-  모험: 12,
-  미스터리: 9648,
-});
-
 function mockGenreIds(content) {
   const isDrama = ["drama", "series", "tv"].includes(content.contentType || content.type);
-  return [...new Set((content.genres || []).flatMap((genre) => {
-    if (isDrama && genre === "SF") return [10765];
-    if (isDrama && genre === "액션") return [10759];
-    if (isDrama && genre === "스릴러") return [80, 9648];
-    return MOCK_GENRE_IDS[genre] ? [MOCK_GENRE_IDS[genre]] : [];
-  }))];
+  const filters = genreContractTokens(content.genres || []);
+  return genreIdsForFilters(filters, isDrama ? "tv" : "movie");
 }
 
 function cloneContent(content) {
@@ -172,12 +155,12 @@ export const mockProvider = {
     return finalizeCandidatePool(fallbackResults(contentTypes, limit), { filters, contentTypes, limit });
   },
 
-  async getSeedRecommendations({ titles = [], filters = [], contentTypes = [], limit = DEFAULT_LIMIT } = {}) {
-    const normalizedInput = normalizeSeedTitles(titles);
+  async getSeedRecommendations({ titles = [], seeds = [], filters = [], contentTypes = [], limit = DEFAULT_LIMIT } = {}) {
+    const normalizedInput = normalizeSeedInputs({ titles, seeds });
     const supplement = progressiveRecommendationPayload(filters, contentTypes, limit).results;
     const seedGroups = normalizedInput.entries.map((entry) => ({
       title: entry.title,
-      seed: { title: entry.title, genreIds: [] },
+      seed: entry.seed || { title: entry.title, genreIds: [] },
       candidates: [
         ...mockContents
           .filter((content) => contentMatchesTypes(content, contentTypes))
@@ -198,6 +181,7 @@ export const mockProvider = {
       seedTitles: normalizedInput.normalizedSeeds,
     });
     const processedSeeds = normalizedInput.normalizedSeeds;
+    const uniqueResolvedWorkCount = normalizedInput.entries.length;
 
     return {
       ...finalized,
@@ -211,13 +195,20 @@ export const mockProvider = {
         candidateCount: seedGroups.find((group) => group.title === title)?.candidates.length || 0,
         phases: ["mock-fallback"],
       })),
-      requestedSeedCount: processedSeeds.length,
+      requestedSeedCount: normalizedInput.inputAliasCount,
       processedSeedCount: processedSeeds.length,
       unresolvedSeedCount: 0,
       deferredSeedCount: 0,
       processedSeeds,
       unresolvedSeeds: [],
       deferredSeeds: [],
+      uniqueResolvedWorkCount,
+      confirmedSeedCount: normalizedInput.confirmedSeedCount,
+      unconfirmedSeedCount: normalizedInput.unconfirmedSeedCount,
+      searchSkippedSeedCount: normalizedInput.confirmedSeedCount,
+      resolvedByConfirmedMetadataCount: normalizedInput.confirmedSeedCount,
+      resolvedBySearchCount: normalizedInput.unconfirmedSeedCount,
+      inputAliasCount: normalizedInput.inputAliasCount,
       diagnostics: {
         ...finalized.diagnostics,
         requestContextCount: 0,
@@ -226,13 +217,20 @@ export const mockProvider = {
         aggregateRequestsUsed: 0,
         listRequestsUsed: 0,
         detailRequestsUsed: 0,
-        requestedSeedCount: processedSeeds.length,
+        requestedSeedCount: normalizedInput.inputAliasCount,
         processedSeedCount: processedSeeds.length,
         unresolvedSeedCount: 0,
         deferredSeedCount: 0,
         processedSeeds,
         unresolvedSeeds: [],
         deferredSeeds: [],
+        uniqueResolvedWorkCount,
+        confirmedSeedCount: normalizedInput.confirmedSeedCount,
+        unconfirmedSeedCount: normalizedInput.unconfirmedSeedCount,
+        searchSkippedSeedCount: normalizedInput.confirmedSeedCount,
+        resolvedByConfirmedMetadataCount: normalizedInput.confirmedSeedCount,
+        resolvedBySearchCount: normalizedInput.unconfirmedSeedCount,
+        inputAliasCount: normalizedInput.inputAliasCount,
       },
     };
   },

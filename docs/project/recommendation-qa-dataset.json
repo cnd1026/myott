@@ -742,5 +742,194 @@
     "priority": "critical",
     "scope": ["fixture"],
     "notes": "A fixed stalled-response fixture must stop at the shared deadline and return already collected TMDB candidates."
+  },
+  {
+    "id": "REC-QA-025",
+    "title": "Japan SF drama live breadth",
+    "contentType": ["drama"],
+    "country": ["JP"],
+    "genre": ["sf"],
+    "mood": [],
+    "runtime": null,
+    "input": {
+      "titles": [],
+      "filters": ["country-jp", "genre-sf"],
+      "contentTypes": ["drama"]
+    },
+    "expected": {
+      "topN": 10,
+      "match": {
+        "country": ["JP"],
+        "contentType": ["drama"],
+        "genreAny": ["sf"]
+      },
+      "minimumLiveResultCount": 4,
+      "minimumCountryRatio": 1,
+      "minimumContentTypeRatio": 1,
+      "minimumProviderOrSemanticGenreRatio": 0.8,
+      "maximumCountryRelaxedRatio": 0,
+      "forbidCrossCountryPrimary": true,
+      "allowFewerAccurateResults": true
+    },
+    "minimumMatchRatio": 0.8,
+    "priority": "critical",
+    "scope": ["tmdb", "fixture"],
+    "notes": "TV SF uses provider-combined genre 10765 while retaining the selected genre-sf contract."
+  },
+  {
+    "id": "REC-QA-026",
+    "title": "UK thriller drama semantic integrity",
+    "contentType": ["drama"],
+    "country": ["GB"],
+    "genre": ["thriller"],
+    "mood": ["tense"],
+    "runtime": null,
+    "input": {
+      "titles": [],
+      "filters": ["country-gb", "genre-thriller"],
+      "contentTypes": ["drama"]
+    },
+    "expected": {
+      "topN": 10,
+      "match": {
+        "country": ["GB"],
+        "contentType": ["drama"],
+        "genreAny": ["thriller"]
+      },
+      "minimumLiveResultCount": 6,
+      "minimumCountryRatio": 1,
+      "minimumContentTypeRatio": 1,
+      "minimumProviderOrSemanticGenreRatio": 0.8,
+      "maximumPlainDramaFalsePositiveCount": 0,
+      "maximumCountryRelaxedRatio": 0,
+      "forbidCrossCountryPrimary": true,
+      "allowFewerAccurateResults": true
+    },
+    "minimumMatchRatio": 0.8,
+    "priority": "critical",
+    "scope": ["tmdb", "fixture"],
+    "notes": "TV thriller accepts Crime or Mystery provider evidence and limited semantic evidence, never plain Drama alone."
+  },
+  {
+    "id": "REC-QA-027",
+    "title": "Adaptive search budget recycling",
+    "contentType": ["movie"],
+    "country": [],
+    "genre": [],
+    "mood": [],
+    "runtime": null,
+    "input": {
+      "titles": ["나홀로성에", "나홀로벽에", "나홀로우주에", "나홀로아프리카에", "인터스텔라", "마션"],
+      "filters": [],
+      "contentTypes": ["movie"]
+    },
+    "expected": {
+      "topN": 12,
+      "minimumResultCount": 1,
+      "maximumTmdbRequestCount": 24,
+      "maximumListRequestCount": 8,
+      "requestContextCount": 1,
+      "minimumProcessedSeedCount": 2,
+      "minimumUnresolvedSeedCount": 4,
+      "requiresSearchBudgetRecycling": true,
+      "forbidEligibleLaterSeedDeferred": true,
+      "aggregateRequestsMustEqualRequests": true
+    },
+    "minimumMatchRatio": 0,
+    "priority": "critical",
+    "scope": ["fixture"],
+    "notes": "Unresolved early titles release their unused recommendation reservations so later valid titles can be processed."
+  },
+  {
+    "id": "REC-QA-028",
+    "title": "Input language preservation",
+    "contentType": ["movie"],
+    "country": [],
+    "genre": [],
+    "mood": [],
+    "runtime": null,
+    "input": {
+      "titles": ["home alone"],
+      "filters": [],
+      "contentTypes": ["movie"]
+    },
+    "expected": {
+      "inputLanguagePreserved": true,
+      "minimumConfirmedSeedCount": 1,
+      "minimumSearchSkippedSeedCount": 1
+    },
+    "minimumMatchRatio": 0,
+    "priority": "critical",
+    "scope": ["fixture", "ui-contract"],
+    "notes": "Suggestion selection preserves the typed string while sending confirmed TMDB metadata."
+  },
+  {
+    "id": "REC-QA-029",
+    "title": "Translated duplicate seed deduplication",
+    "contentType": ["movie"],
+    "country": [],
+    "genre": [],
+    "mood": [],
+    "runtime": null,
+    "input": {
+      "titles": ["나 홀로 집에", "Home Alone", "home alone"],
+      "filters": [],
+      "contentTypes": ["movie"]
+    },
+    "expected": {
+      "minimumResultCount": 1,
+      "minimumUniqueResolvedWorkCount": 1,
+      "maximumDuplicateResolvedSeedCount": 0,
+      "minimumSearchSkippedSeedCount": 1,
+      "maximumTmdbRequestCount": 24,
+      "requestContextCount": 1
+    },
+    "minimumMatchRatio": 0,
+    "priority": "major",
+    "scope": ["fixture"],
+    "notes": "Confirmed aliases that resolve to one media type and TMDB ID produce one candidate request group."
+  },
+  {
+    "id": "REC-QA-030",
+    "title": "Genre top eight order",
+    "contentType": [],
+    "country": [],
+    "genre": [],
+    "mood": [],
+    "runtime": null,
+    "input": {
+      "titles": [],
+      "filters": [],
+      "contentTypes": []
+    },
+    "expected": {
+      "genreOptionOrderMatched": true,
+      "genreOptionOrder": ["genre-action", "genre-sf", "genre-drama", "genre-romance", "genre-mystery", "genre-thriller", "genre-comedy", "genre-horror"]
+    },
+    "minimumMatchRatio": 0,
+    "priority": "major",
+    "scope": ["fixture", "ui-contract"],
+    "notes": "The collapsed group remains stable even when provider metadata is incomplete."
+  },
+  {
+    "id": "REC-QA-031",
+    "title": "Empty state copy integrity",
+    "contentType": ["drama"],
+    "country": ["JP"],
+    "genre": ["sf"],
+    "mood": [],
+    "runtime": null,
+    "input": {
+      "titles": [],
+      "filters": ["country-jp", "genre-sf"],
+      "contentTypes": ["drama"]
+    },
+    "expected": {
+      "emptyStateMessageMatched": true
+    },
+    "minimumMatchRatio": 0,
+    "priority": "critical",
+    "scope": ["fixture", "ui-contract"],
+    "notes": "A selected content type with zero results must not be described as an unselected content type."
   }
 ]

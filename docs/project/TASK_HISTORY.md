@@ -55,6 +55,7 @@
 | MYOTT-S09-006 | Country-integrity Candidate Generation | `이번 커밋` | Candidate Collection과 Ranking을 분리하고 국가 hard constraint, primary/relaxed tier, seed discover supplement, franchise deduplication, QA evaluator 기준을 적용. Founder TMDB 품질 QA 대기. | 완료 |
 | MYOTT-S09-006A | Candidate quality and TMDB request budget | `이번 커밋` | 24/8/16 request budget, progressive fetch, cache/dedup/retry, exact 80% ratio, seed scoring, 20-case deterministic/live QA runner 적용. Founder Live TMDB QA 대기. | 완료 |
 | MYOTT-S09-006A1 | Shared Multi-Seed Request Budget | `이번 커밋` | 단일 Multi-Seed API, Shared Context, 15초 deadline, Seed phase scheduling, 부분 성공, 24-case QA와 Product 경로 Cold/Warm Live Runner 적용. Founder QA 대기. | 완료 |
+| MYOTT-S09-006A2 | Adaptive Seed Resolution & Unified Genre Contract | `이번 커밋` | 공통 장르 계약, TV semantic 장르, confirmed Seed와 입력 언어 보존, Adaptive Search Budget Recycling, Seed Coverage/Empty State, 31-case QA 적용. Founder QA 대기. | 완료 |
 
 ## Sprint 8
 
