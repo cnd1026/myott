@@ -2,6 +2,27 @@
 
 개발 과정에서의 작업 내용, 결정, 아쉬운 점, 다음 개선 사항을 날짜별로 기록합니다.
 
+## 2026-07-13 - MYOTT-S09-DOC-002
+
+### 오늘 작업
+
+- Prompt Guide를 v1.4.1로 올리고 AI Execution Profile의 Platform, Model, Reasoning, Reason 구조를 확정했습니다.
+- ChatGPT 표준과 Codex 표준을 분리하고, 기존 Terra/Sol 예시가 ChatGPT에 적용되지 않도록 Codex 전용으로 표시했습니다.
+- AI Session Review가 단일/복수 Platform 작업을 구분해 기록하도록 Target Platform과 Reason 항목을 추가했습니다.
+- ROADMAP Revision History에 Platform별 AI 운영 기준과 CTO 책임 원칙을 반영했습니다.
+
+### 결정한 것
+
+- Founder는 목표와 문제를 설명하고, CTO가 Platform, 모델, reasoning 수준을 선택합니다.
+- ChatGPT 표준은 Founder 환경에서 승인한 세 UI reasoning option만 사용합니다.
+- Codex profile은 실제 Codex UI에서 제공되는 선택지로만 기록하며 ChatGPT 표준으로 재사용하지 않습니다.
+
+### 검증
+
+- Markdown structure review: PASS
+- `git diff --check`: PASS
+- 제품 코드 변경 없음: PASS
+
 ## 2026-07-13 - MYOTT-S09-DOC-001
 
 ### 오늘 작업

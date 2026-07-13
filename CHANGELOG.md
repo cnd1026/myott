@@ -2,6 +2,25 @@
 
 프로젝트의 주요 변경 사항을 날짜별로 기록합니다.
 
+## 2026-07-13 - MYOTT-S09-DOC-002
+
+### 변경 내용
+
+- `PROMPT_GUIDE.md`를 v1.4.1로 보정하고 AI Execution Profile에 `Platform` 필드를 추가했습니다.
+- Founder 환경에서 승인한 ChatGPT UI의 `즉시(5.5)`, `중간(5.6)`, `높음(5.6)` 기준과 ChatGPT 예시 3개를 추가했습니다.
+- 기존 Terra/Sol profile 예시는 Codex 전용으로 명확히 분리하고, AI Session Review에 Target Platform과 Reason 항목을 추가했습니다.
+- `ROADMAP.md`에 Platform별 AI 운영 표준과 CTO의 모델 선택 책임을 기록했습니다.
+
+### 이유
+
+- ChatGPT와 Codex의 선택지를 하나의 기준처럼 기록하면 Founder가 실제 UI와 다른 모델/추론 단계를 기대할 수 있습니다.
+- Platform별 실행 기준을 분리해 CTO가 작업 위험도와 ROI에 맞는 설정을 일관되게 결정하도록 합니다.
+
+### 검증
+
+- Markdown structure review: PASS
+- 제품 코드 변경 없음: PASS
+
 ## 2026-07-13 - MYOTT-S09-DOC-001
 
 ### 변경 내용
