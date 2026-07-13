@@ -1,6 +1,6 @@
 # Recommendation Architecture
 
-Version: 1.1
+Version: 2.0
 
 Author: MYOTT Team
 
@@ -8,11 +8,11 @@ Last Updated: 2026-07-13
 
 Related Sprint: Sprint 9
 
-Breaking Change: No
+Breaking Change: Yes
 
 Decision Log: [DECISION_LOG.md](./DECISION_LOG.md)
 
-Architecture Version: v1.0
+Architecture Version: v2.0
 
 Status: ACTIVE
 
@@ -63,26 +63,62 @@ MyOTT Recommendation Engine은 사용자의 입력, 선택 옵션, 콘텐츠 met
 ```mermaid
 flowchart TD
   Input["User Input"] --> Search["Search"]
-  Search --> Feature["Feature Extraction"]
-  Feature --> Signal["Signal Calculation"]
-  Signal --> Weight["Weight"]
-  Weight --> Score["Score"]
-  Score --> Ranking["Ranking"]
-  Ranking --> Fallback["Fallback"]
-  Fallback --> Recommendation["Recommendation"]
+  Search --> Collection["Candidate Collection"]
+  Collection --> Normalize["Metadata Normalization"]
+  Normalize --> Constraint["Hard Constraint Filtering"]
+  Constraint --> Tier["Result Tier Classification"]
+  Tier --> Franchise["Franchise Deduplication"]
+  Franchise --> Weight["Weight Engine Scoring"]
+  Weight --> Ranking["Final Ranking"]
+  Ranking --> Recommendation["Recommendation"]
 ```
 
 | Step | Role | Output |
 | --- | --- | --- |
 | User Input | 작품명, 콘텐츠 타입, 국가, 장르, 분위기, 런타임, OTT 선택 수집 | Seed / Option |
-| Search | TMDB 또는 fallback provider에서 후보 확보 | Candidate List |
-| Feature Extraction | 후보의 metadata를 표준 Feature로 정규화 | Feature Set |
-| Signal Calculation | Feature 간 관계를 추천 Signal로 계산 | Signal Map |
-| Weight | Signal별 중요도를 적용 | Weighted Signals |
-| Score | 최종 추천 점수 산출 | Final Score |
-| Ranking | Score와 diversity rule로 정렬 | Ranked Results |
-| Fallback | 결과 부족 또는 provider 실패 시 안전한 완화 정책 적용 | Fallback Results |
+| Search | seed를 식별하거나 option recommendation 요청을 시작 | Seed / Request Context |
+| Candidate Collection | recommendations, similar, country-scoped discover에서 충분한 raw 후보 확보 | Raw Candidate Pool |
+| Metadata Normalization | 국가, 장르, 타입, collection metadata를 provider-independent value로 정규화 | Normalized Candidates |
+| Hard Constraint Filtering | 콘텐츠 타입과 선택 국가를 primary 후보에 강제 | Eligible Candidates |
+| Result Tier Classification | exact와 same-country genre-relaxed 결과를 구분 | Primary Result Tiers |
+| Franchise Deduplication | 동일 콘텐츠와 동일 franchise의 최초 결과 과점을 제한 | Diverse Candidates |
+| Weight Engine Scoring | 적격 후보 안에서 Signal과 Weight를 계산 | Score Detail |
+| Final Ranking | tier, constraint match, score, 신뢰 metadata 순으로 정렬 | Ranked Primary Results |
 | Recommendation | Decision Card / Detail Layer에 표시 | User-facing Recommendation |
+
+### Candidate Pipeline Contract
+
+1. Candidate Collection
+2. Metadata Normalization
+3. Hard Constraint Filtering
+4. Result Tier Classification
+5. Franchise Deduplication
+6. Weight Engine Scoring
+7. Final Ranking
+
+`Weight Engine`은 적격 후보의 순위를 정하며, 국가 또는 콘텐츠 타입 hard constraint를 대신하지 않습니다. Raw 후보는 최대 72개까지 수집하고 TMDB 요청은 동시 4개 이하로 제한합니다.
+
+Result tier:
+
+| Tier | Meaning | Primary `results` |
+| --- | --- | --- |
+| `exact` | 국가, 장르, 콘텐츠 타입 일치 | 포함 |
+| `same-country-relaxed` | 국가와 타입 일치, 장르만 완화 | exact 다음에 포함 가능 |
+| `country-relaxed` | 국가 불일치 또는 미검증 | 포함 금지, `relaxedResults`로 분리 |
+
+각 결과는 `resultTier`, `exactMatch`, `countryMatched`, `genreMatched`, `contentTypeMatched`, `fallbackStage`, `fallbackRelaxed`를 유지합니다. 기존 API 소비자를 위해 `results` 배열 계약은 유지합니다.
+
+### Seed Discover Supplement
+
+Seed title 경로는 recommendations와 similar를 먼저 수집합니다. 선택 국가와 타입으로 필터한 뒤 후보가 부족하면 seed genre id와 선택 국가를 사용한 Discover로 보충하며, 이 후보는 `seedSupplement`와 `candidateSource`로 직접 연결된 추천과 구분합니다. 외국 작품으로 primary 12개를 강제 충전하지 않습니다.
+
+### Country And Franchise Integrity
+
+- 영화는 `production_countries`, TV는 `origin_country`, 공통 모델은 `countryCodes`를 우선합니다.
+- 목록 metadata가 없지만 country-scoped Discover가 적용된 후보는 `provider-filtered`로 표시하고 상세 metadata로 보강합니다.
+- 국가 검증 상태는 `verified`, `provider-filtered`, `unknown`, `mismatch`로 구분합니다.
+- 동일 TMDB content는 한 번만 유지하고, 공식 collection/series metadata가 있는 동일 franchise는 primary 12에서 최대 1개만 유지합니다.
+- 공식 metadata가 없을 때 제목 기반 franchise 추론은 보수적으로 적용합니다.
 
 ---
 
@@ -157,7 +193,7 @@ Current implementation:
 - Weight config: [recommendationWeights.js](../../src/lib/recommendation/scoring/recommendationWeights.js)
 - Weight engine: [recommendationWeightEngine.js](../../src/lib/recommendation/scoring/recommendationWeightEngine.js)
 
-Sprint 9의 Weight Engine은 API 호출이 없는 순수 유틸리티입니다. `app/page.jsx`의 provider result ranking 단계에서 `scoreDetail`을 생성하고 `finalScore`를 1순위 정렬 기준으로 사용합니다. 기존 Recommendation Reason / Insight UI는 유지하며, `scoreDetail`은 향후 Insight와 Debug QA에 연결 가능한 데이터로 둡니다.
+Sprint 9의 Weight Engine은 API 호출이 없는 순수 유틸리티입니다. Candidate Pipeline이 hard constraint와 result tier를 확정한 뒤 각 후보에 `scoreDetail`을 생성합니다. 정렬은 result tier와 constraint match를 먼저 보장하고 `finalScore`를 적격 후보 내 순위에 사용합니다. 기존 Recommendation Reason / Insight UI는 유지하며, `scoreDetail`은 향후 Insight와 Debug QA에 연결 가능한 데이터로 둡니다.
 
 ---
 
@@ -192,8 +228,8 @@ Final Score =
 Scoring rule:
 
 - Content Type mismatch는 상위 결과에서 제외한다.
-- Country mismatch는 선택 국가 결과가 충분할 때 제외한다.
-- Genre/Country 조합 결과가 부족할 때만 단계적으로 완화한다.
+- Country mismatch는 국가가 선택된 primary results에서 제외한다.
+- 국가/장르 조합 결과가 부족하면 같은 국가 안에서 장르만 완화한다.
 - Fallback으로 보강된 결과는 "조건을 조금 넓혀 함께 추천" signal을 가진다.
 - Score는 사용자에게 숫자로 노출하지 않는다.
 - 사용자에게는 Recommendation Reason과 Recommendation Insight로 설명한다.
@@ -202,7 +238,7 @@ Implementation boundary:
 
 - `calculateRecommendationScore(item, preferences)`는 `finalScore`, `signals`, `weights`, `reasons`, `penalties`를 반환한다.
 - 각 Signal은 0~1 사이 normalized value로 계산한다.
-- ranking 단계에서는 모든 후보에 `scoreDetail`을 붙이고 `finalScore` 기준으로 먼저 정렬한다.
+- ranking 단계에서는 적격 후보에 `scoreDetail`을 붙이고 result tier, constraint match, `finalScore` 순으로 정렬한다.
 - 기존 rule-based score는 `legacyScore`로 보존해 tie-break와 회귀 완충에 사용한다.
 - Content Type은 weighted boost가 아니라 hard filter로 유지한다.
 - Runtime metadata가 없을 때는 약한 unknown penalty만 적용한다.
@@ -270,17 +306,15 @@ flowchart TD
 | TMDB success | 실제 TMDB 결과만 표시 | Data Source: TMDB / Fallback: No |
 | TMDB empty | Mock으로 자동 보강하지 않음 | Data Source: Empty |
 | Explicit fallback | API가 `fallbackUsed: true`를 반환한 경우만 Mock 표시 | Data Source: Fallback / Fallback: Yes |
-| Narrow filter fallback | content type은 유지하고 genre/country/runtime 완화 정책을 따름 | Insight 표시 |
+| Narrow filter fallback | content type과 선택 국가는 유지하고 genre만 완화 | Insight 표시 |
 | Error before fallback | 결과 없음 또는 error state | Error / Empty |
 
-Fallback relaxation order:
+Primary fallback order:
 
-1. Content Type + Genre + Country
-2. Content Type + Country
-3. Content Type + Genre
-4. Content Type only
+1. `exact`: Content Type + Genre + Country
+2. `same-country-relaxed`: Content Type + Country, Genre relaxed
 
-Content Type은 절대 완화하지 않는다.
+`country-relaxed` 후보는 primary `results`에 포함하지 않고 `relaxedResults`로 분리합니다. Content Type과 선택 국가는 절대 완화하지 않으며, 정확한 결과가 12개보다 적더라도 Mock 또는 외국 작품으로 조용히 채우지 않습니다.
 
 ---
 
@@ -342,7 +376,10 @@ AI Recommendation 원칙:
 
 - Feature와 Signal은 분리되어 있다.
 - Weight는 Founder QA를 통해 조정 가능한 값으로 정의되어 있다.
-- Recommendation Architecture는 현재 구현과 분리된 기준 문서이다.
+- Candidate Collection과 Ranking 책임은 분리되어 있다.
+- Weight Engine은 hard constraint를 통과한 후보에만 적용된다.
+- Primary와 relaxed 결과가 API metadata로 구분된다.
+- Recommendation Architecture는 구현의 책임 경계를 정의하는 기준 문서이다.
 - Provider fallback과 Recommendation fallback을 구분한다.
 - Score는 사용자에게 직접 노출하지 않고 explainability layer를 통해 설명한다.
 - Sprint 10 구현은 이 문서를 기준으로 작은 단위로 진행한다.
@@ -360,19 +397,28 @@ AI Recommendation 원칙:
 
 ---
 
-## 14. Sprint 10 Implementation Candidates
+## 14. Next Implementation Candidates
 
-1. Recommendation Engine module 분리
-2. Feature extraction helper 작성
-3. Signal calculation helper 작성
-4. Weight configuration 작성
-5. QA dataset fixture 작성
-6. Recommendation score logging 추가
-7. Founder QA result 기록 template 추가
+1. Founder 로컬 TMDB dataset 실행 기록 자동화
+2. country metadata detail enrichment cache
+3. candidate request budget 관측
+4. keyword/director/actor signal 고도화
+5. exact/relaxed user notice 검증
+6. Recommendation score logging 자동화
 
 ---
 
 ## Changelog
+
+### v2.0
+
+- Candidate Collection과 Ranking 책임 분리
+- 선택 국가를 primary hard constraint로 변경
+- `exact`, `same-country-relaxed`, `country-relaxed` result tier 도입
+- Seed Discover Supplement와 country metadata validation 정의
+- 동일 franchise primary 최대 1개 정책 도입
+- Weight Engine 적용 순서를 hard constraint 이후로 변경
+- Primary fallback policy 변경으로 Breaking Change 기록
 
 ### v1.1
 

@@ -37,6 +37,14 @@ function toUnifiedContentModel(item) {
   };
 }
 
+function toUnifiedRecommendationPayload(payload = {}) {
+  return {
+    results: (payload.results || []).map(toUnifiedContentModel),
+    relaxedResults: (payload.relaxedResults || []).map(toUnifiedContentModel),
+    diagnostics: payload.diagnostics || {},
+  };
+}
+
 export const tmdbProvider = {
   id: "tmdb",
   name: "TMDB Provider",
@@ -47,15 +55,18 @@ export const tmdbProvider = {
 
   async search({ query = "", contentTypes = [], filters = [] } = {}) {
     const payload = await searchTmdb(query, contentTypes, filters);
-    return (payload.results || []).map((item) =>
-      toUnifiedContentModel({
-        ...item,
-        seedTitle: payload.seed?.title || query,
-        seedGenreIds: payload.seed?.genreIds || [],
-        seedGenres: payload.seed?.genres || [],
-        seedContentType: payload.seed?.type || "",
-      }),
-    );
+    return {
+      ...toUnifiedRecommendationPayload(payload),
+      results: (payload.results || []).map((item) =>
+        toUnifiedContentModel({
+          ...item,
+          seedTitle: payload.seed?.title || query,
+          seedGenreIds: payload.seed?.genreIds || [],
+          seedGenres: payload.seed?.genres || [],
+          seedContentType: payload.seed?.type || "",
+        }),
+      ),
+    };
   },
 
   async getDetail() {
@@ -65,7 +76,7 @@ export const tmdbProvider = {
   async getRecommendations({ query = "", filters = [], contentTypes = [], limit } = {}) {
     if (query) return this.search({ query, filters, contentTypes });
     const payload = await discoverTmdb({ filters, contentTypes, limit });
-    return (payload.results || []).map(toUnifiedContentModel);
+    return toUnifiedRecommendationPayload(payload);
   },
 
   async getRelated({ providerContentId, contentType, limit } = {}) {

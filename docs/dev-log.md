@@ -2,6 +2,50 @@
 
 개발 과정에서의 작업 내용, 결정, 아쉬운 점, 다음 개선 사항을 날짜별로 기록합니다.
 
+## 2026-07-13 - MYOTT-S09-006
+
+### 변경 전 Baseline
+
+TMDB API key는 설정되어 있었지만 Codex 실행 환경의 외부 TMDB fetch가 `fetch failed`로 종료되어 실데이터 baseline은 수집하지 못했습니다. 아래는 변경 전 Mock fallback 최초 결과 기준이며 TMDB 품질 PASS로 간주하지 않습니다.
+
+| 조합 | 결과 | 선택 국가 | 장르 계열 | 확인 사항 |
+| --- | ---: | ---: | ---: | --- |
+| 한국 + 액션 + 영화 | 11 | 5 / 11 | 6 / 11 | 외국 6개가 primary에 혼합 |
+| 한국 + 드라마 + 김부장 | 8 | 6 / 8 | 8 / 8 | 외국 2개가 primary에 혼합 |
+| 일본 + SF + 전체 타입 | 12 | 6 / 12 | 4 / 12 | 외국 6개, franchise metadata 없음 |
+| 일본 + SF + 애니 | 3 | 3 / 3 | 2 / 3 | 후보 수 부족 |
+| 영국 + 스릴러 + 드라마 | 11 | 2 / 11 | 2 / 11 | 외국 9개가 primary에 혼합 |
+| 미국 + 공포 + 영화 | 11 | 5 / 11 | 1 / 11 | 외국 6개, 장르 커버리지 부족 |
+
+### 오늘 작업
+
+- Candidate Collection부터 Final Ranking까지의 책임을 `candidatePipeline.js`로 분리했습니다.
+- 선택 국가와 콘텐츠 타입을 primary hard constraint로 적용하고 국가 완화 후보를 `relaxedResults`로 분리했습니다.
+- TMDB Discover를 여러 페이지/정렬 기준으로 수집하되 raw 후보 72개, 동시 요청 4개 이하로 제한했습니다.
+- Seed recommendation/similar 부족분은 동일 국가와 seed genre 기반 Discover로 보충합니다.
+- country code, validation state, result tier, candidate source, franchise key, score detail debug metadata를 추가했습니다.
+- QA Dataset과 evaluator를 국가, 장르 family, 타입, result tier, unknown country, franchise 제한 기준으로 확장했습니다.
+
+### 변경 후 기술 검증
+
+Codex 환경의 TMDB 요청은 여전히 실패해 명시적 Mock fallback으로 검증했습니다. Primary에는 외국 후보가 섞이지 않았고 국가 완화 후보는 별도 배열로 분리되었습니다.
+
+| 조합 | Primary | 국가 일치 | 장르 일치 | 타입 |
+| --- | ---: | ---: | ---: | --- |
+| 한국 + 액션 + 영화 | 5 | 5 / 5 | 5 / 5 | movie |
+| 한국 + 드라마 + 김부장 | 6 | 6 / 6 | 6 / 6 | drama |
+| 일본 + SF + 전체 타입 | 6 | 6 / 6 | 4 / 6 | movie / drama / animation |
+| 일본 + SF + 애니 | 3 | 3 / 3 | 2 / 3 | animation |
+| 영국 + 스릴러 + 드라마 | 2 | 2 / 2 | 2 / 2 | drama |
+| 미국 + 공포 + 영화 | 5 | 5 / 5 | 1 / 5 | movie |
+
+### 결정한 것
+
+- 정확한 6개가 외국 작품을 섞은 12개보다 낫습니다.
+- Weight Engine은 hard constraint를 통과한 후보의 순위만 정합니다.
+- TMDB 실데이터 80% 품질 기준은 Founder 로컬 QA 전에는 PASS로 기록하지 않습니다.
+- Mock fallback의 제한된 장르/국가 데이터는 primary integrity를 검증하는 용도로만 사용합니다.
+
 ## 2026-07-13 - MYOTT-S09-DOC-002
 
 ### 오늘 작업

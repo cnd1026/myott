@@ -20,6 +20,11 @@
       },
       "minimumCountryRatio": 0.8,
       "minimumContentTypeRatio": 1,
+      "minimumResultCount": 6,
+      "maxSingleFranchiseCount": 1,
+      "forbidCrossCountryPrimary": true,
+      "allowFewerAccurateResults": true,
+      "maximumUnknownCountryRatio": 0.2,
       "mustShowFallbackNoticeOnlyIfRelaxed": true,
       "failIf": ["foreign-drama-dominates-top-results", "movie-or-animation-appears-in-top-results"]
     },
@@ -50,6 +55,12 @@
       },
       "minimumCountryRatio": 0.8,
       "minimumGenreFamilyRatio": 0.8,
+      "minimumContentTypeRatio": 1,
+      "minimumResultCount": 6,
+      "maxSingleFranchiseCount": 1,
+      "forbidCrossCountryPrimary": true,
+      "allowFewerAccurateResults": true,
+      "maximumUnknownCountryRatio": 0.2,
       "failIf": ["us-action-dominates-top-results", "non-movie-type-appears"]
     },
     "minimumMatchRatio": 0.8,
@@ -74,9 +85,15 @@
       "topN": 10,
       "match": {
         "country": ["JP"],
-        "genreAny": ["sf", "fantasy", "animation"]
+        "genreAny": ["sf", "fantasy"]
       },
       "minimumCountryRatio": 0.8,
+      "minimumGenreFamilyRatio": 0.8,
+      "minimumResultCount": 6,
+      "maxSingleFranchiseCount": 1,
+      "forbidCrossCountryPrimary": true,
+      "allowFewerAccurateResults": true,
+      "maximumUnknownCountryRatio": 0.2,
       "avoidSingleTypeDominanceUnlessAnimationSelectedOnly": true,
       "failIf": ["non-japanese-results-dominate", "animation-only-results-when-all-types-selected"]
     },
@@ -107,6 +124,12 @@
       },
       "minimumCountryRatio": 0.8,
       "minimumGenreFamilyRatio": 0.8,
+      "minimumContentTypeRatio": 1,
+      "minimumResultCount": 6,
+      "maxSingleFranchiseCount": 1,
+      "forbidCrossCountryPrimary": true,
+      "allowFewerAccurateResults": true,
+      "maximumUnknownCountryRatio": 0.2,
       "failIf": ["tv-or-animation-dominates", "non-us-results-dominate"]
     },
     "minimumMatchRatio": 0.8,
@@ -136,6 +159,12 @@
       },
       "minimumCountryRatio": 0.7,
       "minimumContentTypeRatio": 1,
+      "minimumGenreFamilyRatio": 0.7,
+      "minimumResultCount": 6,
+      "maxSingleFranchiseCount": 1,
+      "forbidCrossCountryPrimary": true,
+      "allowFewerAccurateResults": true,
+      "maximumUnknownCountryRatio": 0.3,
       "failIf": ["animation-results-appear", "movie-results-appear", "uk-not-represented-in-top-results"]
     },
     "minimumMatchRatio": 0.7,
@@ -163,6 +192,13 @@
         "contentType": ["drama"]
       },
       "minimumContentTypeRatio": 1,
+      "minimumCountryRatio": 0.8,
+      "minimumGenreFamilyRatio": 0.8,
+      "minimumResultCount": 4,
+      "maxSingleFranchiseCount": 1,
+      "forbidCrossCountryPrimary": true,
+      "allowFewerAccurateResults": true,
+      "maximumUnknownCountryRatio": 0.2,
       "allowRelaxedFallback": true,
       "requiresFallbackNoticeWhenRelaxed": true,
       "failIf": ["movie-or-animation-appears", "fallback-notice-missing-when-relaxed"]
@@ -190,10 +226,16 @@
       "match": {
         "country": ["JP"],
         "contentType": ["animation"],
-        "genreAny": ["sf", "fantasy", "animation"]
+        "genreAny": ["sf", "fantasy"]
       },
       "minimumCountryRatio": 0.8,
       "minimumContentTypeRatio": 1,
+      "minimumGenreFamilyRatio": 0.8,
+      "minimumResultCount": 8,
+      "maxSingleFranchiseCount": 1,
+      "forbidCrossCountryPrimary": true,
+      "allowFewerAccurateResults": true,
+      "maximumUnknownCountryRatio": 0.2,
       "failIf": ["non-animation-result-appears", "non-japanese-results-dominate"]
     },
     "minimumMatchRatio": 0.8,
@@ -325,5 +367,103 @@
     "priority": "major",
     "scope": ["mock-fallback"],
     "notes": "Fallback results are allowed only when the API explicitly declares fallbackUsed."
+  },
+  {
+    "id": "REC-QA-013",
+    "title": "Japan SF movie primary integrity",
+    "contentType": ["movie"],
+    "country": ["JP"],
+    "genre": ["sf"],
+    "mood": ["brainy"],
+    "runtime": null,
+    "input": {
+      "titles": [],
+      "filters": ["country-jp", "genre-sf"],
+      "contentTypes": ["movie"]
+    },
+    "expected": {
+      "topN": 10,
+      "match": {
+        "country": ["JP"],
+        "contentType": ["movie"],
+        "genreAny": ["sf"]
+      },
+      "minimumResultCount": 4,
+      "minimumCountryRatio": 0.8,
+      "minimumGenreFamilyRatio": 0.8,
+      "minimumContentTypeRatio": 1,
+      "maxSingleFranchiseCount": 1,
+      "forbidCrossCountryPrimary": true,
+      "allowFewerAccurateResults": true,
+      "maximumUnknownCountryRatio": 0.2,
+      "failIf": ["non-japanese-results-dominate", "non-movie-type-appears"]
+    },
+    "minimumMatchRatio": 0.8,
+    "priority": "critical",
+    "scope": ["tmdb", "mock-fallback"],
+    "notes": "All primary results must remain movies; fewer accurate same-country results are allowed."
+  },
+  {
+    "id": "REC-QA-014",
+    "title": "Country primary result integrity",
+    "contentType": ["movie"],
+    "country": ["KR"],
+    "genre": ["action"],
+    "mood": [],
+    "runtime": null,
+    "input": {
+      "titles": [],
+      "filters": ["country-kr", "genre-action"],
+      "contentTypes": ["movie"]
+    },
+    "expected": {
+      "topN": 12,
+      "match": {
+        "country": ["KR"],
+        "contentType": ["movie"]
+      },
+      "minimumResultCount": 4,
+      "minimumCountryRatio": 1,
+      "minimumContentTypeRatio": 1,
+      "forbidCrossCountryPrimary": true,
+      "allowFewerAccurateResults": true,
+      "maximumUnknownCountryRatio": 0.2,
+      "failIf": ["foreign-result-in-primary"]
+    },
+    "minimumMatchRatio": 1,
+    "priority": "critical",
+    "scope": ["tmdb", "mock-fallback"],
+    "notes": "Country-relaxed candidates may exist only outside the primary results array."
+  },
+  {
+    "id": "REC-QA-015",
+    "title": "Primary franchise diversity",
+    "contentType": ["movie", "drama", "animation"],
+    "country": ["JP"],
+    "genre": ["sf"],
+    "mood": [],
+    "runtime": null,
+    "input": {
+      "titles": [],
+      "filters": ["country-jp", "genre-sf"],
+      "contentTypes": ["movie", "drama", "animation"]
+    },
+    "expected": {
+      "topN": 12,
+      "match": {
+        "country": ["JP"],
+        "genreAny": ["sf"]
+      },
+      "minimumResultCount": 4,
+      "minimumCountryRatio": 0.8,
+      "maxSingleFranchiseCount": 1,
+      "forbidCrossCountryPrimary": true,
+      "allowFewerAccurateResults": true,
+      "failIf": ["franchise-dominance"]
+    },
+    "minimumMatchRatio": 0.8,
+    "priority": "critical",
+    "scope": ["tmdb", "mock-fallback"],
+    "notes": "The first 12 primary results must contain no duplicate TMDB id and no franchise more than once."
   }
 ]

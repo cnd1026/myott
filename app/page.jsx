@@ -736,11 +736,12 @@ function weightPreferenceFromSelection(selectedTypes, quickPicks, optionMetadata
 
 function sortProviderResults(results, selectedTypes, quickPicks, selectedOtt, optionMetadata, seedTitles = []) {
   const weightPreferences = weightPreferenceFromSelection(selectedTypes, quickPicks, optionMetadata, seedTitles);
+  const tierPriority = { exact: 1, "same-country-relaxed": 2, "country-relaxed": 3 };
 
   return results
     .map((item) => {
       const analysis = analyzeProviderResult(item, selectedTypes, quickPicks, selectedOtt, optionMetadata);
-      const scoreDetail = calculateRecommendationScore(item, weightPreferences);
+      const scoreDetail = item.scoreDetail || calculateRecommendationScore(item, weightPreferences);
       return {
         ...item,
         score: scoreDetail.finalScore,
@@ -756,6 +757,10 @@ function sortProviderResults(results, selectedTypes, quickPicks, selectedOtt, op
       const ratingB = Number.parseFloat(b.rating);
 
       return (
+        (tierPriority[a.resultTier] || 99) - (tierPriority[b.resultTier] || 99) ||
+        Number(b.countryMatched) - Number(a.countryMatched) ||
+        Number(b.genreMatched) - Number(a.genreMatched) ||
+        Number(b.contentTypeMatched) - Number(a.contentTypeMatched) ||
         (b.scoreDetail?.finalScore || 0) - (a.scoreDetail?.finalScore || 0) ||
         b.legacyScore - a.legacyScore ||
         popularityB - popularityA ||

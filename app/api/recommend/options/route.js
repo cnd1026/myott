@@ -14,11 +14,13 @@ function sourceMetadata(provider, { message = "", fallbackUsed = false, fallback
 }
 
 async function recommendWithProvider(provider, filters, contentTypes, sourceOptions = {}) {
-  const results = await provider.getRecommendations({
+  const providerPayload = await provider.getRecommendations({
     filters,
     contentTypes,
     limit: 12,
   });
+  const results = Array.isArray(providerPayload) ? providerPayload : providerPayload.results || [];
+  const relaxedResults = Array.isArray(providerPayload) ? [] : providerPayload.relaxedResults || [];
   const metadata = sourceMetadata(provider, sourceOptions);
   const dataSource = !metadata.fallbackUsed && !results.length ? "empty" : metadata.dataSource;
 
@@ -26,6 +28,10 @@ async function recommendWithProvider(provider, filters, contentTypes, sourceOpti
     ...metadata,
     dataSource,
     results,
+    relaxedResults,
+    ...(process.env.NODE_ENV !== "production" && !Array.isArray(providerPayload)
+      ? { recommendationDebug: providerPayload.diagnostics || {} }
+      : {}),
   };
 }
 

@@ -2,6 +2,23 @@
 
 프로젝트의 주요 변경 사항을 날짜별로 기록합니다.
 
+## 2026-07-13 - MYOTT-S09-006
+
+### 변경 내용
+
+- Candidate Collection, metadata normalization, hard constraint, result tier, franchise deduplication, Weight ranking을 분리한 Candidate Pipeline을 추가했습니다.
+- 국가가 선택된 primary `results`에는 같은 국가 후보만 유지하고, 국가 완화 후보는 `relaxedResults`로 분리했습니다.
+- Seed recommendations/similar 부족분을 country-scoped Discover로 보충하고 raw 후보 72개, 동시 요청 4개 상한을 적용했습니다.
+- 영화 `production_countries`, TV `origin_country`, country validation, SF/SF·판타지 의미, franchise key 정규화를 보강했습니다.
+- QA Dataset을 15개 케이스로 확장하고 evaluator에 국가/장르/타입/프랜차이즈/result tier 기준을 추가했습니다.
+- Recommendation Architecture를 v2.0 Breaking Change로 갱신했습니다.
+
+### 검증
+
+- Candidate Pipeline tests: 5/5 PASS
+- Mock fallback primary country integrity: PASS
+- TMDB 실데이터 품질 측정: Codex 외부 fetch 제한으로 Founder Review Pending
+
 ## 2026-07-13 - MYOTT-S09-DOC-002
 
 ### 변경 내용

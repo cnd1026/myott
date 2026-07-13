@@ -51,7 +51,9 @@ function collectResultTokens(result = {}) {
       result.source,
       result.providerId,
       result.dataSource,
+      ...(result.countryCodes || []),
       ...(result.originCountries || []),
+      ...(result.productionCountries || []),
       ...(result.genres || []),
       ...(result.genreIds || []),
       ...(result.tags || []),
@@ -208,6 +210,23 @@ function seedDominanceRatio(results = []) {
   return Math.max(...counts.values()) / results.length;
 }
 
+function maxSingleFranchiseCount(results = []) {
+  const counts = results.reduce((map, result) => {
+    const key = normalizeValue(result.franchiseKey);
+    if (!key) return map;
+    map.set(key, (map.get(key) || 0) + 1);
+    return map;
+  }, new Map());
+  return counts.size ? Math.max(...counts.values()) : 0;
+}
+
+function unknownCountryRatio(results = []) {
+  return ratio(
+    countBy(results, (result) => ["unknown", ""].includes(normalizeValue(result.countryValidation))),
+    results.length,
+  );
+}
+
 export function evaluateRecommendationCase(testCase, recommendationResults = []) {
   const expected = testCase?.expected || {};
   const topN = expected.topN || recommendationResults.length;
@@ -223,11 +242,40 @@ export function evaluateRecommendationCase(testCase, recommendationResults = [])
     genreRatio: ratio(countBy(scopedResults, (result) => resultGenreMatches(result, expected.match?.genreAny || [])), totalCount),
     runtimeRatio: ratio(countBy(scopedResults, (result) => resultRuntimeMatches(result, expected.match || {})), totalCount),
     singleSeedDominanceRatio: seedDominanceRatio(scopedResults),
+    maxSingleFranchiseCount: maxSingleFranchiseCount(scopedResults),
+    unknownCountryRatio: unknownCountryRatio(scopedResults),
   };
 
   const failedReasons = [];
   if (totalCount === 0) failedReasons.push("no-results");
   if (matchRatio < minimumMatchRatio) failedReasons.push(`match-ratio-below-minimum:${matchRatio.toFixed(2)}<${minimumMatchRatio}`);
+  if (Number.isFinite(expected.minimumResultCount) && totalCount < expected.minimumResultCount) {
+    failedReasons.push("insufficient-valid-candidates");
+  }
+  if (Number.isFinite(expected.minimumCountryRatio) && metrics.countryRatio < expected.minimumCountryRatio) {
+    failedReasons.push("country-ratio-below-threshold");
+  }
+  if (Number.isFinite(expected.minimumGenreFamilyRatio) && metrics.genreRatio < expected.minimumGenreFamilyRatio) {
+    failedReasons.push("genre-ratio-below-threshold");
+  }
+  if (Number.isFinite(expected.minimumContentTypeRatio) && metrics.contentTypeRatio < expected.minimumContentTypeRatio) {
+    failedReasons.push("content-type-mismatch");
+  }
+  if (Number.isFinite(expected.maxSingleFranchiseCount) && metrics.maxSingleFranchiseCount > expected.maxSingleFranchiseCount) {
+    failedReasons.push("franchise-dominance");
+  }
+  if (
+    expected.forbidCrossCountryPrimary &&
+    scopedResults.some((result) => !resultCountryMatches(result, expected.match?.country || []) || result.resultTier === "country-relaxed")
+  ) {
+    failedReasons.push("foreign-result-in-primary");
+  }
+  if (expected.requiresExactResultTier && scopedResults.some((result) => result.resultTier !== "exact")) {
+    failedReasons.push("non-exact-result-tier");
+  }
+  if (Number.isFinite(expected.maximumUnknownCountryRatio) && metrics.unknownCountryRatio > expected.maximumUnknownCountryRatio) {
+    failedReasons.push("unverified-country-metadata");
+  }
 
   for (const condition of expected.failIf || []) {
     if (evaluateFailIf(condition, scopedResults, testCase, metrics)) {
@@ -242,6 +290,7 @@ export function evaluateRecommendationCase(testCase, recommendationResults = [])
     matchedCount,
     totalCount,
     matchRatio,
+    metrics,
     failedReasons,
   };
 }
