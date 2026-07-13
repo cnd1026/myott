@@ -1,12 +1,43 @@
 # Recommendation Architecture
 
-Version: 1.0
+Version: 1.1
 
-Last Updated: 2026-07-10
+Author: MYOTT Team
+
+Last Updated: 2026-07-13
+
+Related Sprint: Sprint 9
+
+Breaking Change: No
+
+Decision Log: [DECISION_LOG.md](./DECISION_LOG.md)
+
+Architecture Version: v1.0
 
 Status: ACTIVE
 
 이 문서는 MyOTT Recommendation Engine의 표준 구조를 정의합니다. 목적은 추천을 많이 보여주는 것이 아니라, 사용자가 가장 먼저 볼 작품을 더 빠르고 신뢰 있게 고르도록 추천 품질을 지속적으로 개선하는 것입니다.
+
+---
+
+## Document Versioning
+
+| Field | Meaning |
+| --- | --- |
+| Version | 문서 구조와 운영 원칙의 변경 이력 |
+| Author | 문서 변경 책임 주체 |
+| Last Updated | 마지막 검토 또는 변경 일자 |
+| Related Sprint | 현재 내용이 연결되는 Sprint |
+| Breaking Change | 기존 구현/QA/운영 기준을 다시 검토해야 하는 변경 여부 |
+| Decision Log | 중요한 선택과 근거를 남기는 기록 위치 |
+| Architecture Version | Recommendation Engine 설계 기준의 안정 버전 |
+
+Version rule:
+
+- Patch: 문구, 링크, 예시처럼 Architecture 의미를 바꾸지 않는 수정
+- Minor: Feature, Signal, Weight, QA 기준처럼 확장 가능한 설계 기준 추가
+- Major: Recommendation Flow, hard filter, fallback policy처럼 기존 구현 또는 QA 기준을 재검토해야 하는 변경
+- Breaking Change가 `Yes`이면 Decision Log에 영향, migration 또는 검토 항목을 남긴다.
 
 ---
 
@@ -342,6 +373,11 @@ AI Recommendation 원칙:
 ---
 
 ## Changelog
+
+### v1.1
+
+- Recommendation document versioning metadata와 version rule 추가
+- Author, Related Sprint, Breaking Change, Decision Log, Architecture Version 기준 명시
 
 ### v1.0
 

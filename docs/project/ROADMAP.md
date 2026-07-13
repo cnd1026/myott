@@ -1,0 +1,151 @@
+# MyOTT Roadmap
+
+Version: 1.0
+
+Last Updated: 2026-07-13
+
+Status: ACTIVE
+
+이 문서는 MyOTT의 제품, Recommendation Engine, 플랫폼 운영 진행 상황을 한눈에 확인하기 위한 실행 로드맵입니다. `PROJECT_STATUS.md`가 개발 상태의 기록이라면, ROADMAP은 다음 우선순위와 마일스톤을 관리합니다.
+
+---
+
+## 1. Project Overview
+
+MyOTT는 사용자가 보고 싶은 콘텐츠를 더 쉽고 신뢰할 수 있게 발견하도록 돕는 Decision Experience 제품입니다.
+
+핵심 방향:
+
+- 추천 결과 수보다 첫 번째 선택의 품질을 높인다.
+- 추천 근거를 설명 가능하게 유지한다.
+- Founder QA와 반복 가능한 품질 데이터로 제품을 개선한다.
+
+---
+
+## 2. Current Sprint
+
+| Item | Status |
+| --- | --- |
+| Current Sprint | Sprint 9 - Recommendation Engine Foundation |
+| Sprint Focus | 추천 품질을 지속적으로 측정하고 조정할 수 있는 기반 구축 |
+| Current Phase | Architecture, QA Dataset, Weight Engine 연결 |
+| Product Status | Recommendation Engine v1 운영 기준 정립 중 |
+| Release Status | Founder QA와 Sprint 10 구현 준비 단계 |
+
+---
+
+## 3. Current Progress
+
+| Area | Progress | Current State |
+| --- | --- | --- |
+| Decision Experience | Complete | Hero, Decision Card, Detail Layer, Trust UX 정리 |
+| Real Data Integration | Complete | TMDB, fallback, option, related recommendation 흐름 연결 |
+| Recommendation Architecture | In progress | Feature, Signal, Weight, Score 기준과 ranking 연결 완료 |
+| Recommendation QA | In progress | QA Dataset과 evaluator 확보, smoke runner는 다음 단계 |
+| Operating Standards | In progress | Prompt, AI execution, session review, roadmap 표준화 |
+
+---
+
+## 4. Sprint Timeline
+
+| Sprint | Theme | Outcome | Status |
+| --- | --- | --- | --- |
+| Sprint 5 | Provider Foundation | Provider Registry, Mock, TMDB adapter, fallback 기반 | Complete |
+| Sprint 6 | Decision Experience | 입력 전 추천과 빠른 선택 흐름 | Complete |
+| Sprint 7 | Recommendation Trust | Trust Signal과 상세 정보 신뢰 UX | Complete |
+| Sprint 8 | Real Data Integration | TMDB 기반 추천, 옵션, 안정화 QA | Complete |
+| Sprint 9 | Recommendation Engine Foundation | Architecture, dataset, evaluator, weight ranking | In progress |
+| Sprint 10 | Quality Iteration | QA runner, signal tuning, Founder feedback loop | Planned |
+
+---
+
+## 5. Product Milestones
+
+| Milestone | Success Definition | Status |
+| --- | --- | --- |
+| Recommendation First | 입력 없이도 추천 가치를 이해 | Complete |
+| Trustworthy Recommendation | 이유, insight, trust signal을 통해 추천을 신뢰 | Complete |
+| Real Data Reliability | TMDB와 fallback source를 정확히 구분 | Complete |
+| Explainable Ranking | Signal + Weight 기반 정렬을 설명 가능한 형태로 운영 | In progress |
+| Measurable Quality Loop | QA Dataset으로 품질 변화를 반복 측정 | Planned |
+
+---
+
+## 6. Current Focus
+
+Recommendation Engine의 품질을 Founder QA와 데이터 기반으로 반복 측정하고 조정할 수 있게 만든다.
+
+---
+
+## 7. Technical Debt
+
+| Item | Impact | Planned Response |
+| --- | --- | --- |
+| Recommendation QA smoke runner 부재 | Dataset을 자동 반복 실행하기 어려움 | Sprint 10 검토 |
+| `page.jsx` 책임 집중 | Recommendation UI/state 변경의 회귀 위험 | 범위가 허용되는 Sprint에서 점진 분리 |
+| TMDB 환경 의존 검증 | 외부 API 성공 경로는 Founder 환경 확인 필요 | Provider QA fixture와 실행 기록 보강 |
+| Watch Provider 데이터 지역성 | 실제 OTT 제공처가 locale별로 달라질 수 있음 | 실제 데이터만 표시, 고도화는 후속 Sprint |
+
+---
+
+## 8. Recommendation Roadmap
+
+| Version | Focus | Planned Outcome |
+| --- | --- | --- |
+| v1 | Rule-based Foundation | Feature, Signal, Weight, Score, hard filter, fallback, explainability |
+| v1.1 | Quality Measurement | QA Dataset evaluator와 scoreDetail 기반 검증 |
+| v2 | Metadata-aware Scoring | keyword, director, actor, language, freshness, diversity 고도화 |
+| v3 | Feedback-aware Tuning | Founder QA 기록과 반복 tuning loop 연결 |
+| v4 | User-aware Recommendation | 계정/저장 데이터 이후 개인 취향 반영 |
+| Future | AI-assisted Recommendation | 검증된 signal을 설명하거나 ranking을 보조하는 AI |
+
+---
+
+## 9. Platform Roadmap
+
+| Area | Next Step |
+| --- | --- |
+| Documentation | AI Execution Profile과 Session Review를 모든 작업 Prompt에 적용 |
+| QA | Dataset runner와 release-ready QA checklist 연결 |
+| Architecture | Recommendation module의 책임을 점진적으로 분리 |
+| Observability | Provider source, fallback reason, recommendation quality 기록 강화 |
+| Governance | Decision Log, Project Memory, Lessons Learned를 Sprint review에 반영 |
+
+---
+
+## 10. Release Roadmap
+
+| Release Stage | Gate |
+| --- | --- |
+| Internal QA | Build, dev, QA Dataset, console, regression 확인 |
+| Founder QA | 실제 TMDB 환경과 핵심 사용 흐름 승인 |
+| Sprint Exit | Product impact, known issue, documentation update 확인 |
+| Release Candidate | 품질 지표와 critical issue가 기준을 충족할 때 검토 |
+
+---
+
+## 11. Future Ideas
+
+- Recommendation QA smoke runner
+- Signal/weight tuning dashboard
+- Keyword, director, actor metadata scoring
+- Provider availability 고도화
+- User feedback 기반 recommendation quality loop
+- AI-assisted explanation with rule-based evidence guardrail
+
+---
+
+## 12. Operating Rules
+
+- Sprint 시작 시 Current Sprint, Focus, Progress를 갱신한다.
+- Sprint 종료 시 Timeline, Milestone, Technical Debt, Revision History를 갱신한다.
+- 제품 또는 Architecture version이 바뀌면 Current Progress와 관련 Roadmap version을 갱신한다.
+- ROADMAP은 계획과 우선순위를 관리하며, 상세 작업 이력은 `TASK_HISTORY.md`, 개발 상태는 `PROJECT_STATUS.md`에서 관리한다.
+
+---
+
+## 13. Revision History
+
+| Version | Date | Change |
+| --- | --- | --- |
+| v1.0 | 2026-07-13 | Initial company roadmap and Sprint 9 operating standard |

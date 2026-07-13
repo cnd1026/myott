@@ -1,8 +1,8 @@
 # Prompt Guide
 
-Version: 1.3
+Version: 1.4
 
-Last Updated: 2026-07-04
+Last Updated: 2026-07-13
 
 Status: ACTIVE
 
@@ -60,6 +60,11 @@ Codex Mode Reason:
 
 Codex Stage:
 <현재 작업 단계>
+
+AI Execution Profile:
+Model: <모델>
+Reasoning: <Low / Medium / High / Very High>
+Reason: <이 모델과 reasoning level을 선택한 이유>
 
 Repository Scope:
 <Product / Documentation / Platform / Both>
@@ -259,6 +264,7 @@ MyOTT의 공식 운영 문서는 아래 체계를 중심으로 확장합니다.
 | Document | Role |
 | --- | --- |
 | `PLAYBOOK.md` | 제품 운영 방식과 팀 문화 기준 |
+| `docs/project/ROADMAP.md` | Sprint, milestone, 현재 우선순위와 다음 계획 |
 | `docs/project/PROMPT_GUIDE.md` | Prompt 작성, 검증, version 표준 |
 | `docs/project/AI_COLLABORATION.md` | Founder, ChatGPT, Codex, CTO, future AI 협업 Workflow |
 | `docs/project/PROJECT_MEMORY.md` | 장기적으로 기억해야 하는 결정과 원칙 |
@@ -349,6 +355,7 @@ Prompt Guide는 Semantic Versioning을 사용합니다.
 | v1.1 | Minor Rule 추가 |
 | v1.2 | Template 개선 또는 Project Asset 관점 강화 |
 | v1.3 | Governance, Checklist, ROI, Documentation Sprint 기준 추가 |
+| v1.4 | AI Execution Profile과 AI Session Review 표준 추가 |
 | v2.0 | Major Workflow 변경 |
 
 Version 변경 기준:
@@ -383,9 +390,67 @@ Version 변경 기준:
 - ROI Check 추가
 - Governance Rule 추가
 
+### v1.4
+
+- AI Execution Profile 표준 추가
+- AI Session Review 표준 추가
+- Terra/Sol profile 예시 5개 추가
+
 ---
 
-## 17. Future Expansion
+## 17. AI Execution Profile
+
+AI Execution Profile은 Task 요구사항과 위험도에 맞는 실행 모델 및 reasoning 강도를 명시하는 표준입니다. 모델명은 특정 공급자에 고정하지 않으며, 같은 역할을 수행할 수 있는 승인된 모델로 대체할 수 있습니다.
+
+필수 항목:
+
+| Field | Rule |
+| --- | --- |
+| Model | 사용할 AI 모델 또는 실행 profile 이름 |
+| Reasoning | 작업에 필요한 reasoning 강도 |
+| Reason | 선택이 작업 범위, 위험, 검증 수준과 어떻게 맞는지 설명 |
+
+선택 원칙:
+
+- Founder는 모델을 고민하지 않는다.
+- 모델 선택과 AI Execution Profile의 적합성은 CTO가 책임진다.
+- 같은 Task라도 data integrity, architecture, release risk가 높으면 reasoning을 높인다.
+- 문서 수정처럼 범위가 제한된 작업은 필요한 수준의 profile만 사용한다.
+
+예시:
+
+| Profile | Suitable Work | Reason |
+| --- | --- | --- |
+| Terra Medium | 제한된 문서, 반복 가능한 UI polish, 낮은 회귀 위험 작업 | 기존 패턴을 적용하고 검증 범위가 명확한 작업에 충분하다. |
+| Terra High | Provider, state, recommendation quality, 다중 문서 기준 작업 | 여러 경로의 일관성과 회귀 검증이 필요하다. |
+| Terra Very High | release blocker, data integrity, architecture 전환, 신뢰성 핵심 작업 | 실패 비용이 크고 원인 추적과 검증을 강화해야 한다. |
+| Sol High | 독립적인 설계 검토, QA 기준 정리, cross-document review | 제품/운영 관점의 비교와 판단 근거 정리가 중요하다. |
+| Sol Ultra | 회사 원칙, 장기 architecture, 다수 이해관계자 의사결정 | 장기 영향과 trade-off를 깊게 검토해야 한다. |
+
+---
+
+## 18. AI Session Review
+
+AI Session Review는 Task 시작 전 또는 작업 handoff 시, 실행 profile이 현재 작업에 적절한지 짧게 검토하는 표준입니다.
+
+| Item | Record |
+| --- | --- |
+| Current Task | 현재 Task ID와 한 줄 목표 |
+| Recommended Model | 권장 실행 모델 또는 profile |
+| Recommended Reasoning | 권장 reasoning 강도 |
+| ROI | 사용자 가치, 품질, 기술부채, 문서화의 기대 효과 |
+| Recommendation | 진행, 범위 축소, 분할, 보류 중 권장 판단 |
+
+운영 원칙:
+
+- Founder는 모델을 고민하지 않는다.
+- CTO는 task risk, repository scope, regression cost를 기준으로 모델과 reasoning을 결정한다.
+- Session Review는 구현의 승인을 대체하지 않으며, Founder QA와 Sprint Exit 기준을 유지한다.
+- 권장 profile이 바뀌면 Task Prompt의 AI Execution Profile도 함께 갱신한다.
+
+---
+
+## 19. Future Expansion
 
 Prompt Guide는 Sprint와 함께 발전합니다.
 

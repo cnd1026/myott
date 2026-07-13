@@ -2,6 +2,29 @@
 
 개발 과정에서의 작업 내용, 결정, 아쉬운 점, 다음 개선 사항을 날짜별로 기록합니다.
 
+## 2026-07-13 - MYOTT-S09-DOC-001
+
+### 오늘 작업
+
+- Sprint 9의 전체 진행, 제품/Recommendation/Platform/release milestone을 관리하는 `ROADMAP.md`를 추가했습니다.
+- Prompt Guide v1.4에 AI Execution Profile(Model, Reasoning, Reason)과 AI Session Review 표준을 추가했습니다.
+- Recommendation Architecture v1.1에 문서 metadata, version rule, breaking change와 decision log 연결 기준을 추가했습니다.
+
+### 결정한 것
+
+- ROADMAP은 우선순위와 마일스톤을, `PROJECT_STATUS.md`는 개발 상태를, `TASK_HISTORY.md`는 Task 이력을 담당합니다.
+- Founder는 모델 선택 부담을 갖지 않고 CTO가 task risk 기준으로 AI execution profile을 결정합니다.
+- Recommendation Architecture의 minor/major 변경은 Decision Log와 breaking change 여부를 함께 기록합니다.
+
+### 검증
+
+- Markdown structure review: PASS
+- 제품 코드 변경 없음: PASS
+
+### 다음 개선
+
+- Sprint 10 시작 시 ROADMAP과 Recommendation Architecture의 Related Sprint/current implementation 상태를 갱신합니다.
+
 ## 2026-07-10 - MYOTT-S09-005
 
 ### 오늘 작업

@@ -2,6 +2,22 @@
 
 프로젝트의 주요 변경 사항을 날짜별로 기록합니다.
 
+## 2026-07-13 - MYOTT-S09-DOC-001
+
+### 변경 내용
+
+- `docs/project/ROADMAP.md`를 생성해 Sprint, milestone, recommendation/platform/release roadmap, technical debt, 운영 갱신 규칙을 한 문서로 정리했습니다.
+- `PROMPT_GUIDE.md`를 v1.4로 올리고 AI Execution Profile과 AI Session Review 표준을 추가했습니다.
+- `RECOMMENDATION_ARCHITECTURE.md`를 v1.1로 올리고 문서 versioning metadata와 breaking change/decision log 규칙을 추가했습니다.
+
+### 이유
+
+- Sprint 9부터 Recommendation Engine 구현과 운영 자산을 같은 기준으로 관리하고, Founder가 모델 선택 부담 없이 일관된 AI 협업 표준을 사용할 수 있어야 합니다.
+
+### 다음 작업
+
+- Sprint 10 시작 시 ROADMAP Current Sprint와 Recommendation quality iteration 계획을 갱신합니다.
+
 ## 2026-07-10 - MYOTT-S09-005
 
 ### 변경 내용

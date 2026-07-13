@@ -50,6 +50,7 @@
 | MYOTT-S09-003 | Recommendation QA Dataset Evaluator | `041260a` | QA Dataset case와 추천 결과 배열을 비교하는 순수 평가 유틸리티 추가. pass/fail, score, matchRatio, failIf reason 반환. | 완료 |
 | MYOTT-S09-004 | Recommendation Weight Engine | `58ba203` | Signal + Weight 기반 scoreDetail 순수 유틸리티와 조정 가능한 weight config 추가. UI/API 대규모 연결 없이 Architecture 구현 위치 연결. | 완료 |
 | MYOTT-S09-005 | Weight Engine Ranking Integration | `이번 커밋` | provider result ranking 단계에 Weight Engine을 연결하고 모든 추천 결과에 scoreDetail을 추가. finalScore 우선 정렬과 legacyScore tie-break 유지. | 완료 |
+| MYOTT-S09-DOC-001 | Company Documentation Standard | `이번 커밋` | ROADMAP 생성, Prompt Guide v1.4의 AI Execution Profile/Session Review 표준, Recommendation Architecture v1.1 versioning rule 추가. 제품 코드 미수정. | 완료 |
 
 ## Sprint 8
 
