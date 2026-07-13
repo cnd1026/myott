@@ -1,5 +1,6 @@
 import {
   candidateGenreMatchDetail,
+  classifyTaxonomyValues,
   genreContractTokens,
 } from "../genres/genreContract.js";
 
@@ -83,6 +84,16 @@ function resultContentTypeMatches(result, contentTypes = []) {
 function resultGenreMatches(result, genres = []) {
   if (!genres.length) return true;
   const genreFilters = genreContractTokens(genres);
+  const taxonomy = resultTaxonomy(result);
+  const explicitValues = new Set([
+    ...taxonomy.canonicalGenreValues,
+    ...taxonomy.semanticGenreValues,
+    ...taxonomy.combinedGenreValues,
+    ...taxonomy.formatValues,
+    ...taxonomy.audienceValues,
+    ...taxonomy.styleValues,
+  ]);
+  if (genreFilters.some((value) => explicitValues.has(value))) return true;
   if (genreFilters.length && candidateGenreMatchDetail(result, genreFilters).genreMatched) return true;
   const tokens = collectResultTokens(result);
   return normalizeValues(genres).some((genre) => tokens.has(genre));
@@ -90,11 +101,65 @@ function resultGenreMatches(result, genres = []) {
 
 function resultGenreMatchMode(result, genres = []) {
   const explicitMode = normalizeValue(result.genreMatchMode);
-  if (["provider-exact", "provider-combined", "semantic", "relaxed"].includes(explicitMode)) {
+  if (["provider-exact", "provider-combined", "semantic-specialized", "semantic", "adjacent", "relaxed"].includes(explicitMode)) {
     return explicitMode;
   }
   const filters = genreContractTokens(genres);
   return filters.length ? candidateGenreMatchDetail(result, filters).genreMatchMode : "provider-exact";
+}
+
+function resultTaxonomy(result = {}) {
+  const classified = classifyTaxonomyValues(result);
+  const explicit = (key) => Array.isArray(result[key]) ? result[key] : classified[key];
+  return {
+    ...classified,
+    canonicalGenreValues: explicit("canonicalGenreValues"),
+    combinedGenreValues: explicit("combinedGenreValues"),
+    semanticGenreValues: explicit("semanticGenreValues"),
+    formatValues: explicit("formatValues"),
+    audienceValues: explicit("audienceValues"),
+    styleValues: explicit("styleValues"),
+  };
+}
+
+function taxonomyValuesMatch(result, key, genres = []) {
+  const expected = new Set(genreContractTokens(genres));
+  if (!expected.size) return false;
+  return resultTaxonomy(result)[key].some((value) => expected.has(value));
+}
+
+const SPECIALIZATION_GROUPS = [
+  ["genre-action", "genre-adventure"],
+  ["genre-sf", "genre-fantasy"],
+  ["genre-war", "genre-politics"],
+];
+
+function duplicateSemanticSpecializations(result = {}) {
+  const semanticValues = new Set(resultTaxonomy(result).semanticGenreValues);
+  return SPECIALIZATION_GROUPS.reduce(
+    (count, group) => count + Math.max(0, group.filter((value) => semanticValues.has(value)).length - 1),
+    0,
+  );
+}
+
+function incompatibleCanonicalGenres(result = {}) {
+  const taxonomy = resultTaxonomy(result);
+  const canonical = new Set([...taxonomy.canonicalGenreValues, ...taxonomy.semanticGenreValues]);
+  return SPECIALIZATION_GROUPS.reduce(
+    (count, group) => count + (group.every((value) => canonical.has(value)) ? 1 : 0),
+    0,
+  );
+}
+
+function taxonomyCategoryMatches(result = {}, category = "") {
+  const taxonomy = resultTaxonomy(result);
+  return {
+    narrative: taxonomy.canonicalGenreValues.length + taxonomy.semanticGenreValues.length,
+    combined: taxonomy.combinedGenreValues.length,
+    format: taxonomy.formatValues.length,
+    audience: taxonomy.audienceValues.length,
+    style: taxonomy.styleValues.length,
+  }[category] > 0;
 }
 
 function runtimeMinutes(result = {}) {
@@ -329,11 +394,11 @@ export function evaluateRecommendationCase(testCase, recommendationResults = [],
       totalCount,
     ),
     semanticGenreRatio: ratio(
-      countBy(scopedResults, (result) => resultGenreMatchMode(result, expected.match?.genreAny || []) === "semantic"),
+      countBy(scopedResults, (result) => ["semantic", "semantic-specialized"].includes(resultGenreMatchMode(result, expected.match?.genreAny || []))),
       totalCount,
     ),
     providerOrSemanticGenreRatio: ratio(
-      countBy(scopedResults, (result) => ["provider-exact", "provider-combined", "semantic"].includes(
+      countBy(scopedResults, (result) => ["provider-exact", "provider-combined", "semantic", "semantic-specialized"].includes(
         resultGenreMatchMode(result, expected.match?.genreAny || []),
       )),
       totalCount,
@@ -343,6 +408,65 @@ export function evaluateRecommendationCase(testCase, recommendationResults = [],
       resultGenreMatchMode(result, expected.match?.genreAny || []) === "relaxed" &&
       normalizeValues(result.genreIds || []).includes("18")
     )),
+    taxonomyCategoryMatched: ratio(
+      countBy(scopedResults, (result) => taxonomyCategoryMatches(result, expected.taxonomyCategory)),
+      totalCount,
+    ),
+    canonicalGenreRatio: ratio(
+      countBy(scopedResults, (result) => taxonomyValuesMatch(result, "canonicalGenreValues", expected.match?.genreAny || [])),
+      totalCount,
+    ),
+    combinedGenreRatio: ratio(
+      countBy(scopedResults, (result) => taxonomyValuesMatch(result, "combinedGenreValues", expected.match?.genreAny || [])),
+      totalCount,
+    ),
+    semanticSpecializedGenreRatio: ratio(
+      countBy(scopedResults, (result) => taxonomyValuesMatch(result, "semanticGenreValues", expected.match?.genreAny || [])),
+      totalCount,
+    ),
+    adjacentGenreRatio: ratio(
+      countBy(scopedResults, (result) => resultGenreMatchMode(result, expected.match?.genreAny || []) === "adjacent"),
+      totalCount,
+    ),
+    formatMatchRatio: ratio(
+      countBy(scopedResults, (result) => taxonomyValuesMatch(result, "formatValues", expected.match?.genreAny || expected.formatAny || [])),
+      totalCount,
+    ),
+    audienceMatchRatio: ratio(
+      countBy(scopedResults, (result) => taxonomyValuesMatch(result, "audienceValues", expected.match?.genreAny || expected.audienceAny || [])),
+      totalCount,
+    ),
+    styleMatchRatio: ratio(
+      countBy(scopedResults, (result) => taxonomyValuesMatch(result, "styleValues", expected.match?.genreAny || expected.styleAny || [])),
+      totalCount,
+    ),
+    duplicateSemanticSpecializationCount: scopedResults.reduce((count, result) => count + duplicateSemanticSpecializations(result), 0),
+    incompatibleCanonicalGenreCount: scopedResults.reduce((count, result) => count + incompatibleCanonicalGenres(result), 0),
+    plainDramaRomanceFalsePositiveCount: countBy(scopedResults, (result) => {
+      const taxonomy = resultTaxonomy(result);
+      return taxonomy.providerGenreIds.includes(18) &&
+        !taxonomy.semanticEvidenceByGenre?.["genre-romance"]?.matched &&
+        [...taxonomy.canonicalGenreValues, ...taxonomy.semanticGenreValues].includes("genre-romance");
+    }),
+    plainMysteryHorrorFalsePositiveCount: countBy(scopedResults, (result) => {
+      const taxonomy = resultTaxonomy(result);
+      return taxonomy.providerGenreIds.includes(9648) &&
+        !taxonomy.semanticEvidenceByGenre?.["genre-horror"]?.matched &&
+        [...taxonomy.canonicalGenreValues, ...taxonomy.semanticGenreValues].includes("genre-horror");
+    }),
+    formatInNarrativeResultCount: countBy(scopedResults, (result) => {
+      const taxonomy = resultTaxonomy(result);
+      return taxonomy.formatValues.some((value) => taxonomy.canonicalGenreValues.includes(value));
+    }),
+    audienceDoubleScoreCount: countBy(scopedResults, (result) => result.audienceDoubleScored === true),
+    animationDuplicateSignalCount: countBy(scopedResults, (result) => result.animationSignalDuplicated === true),
+    actualEligibleLaterSeedDeferredCount: Number(diagnostics.eligibleLaterSeedDeferredCount || 0),
+    rawInputCount: Number(diagnostics.rawInputCount || 0),
+    normalizedInputCount: Number(diagnostics.normalizedInputCount || 0),
+    uniqueInputAliasCount: Number(diagnostics.uniqueInputAliasCount ?? diagnostics.inputAliasCount ?? 0),
+    processedWorkCount: Number(diagnostics.processedWorkCount || 0),
+    unresolvedRawInputCount: Number(diagnostics.unresolvedRawInputCount || 0),
+    deferredRawInputCount: Number(diagnostics.deferredRawInputCount || 0),
     confirmedSeedCount: Number(diagnostics.confirmedSeedCount || 0),
     unconfirmedSeedCount: Number(diagnostics.unconfirmedSeedCount || 0),
     searchSkippedSeedCount: Number(diagnostics.searchSkippedSeedCount || 0),
@@ -518,6 +642,63 @@ export function evaluateRecommendationCase(testCase, recommendationResults = [],
   }
   if (expected.emptyStateMessageMatched && !metrics.emptyStateMessageMatched) {
     failedReasons.push("incorrect-empty-state-message");
+  }
+  if (expected.taxonomyCategory && metrics.taxonomyCategoryMatched < 1) {
+    failedReasons.push("taxonomy-category-mismatch");
+  }
+  if (Number.isFinite(expected.minimumCanonicalGenreRatio) && metrics.canonicalGenreRatio < expected.minimumCanonicalGenreRatio) {
+    failedReasons.push("canonical-genre-ratio-below-threshold");
+  }
+  if (Number.isFinite(expected.minimumCombinedGenreRatio) && metrics.combinedGenreRatio < expected.minimumCombinedGenreRatio) {
+    failedReasons.push("combined-genre-ratio-below-threshold");
+  }
+  if (Number.isFinite(expected.minimumSemanticSpecializedGenreRatio) && metrics.semanticSpecializedGenreRatio < expected.minimumSemanticSpecializedGenreRatio) {
+    failedReasons.push("semantic-specialization-missing");
+  }
+  if (Number.isFinite(expected.minimumFormatMatchRatio) && metrics.formatMatchRatio < expected.minimumFormatMatchRatio) {
+    failedReasons.push("taxonomy-category-mismatch");
+  }
+  if (Number.isFinite(expected.minimumAudienceMatchRatio) && metrics.audienceMatchRatio < expected.minimumAudienceMatchRatio) {
+    failedReasons.push("taxonomy-category-mismatch");
+  }
+  if (Number.isFinite(expected.minimumStyleMatchRatio) && metrics.styleMatchRatio < expected.minimumStyleMatchRatio) {
+    failedReasons.push("taxonomy-category-mismatch");
+  }
+  if (metrics.duplicateSemanticSpecializationCount > Number(expected.maximumDuplicateSemanticSpecializationCount ?? Infinity)) {
+    failedReasons.push("duplicate-semantic-specialization");
+  }
+  if (metrics.incompatibleCanonicalGenreCount > Number(expected.maximumIncompatibleCanonicalGenreCount ?? Infinity)) {
+    failedReasons.push("incompatible-canonical-genres");
+  }
+  if (metrics.plainDramaRomanceFalsePositiveCount > Number(expected.maximumPlainDramaRomanceFalsePositiveCount ?? Infinity)) {
+    failedReasons.push("plain-drama-romance-false-positive");
+  }
+  if (metrics.plainMysteryHorrorFalsePositiveCount > Number(expected.maximumPlainMysteryHorrorFalsePositiveCount ?? Infinity)) {
+    failedReasons.push("plain-mystery-horror-false-positive");
+  }
+  if (metrics.formatInNarrativeResultCount > Number(expected.maximumFormatInNarrativeResultCount ?? Infinity)) {
+    failedReasons.push("format-classified-as-narrative");
+  }
+  if (metrics.audienceDoubleScoreCount > Number(expected.maximumAudienceDoubleScoreCount ?? Infinity)) {
+    failedReasons.push("audience-double-counted");
+  }
+  if (metrics.animationDuplicateSignalCount > Number(expected.maximumAnimationDuplicateSignalCount ?? Infinity)) {
+    failedReasons.push("animation-signal-duplicated");
+  }
+  if (
+    Number.isFinite(expected.actualEligibleLaterSeedDeferredCount) &&
+    metrics.actualEligibleLaterSeedDeferredCount !== expected.actualEligibleLaterSeedDeferredCount
+  ) {
+    failedReasons.push("eligible-later-seed-metric-invalid");
+  }
+  if (Number.isFinite(expected.rawInputCount) && metrics.rawInputCount !== expected.rawInputCount) {
+    failedReasons.push("raw-input-count-mismatch");
+  }
+  if (Number.isFinite(expected.uniqueInputAliasCount) && metrics.uniqueInputAliasCount !== expected.uniqueInputAliasCount) {
+    failedReasons.push("raw-input-count-mismatch");
+  }
+  if (Number.isFinite(expected.uniqueResolvedWorkCount) && metrics.uniqueResolvedWorkCount !== expected.uniqueResolvedWorkCount) {
+    failedReasons.push("resolved-work-count-mismatch");
   }
 
   for (const condition of expected.failIf || []) {

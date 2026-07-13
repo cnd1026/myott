@@ -39,7 +39,7 @@ test("TV thriller needs provider or semantic evidence, not plain drama", () => {
     genreIds: [10759, 18],
     keywords: ["investigation", "conspiracy"],
   }, ["genre-thriller"]);
-  assert.equal(semantic.genreMatchMode, "semantic");
+  assert.equal(semantic.genreMatchMode, "semantic-specialized");
   assert.equal(semantic.semanticGenreMatched, true);
 });
 
@@ -121,6 +121,8 @@ test("translated confirmed aliases resolve to one TMDB work", async () => {
     requestContextFactory: context.factory,
   });
   assert.equal(payload.requestedSeedCount, 2);
+  assert.equal(payload.rawInputCount, 3);
+  assert.equal(payload.uniqueInputAliasCount, 2);
   assert.equal(payload.uniqueResolvedWorkCount, 1);
   assert.equal(payload.processedSeedCount, 1);
   assert.deepEqual(payload.seedResults[0].inputAliases, ["나 홀로 집에", "Home Alone", "home alone"]);
@@ -143,12 +145,19 @@ test("unused recommendation reservations are recycled for later valid titles", a
   assert.ok(payload.diagnostics.requestsUsed <= 24);
   assert.equal(payload.diagnostics.requestContextCount, 1);
   assert.ok(payload.recyclableListBudgetUsed > 0);
+  assert.equal(payload.eligibleLaterSeedDeferredCount, 0);
+  assert.equal(payload.rawInputCount, 6);
+  assert.equal(payload.uniqueInputAliasCount, 6);
 });
 
 test("seed coverage and empty states explain the actual state", () => {
   assert.equal(
     buildSeedCoverageMessage({ requestedSeedCount: 10, processedSeedCount: 4 }),
     "입력한 10개 작품 중 4개를 이번 추천에 반영했습니다.",
+  );
+  assert.equal(
+    buildSeedCoverageMessage({ rawInputCount: 3, processedWorkCount: 1, uniqueResolvedWorkCount: 1, unresolvedSeedCount: 0 }),
+    "입력한 3개 제목을 1개 작품으로 확인해 추천에 반영했습니다.",
   );
   assert.equal(
     resolveEmptyStateMessage({ recommendationStatus: "empty", selectedTypes: ["drama"] }),

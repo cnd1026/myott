@@ -2,6 +2,83 @@
 
 개발 과정에서의 작업 내용, 결정, 아쉬운 점, 다음 개선 사항을 날짜별로 기록합니다.
 
+## 2026-07-13 - MYOTT-S09-006A2A Baseline
+
+### Genre Taxonomy Matrix Before Classification
+
+변경 전에는 모든 옵션이 category 없이 하나의 `장르` 그룹에 노출된다. `genreValuesForItem()`과 Weight Engine token 변환은 Provider ID에 연결된 모든 Contract를 반환하며, Candidate Match도 대부분 이를 `provider-exact`로 취급한다. 아래 `자동 값`은 `Movie / TV` 순서이며 `-`는 Contract 또는 해당 media type 지원이 없음을 뜻한다.
+
+| Option / Label | Category | Movie / TV Provider ID | 같은 ID를 공유하는 옵션 | 현재 자동 값 및 Match | UI / 예상 문제 |
+| --- | --- | --- | --- | --- | --- |
+| `genre-action` / 액션 | 없음 | 28 / 10759 | 액션·모험, 모험 | Movie: 액션+액션·모험, TV: 세 옵션 모두 / exact | 1위; TV 세부 의미 중복 |
+| `genre-adventure` / 모험 | 없음 | 12 / 10759 | 액션, 액션·모험 | Movie: 모험+액션·모험, TV: 세 옵션 모두 / exact | 13위; 액션과 구분 불가 |
+| `genre-action-adventure` / 액션·모험 | 없음 | 28,12 / 10759 | 액션, 모험 | Provider ID별 연결 옵션 전부 / exact | 10위; 복합 장르 미분류 |
+| `genre-sf` / SF | 없음 | 878 / 10765 | SF·판타지, 판타지 | Movie: SF+SF·판타지, TV: 세 옵션 모두 / combined | 2위; Weight는 세 옵션 모두 획득 |
+| `genre-fantasy` / 판타지 | 없음 | 14 / 10765 | SF, SF·판타지 | Movie: 판타지+SF·판타지, TV: 세 옵션 모두 / combined | 12위; SF와 구분 불가 |
+| `genre-sf-fantasy` / SF·판타지 | 없음 | 878,14 / 10765 | SF, 판타지 | Provider ID별 연결 옵션 전부 / combined | 9위; 복합 장르 미분류 |
+| `genre-war` / 전쟁 | 없음 | 10752 / 10768 | 전쟁·정치 | 전쟁+전쟁·정치 / exact | 20위; 정치 의미와 분리 안 됨 |
+| `genre-politics` / 정치 | Contract 없음 | - / - | - | 없음 | UI 없음; 독립 semantic 선택 불가 |
+| `genre-war-politics` / 전쟁·정치 | 없음 | 10752 / 10768 | 전쟁 | 전쟁+전쟁·정치 / exact | 35위; 복합 장르 미분류 |
+| `genre-drama` / 드라마 | 없음 | 18 / 18 | TV 로맨스 | TV: 드라마+로맨스 / exact | 3위; 일반 드라마가 로맨스 token 획득 |
+| `genre-romance` / 로맨스 | 없음 | 10749 / 18 | TV 드라마 | TV Drama 18 전체가 로맨스 / exact | 4위; false positive |
+| `genre-mystery` / 미스터리 | 없음 | 9648 / 9648 | TV 스릴러, 공포 | TV: 미스터리+스릴러+공포 / exact | 5위; 공포 false positive |
+| `genre-thriller` / 스릴러 | 없음 | 53 / 80,9648 | 범죄, 미스터리, 공포 | 80은 범죄+스릴러, 9648은 세 옵션 / exact | 6위; Provider evidence 중복 |
+| `genre-horror` / 공포 | 없음 | 27 / 9648 | 미스터리, 스릴러 | TV Mystery 전체가 공포 / exact | 8위; false positive |
+| `genre-crime` / 범죄 | 없음 | 80 / 80 | TV 스릴러 | 범죄+스릴러 / exact | 11위; Thriller evidence와 canonical 혼동 |
+| `genre-family` / 가족 | 없음 | 10751 / 10751,10762 | 키즈가 내부 병합 | Family와 Kids 모두 가족 / exact | 15위; audience 중복 |
+| `genre-kids` / 키즈 | Contract 없음 | - / - | 가족 | 독립 값 없음 | UI 없음; 가족으로 합쳐짐 |
+| `genre-animation` / 애니메이션 | 없음 | 16 / 16 | 애니 content type | 애니메이션 / exact | 14위; type/style 중복 가능 |
+| `genre-tv-movie` / TV 영화 | 없음 | 10770 / - | - | 장르 token | 30위; format이 narrative와 혼재 |
+| `genre-news` / 뉴스 | 없음 | - / 10763 | - | 장르 token / exact | 31위; format이 narrative와 혼재 |
+| `genre-reality` / 리얼리티 | 없음 | - / 10764 | - | 장르 token / exact | 32위; format이 narrative와 혼재 |
+| `genre-talk` / 토크 | 없음 | - / 10767 | - | 장르 token / exact | 33위; format이 narrative와 혼재 |
+| `genre-soap` / 소프 | 없음 | - / 10766 | - | 장르 token / exact | 34위; format이 narrative와 혼재 |
+| `genre-documentary` / 다큐멘터리 | 없음 | 99 / 99 | - | 다큐멘터리 / exact | 16위; 일반 단일 장르 |
+| `genre-music` / 음악 | 없음 | 10402 / - | - | 음악 token | 17위; TV 미지원 표시 없음 |
+| `genre-history` / 역사 | 없음 | 36 / - | - | 역사 token | 18위; TV 미지원 표시 없음 |
+| `genre-western` / 서부 | 없음 | 37 / 37 | - | 서부 / exact | 19위; 일반 단일 장르 |
+
+### Provider ID Reverse Mapping Before Classification
+
+| Provider ID | 현재 역매핑 / Weight token | 문제 |
+| ---: | --- | --- |
+| 10759 | 액션, 액션·모험, 모험 | 세 specialized preference를 동시에 획득 |
+| 10765 | SF, SF·판타지, 판타지 | SF와 판타지를 동시에 획득 |
+| 10768 | 전쟁, 전쟁·정치 | 전쟁과 정치 의미 미분리 |
+| 18 | 드라마, 로맨스 | 일반 TV Drama가 로맨스로 오인 |
+| 9648 | 미스터리, 스릴러, 공포 | 일반 Mystery가 공포로 오인 |
+| 80 | 스릴러, 범죄 | Provider evidence와 canonical value 혼합 |
+| 16 | 애니메이션 | content type과 style 점수 중복 가능 |
+| 10751 / 10762 | 가족 / 가족 | 가족과 Kids 대상이 합쳐짐 |
+| 10770 / 10763 / 10764 / 10767 / 10766 | TV 영화 / 뉴스 / 리얼리티 / 토크 / 소프 | 모두 narrative genre token으로 처리 |
+
+### Diagnostics Baseline
+
+- `eligibleLaterSeedDeferredCount`는 `lib/tmdb.js`에서 실제 Seed 상태와 무관하게 상수 `0`이다.
+- `requestedSeedCount`는 정규화 후 고유 alias 수를 사용하므로 사용자가 입력한 칸 수와 번역 제목이 하나의 작품으로 합쳐진 수를 구분하지 못한다.
+- `rawInputCount`, `normalizedInputCount`, `uniqueInputAliasCount`, `processedWorkCount`, `unresolvedRawInputCount`, `deferredRawInputCount` 계약은 아직 없다.
+
+### Taxonomy 구현 및 검증 결과
+
+- Contract를 `narrative`, `combined`, `format`, `audience`, `style`로 분류하고 Provider ID를 Canonical value와 분리했다.
+- TV `10759`, `10765`, `10768`은 combined evidence로 보존하며 semantic evidence가 한쪽에 더 강할 때만 액션/모험, SF/판타지, 전쟁/정치 중 하나로 specialize한다.
+- 일반 Drama `18`은 Romance로, 일반 Mystery `9648`은 Horror로 판정하지 않는다. format은 narrative score에서 제외한다.
+- `/api/options`의 locale label이 달라도 Provider ID로 Canonical option에 병합하여 `애니메이션` 같은 중복 동적 옵션을 제거했다.
+- 영화/드라마 content type과 animation style을 독립 판정하여 영화 + 애니메이션은 animated movie, 드라마 + 애니메이션은 animated TV를 허용한다.
+- raw input, unique alias, resolved work, processed work를 분리하고 eligible-later deferred를 실제 scheduler state로 계산한다.
+
+| 검증 | 결과 |
+| --- | --- |
+| Unit / Integration | 47 / 47 PASS |
+| Deterministic Dataset | 48 / 48 PASS |
+| Live Cold | 35 / 35 PASS, 최대 aggregate 24회, 최대 1,971ms |
+| Live Warm | 35 / 35 PASS, 최대 aggregate 6회, cache hit 663회, 최대 667ms |
+| Browser Taxonomy | 주요/전체/복합/형식/대상·스타일 분리, 중복 option 0 |
+| Browser Animation Style | 영화 + 애니메이션 12개, TMDB / Fallback No |
+| Browser Existing Flow | Detail Layer와 Related Pick 재로드 PASS |
+
+Live TMDB에서 영국 + 전쟁 + 드라마는 1개, 영국 + 정치 + 드라마는 3개였다. 이는 국가·타입 hard constraint와 semantic evidence를 유지한 실제 후보 수이며 부정확한 결과로 채우지 않는다. Founder Review는 Pending이다.
+
 ## 2026-07-13 - MYOTT-S09-006A2 Baseline
 
 ### Founder Browser / Product Path Gap

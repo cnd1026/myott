@@ -2,6 +2,30 @@
 
 프로젝트의 주요 변경 사항을 날짜별로 기록합니다.
 
+## 2026-07-13 - MYOTT-S09-006A2A
+
+### 변경 내용
+
+- Unified Genre Contract를 narrative, combined, format, audience, style의 Canonical Taxonomy로 확장했습니다.
+- TV `10759`, `10765`, `10768` shared Provider ID가 여러 세부 장르를 동시에 획득하지 않도록 semantic specialization을 적용했습니다.
+- 일반 TV Drama의 Romance 오인과 일반 Mystery의 Horror 오인을 semantic evidence로 차단했습니다.
+- TV 영화, 뉴스, 리얼리티, 토크, 소프를 `format-*`으로 분리하고 기존 `genre-*` 입력 alias를 유지했습니다.
+- 가족/키즈와 animation style/content type을 분리하고 Weight Engine 중복 signal을 제거했습니다.
+- raw input과 resolved work count를 분리하고 `eligibleLaterSeedDeferredCount`를 실제 scheduler 상태로 계산합니다.
+- 장르 옵션을 기존 더보기 UX 안에서 주요/전체/복합/형식/대상·스타일 그룹으로 표시하고 Provider ID 기준 중복 옵션을 제거했습니다.
+- Dataset을 48개로 확장하고 고정 Taxonomy fixture, false-positive evaluator, Live taxonomy diagnostics를 추가했습니다.
+- Recommendation Architecture를 v2.4로 갱신했습니다.
+
+### 검증
+
+- Recommendation unit/integration tests: 47/47 PASS
+- Deterministic Recommendation QA: 48/48 PASS
+- Live TMDB Cold QA: 35/35 PASS, maximum aggregate 24/24
+- Live TMDB Warm QA: 35/35 PASS, maximum aggregate 6, cache hits 663
+- Browser: taxonomy groups, canonical option dedup, movie + animation style 12 results, Detail/Related transition PASS
+- `pnpm build`: PASS
+- Founder Review: Pending
+
 ## 2026-07-13 - MYOTT-S09-006A2
 
 ### 변경 내용

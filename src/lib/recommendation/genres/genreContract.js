@@ -1,84 +1,262 @@
-const normalizeToken = (value) => String(value ?? "").trim().toLowerCase();
+import {
+  SEMANTIC_GENRE_SIGNALS,
+  chooseSemanticSpecialization,
+  semanticGenreEvidence,
+  semanticRecommendationReason,
+} from "./semanticGenreSignals.js";
 
-const genre = ({
+const normalizeToken = (value) => String(value ?? "").trim().toLowerCase();
+const uniqueNumbers = (values = []) => [...new Set(values.map(Number).filter(Number.isFinite))];
+const uniqueStrings = (values = []) => [...new Set(values.filter(Boolean))];
+
+const typePolicy = ({
+  providerExactIds = [],
+  providerCombinedIds = [],
+  providerAdjacentIds = [],
+  semanticRequired = false,
+  semanticSpecialization = false,
+  exactMatchPolicy = "provider-exact",
+} = {}) => Object.freeze({
+  providerExactIds: Object.freeze(providerExactIds),
+  providerCombinedIds: Object.freeze(providerCombinedIds),
+  providerAdjacentIds: Object.freeze(providerAdjacentIds),
+  semanticRequired,
+  semanticSpecialization,
+  exactMatchPolicy,
+  // Backward-compatible reads while all consumers move to the explicit taxonomy fields.
+  exactIds: Object.freeze(uniqueNumbers([...providerExactIds, ...providerCombinedIds])),
+  semanticAdjacentIds: Object.freeze(providerAdjacentIds),
+});
+
+const taxonomyOption = ({
   value,
   label,
+  category = "narrative",
+  displayGroup = "전체 장르",
+  displayPriority,
   providerNames = [],
   aliases = [],
-  movieExact = [],
-  movieAdjacent = [],
-  tvExact = [],
-  tvAdjacent = [],
-  displayPriority,
-  providerLimitation = "",
+  legacyAliases = [],
   contentTypes = ["movie", "tv"],
+  providerLimitation = "",
+  specializationGroup = "",
+  showInPrimaryGenre = false,
+  movie = {},
+  tv = {},
 }) => Object.freeze({
   value,
   label,
+  category,
+  displayGroup,
+  displayPriority,
   providerNames: Object.freeze(providerNames),
   aliases: Object.freeze(aliases),
-  movie: Object.freeze({ exactIds: Object.freeze(movieExact), semanticAdjacentIds: Object.freeze(movieAdjacent) }),
-  tv: Object.freeze({ exactIds: Object.freeze(tvExact), semanticAdjacentIds: Object.freeze(tvAdjacent) }),
-  exactGenreFamily: value,
-  semanticAdjacentFamily: Object.freeze([...movieAdjacent, ...tvAdjacent]),
-  displayPriority,
-  providerLimitation,
+  legacyAliases: Object.freeze(legacyAliases),
   contentTypes: Object.freeze(contentTypes),
+  providerLimitation,
+  specializationGroup,
+  showInPrimaryGenre,
+  movie: typePolicy(movie),
+  tv: typePolicy(tv),
+  semanticPolicy: Object.freeze({
+    semanticRequired: Boolean(movie.semanticRequired || tv.semanticRequired),
+    positiveSemanticSignals: Object.freeze([...(SEMANTIC_GENRE_SIGNALS[value]?.positive || [])]),
+    negativeSemanticSignals: Object.freeze([...(SEMANTIC_GENRE_SIGNALS[value]?.negative || [])]),
+    minimumSemanticEvidence: SEMANTIC_GENRE_SIGNALS[value]?.minimumEvidence || 0,
+    providerLimitation,
+    specializationGroup,
+    exactMatchPolicy: Object.freeze({
+      movie: movie.exactMatchPolicy || "provider-exact",
+      tv: tv.exactMatchPolicy || "provider-exact",
+    }),
+  }),
+});
+
+const mainGenre = (config) => taxonomyOption({
+  ...config,
+  displayGroup: "주요 장르",
+  showInPrimaryGenre: true,
 });
 
 export const GENRE_CONTRACT = Object.freeze([
-  genre({ value: "genre-action", label: "액션", providerNames: ["Action"], aliases: ["action", "액션"], movieExact: [28], movieAdjacent: [80, 53], tvExact: [10759], displayPriority: 1 }),
-  genre({ value: "genre-sf", label: "SF", providerNames: ["Science Fiction"], aliases: ["sf", "sci-fi", "science fiction"], movieExact: [878], tvExact: [10765], displayPriority: 2, providerLimitation: "TMDB TV combines Sci-Fi and Fantasy as genre 10765." }),
-  genre({ value: "genre-drama", label: "드라마", providerNames: ["Drama"], aliases: ["drama", "드라마"], movieExact: [18], tvExact: [18], displayPriority: 3 }),
-  genre({ value: "genre-romance", label: "로맨스", providerNames: ["Romance"], aliases: ["romance", "로맨스"], movieExact: [10749], tvExact: [18], displayPriority: 4, providerLimitation: "TMDB TV has no standalone romance genre; Drama is an adjacent provider category." }),
-  genre({ value: "genre-mystery", label: "미스터리", providerNames: ["Mystery"], aliases: ["mystery", "미스터리"], movieExact: [9648], tvExact: [9648], displayPriority: 5 }),
-  genre({ value: "genre-thriller", label: "스릴러", providerNames: ["Thriller"], aliases: ["thriller", "스릴러"], movieExact: [53], movieAdjacent: [80, 9648], tvExact: [80, 9648], tvAdjacent: [10759], displayPriority: 6, providerLimitation: "TMDB TV has no standalone Thriller genre; Crime and Mystery are provider evidence and Action & Adventure requires semantic evidence." }),
-  genre({ value: "genre-comedy", label: "코미디", providerNames: ["Comedy"], aliases: ["comedy", "코미디"], movieExact: [35], tvExact: [35], displayPriority: 7 }),
-  genre({ value: "genre-horror", label: "공포", providerNames: ["Horror"], aliases: ["horror", "공포"], movieExact: [27], movieAdjacent: [53], tvExact: [9648], displayPriority: 8, providerLimitation: "TMDB TV has no standalone Horror genre; Mystery is adjacent provider evidence." }),
-  genre({ value: "genre-sf-fantasy", label: "SF·판타지", providerNames: ["Sci-Fi & Fantasy"], aliases: ["sf-fantasy", "sf·판타지", "sf & fantasy"], movieExact: [878, 14], tvExact: [10765], displayPriority: 9, providerLimitation: "TMDB TV combines Sci-Fi and Fantasy as genre 10765." }),
-  genre({ value: "genre-action-adventure", label: "액션·모험", providerNames: ["Action & Adventure"], aliases: ["action & adventure", "액션·모험"], movieExact: [28, 12], tvExact: [10759], displayPriority: 10 }),
-  genre({ value: "genre-crime", label: "범죄", providerNames: ["Crime"], aliases: ["crime", "범죄"], movieExact: [80], movieAdjacent: [53], tvExact: [80], tvAdjacent: [9648], displayPriority: 11 }),
-  genre({ value: "genre-fantasy", label: "판타지", providerNames: ["Fantasy"], aliases: ["fantasy", "판타지"], movieExact: [14], tvExact: [10765], displayPriority: 12, providerLimitation: "TMDB TV combines Sci-Fi and Fantasy as genre 10765." }),
-  genre({ value: "genre-adventure", label: "모험", providerNames: ["Adventure"], aliases: ["adventure", "모험"], movieExact: [12], tvExact: [10759], displayPriority: 13 }),
-  genre({ value: "genre-animation", label: "애니메이션", providerNames: ["Animation"], aliases: ["animation", "anime", "애니", "애니메이션"], movieExact: [16], tvExact: [16], displayPriority: 14 }),
-  genre({ value: "genre-family", label: "가족", providerNames: ["Family", "Kids"], aliases: ["family", "kids", "가족", "키즈"], movieExact: [10751], tvExact: [10751, 10762], displayPriority: 15 }),
-  genre({ value: "genre-documentary", label: "다큐멘터리", providerNames: ["Documentary"], aliases: ["documentary", "다큐", "다큐멘터리"], movieExact: [99], tvExact: [99], displayPriority: 16 }),
-  genre({ value: "genre-music", label: "음악", providerNames: ["Music"], aliases: ["music", "음악"], movieExact: [10402], tvExact: [], displayPriority: 17 }),
-  genre({ value: "genre-history", label: "역사", providerNames: ["History"], aliases: ["history", "역사"], movieExact: [36], tvExact: [], displayPriority: 18 }),
-  genre({ value: "genre-western", label: "서부", providerNames: ["Western"], aliases: ["western", "서부"], movieExact: [37], tvExact: [37], displayPriority: 19 }),
-  genre({ value: "genre-war", label: "전쟁", providerNames: ["War"], aliases: ["war", "전쟁"], movieExact: [10752], tvExact: [10768], displayPriority: 20 }),
-  genre({ value: "genre-tv-movie", label: "TV 영화", providerNames: ["TV Movie"], aliases: ["tv movie", "tv 영화"], movieExact: [10770], tvExact: [], displayPriority: 30, contentTypes: ["movie"] }),
-  genre({ value: "genre-news", label: "뉴스", providerNames: ["News"], aliases: ["news", "뉴스"], tvExact: [10763], displayPriority: 31, contentTypes: ["tv"] }),
-  genre({ value: "genre-reality", label: "리얼리티", providerNames: ["Reality"], aliases: ["reality", "리얼리티"], tvExact: [10764], displayPriority: 32, contentTypes: ["tv"] }),
-  genre({ value: "genre-talk", label: "토크", providerNames: ["Talk"], aliases: ["talk", "토크"], tvExact: [10767], displayPriority: 33, contentTypes: ["tv"] }),
-  genre({ value: "genre-soap", label: "소프", providerNames: ["Soap"], aliases: ["soap", "소프"], tvExact: [10766], displayPriority: 34, contentTypes: ["tv"] }),
-  genre({ value: "genre-war-politics", label: "전쟁·정치", providerNames: ["War & Politics"], aliases: ["war & politics", "전쟁·정치"], movieExact: [10752], tvExact: [10768], displayPriority: 35 }),
+  mainGenre({
+    value: "genre-action", label: "액션", displayPriority: 1, providerNames: ["Action"], aliases: ["action", "액션"],
+    specializationGroup: "action-adventure",
+    movie: { providerExactIds: [28] },
+    tv: { providerCombinedIds: [10759], semanticRequired: true, semanticSpecialization: true, exactMatchPolicy: "semantic-required" },
+  }),
+  mainGenre({
+    value: "genre-sf", label: "SF", displayPriority: 2, providerNames: ["Science Fiction"], aliases: ["sf", "sci-fi", "science fiction"],
+    specializationGroup: "sf-fantasy", providerLimitation: "TMDB TV combines Sci-Fi and Fantasy as genre 10765.",
+    movie: { providerExactIds: [878] },
+    tv: { providerCombinedIds: [10765], semanticSpecialization: true, exactMatchPolicy: "provider-combined-allowed" },
+  }),
+  mainGenre({ value: "genre-drama", label: "드라마", displayPriority: 3, providerNames: ["Drama"], aliases: ["drama", "드라마"], movie: { providerExactIds: [18] }, tv: { providerExactIds: [18] } }),
+  mainGenre({
+    value: "genre-romance", label: "로맨스", displayPriority: 4, providerNames: ["Romance"], aliases: ["romance", "로맨스"],
+    providerLimitation: "TMDB TV has no standalone Romance genre; Drama 18 is only a semantic candidate source.",
+    movie: { providerExactIds: [10749] },
+    tv: { providerAdjacentIds: [18], semanticRequired: true, exactMatchPolicy: "semantic-required" },
+  }),
+  mainGenre({ value: "genre-mystery", label: "미스터리", displayPriority: 5, providerNames: ["Mystery"], aliases: ["mystery", "미스터리"], movie: { providerExactIds: [9648] }, tv: { providerExactIds: [9648] } }),
+  mainGenre({
+    value: "genre-thriller", label: "스릴러", displayPriority: 6, providerNames: ["Thriller"], aliases: ["thriller", "스릴러"],
+    providerLimitation: "TMDB TV has no standalone Thriller genre; Crime and Mystery are provider evidence and Action & Adventure requires semantic evidence.",
+    movie: { providerExactIds: [53], providerAdjacentIds: [80, 9648] },
+    tv: { providerCombinedIds: [80, 9648], providerAdjacentIds: [10759], exactMatchPolicy: "provider-evidence-allowed" },
+  }),
+  mainGenre({ value: "genre-comedy", label: "코미디", displayPriority: 7, providerNames: ["Comedy"], aliases: ["comedy", "코미디"], movie: { providerExactIds: [35] }, tv: { providerExactIds: [35] } }),
+  mainGenre({
+    value: "genre-horror", label: "공포", displayPriority: 8, providerNames: ["Horror"], aliases: ["horror", "공포"],
+    providerLimitation: "TMDB TV has no standalone Horror genre; Mystery 9648 is only a semantic candidate source.",
+    movie: { providerExactIds: [27], providerAdjacentIds: [53] },
+    tv: { providerAdjacentIds: [9648], semanticRequired: true, exactMatchPolicy: "semantic-required" },
+  }),
+
+  taxonomyOption({ value: "genre-crime", label: "범죄", displayPriority: 20, providerNames: ["Crime"], aliases: ["crime", "범죄"], movie: { providerExactIds: [80], providerAdjacentIds: [53] }, tv: { providerExactIds: [80], providerAdjacentIds: [9648] } }),
+  taxonomyOption({
+    value: "genre-adventure", label: "모험", displayPriority: 21, providerNames: ["Adventure"], aliases: ["adventure", "모험"], specializationGroup: "action-adventure",
+    movie: { providerExactIds: [12] },
+    tv: { providerCombinedIds: [10759], semanticRequired: true, semanticSpecialization: true, exactMatchPolicy: "semantic-required" },
+  }),
+  taxonomyOption({
+    value: "genre-fantasy", label: "판타지", displayPriority: 22, providerNames: ["Fantasy"], aliases: ["fantasy", "판타지"], specializationGroup: "sf-fantasy",
+    providerLimitation: "TMDB TV combines Sci-Fi and Fantasy as genre 10765.",
+    movie: { providerExactIds: [14] },
+    tv: { providerCombinedIds: [10765], semanticSpecialization: true, exactMatchPolicy: "provider-combined-allowed" },
+  }),
+  taxonomyOption({
+    value: "genre-war", label: "전쟁", displayPriority: 23, providerNames: ["War"], aliases: ["war", "전쟁"], specializationGroup: "war-politics",
+    movie: { providerExactIds: [10752] },
+    tv: { providerCombinedIds: [10768], semanticRequired: true, semanticSpecialization: true, exactMatchPolicy: "semantic-required" },
+  }),
+  taxonomyOption({
+    value: "genre-politics", label: "정치", displayPriority: 24, aliases: ["politics", "political", "정치"], specializationGroup: "war-politics",
+    providerLimitation: "TMDB has no standalone Politics genre; semantic evidence is required.",
+    movie: { providerAdjacentIds: [18, 36, 10752], semanticRequired: true, exactMatchPolicy: "semantic-required" },
+    tv: { providerCombinedIds: [10768], semanticRequired: true, semanticSpecialization: true, exactMatchPolicy: "semantic-required" },
+  }),
+  taxonomyOption({ value: "genre-history", label: "역사", displayPriority: 25, providerNames: ["History"], aliases: ["history", "역사"], contentTypes: ["movie"], movie: { providerExactIds: [36] } }),
+  taxonomyOption({ value: "genre-western", label: "서부", displayPriority: 26, providerNames: ["Western"], aliases: ["western", "서부"], movie: { providerExactIds: [37] }, tv: { providerExactIds: [37] } }),
+  taxonomyOption({ value: "genre-music", label: "음악", displayPriority: 27, providerNames: ["Music"], aliases: ["music", "음악"], contentTypes: ["movie"], movie: { providerExactIds: [10402] } }),
+  taxonomyOption({ value: "genre-documentary", label: "다큐멘터리", displayPriority: 28, providerNames: ["Documentary"], aliases: ["documentary", "다큐", "다큐멘터리"], movie: { providerExactIds: [99] }, tv: { providerExactIds: [99] } }),
+
+  taxonomyOption({
+    value: "genre-action-adventure", label: "액션·모험", category: "combined", displayGroup: "복합 장르", displayPriority: 40,
+    providerNames: ["Action & Adventure"], aliases: ["action-adventure", "action & adventure", "액션·모험"], specializationGroup: "action-adventure",
+    movie: { providerExactIds: [28, 12], exactMatchPolicy: "combined-any" },
+    tv: { providerCombinedIds: [10759], exactMatchPolicy: "provider-combined-allowed" },
+  }),
+  taxonomyOption({
+    value: "genre-sf-fantasy", label: "SF·판타지", category: "combined", displayGroup: "복합 장르", displayPriority: 41,
+    providerNames: ["Sci-Fi & Fantasy"], aliases: ["sf-fantasy", "sf·판타지", "sf & fantasy"], specializationGroup: "sf-fantasy",
+    providerLimitation: "TMDB TV combines Sci-Fi and Fantasy as genre 10765.",
+    movie: { providerExactIds: [878, 14], exactMatchPolicy: "combined-any" },
+    tv: { providerCombinedIds: [10765], exactMatchPolicy: "provider-combined-allowed" },
+  }),
+  taxonomyOption({
+    value: "genre-war-politics", label: "전쟁·정치", category: "combined", displayGroup: "복합 장르", displayPriority: 42,
+    providerNames: ["War & Politics"], aliases: ["war-politics", "war & politics", "전쟁·정치"], specializationGroup: "war-politics",
+    movie: { providerExactIds: [10752], exactMatchPolicy: "combined-any" },
+    tv: { providerCombinedIds: [10768], exactMatchPolicy: "provider-combined-allowed" },
+  }),
+
+  taxonomyOption({ value: "format-tv-movie", label: "TV 영화", category: "format", displayGroup: "작품 형식", displayPriority: 60, providerNames: ["TV Movie"], aliases: ["tv movie", "tv 영화"], legacyAliases: ["genre-tv-movie"], contentTypes: ["tv"], tv: { providerExactIds: [10770] } }),
+  taxonomyOption({ value: "format-news", label: "뉴스", category: "format", displayGroup: "작품 형식", displayPriority: 61, providerNames: ["News"], aliases: ["news", "뉴스"], legacyAliases: ["genre-news"], contentTypes: ["tv"], tv: { providerExactIds: [10763] } }),
+  taxonomyOption({ value: "format-reality", label: "리얼리티", category: "format", displayGroup: "작품 형식", displayPriority: 62, providerNames: ["Reality"], aliases: ["reality", "리얼리티"], legacyAliases: ["genre-reality"], contentTypes: ["tv"], tv: { providerExactIds: [10764] } }),
+  taxonomyOption({ value: "format-talk", label: "토크", category: "format", displayGroup: "작품 형식", displayPriority: 63, providerNames: ["Talk"], aliases: ["talk", "토크"], legacyAliases: ["genre-talk"], contentTypes: ["tv"], tv: { providerExactIds: [10767] } }),
+  taxonomyOption({ value: "format-soap", label: "소프", category: "format", displayGroup: "작품 형식", displayPriority: 64, providerNames: ["Soap"], aliases: ["soap", "소프"], legacyAliases: ["genre-soap"], contentTypes: ["tv"], tv: { providerExactIds: [10766] } }),
+
+  taxonomyOption({ value: "genre-family", label: "가족", category: "audience", displayGroup: "시청 대상 / 스타일", displayPriority: 70, providerNames: ["Family"], aliases: ["family", "가족"], movie: { providerExactIds: [10751] }, tv: { providerExactIds: [10751] } }),
+  taxonomyOption({ value: "audience-kids", label: "키즈", category: "audience", displayGroup: "시청 대상 / 스타일", displayPriority: 71, providerNames: ["Kids"], aliases: ["kids", "키즈"], legacyAliases: ["genre-kids"], contentTypes: ["tv"], tv: { providerExactIds: [10762] } }),
+  taxonomyOption({ value: "style-animation", label: "애니메이션", category: "style", displayGroup: "시청 대상 / 스타일", displayPriority: 72, providerNames: ["Animation"], aliases: ["animation", "anime", "애니", "애니메이션"], legacyAliases: ["genre-animation"], movie: { providerExactIds: [16] }, tv: { providerExactIds: [16] } }),
 ]);
 
+const aliasesToValue = new Map();
+for (const entry of GENRE_CONTRACT) {
+  [entry.value, entry.label, ...entry.aliases, ...entry.legacyAliases].forEach((alias) => {
+    const key = normalizeToken(alias);
+    if (key && !aliasesToValue.has(key)) aliasesToValue.set(key, entry.value);
+  });
+}
+
 const contractByValue = new Map(GENRE_CONTRACT.map((entry) => [entry.value, entry]));
-const contractByProviderName = new Map(
-  GENRE_CONTRACT.flatMap((entry) => entry.providerNames.map((name) => [normalizeToken(name), entry])),
+const providerNamePreference = new Map([
+  ["action & adventure", "genre-action-adventure"],
+  ["sci-fi & fantasy", "genre-sf-fantasy"],
+  ["war & politics", "genre-war-politics"],
+  ["drama", "genre-drama"],
+  ["mystery", "genre-mystery"],
+  ["crime", "genre-crime"],
+  ["family", "genre-family"],
+  ["kids", "audience-kids"],
+  ["animation", "style-animation"],
+]);
+const contractByProviderName = new Map();
+for (const entry of GENRE_CONTRACT) {
+  contractByProviderName.set(normalizeToken(entry.label), entry);
+  for (const providerName of entry.providerNames) {
+    const key = normalizeToken(providerName);
+    if (!contractByProviderName.has(key)) contractByProviderName.set(key, entry);
+  }
+}
+for (const [name, value] of providerNamePreference) contractByProviderName.set(name, contractByValue.get(value));
+
+const providerIdCanonicalValue = new Map([
+  [28, "genre-action"], [12, "genre-adventure"], [878, "genre-sf"], [14, "genre-fantasy"],
+  [10759, "genre-action-adventure"], [10765, "genre-sf-fantasy"], [10768, "genre-war-politics"],
+  [18, "genre-drama"], [9648, "genre-mystery"], [80, "genre-crime"], [53, "genre-thriller"],
+  [27, "genre-horror"], [16, "style-animation"], [10751, "genre-family"], [10762, "audience-kids"],
+  [10752, "genre-war"], [10770, "format-tv-movie"], [10763, "format-news"], [10764, "format-reality"],
+  [10767, "format-talk"], [10766, "format-soap"], [99, "genre-documentary"], [10402, "genre-music"],
+  [36, "genre-history"], [37, "genre-western"], [35, "genre-comedy"], [10749, "genre-romance"],
+]);
+
+export const GENRE_TOP_EIGHT_VALUES = Object.freeze(
+  GENRE_CONTRACT.filter((entry) => entry.showInPrimaryGenre)
+    .sort((left, right) => left.displayPriority - right.displayPriority)
+    .map((entry) => entry.value),
+);
+export const GENRE_TOP_EIGHT_OPTIONS = Object.freeze(
+  GENRE_TOP_EIGHT_VALUES.map((value) => Object.freeze([value, contractByValue.get(value).label])),
 );
 
-export const GENRE_TOP_EIGHT_VALUES = Object.freeze(GENRE_CONTRACT.slice(0, 8).map((entry) => entry.value));
-export const GENRE_TOP_EIGHT_OPTIONS = Object.freeze(
-  GENRE_CONTRACT.slice(0, 8).map((entry) => Object.freeze([entry.value, entry.label])),
-);
+export function normalizeTaxonomyValue(value) {
+  const token = normalizeToken(value);
+  if (token.startsWith("tmdb-genre-")) return token;
+  return aliasesToValue.get(token) || "";
+}
 
 export function genreContractFor(value) {
-  return contractByValue.get(String(value || "")) || null;
+  return contractByValue.get(normalizeTaxonomyValue(value)) || null;
 }
 
 export function genreValueForProviderName(name) {
   return contractByProviderName.get(normalizeToken(name))?.value || "";
 }
 
+export function genreValueForProviderId(id) {
+  return providerIdCanonicalValue.get(Number(id)) || "";
+}
+
 export function genreLabelForValue(value) {
   return genreContractFor(value)?.label || "";
 }
 
+export function providerGenreLabelForId(id) {
+  return genreLabelForValue(providerIdCanonicalValue.get(Number(id))) || "";
+}
+
+export function selectedTaxonomyFilters(filters = []) {
+  return uniqueStrings(filters.map((filter) => {
+    const value = String(filter || "");
+    if (value.startsWith("tmdb-genre-")) return value;
+    return normalizeTaxonomyValue(value);
+  }));
+}
+
 export function selectedGenreFilters(filters = []) {
-  return filters.filter((filter) => String(filter).startsWith("genre-") || String(filter).startsWith("tmdb-genre-"));
+  return selectedTaxonomyFilters(filters);
 }
 
 function providerType(mediaType) {
@@ -87,22 +265,29 @@ function providerType(mediaType) {
 
 export function genreIdsForFilters(filters = [], mediaType = "movie", { includeAdjacent = false } = {}) {
   const targetType = providerType(mediaType);
-  const ids = selectedGenreFilters(filters).flatMap((filter) => {
+  const ids = selectedTaxonomyFilters(filters).flatMap((filter) => {
     if (filter.startsWith("tmdb-genre-")) return [Number(filter.replace("tmdb-genre-", ""))];
     const contract = genreContractFor(filter);
     if (!contract) return [];
+    const policy = contract[targetType];
     return [
-      ...contract[targetType].exactIds,
-      ...(includeAdjacent ? contract[targetType].semanticAdjacentIds : []),
+      ...policy.providerExactIds,
+      ...policy.providerCombinedIds,
+      ...((includeAdjacent || policy.semanticRequired) ? policy.providerAdjacentIds : []),
     ];
   });
-  return [...new Set(ids.map(Number).filter(Number.isFinite))];
+  return uniqueNumbers(ids);
 }
 
 export function prioritizeGenreOptions(options = []) {
   const priority = new Map(GENRE_CONTRACT.map((entry) => [entry.value, entry.displayPriority]));
   const seen = new Set();
   return [...options]
+    .map((option) => {
+      const value = Array.isArray(option) ? option[0] : option.value;
+      const canonicalValue = normalizeTaxonomyValue(value) || value;
+      return Array.isArray(option) ? [canonicalValue, option[1]] : { ...option, value: canonicalValue };
+    })
     .filter((option) => {
       const value = Array.isArray(option) ? option[0] : option.value;
       if (!value || seen.has(value)) return false;
@@ -119,86 +304,214 @@ export function prioritizeGenreOptions(options = []) {
     });
 }
 
-function semanticTerms(item = {}) {
-  return [
-    ...(item.keywords || []),
-    ...(item.mood || item.moods || []),
-    ...(item.genres || []),
-    item.genre,
-    item.synopsis,
-    item.overview,
-  ].map(normalizeToken).filter(Boolean);
+function providerGenreIds(item = {}) {
+  return uniqueNumbers([
+    ...(item.providerGenreIds || []),
+    ...(item.genreIds || []),
+    ...(item.genre_ids || []),
+  ]);
 }
 
-const thrillerTerms = [
-  "crime", "범죄", "murder", "살인", "serial killer", "연쇄", "investigation", "수사",
-  "conspiracy", "음모", "survival", "생존", "mystery", "미스터리", "tense", "긴장",
-];
+function providerGenreNames(item = {}) {
+  return uniqueStrings([
+    ...(item.providerGenreNames || []),
+    ...(item.genres || []).map((genre) => typeof genre === "string" ? genre : genre?.name),
+  ]);
+}
 
-function hasThrillerSemanticEvidence(item) {
-  const terms = semanticTerms(item);
-  return terms.some((term) => thrillerTerms.some((signal) => term.includes(signal)));
+function intersects(ids, candidates) {
+  return candidates.some((id) => ids.includes(id));
+}
+
+const SPECIALIZATION_GROUPS = Object.freeze({
+  "action-adventure": Object.freeze(["genre-action", "genre-adventure"]),
+  "sf-fantasy": Object.freeze(["genre-sf", "genre-fantasy"]),
+  "war-politics": Object.freeze(["genre-war", "genre-politics"]),
+});
+
+export function classifyTaxonomyValues(item = {}) {
+  const targetType = providerType(item.mediaType || item.contentType || item.type);
+  const ids = providerGenreIds(item);
+  const canonicalGenreValues = [];
+  const combinedGenreValues = [];
+  const semanticGenreValues = [];
+  const formatValues = [];
+  const audienceValues = [];
+  const styleValues = [];
+  const semanticEvidenceByGenre = {};
+
+  for (const entry of GENRE_CONTRACT) {
+    const policy = entry[targetType];
+    const exact = intersects(ids, policy.providerExactIds);
+    const combined = intersects(ids, policy.providerCombinedIds);
+
+    if (entry.category === "combined" && (exact || combined)) combinedGenreValues.push(entry.value);
+    if (entry.category === "format" && exact) formatValues.push(entry.value);
+    if (entry.category === "audience" && exact) audienceValues.push(entry.value);
+    if (entry.category === "style" && exact) styleValues.push(entry.value);
+    if (entry.category === "narrative" && exact && !policy.semanticRequired) canonicalGenreValues.push(entry.value);
+
+    if (policy.semanticRequired && !entry.specializationGroup && (exact || combined || intersects(ids, policy.providerAdjacentIds))) {
+      const evidence = semanticGenreEvidence(item, entry.value);
+      semanticEvidenceByGenre[entry.value] = evidence;
+      if (evidence.matched) semanticGenreValues.push(entry.value);
+    }
+  }
+
+  for (const [group, values] of Object.entries(SPECIALIZATION_GROUPS)) {
+    const candidates = values.filter((value) => {
+      const contract = contractByValue.get(value);
+      const policy = contract[targetType];
+      return policy.semanticSpecialization && intersects(ids, policy.providerCombinedIds);
+    });
+    if (!candidates.length) continue;
+    const specialization = chooseSemanticSpecialization(item, candidates);
+    specialization.evaluated.forEach((entry) => { semanticEvidenceByGenre[entry.value] = entry; });
+    semanticGenreValues.push(...specialization.selected);
+    if (specialization.selected.length) {
+      const combinedValue = GENRE_CONTRACT.find((entry) => entry.category === "combined" && entry.specializationGroup === group)?.value;
+      if (combinedValue && !combinedGenreValues.includes(combinedValue)) combinedGenreValues.push(combinedValue);
+    }
+  }
+
+  return {
+    providerGenreIds: ids,
+    providerGenreNames: providerGenreNames(item),
+    canonicalGenreValues: uniqueStrings(canonicalGenreValues),
+    combinedGenreValues: uniqueStrings(combinedGenreValues),
+    semanticGenreValues: uniqueStrings(semanticGenreValues),
+    formatValues: uniqueStrings(formatValues),
+    audienceValues: uniqueStrings(audienceValues),
+    styleValues: uniqueStrings(styleValues),
+    semanticEvidenceByGenre,
+  };
 }
 
 const matchPriority = Object.freeze({
   "provider-exact": 1,
-  "provider-combined": 2,
-  semantic: 3,
-  relaxed: 4,
+  "semantic-specialized": 2,
+  semantic: 2,
+  "provider-combined": 3,
+  adjacent: 4,
+  relaxed: 5,
 });
 
 export function candidateGenreMatchDetail(item = {}, filters = []) {
-  const genreFilters = selectedGenreFilters(filters);
-  if (!genreFilters.length) {
-    return { genreMatched: true, genreMatchMode: "provider-exact", semanticGenreMatched: false, semanticGenreReasons: [] };
+  const taxonomyFilters = selectedTaxonomyFilters(filters);
+  const taxonomy = classifyTaxonomyValues(item);
+  if (!taxonomyFilters.length) {
+    return {
+      genreMatched: true,
+      genreMatchMode: "provider-exact",
+      semanticGenreMatched: false,
+      semanticGenreReasons: [],
+      matchedTaxonomyValues: [],
+      ...taxonomy,
+    };
   }
 
   const targetType = providerType(item.mediaType || item.contentType || item.type);
-  const genreIds = [...new Set((item.genreIds || item.genre_ids || []).map(Number).filter(Number.isFinite))];
-  const modes = [];
-  const reasons = [];
+  const ids = taxonomy.providerGenreIds;
+  const matches = [];
 
-  for (const filter of genreFilters) {
+  for (const filter of taxonomyFilters) {
     if (filter.startsWith("tmdb-genre-")) {
       const id = Number(filter.replace("tmdb-genre-", ""));
-      if (genreIds.includes(id)) modes.push("provider-exact");
+      if (ids.includes(id)) matches.push({ value: filter, mode: "provider-exact", reasons: [] });
       continue;
     }
 
     const contract = genreContractFor(filter);
     if (!contract) continue;
-    const exactIds = contract[targetType].exactIds;
-    const adjacentIds = contract[targetType].semanticAdjacentIds;
-    const exactMatch = exactIds.some((id) => genreIds.includes(id));
-
-    if (exactMatch) {
-      const combined = targetType === "tv" && exactIds.includes(10765) && Boolean(contract.providerLimitation);
-      modes.push(combined ? "provider-combined" : "provider-exact");
-      if (combined) reasons.push("tmdb-tv-combined-sf-fantasy-10765");
+    const policy = contract[targetType];
+    const allExactValues = [
+      ...taxonomy.canonicalGenreValues,
+      ...taxonomy.formatValues,
+      ...taxonomy.audienceValues,
+      ...taxonomy.styleValues,
+    ];
+    if (allExactValues.includes(contract.value)) {
+      matches.push({ value: contract.value, mode: "provider-exact", reasons: [] });
+      continue;
+    }
+    if (taxonomy.semanticGenreValues.includes(contract.value)) {
+      matches.push({
+        value: contract.value,
+        mode: "semantic-specialized",
+        reasons: taxonomy.semanticEvidenceByGenre[contract.value]?.reasons || [],
+      });
+      continue;
+    }
+    if (contract.category === "combined" && taxonomy.combinedGenreValues.includes(contract.value)) {
+      matches.push({ value: contract.value, mode: "provider-combined", reasons: [`${contract.value}:provider-combined`] });
       continue;
     }
 
-    const adjacentMatch = adjacentIds.some((id) => genreIds.includes(id));
-    if (filter === "genre-thriller" && targetType === "tv") {
-      if ((adjacentMatch || hasThrillerSemanticEvidence(item)) && hasThrillerSemanticEvidence(item)) {
-        modes.push("semantic");
-        reasons.push("tv-thriller-keyword-or-mood-evidence");
-      }
-    } else if (adjacentMatch) {
-      modes.push("semantic");
-      reasons.push(`${filter}:adjacent-provider-genre`);
+    const combinedEvidence = intersects(ids, policy.providerCombinedIds);
+    if (combinedEvidence && policy.exactMatchPolicy === "provider-combined-allowed") {
+      matches.push({ value: contract.value, mode: "provider-combined", reasons: [`${contract.value}:provider-combined`] });
+      continue;
+    }
+    if (combinedEvidence && policy.exactMatchPolicy === "provider-evidence-allowed") {
+      matches.push({ value: contract.value, mode: "provider-exact", reasons: [`${contract.value}:provider-evidence`] });
+      continue;
+    }
+
+    const adjacentEvidence = intersects(ids, policy.providerAdjacentIds);
+    if (adjacentEvidence) {
+      const evidence = semanticGenreEvidence(item, contract.value);
+      if (evidence.matched) matches.push({ value: contract.value, mode: "semantic-specialized", reasons: evidence.reasons });
     }
   }
 
-  if (!modes.length) {
-    return { genreMatched: false, genreMatchMode: "relaxed", semanticGenreMatched: false, semanticGenreReasons: [] };
+  if (!matches.length) {
+    return {
+      genreMatched: false,
+      genreMatchMode: "relaxed",
+      semanticGenreMatched: false,
+      semanticGenreReasons: [],
+      matchedTaxonomyValues: [],
+      ...taxonomy,
+    };
   }
-  const genreMatchMode = modes.sort((left, right) => matchPriority[left] - matchPriority[right])[0];
+
+  matches.sort((left, right) => matchPriority[left.mode] - matchPriority[right.mode]);
+  const best = matches[0];
+  const bestContract = genreContractFor(best.value);
+  const combinedReasonValue = bestContract?.category === "combined"
+    ? bestContract.value
+    : GENRE_CONTRACT.find((entry) => (
+      entry.category === "combined" &&
+      entry.specializationGroup &&
+      entry.specializationGroup === bestContract?.specializationGroup
+    ))?.value;
   return {
     genreMatched: true,
-    genreMatchMode,
-    semanticGenreMatched: genreMatchMode === "semantic",
-    semanticGenreReasons: [...new Set(reasons)],
+    genreMatchMode: best.mode,
+    semanticGenreMatched: ["semantic", "semantic-specialized"].includes(best.mode),
+    semanticGenreReasons: uniqueStrings(matches.flatMap((match) => match.reasons)),
+    matchedTaxonomyValues: uniqueStrings(matches.map((match) => match.value)),
+    recommendationReason: ["semantic", "semantic-specialized"].includes(best.mode)
+      ? semanticRecommendationReason(best.value)
+      : best.mode === "provider-combined"
+        ? `TMDB의 통합 ${genreLabelForValue(combinedReasonValue || best.value)} 분류를 반영한 추천입니다.`
+        : "",
+    ...taxonomy,
+  };
+}
+
+export function genreMatchStrength(item = {}, filters = []) {
+  const match = candidateGenreMatchDetail(item, filters);
+  return {
+    ...match,
+    strength: {
+      "provider-exact": 1,
+      "semantic-specialized": 0.85,
+      semantic: 0.85,
+      "provider-combined": 0.65,
+      adjacent: 0.35,
+      relaxed: 0,
+    }[match.genreMatchMode] ?? 0,
   };
 }
 
@@ -206,26 +519,42 @@ export function genreContractTokens(values = []) {
   const tokens = (Array.isArray(values) ? values : [values]).map(normalizeToken).filter(Boolean);
   const matched = new Set();
   for (const token of tokens) {
-    for (const entry of GENRE_CONTRACT) {
-      const aliases = [
-        entry.value,
-        entry.label,
-        ...entry.aliases,
-        ...entry.providerNames,
-        ...entry.movie.exactIds,
-        ...entry.tv.exactIds,
-      ].map(normalizeToken);
-      if (aliases.includes(token)) matched.add(entry.value);
+    const direct = normalizeTaxonomyValue(token);
+    if (direct) {
+      matched.add(direct);
+      continue;
     }
-    if (token.startsWith("tmdb-genre-")) matched.add(token);
+    const providerValue = genreValueForProviderName(token);
+    if (providerValue) {
+      matched.add(providerValue);
+      continue;
+    }
+    const numeric = Number(token.replace(/^tmdb-genre-/, ""));
+    if (Number.isFinite(numeric) && providerIdCanonicalValue.has(numeric)) matched.add(providerIdCanonicalValue.get(numeric));
+    else if (token.startsWith("tmdb-genre-")) matched.add(token);
   }
   return [...matched];
 }
 
 export function genreValuesForItem(item = {}) {
-  const targetType = providerType(item.mediaType || item.contentType || item.type);
-  const ids = new Set((item.genreIds || item.genre_ids || []).map(Number).filter(Number.isFinite));
-  return GENRE_CONTRACT
-    .filter((entry) => entry[targetType].exactIds.some((id) => ids.has(id)))
-    .map((entry) => entry.value);
+  const taxonomy = classifyTaxonomyValues(item);
+  return uniqueStrings([
+    ...taxonomy.canonicalGenreValues,
+    ...taxonomy.semanticGenreValues,
+    ...taxonomy.combinedGenreValues,
+    ...taxonomy.formatValues,
+    ...taxonomy.audienceValues,
+    ...taxonomy.styleValues,
+  ]);
+}
+
+export function genreOptionGroups() {
+  const groupOrder = ["주요 장르", "전체 장르", "복합 장르", "작품 형식", "시청 대상 / 스타일"];
+  return groupOrder.map((title) => ({
+    title,
+    options: GENRE_CONTRACT
+      .filter((entry) => entry.displayGroup === title)
+      .sort((left, right) => left.displayPriority - right.displayPriority)
+      .map((entry) => [entry.value, entry.label]),
+  })).filter((group) => group.options.length);
 }

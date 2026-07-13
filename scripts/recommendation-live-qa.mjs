@@ -61,11 +61,29 @@ for (const testCase of liveCases) {
       title: item.title,
       tmdbId: item.tmdbId,
       countryCodes: item.countryCodes || [],
+      providerGenreIds: item.providerGenreIds || item.genreIds || [],
+      providerGenreNames: item.providerGenreNames || item.genres || [],
       genreIds: item.genreIds || [],
+      canonicalGenreValues: item.canonicalGenreValues || [],
+      combinedGenreValues: item.combinedGenreValues || [],
+      semanticGenreValues: item.semanticGenreValues || [],
+      formatValues: item.formatValues || [],
+      audienceValues: item.audienceValues || [],
+      styleValues: item.styleValues || [],
+      semanticEvidence: item.semanticEvidenceByGenre || {},
       contentType: item.contentType || item.type,
       resultTier: item.resultTier,
       genreMatchMode: item.genreMatchMode || "",
       semanticGenreMatched: Boolean(item.semanticGenreMatched),
+      taxonomyCategory: item.formatValues?.length
+        ? "format"
+        : item.audienceValues?.length
+          ? "audience"
+          : item.styleValues?.length
+            ? "style"
+            : item.combinedGenreValues?.length && !item.canonicalGenreValues?.length && !item.semanticGenreValues?.length
+              ? "combined"
+              : "narrative",
       franchiseKey: item.franchiseKey || "",
       reasonSeeds: item.reasonSeeds || (item.reasonSeed ? [item.reasonSeed] : []),
     })),

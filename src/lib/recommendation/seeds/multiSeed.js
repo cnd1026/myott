@@ -32,6 +32,7 @@ export function normalizeSeedInputs({ titles = [], seeds = [] } = {}) {
   const confirmedByWork = new Map();
   const confirmedAliasKeys = new Set();
   const requestedSeeds = [];
+  const rawInputs = [];
 
   for (const seed of Array.isArray(seeds) ? seeds : []) {
     if (!seed || typeof seed !== "object") continue;
@@ -43,6 +44,7 @@ export function normalizeSeedInputs({ titles = [], seeds = [] } = {}) {
       seed.inputTitle,
       seed.displayTitle,
     ]);
+    inputAliases.forEach((inputTitle) => rawInputs.push({ inputTitle, key: normalizeSeedKey(inputTitle), confirmed: true }));
     const resolvedTitle = normalizeWhitespace(seed.resolvedTitle || seed.title || inputAliases[0]);
     const originalTitle = normalizeWhitespace(seed.originalTitle || resolvedTitle);
     if (!inputAliases.length && !resolvedTitle) continue;
@@ -77,19 +79,28 @@ export function normalizeSeedInputs({ titles = [], seeds = [] } = {}) {
   }
 
   const unconfirmed = normalizeSeedTitles(titles);
+  unconfirmed.requestedSeeds
+    .map((inputTitle) => ({ inputTitle, key: normalizeSeedKey(inputTitle), confirmed: false }))
+    .filter((entry) => entry.key)
+    .forEach((entry) => rawInputs.push(entry));
   const unconfirmedEntries = unconfirmed.entries
     .filter((entry) => !confirmedAliasKeys.has(entry.key))
     .map((entry) => ({ ...entry, inputTitles: [entry.title], inputAliases: [entry.title], confirmed: false, seed: null }));
   requestedSeeds.push(...unconfirmed.requestedSeeds);
   const entries = [...confirmedByWork.values(), ...unconfirmedEntries];
+  const uniqueInputAliasCount = new Set(requestedSeeds.map(normalizeSeedKey).filter(Boolean)).size;
 
   return {
     requestedSeeds,
     normalizedSeeds: entries.map((entry) => entry.title),
     entries,
+    rawInputs,
+    rawInputCount: rawInputs.length,
+    normalizedInputCount: requestedSeeds.map(normalizeWhitespace).filter(Boolean).length,
+    uniqueInputAliasCount,
     confirmedSeedCount: confirmedByWork.size,
     unconfirmedSeedCount: unconfirmedEntries.length,
-    inputAliasCount: new Set(requestedSeeds.map(normalizeSeedKey).filter(Boolean)).size,
+    inputAliasCount: uniqueInputAliasCount,
   };
 }
 

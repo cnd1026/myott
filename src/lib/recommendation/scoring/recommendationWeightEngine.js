@@ -3,7 +3,12 @@ import {
   recommendationScoreScale,
   recommendationWeights,
 } from "./recommendationWeights.js";
-import { genreContractTokens } from "../genres/genreContract.js";
+import {
+  classifyTaxonomyValues,
+  genreContractFor,
+  genreContractTokens,
+  genreMatchStrength,
+} from "../genres/genreContract.js";
 
 const CONTENT_TYPE_ALIASES = Object.freeze({
   movie: ["movie", "film", "영화"],
@@ -98,14 +103,16 @@ const getItemSeedValues = (item) =>
     ...asArray(item.seedTitles),
   ]);
 
-const getItemGenres = (item) =>
-  genreContractTokens([
-    ...asArray(item.genreIds),
-    ...asArray(item.genre_ids),
-    ...asArray(item.genres),
-    ...asArray(item.genre),
-    ...asArray(item.tags).filter((tag) => normalizeText(tag).startsWith("genre-")),
+const getItemGenres = (item) => {
+  const taxonomy = classifyTaxonomyValues(item);
+  return unique([
+    ...taxonomy.canonicalGenreValues,
+    ...taxonomy.semanticGenreValues,
+    ...taxonomy.combinedGenreValues,
+    ...taxonomy.audienceValues,
+    ...taxonomy.styleValues,
   ]);
+};
 
 const getPreferenceGenres = (preferences) =>
   genreContractTokens([
@@ -113,10 +120,13 @@ const getPreferenceGenres = (preferences) =>
     ...asArray(preferences.genre_ids),
     ...asArray(preferences.genres),
     ...asArray(preferences.genre),
-    ...asArray(preferences.filters).filter((filter) => normalizeText(filter).startsWith("genre-")),
+    ...asArray(preferences.filters).filter((filter) => {
+      const value = normalizeText(filter);
+      return ["genre-", "format-", "audience-", "style-", "tmdb-genre-"].some((prefix) => value.startsWith(prefix));
+    }),
     ...asArray(getNested(preferences, ["options", "genreIds"])),
     ...asArray(getNested(preferences, ["options", "genres"])),
-  ]);
+  ]).filter((value) => genreContractFor(value)?.category !== "format");
 
 const getItemCountries = (item) =>
   canonicalizeValues([
@@ -152,9 +162,16 @@ const normalizeContentType = (value) => {
 };
 
 const getItemContentType = (item) =>
-  getItemGenres(item).includes("genre-animation")
+  getItemGenres(item).includes("style-animation")
     ? "animation"
     : normalizeContentType(item.contentType || item.type || item.mediaType || item.media_type);
+
+const getItemProviderMediaType = (item) => {
+  const token = normalizeContentType(item.mediaType || item.media_type || item.providerMediaType || item.contentType || item.type);
+  if (token === "tv" || ["drama", "series"].includes(normalizeToken(item.mediaType || item.media_type))) return "drama";
+  if (token === "animation" && !item.mediaType && !item.media_type) return "animation";
+  return token === "drama" ? "drama" : "movie";
+};
 
 const getPreferenceContentTypes = (preferences) =>
   unique([
@@ -165,6 +182,29 @@ const getPreferenceContentTypes = (preferences) =>
     ...asArray(preferences.filters).filter((filter) => normalizeText(filter).startsWith("type-")),
     ...asArray(getNested(preferences, ["options", "contentTypes"])),
   ]).map(normalizeContentType);
+
+const contentTypeMatchSignal = (item, selectedContentTypes, preferences) => {
+  if (!selectedContentTypes.length) return 1;
+  const outputType = getItemContentType(item);
+  const mediaType = getItemProviderMediaType(item);
+  const animationStyleSelected = getPreferenceGenres(preferences).includes("style-animation");
+  return selectedContentTypes.some((type) => {
+    if (type === "animation") return outputType === "animation";
+    if (outputType === "animation" && !animationStyleSelected) return false;
+    if (type === "movie") return mediaType === "movie";
+    if (type === "tv" || type === "drama") return mediaType === "drama";
+    return type === outputType;
+  }) ? 1 : 0;
+};
+
+const genreMatchSignal = (item, preferences, selectedContentTypes) => {
+  const preferenceGenres = getPreferenceGenres(preferences).filter((value) =>
+    !(value === "style-animation" && selectedContentTypes.includes("animation")),
+  );
+  if (!preferenceGenres.length) return 0.5;
+  const total = preferenceGenres.reduce((sum, value) => sum + genreMatchStrength(item, [value]).strength, 0);
+  return clamp01(total / preferenceGenres.length);
+};
 
 const getItemMoods = (item) =>
   unique([
@@ -308,9 +348,7 @@ export const calculateRecommendationScore = (
 ) => {
   const penalties = [];
   const selectedContentTypes = getPreferenceContentTypes(preferences);
-  const itemContentType = getItemContentType(item);
-  const contentTypeMatch =
-    selectedContentTypes.length === 0 || selectedContentTypes.includes(itemContentType) ? 1 : 0;
+  const contentTypeMatch = contentTypeMatchSignal(item, selectedContentTypes, preferences);
 
   if (contentTypeMatch === 0) {
     penalties.push({
@@ -343,7 +381,7 @@ export const calculateRecommendationScore = (
 
   const signals = {
     titleMatch: titleMatchSignal(item, preferences),
-    genreMatch: overlapRatio(getItemGenres(item), getPreferenceGenres(preferences)),
+    genreMatch: genreMatchSignal(item, preferences, selectedContentTypes),
     countryMatch: overlapRatio(getItemCountries(item), getPreferenceCountries(preferences)),
     contentTypeMatch,
     moodMatch: overlapRatio(getItemMoods(item), getPreferenceMoods(preferences)),

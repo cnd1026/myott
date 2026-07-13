@@ -2,6 +2,7 @@ import { calculateRecommendationScore } from "../scoring/recommendationWeightEng
 import {
   candidateGenreMatchDetail,
   genreIdsForFilters,
+  normalizeTaxonomyValue,
   selectedGenreFilters,
 } from "../genres/genreContract.js";
 
@@ -57,9 +58,11 @@ const TIER_ORDER = Object.freeze({
 });
 const GENRE_MATCH_MODE_ORDER = Object.freeze({
   "provider-exact": 1,
-  "provider-combined": 2,
-  semantic: 3,
-  relaxed: 4,
+  "semantic-specialized": 2,
+  semantic: 2,
+  "provider-combined": 3,
+  adjacent: 4,
+  relaxed: 5,
 });
 
 const normalizeText = (value) => String(value || "").trim().toLowerCase();
@@ -78,6 +81,13 @@ export function normalizeContentType(item = {}) {
   const rawType = normalizeText(item.contentType || item.type || item.mediaType || item.media_type);
   if (rawType === "animation" || genreIds.includes(16)) return "animation";
   if (["drama", "series", "tv"].includes(rawType)) return "drama";
+  return "movie";
+}
+
+function providerMediaType(item = {}) {
+  const rawType = normalizeText(item.mediaType || item.media_type || item.providerMediaType || item.contentType || item.type);
+  if (["tv", "drama", "series"].includes(rawType)) return "drama";
+  if (rawType === "animation") return "animation";
   return "movie";
 }
 
@@ -105,7 +115,10 @@ export function candidateGenreMatches(item = {}, filters = []) {
   if (!genreFilters.length) return true;
   const match = candidateGenreMatchDetail(item, genreFilters);
   if (!match.genreMatched) return false;
-  if (normalizeContentType(item) !== "animation" || genreFilters.every((filter) => filter === "genre-animation")) {
+  if (
+    normalizeContentType(item) !== "animation" ||
+    genreFilters.every((filter) => normalizeTaxonomyValue(filter) === "style-animation")
+  ) {
     return true;
   }
   const itemGenreIds = uniqueNumbers(item.genreIds || item.genre_ids || []);
@@ -116,9 +129,20 @@ function selectedTypes(contentTypes = []) {
   return unique(contentTypes.map((type) => (type === "tv" || type === "series" ? "drama" : type)));
 }
 
-function candidateContentTypeMatches(item, contentTypes) {
+function candidateContentTypeMatches(item, contentTypes, filters = []) {
   const types = selectedTypes(contentTypes);
-  return !types.length || types.includes(normalizeContentType(item));
+  if (!types.length) return true;
+  const outputType = normalizeContentType(item);
+  const mediaType = providerMediaType(item);
+  const animationStyleSelected = selectedGenreFilters(filters)
+    .some((filter) => normalizeTaxonomyValue(filter) === "style-animation");
+  return types.some((type) => {
+    if (type === "animation") return outputType === "animation";
+    if (outputType === "animation" && !animationStyleSelected) return false;
+    if (type === "movie") return mediaType === "movie";
+    if (type === "drama") return mediaType === "drama";
+    return type === outputType;
+  });
 }
 
 function officialFranchiseKey(item = {}) {
@@ -168,7 +192,7 @@ function contextualFranchiseCandidates(items = []) {
 export function classifyCandidate(item = {}, { filters = [], contentTypes = [] } = {}) {
   const country = selectedCountryCode(filters);
   const countryCodes = normalizedCountryCodes(item);
-  const contentTypeMatched = candidateContentTypeMatches(item, contentTypes);
+  const contentTypeMatched = candidateContentTypeMatches(item, contentTypes, filters);
   const genreMatch = candidateGenreMatchDetail(item, filters);
   const genreMatched = candidateGenreMatches(item, filters);
   const providerFiltered = item.countryValidation === "provider-filtered";
@@ -204,13 +228,23 @@ export function classifyCandidate(item = {}, { filters = [], contentTypes = [] }
     genreMatchMode: genreMatched ? genreMatch.genreMatchMode : "relaxed",
     semanticGenreMatched: genreMatched && genreMatch.semanticGenreMatched,
     semanticGenreReasons: genreMatched ? genreMatch.semanticGenreReasons : [],
+    matchedTaxonomyValues: genreMatched ? genreMatch.matchedTaxonomyValues : [],
+    providerGenreIds: genreMatch.providerGenreIds,
+    providerGenreNames: genreMatch.providerGenreNames,
+    canonicalGenreValues: genreMatch.canonicalGenreValues,
+    combinedGenreValues: genreMatch.combinedGenreValues,
+    semanticGenreValues: genreMatch.semanticGenreValues,
+    formatValues: genreMatch.formatValues,
+    audienceValues: genreMatch.audienceValues,
+    styleValues: genreMatch.styleValues,
+    semanticEvidenceByGenre: genreMatch.semanticEvidenceByGenre,
     contentTypeMatched,
     resultTier,
     exactMatch,
     fallbackStage: resultTier === "exact" ? "strict" : resultTier,
     fallbackRelaxed,
-    reason: genreMatched && genreMatch.genreMatchMode === "semantic"
-      ? "TMDB의 TV 장르 분류와 범죄·미스터리 신호를 함께 반영한 추천입니다."
+    reason: genreMatched && genreMatch.recommendationReason
+      ? genreMatch.recommendationReason
       : item.reason,
     franchiseKey: candidateFranchiseKey(item),
     candidateSource: item.candidateSource || "provider",
@@ -410,6 +444,14 @@ function diagnosticCandidate(item = {}) {
     countryValidation: item.countryValidation || "unknown",
     genres: item.genres || [],
     genreIds: item.genreIds || [],
+    providerGenreIds: item.providerGenreIds || item.genreIds || [],
+    canonicalGenreValues: item.canonicalGenreValues || [],
+    combinedGenreValues: item.combinedGenreValues || [],
+    semanticGenreValues: item.semanticGenreValues || [],
+    formatValues: item.formatValues || [],
+    audienceValues: item.audienceValues || [],
+    styleValues: item.styleValues || [],
+    genreMatchMode: item.genreMatchMode,
     contentType: item.contentType || item.type,
     resultTier: item.resultTier,
     candidateSource: item.candidateSource,
@@ -456,12 +498,9 @@ export function finalizeCandidatePool(
     contentTypes,
     seedTitles,
     countryCodes: country ? [country] : [],
-    genreIds: uniqueNumbers(
-      [
-        ...seedGenreIds,
-        ...["movie", "tv"].flatMap((mediaType) => genreFamilyIds(filters, mediaType)),
-      ],
-    ),
+    // Selected filters already carry canonical values. Re-adding their Provider IDs
+    // would turn one combined ID into multiple preferences in the Weight Engine.
+    genreIds: uniqueNumbers(seedGenreIds),
     diversity,
   };
   const scored = classified.map((item) => scoreCandidate(item, preferences)).sort(compareCandidates);

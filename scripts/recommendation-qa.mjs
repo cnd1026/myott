@@ -6,7 +6,7 @@ import {
   createFixtureFetch,
   createRecommendationContextFactory,
 } from "../src/lib/providers/tmdb/testing/multiSeedFixture.mjs";
-import { finalizeCandidatePool } from "../src/lib/recommendation/candidates/candidatePipeline.js";
+import { classifyCandidate, finalizeCandidatePool } from "../src/lib/recommendation/candidates/candidatePipeline.js";
 import {
   GENRE_TOP_EIGHT_VALUES,
   genreContractTokens,
@@ -14,6 +14,7 @@ import {
   prioritizeGenreOptions,
 } from "../src/lib/recommendation/genres/genreContract.js";
 import { evaluateRecommendationCase } from "../src/lib/recommendation/qa/evaluateRecommendationCase.js";
+import { taxonomyFixturesForCase } from "../src/lib/recommendation/qa/genreTaxonomyFixtures.js";
 import {
   applySuggestionSelection,
   buildSeedRequestPayload,
@@ -137,10 +138,20 @@ const diagnostics = {
   duplicateDetailRequestCount: 0,
   budgetExhausted: false,
 };
-const multiSeedCaseIds = new Set(["REC-QA-021", "REC-QA-022", "REC-QA-023", "REC-QA-024", "REC-QA-027"]);
+const multiSeedCaseIds = new Set(["REC-QA-021", "REC-QA-022", "REC-QA-023", "REC-QA-024", "REC-QA-027", "REC-QA-047"]);
+const taxonomyCaseIds = new Set(Array.from({ length: 15 }, (_, index) => `REC-QA-${String(index + 32).padStart(3, "0")}`));
 const reports = [];
 
 for (const testCase of dataset) {
+  if (taxonomyCaseIds.has(testCase.id)) {
+    const fixtures = taxonomyFixturesForCase(testCase.id);
+    const results = fixtures.map((item) => classifyCandidate(item, {
+      filters: testCase.input?.filters || [],
+      contentTypes: testCase.input?.contentTypes || [],
+    }));
+    reports.push(evaluateRecommendationCase(testCase, results, { diagnostics }));
+    continue;
+  }
   if (testCase.id === "REC-QA-028") {
     const selection = applySuggestionSelection("home alone", {
       providerContentId: 201,
@@ -164,6 +175,24 @@ for (const testCase of dataset) {
     continue;
   }
   if (testCase.id === "REC-QA-029") {
+    clearTmdbRequestCache();
+    const fixture = createFixtureFetch();
+    const contextFactory = createRecommendationContextFactory(fixture);
+    const payload = await recommendSeedsTmdb({
+      seeds: ["나 홀로 집에", "Home Alone", "home alone"].map((inputTitle) => ({
+        inputTitle,
+        tmdbId: 201,
+        mediaType: "movie",
+        resolvedTitle: "나 홀로 집에",
+        originalTitle: "Home Alone",
+      })),
+      contentTypes: ["movie"],
+      requestContextFactory: contextFactory.factory,
+    });
+    reports.push(evaluateRecommendationCase(testCase, payload.results || [], { diagnostics: payload.diagnostics }));
+    continue;
+  }
+  if (testCase.id === "REC-QA-048") {
     clearTmdbRequestCache();
     const fixture = createFixtureFetch();
     const contextFactory = createRecommendationContextFactory(fixture);

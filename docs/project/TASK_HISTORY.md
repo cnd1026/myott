@@ -56,6 +56,7 @@
 | MYOTT-S09-006A | Candidate quality and TMDB request budget | `이번 커밋` | 24/8/16 request budget, progressive fetch, cache/dedup/retry, exact 80% ratio, seed scoring, 20-case deterministic/live QA runner 적용. Founder Live TMDB QA 대기. | 완료 |
 | MYOTT-S09-006A1 | Shared Multi-Seed Request Budget | `이번 커밋` | 단일 Multi-Seed API, Shared Context, 15초 deadline, Seed phase scheduling, 부분 성공, 24-case QA와 Product 경로 Cold/Warm Live Runner 적용. Founder QA 대기. | 완료 |
 | MYOTT-S09-006A2 | Adaptive Seed Resolution & Unified Genre Contract | `이번 커밋` | 공통 장르 계약, TV semantic 장르, confirmed Seed와 입력 언어 보존, Adaptive Search Budget Recycling, Seed Coverage/Empty State, 31-case QA 적용. Founder QA 대기. | 완료 |
+| MYOTT-S09-006A2A | Genre Taxonomy Classification & Semantic Pair Audit | `이번 커밋` | Provider/Canonical 장르 분리, shared TV ID semantic specialization, format/audience/style 분류, seed metric 보정, 48-case QA 적용. Founder QA 대기. | 완료 |
 
 ## Sprint 8
 

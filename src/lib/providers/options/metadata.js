@@ -1,7 +1,9 @@
 import { getTmdbGenreMetadata, hasTmdbKey } from "../../../../lib/tmdb";
 import {
   GENRE_CONTRACT,
+  genreOptionGroups,
   genreLabelForValue,
+  genreValueForProviderId,
   genreValueForProviderName,
   prioritizeGenreOptions,
 } from "../../recommendation/genres/genreContract.js";
@@ -31,6 +33,7 @@ export const fallbackOptionGroups = [
     title: "장르",
     source: "fallback",
     options: GENRE_CONTRACT.map((entry) => [entry.value, entry.label]),
+    optionSections: genreOptionGroups(),
   },
   {
     title: "국가",
@@ -69,19 +72,28 @@ function normalizeGenreOptions(metadata) {
     label: entry.label,
     source: "contract",
     tmdbIds: [...new Set([...entry.movie.exactIds, ...entry.tv.exactIds])],
+    category: entry.category,
+    displayGroup: entry.displayGroup,
+    displayPriority: entry.displayPriority,
     contentTypes: [...entry.contentTypes],
     providerLimitation: entry.providerLimitation,
+    legacyAliases: [...entry.legacyAliases],
   }]));
 
   for (const contentType of ["movie", "tv"]) {
     for (const genre of metadata[contentType] || []) {
-      const value = genreValueForProviderName(genre.name) || `tmdb-genre-${genre.id}`;
+      const value = genreValueForProviderId(genre.id) || genreValueForProviderName(genre.name) || `tmdb-genre-${genre.id}`;
       const current = genres.get(value) || {
         value,
         label: genreLabelForValue(value) || genre.name,
         source: "tmdb",
         tmdbIds: [],
         contentTypes: [],
+        category: "narrative",
+        displayGroup: "전체 장르",
+        displayPriority: 99,
+        providerLimitation: "",
+        legacyAliases: [],
       };
 
       if (!current.tmdbIds.includes(genre.id)) current.tmdbIds.push(genre.id);
@@ -97,6 +109,14 @@ function toLegacyOptions(options) {
   return options.map((option) => [option.value, option.label]);
 }
 
+function toOptionSections(options) {
+  const groupOrder = ["주요 장르", "전체 장르", "복합 장르", "작품 형식", "시청 대상 / 스타일"];
+  return groupOrder.map((title) => ({
+    title,
+    options: toLegacyOptions(options.filter((option) => option.displayGroup === title)),
+  })).filter((group) => group.options.length);
+}
+
 export async function getOptionMetadata() {
   if (!hasTmdbKey()) {
     return {
@@ -104,7 +124,7 @@ export async function getOptionMetadata() {
       tmdbEnabled: false,
       groups: fallbackOptionGroups,
       metadata: {
-        genres: [],
+        genres: normalizeGenreOptions({ movie: [], tv: [] }),
         countries: fallbackCountryOptions,
         languages: fallbackLanguageOptions,
       },
@@ -124,6 +144,7 @@ export async function getOptionMetadata() {
           title: "장르",
           source: "tmdb",
           options: toLegacyOptions(genreOptions),
+          optionSections: toOptionSections(genreOptions),
         },
         ...fallbackOptionGroups.filter((group) => group.title !== "장르"),
       ],
@@ -139,7 +160,7 @@ export async function getOptionMetadata() {
       tmdbEnabled: true,
       groups: fallbackOptionGroups,
       metadata: {
-        genres: [],
+        genres: normalizeGenreOptions({ movie: [], tv: [] }),
         countries: fallbackCountryOptions,
         languages: fallbackLanguageOptions,
       },

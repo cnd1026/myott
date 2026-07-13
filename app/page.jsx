@@ -5,6 +5,7 @@ import { calculateRecommendationScore } from "../src/lib/recommendation/scoring/
 import {
   GENRE_CONTRACT,
   genreIdsForFilters,
+  genreOptionGroups,
   genreValuesForItem,
   prioritizeGenreOptions,
 } from "../src/lib/recommendation/genres/genreContract.js";
@@ -248,6 +249,7 @@ const quickPickGroups = [
   {
     title: "장르",
     options: GENRE_CONTRACT.map((entry) => [entry.value, entry.label]),
+    optionSections: genreOptionGroups(),
   },
   {
     title: "국가",
@@ -316,9 +318,15 @@ const initialProviderStatus = {
 };
 const initialSeedDiagnostics = {
   requestedSeedCount: 0,
+  rawInputCount: 0,
+  normalizedInputCount: 0,
+  uniqueInputAliasCount: 0,
   processedSeedCount: 0,
+  processedWorkCount: 0,
   unresolvedSeedCount: 0,
+  unresolvedRawInputCount: 0,
   deferredSeedCount: 0,
+  deferredRawInputCount: 0,
   uniqueResolvedWorkCount: 0,
   confirmedSeedCount: 0,
   inputAliasCount: 0,
@@ -533,6 +541,13 @@ function contentTypeForUi(content) {
   return content.type || content.contentType || "movie";
 }
 
+function providerContentTypeForUi(content) {
+  const mediaType = String(content.mediaType || content.media_type || "").toLowerCase();
+  if (mediaType === "tv") return "drama";
+  if (mediaType === "movie") return "movie";
+  return contentTypeForUi(content);
+}
+
 function hasFocusedSelectedTypes(selectedTypes = []) {
   return selectedTypes.length > 0 && selectedTypes.length < initialTypes.length;
 }
@@ -553,6 +568,7 @@ function filterOptionGroups(groups, query) {
     .map((group) => ({
       ...group,
       options: group.options.filter(([, label]) => normalizeOptionSearch(label).includes(normalizedQuery)),
+      optionSections: undefined,
     }))
     .filter((group) => group.options.length);
 }
@@ -843,7 +859,9 @@ function normalizeProviderResult(content, quickPicks = [], reasonSeed = "", labe
 }
 
 function isSelectedContentType(content, selectedTypes) {
-  return selectedTypes.includes(contentTypeForUi(content));
+  const displayType = contentTypeForUi(content);
+  if (selectedTypes.includes("animation") && displayType === "animation") return true;
+  return selectedTypes.includes(providerContentTypeForUi(content));
 }
 
 function providerStatusFromPayload(payload) {
@@ -985,9 +1003,15 @@ async function fetchProviderRecommendations(titles, confirmedSeeds, selectedType
     providerStatus: providerStatusFromPayload(payload),
     seedDiagnostics: {
       requestedSeedCount: payload.requestedSeedCount || 0,
+      rawInputCount: payload.rawInputCount || payload.requestedSeedCount || 0,
+      normalizedInputCount: payload.normalizedInputCount || 0,
+      uniqueInputAliasCount: payload.uniqueInputAliasCount || payload.inputAliasCount || 0,
       processedSeedCount: payload.processedSeedCount || 0,
+      processedWorkCount: payload.processedWorkCount || payload.processedSeedCount || 0,
       unresolvedSeedCount: payload.unresolvedSeedCount || 0,
+      unresolvedRawInputCount: payload.unresolvedRawInputCount || 0,
       deferredSeedCount: payload.deferredSeedCount || 0,
+      deferredRawInputCount: payload.deferredRawInputCount || 0,
       uniqueResolvedWorkCount: payload.uniqueResolvedWorkCount || 0,
       confirmedSeedCount: payload.confirmedSeedCount || 0,
       inputAliasCount: payload.inputAliasCount || 0,
@@ -1820,17 +1844,27 @@ export default function Home() {
                       </button>
                     ) : null}
                   </legend>
-                  {group.options.map(([value, label]) => (
-                    <label className="check-option" key={value}>
-                      <input
-                        type="checkbox"
-                        name="quickPick"
-                        value={value}
-                        checked={selectedQuickPicks.includes(value)}
-                        onChange={() => setSelectedQuickPicks((current) => toggleValue(current, value))}
-                      />
-                      <span>{label}</span>
-                    </label>
+                  {(group.optionSections && expandedOptionGroups[group.title] && !quickPickSearch
+                    ? group.optionSections
+                    : [{ title: "", options: group.options }]
+                  ).map((section) => (
+                    <div className="option-subgroup" key={section.title || `${group.title}-options`}>
+                      {section.title ? <p className="option-subgroup-title">{section.title}</p> : null}
+                      <div className="option-subgroup-items">
+                        {section.options.map(([value, label]) => (
+                          <label className="check-option" key={value}>
+                            <input
+                              type="checkbox"
+                              name="quickPick"
+                              value={value}
+                              checked={selectedQuickPicks.includes(value)}
+                              onChange={() => setSelectedQuickPicks((current) => toggleValue(current, value))}
+                            />
+                            <span>{label}</span>
+                          </label>
+                        ))}
+                      </div>
+                    </div>
                   ))}
                 </fieldset>
               ))}

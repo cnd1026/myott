@@ -58,22 +58,21 @@ export function buildSeedRequestPayload({
 
   return {
     seeds,
-    titles: [...new Set(directTitles.filter((title) => !confirmedAliases.has(normalizeKey(title))))],
+    titles: directTitles.filter((title) => !confirmedAliases.has(normalizeKey(title))),
     contentTypes: [...contentTypes],
     filters: [...filters],
   };
 }
 
 export function buildSeedCoverageMessage(metadata = {}) {
-  const requested = Number(metadata.requestedSeedCount || 0);
-  const processed = Number(metadata.processedSeedCount || 0);
+  const requested = Number(metadata.rawInputCount ?? metadata.requestedSeedCount ?? 0);
+  const processed = Number(metadata.processedWorkCount ?? metadata.processedSeedCount ?? 0);
   const unresolved = Number(metadata.unresolvedSeedCount || 0);
   const hasUniqueWorkMetadata = Number.isFinite(Number(metadata.uniqueResolvedWorkCount));
   const uniqueWorks = hasUniqueWorkMetadata ? Number(metadata.uniqueResolvedWorkCount) : processed;
-  const aliasCount = Number(metadata.inputAliasCount || requested);
   if (!requested) return "";
-  if (hasUniqueWorkMetadata && aliasCount > uniqueWorks && processed === uniqueWorks && unresolved === 0 && uniqueWorks > 0) {
-    return `입력한 ${aliasCount}개 제목을 ${uniqueWorks}개 작품으로 확인해 추천에 반영했습니다.`;
+  if (hasUniqueWorkMetadata && requested > uniqueWorks && processed === uniqueWorks && unresolved === 0 && uniqueWorks > 0) {
+    return `입력한 ${requested}개 제목을 ${uniqueWorks}개 작품으로 확인해 추천에 반영했습니다.`;
   }
   if (unresolved > 0 && processed > 0) {
     return `입력한 작품 중 ${unresolved}개를 찾지 못해 확인된 작품을 중심으로 추천했습니다.`;
