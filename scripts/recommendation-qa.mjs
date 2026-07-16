@@ -7,6 +7,7 @@ import {
   createRecommendationContextFactory,
 } from "../src/lib/providers/tmdb/testing/multiSeedFixture.mjs";
 import { classifyCandidate, finalizeCandidatePool } from "../src/lib/recommendation/candidates/candidatePipeline.js";
+import { calculateRecommendationScore } from "../src/lib/recommendation/scoring/recommendationWeightEngine.js";
 import {
   GENRE_TOP_EIGHT_VALUES,
   genreContractTokens,
@@ -15,6 +16,10 @@ import {
 } from "../src/lib/recommendation/genres/genreContract.js";
 import { evaluateRecommendationCase } from "../src/lib/recommendation/qa/evaluateRecommendationCase.js";
 import { taxonomyFixturesForCase } from "../src/lib/recommendation/qa/genreTaxonomyFixtures.js";
+import {
+  buildSelectedOptionReason,
+  presentationGenreLabels,
+} from "../src/lib/recommendation/presentation/recommendationPresentation.js";
 import {
   applySuggestionSelection,
   buildSeedRequestPayload,
@@ -139,16 +144,48 @@ const diagnostics = {
   budgetExhausted: false,
 };
 const multiSeedCaseIds = new Set(["REC-QA-021", "REC-QA-022", "REC-QA-023", "REC-QA-024", "REC-QA-027", "REC-QA-047"]);
-const taxonomyCaseIds = new Set(Array.from({ length: 15 }, (_, index) => `REC-QA-${String(index + 32).padStart(3, "0")}`));
+const taxonomyCaseIds = new Set([
+  ...Array.from({ length: 15 }, (_, index) => `REC-QA-${String(index + 32).padStart(3, "0")}`),
+  ...Array.from({ length: 12 }, (_, index) => `REC-QA-${String(index + 49).padStart(3, "0")}`),
+]);
 const reports = [];
 
 for (const testCase of dataset) {
   if (taxonomyCaseIds.has(testCase.id)) {
     const fixtures = taxonomyFixturesForCase(testCase.id);
-    const results = fixtures.map((item) => classifyCandidate(item, {
-      filters: testCase.input?.filters || [],
-      contentTypes: testCase.input?.contentTypes || [],
-    }));
+    const filters = testCase.input?.filters || [];
+    const contentTypes = testCase.input?.contentTypes || [];
+    const usesFinalPipeline = ["REC-QA-049", "REC-QA-050", "REC-QA-053", "REC-QA-054", "REC-QA-055", "REC-QA-058", "REC-QA-059", "REC-QA-060"]
+      .includes(testCase.id);
+    let results = usesFinalPipeline
+      ? finalizeCandidatePool(fixtures, { filters, contentTypes, limit: 12 }).results
+      : fixtures.map((item) => classifyCandidate(item, { filters, contentTypes }));
+    if (testCase.id === "REC-QA-052" && results[0]) {
+      const actionOnly = calculateRecommendationScore(results[0], {
+        filters: ["genre-action"],
+        contentTypes: ["drama"],
+      });
+      const actionAndAdventure = calculateRecommendationScore(results[0], {
+        filters: ["genre-action", "genre-adventure"],
+        contentTypes: ["drama"],
+      });
+      results = [{
+        ...results[0],
+        semanticFamilyDoubleScored: actionOnly.signals.genreMatch !== actionAndAdventure.signals.genreMatch,
+      }];
+    }
+    results = results.map((item) => {
+      const selected = genreContractTokens(filters);
+      const reasonTaxonomyValue = selected.find((value) => item.matchedTaxonomyValues?.includes(value)) || "";
+      const genres = testCase.id === "REC-QA-056" ? presentationGenreLabels(item) : item.genres;
+      return {
+        ...item,
+        genres,
+        genre: Array.isArray(genres) ? genres.join(", ") : item.genre,
+        presentationReason: buildSelectedOptionReason(item, filters),
+        reasonTaxonomyValue,
+      };
+    });
     reports.push(evaluateRecommendationCase(testCase, results, { diagnostics }));
     continue;
   }

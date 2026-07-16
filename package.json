@@ -6,7 +6,7 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "test:recommendation": "node --test src/lib/recommendation/candidates/candidatePipeline.test.mjs src/lib/providers/tmdb/requestContext.test.mjs src/lib/providers/tmdb/multiSeedRecommendation.test.mjs src/lib/recommendation/adaptiveSeedAndGenre.test.mjs src/lib/recommendation/genres/genreTaxonomy.test.mjs",
+    "test:recommendation": "node --test src/lib/recommendation/candidates/candidatePipeline.test.mjs src/lib/providers/tmdb/requestContext.test.mjs src/lib/providers/tmdb/multiSeedRecommendation.test.mjs src/lib/recommendation/adaptiveSeedAndGenre.test.mjs src/lib/recommendation/genres/genreTaxonomy.test.mjs src/lib/recommendation/presentation/recommendationPresentation.test.mjs",
     "qa:recommendation": "node scripts/recommendation-qa.mjs",
     "qa:recommendation:live": "pnpm qa:recommendation:live:cold",
     "qa:recommendation:live:cold": "node --use-system-ca --env-file-if-exists=.env.local scripts/recommendation-live-qa.mjs --cold",

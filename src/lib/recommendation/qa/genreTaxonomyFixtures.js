@@ -17,6 +17,25 @@ const tvFixture = ({ id, title, genreIds, keywords = [], country = "US", extra =
   ...extra,
 });
 
+const movieFixture = ({ id, title, genreIds, keywords = [], country = "US", extra = {} }) => ({
+  id,
+  tmdbId: id,
+  title,
+  originalTitle: title,
+  providerId: "tmdb",
+  dataSource: "tmdb",
+  source: "tmdb",
+  mediaType: "movie",
+  contentType: "movie",
+  type: "movie",
+  countryCodes: [country],
+  countryValidation: "verified",
+  genreIds,
+  keywords,
+  franchiseKey: `fixture:${id}`,
+  ...extra,
+});
+
 export const GENRE_TAXONOMY_FIXTURES = Object.freeze({
   tvAction: tvFixture({ id: 940032, title: "Action Signal TV", genreIds: [10759], keywords: ["martial arts", "chase", "combat"] }),
   tvAdventure: tvFixture({ id: 940033, title: "Adventure Signal TV", genreIds: [10759], keywords: ["expedition", "treasure", "journey"] }),
@@ -41,6 +60,67 @@ export const GENRE_TAXONOMY_FIXTURES = Object.freeze({
   animationOnly: tvFixture({ id: 940045, title: "Animation Style", genreIds: [16], extra: { contentType: "animation", type: "animation" } }),
   animationSf: tvFixture({ id: 940145, title: "Animation SF", genreIds: [16, 10765], keywords: ["space", "robot"], country: "JP", extra: { contentType: "animation", type: "animation" } }),
   animationFantasy: tvFixture({ id: 940245, title: "Animation Fantasy", genreIds: [16, 10765], keywords: ["magic", "dragon"], country: "JP", extra: { contentType: "animation", type: "animation" } }),
+  tvActionAdventureEqual: tvFixture({
+    id: 940049,
+    title: "Equal Action Adventure Evidence",
+    genreIds: [10759],
+    keywords: ["fight", "journey"],
+  }),
+  tvActionControlled: tvFixture({
+    id: 940050,
+    title: "Controlled Action Evidence",
+    genreIds: [10759],
+    keywords: ["agent", "mission"],
+  }),
+  tvPoliceProcedural: tvFixture({
+    id: 940150,
+    title: "Plain Police Procedural",
+    genreIds: [18, 80],
+    keywords: ["police", "investigation"],
+  }),
+  tvDualActionSf: tvFixture({
+    id: 940059,
+    title: "Dual Action SF",
+    genreIds: [10759, 10765],
+    keywords: ["fight", "space"],
+  }),
+  movieAction: movieFixture({
+    id: 940054,
+    title: "Movie Action",
+    genreIds: [28],
+    keywords: ["action"],
+  }),
+  animationAction: tvFixture({
+    id: 940055,
+    title: "Animation Action",
+    genreIds: [16, 10759],
+    keywords: ["fight"],
+    extra: { contentType: "animation", type: "animation" },
+  }),
+  englishProviderLabels: tvFixture({
+    id: 940056,
+    title: "English Provider Labels",
+    genreIds: [10759, 10765, 10768],
+    keywords: ["fight", "space", "army"],
+    extra: {
+      providerGenreNames: ["Action & Adventure", "Sci-Fi & Fantasy", "War & Politics"],
+      genres: ["Action & Adventure", "Sci-Fi & Fantasy", "War & Politics"],
+    },
+  }),
+  duplicateDisplayTitleOlder: tvFixture({
+    id: 940058,
+    title: "닥터 후",
+    genreIds: [10759],
+    keywords: ["journey"],
+    extra: { year: 1963, popularity: 45, voteCount: 500 },
+  }),
+  duplicateDisplayTitleNewer: tvFixture({
+    id: 940158,
+    title: "닥터 후",
+    genreIds: [10759],
+    keywords: ["journey"],
+    extra: { year: 2005, popularity: 120, voteCount: 1800 },
+  }),
 });
 
 export function taxonomyFixturesForCase(caseId) {
@@ -61,5 +141,17 @@ export function taxonomyFixturesForCase(caseId) {
     "REC-QA-044": [fixtures.family, fixtures.kids],
     "REC-QA-045": [fixtures.animationOnly, fixtures.animationSf, fixtures.animationFantasy],
     "REC-QA-046": [fixtures.tvAction, fixtures.tvAdventure, fixtures.tvSf, fixtures.tvFantasy, fixtures.tvWar, fixtures.tvPolitics],
+    "REC-QA-049": [fixtures.tvAction, fixtures.tvActionControlled, fixtures.tvPoliceProcedural],
+    "REC-QA-050": [fixtures.tvAdventure, fixtures.tvActionAdventureEqual, fixtures.plainDrama],
+    "REC-QA-051": [fixtures.tvActionAdventureEqual],
+    "REC-QA-052": [fixtures.tvActionAdventureEqual],
+    "REC-QA-053": [fixtures.tvAction, fixtures.movieAction],
+    "REC-QA-054": [fixtures.movieAction, fixtures.tvAction],
+    "REC-QA-055": [fixtures.animationAction, fixtures.tvAction, fixtures.movieAction],
+    "REC-QA-056": [fixtures.englishProviderLabels],
+    "REC-QA-057": [fixtures.tvAction, fixtures.tvSf],
+    "REC-QA-058": [fixtures.duplicateDisplayTitleNewer, fixtures.duplicateDisplayTitleOlder, fixtures.duplicateDisplayTitleNewer],
+    "REC-QA-059": [fixtures.tvDualActionSf, fixtures.tvAction, fixtures.tvSf],
+    "REC-QA-060": [fixtures.tvActionControlled, fixtures.tvPoliceProcedural],
   }[caseId] || [];
 }

@@ -10,6 +10,12 @@ import {
   prioritizeGenreOptions,
 } from "../src/lib/recommendation/genres/genreContract.js";
 import {
+  buildSelectedOptionReason,
+  contentTypeMatchesSelection,
+  dedupePrimaryDisplayTitles,
+  presentationGenreLabels,
+} from "../src/lib/recommendation/presentation/recommendationPresentation.js";
+import {
   applySuggestionSelection,
   buildSeedCoverageMessage,
   buildSeedRequestPayload,
@@ -404,17 +410,21 @@ function PosterVisual({ poster, title }) {
   return poster || thumbnailText(title);
 }
 
-function recommendationReason(item, titles) {
+function recommendationReason(item, titles, selectedFilters = []) {
   if (item.reasonSeed) return `${seedWithKoreanObjectParticle(item.reasonSeed)} 좋아해서 추천합니다. ${item.reason}`;
   if (titles.length > 1) return `여러 취향을 함께 반영한 추천입니다. ${item.reason}`;
   if (titles.length) return `입력한 취향을 바탕으로 추천합니다. ${item.reason}`;
+  const selectedReason = buildSelectedOptionReason(item, selectedFilters, { sentence: true });
+  if (selectedReason) return selectedReason;
   return item.reason;
 }
 
-function decisionReason(item, titles) {
+function decisionReason(item, titles, selectedFilters = []) {
   if (item.reasonSeed) return `${seedWithKoreanObjectParticle(item.reasonSeed)} 좋아했다면 추천`;
   if (titles.length > 1) return "여러 취향을 함께 반영한 추천";
   if (titles.length) return "입력한 취향을 바탕으로 추천";
+  const selectedReason = buildSelectedOptionReason(item, selectedFilters);
+  if (selectedReason) return selectedReason;
   if (item.tags.includes("genre-sf")) return "몰입감 있는 SF를 좋아한다면 추천";
   if (item.tags.includes("genre-romance")) return "감정선이 선명한 이야기를 좋아한다면 추천";
   if (item.tags.includes("genre-thriller")) return "긴장감 있는 이야기를 좋아한다면 추천";
@@ -640,7 +650,7 @@ function mergeProviderResults(results) {
     });
   }
 
-  return [...merged.values()];
+  return dedupePrimaryDisplayTitles([...merged.values()]);
 }
 
 function insightMessages(signals) {
@@ -709,7 +719,7 @@ function analyzeProviderResult(item, selectedTypes, quickPicks, selectedOtt, opt
   const runtimeScore = runtimePicks.length ? (runtimeMatched ? 14 : -10) : 0;
   const relaxedFallbackScore = item.fallbackRelaxed ? -20 : 0;
   const focusedTypes = hasFocusedSelectedTypes(selectedTypes);
-  const typeMatched = isSelectedContentType(item, selectedTypes);
+  const typeMatched = isSelectedContentType(item, selectedTypes, quickPicks);
   const typeScore = focusedTypes ? (typeMatched ? 10 : -30) : 0;
   const ottMatch = platformMatchesSelectedOtt(item, selectedOtt) ? 1 : 0;
   const rating = Number.parseFloat(item.rating);
@@ -775,9 +785,9 @@ function sortProviderResults(results, selectedTypes, quickPicks, selectedOtt, op
     });
 }
 
-function filterFocusedContentTypes(results, selectedTypes) {
+function filterFocusedContentTypes(results, selectedTypes, selectedFilters = []) {
   if (!hasFocusedSelectedTypes(selectedTypes)) return results;
-  return results.filter((item) => isSelectedContentType(item, selectedTypes));
+  return results.filter((item) => isSelectedContentType(item, selectedTypes, selectedFilters));
 }
 
 function balanceContentDiversity(sortedResults, selectedTypes) {
@@ -823,7 +833,8 @@ function balanceContentDiversity(sortedResults, selectedTypes) {
 function normalizeProviderResult(content, quickPicks = [], reasonSeed = "", labelByValue = quickPickLabelByValue, selectedOtt = []) {
   const title = content.title || "제목 없음";
   const type = contentTypeForUi(content);
-  const genres = Array.isArray(content.genres) && content.genres.length ? content.genres : ["장르 확인 필요"];
+  const genres = presentationGenreLabels(content);
+  const displayGenres = genres.length ? genres : ["장르 확인 필요"];
   const ott = safeOttPlatforms(content);
   const actors = Array.isArray(content.actors) && content.actors.length ? content.actors : ["정보 없음"];
   const runtime = Number(content.runtime);
@@ -843,7 +854,8 @@ function normalizeProviderResult(content, quickPicks = [], reasonSeed = "", labe
     popularity: Number(content.popularity || 0),
     label: content.label || (type === "animation" ? "애니" : type === "movie" ? "영화" : "드라마"),
     tags: tagsFromProviderContent(content),
-    genre: content.genre || genres.join(", "),
+    genres: displayGenres,
+    genre: displayGenres.join(", "),
     director: content.director || "정보 없음",
     actors,
     rating: Number.isFinite(rating) && rating > 0 ? rating.toFixed(1) : "정보 없음",
@@ -858,10 +870,8 @@ function normalizeProviderResult(content, quickPicks = [], reasonSeed = "", labe
   };
 }
 
-function isSelectedContentType(content, selectedTypes) {
-  const displayType = contentTypeForUi(content);
-  if (selectedTypes.includes("animation") && displayType === "animation") return true;
-  return selectedTypes.includes(providerContentTypeForUi(content));
+function isSelectedContentType(content, selectedTypes, selectedFilters = []) {
+  return contentTypeMatchesSelection(content, selectedTypes, selectedFilters);
 }
 
 function providerStatusFromPayload(payload) {
@@ -969,7 +979,7 @@ async function fetchProviderRecommendations(titles, confirmedSeeds, selectedType
 
   const payload = await response.json();
   logRecommendationSource("multi-seed", payload, payload.results?.length || 0);
-  const normalizedResults = (payload.results || [])
+  const normalizedResults = dedupePrimaryDisplayTitles((payload.results || [])
     .map((item) =>
       normalizeProviderResult(
         {
@@ -984,7 +994,7 @@ async function fetchProviderRecommendations(titles, confirmedSeeds, selectedType
       ),
     )
     .filter((item) => !uniqueTitles.some((title) => titleMatchesSeed(item, title)))
-    .filter((item) => !hasFocusedSelectedTypes(selectedTypes) || isSelectedContentType(item, selectedTypes))
+    .filter((item) => !hasFocusedSelectedTypes(selectedTypes) || isSelectedContentType(item, selectedTypes, quickPicks))
     .map((item) => ({
       ...item,
       score: item.scoreDetail?.finalScore ?? 0,
@@ -995,7 +1005,7 @@ async function fetchProviderRecommendations(titles, confirmedSeeds, selectedType
         selectedOtt,
         optionMetadata,
       ).insight,
-    }));
+    })));
   const results = normalizedResults.slice(0, targetProviderResultCount);
 
   return {
@@ -1051,7 +1061,7 @@ async function fetchOptionRecommendations(selectedTypes, quickPicks, selectedOtt
       selectedOtt,
     ),
   );
-  const eligibleResults = filterFocusedContentTypes(mergeProviderResults(normalizedResults), selectedTypes);
+  const eligibleResults = filterFocusedContentTypes(mergeProviderResults(normalizedResults), selectedTypes, quickPicks);
   const sortedResults = sortProviderResults(eligibleResults, selectedTypes, quickPicks, selectedOtt, optionMetadata);
   const balancedResults = balanceContentDiversity(sortedResults, selectedTypes);
   const results = balancedResults.slice(0, targetProviderResultCount);
@@ -1120,13 +1130,13 @@ function providerStatusLabel(providerStatus) {
   return providerStatus.providerName || providerStatus.providerId || "Unknown";
 }
 
-function DecisionCard({ item, enteredTitles, onOpen, badge, reasonOverride, className = "" }) {
+function DecisionCard({ item, enteredTitles, selectedFilters = [], onOpen, badge, reasonOverride, className = "" }) {
   return (
     <button className={`result-card decision-card ${className}`.trim()} type="button" onClick={() => onOpen(item)} aria-label={`${item.title} 상세 보기`}>
       <div className="thumbnail poster" aria-hidden="true"><PosterVisual poster={item.poster} title={item.title} /></div>
       <div className="result-body">
         {badge ? <span className="card-context">{badge}</span> : null}
-        <p className="decision-reason">{reasonOverride || decisionReason(item, enteredTitles)}</p>
+        <p className="decision-reason">{reasonOverride || decisionReason(item, enteredTitles, selectedFilters)}</p>
         <div className="decision-title-row">
           <h3>{item.title}</h3>
           <span className="type-badge">{item.label}</span>
@@ -1590,6 +1600,7 @@ export default function Home() {
             <DecisionCard
               item={item}
               enteredTitles={[]}
+              selectedFilters={[]}
               onOpen={openDetail}
               badge={badge}
               reasonOverride={reason}
@@ -1752,7 +1763,13 @@ export default function Home() {
         ) : null}
         <div className="result-grid" id="resultGrid">
           {results.map((item) => (
-            <DecisionCard item={item} enteredTitles={enteredTitles} onOpen={openDetail} key={item.id || item.providerContentId || item.title} />
+            <DecisionCard
+              item={item}
+              enteredTitles={enteredTitles}
+              selectedFilters={selectedQuickPicks}
+              onOpen={openDetail}
+              key={item.id || item.providerContentId || item.title}
+            />
           ))}
         </div>
       </section>
@@ -1890,7 +1907,7 @@ export default function Home() {
                   <span><strong>감독</strong> {selectedDetail.director}</span>
                   <span><strong>주요 배우</strong> {selectedDetail.actors.join(", ")}</span>
                 </div>
-                <p className="detail-reason"><strong>추천 이유</strong><br />{recommendationReason(selectedDetail, enteredTitles)}</p>
+                <p className="detail-reason"><strong>추천 이유</strong><br />{recommendationReason(selectedDetail, enteredTitles, selectedQuickPicks)}</p>
                 {selectedDetail.recommendationInsight?.length ? (
                   <section className="insight-panel" aria-labelledby="recommendationInsightTitle">
                     <p className="trust-label" id="recommendationInsightTitle">Recommendation Insight</p>
@@ -1979,7 +1996,7 @@ export default function Home() {
                       <span className="related-thumb" aria-hidden="true"><PosterVisual poster={item.poster} title={item.title} /></span>
                       <span>
                         <strong>{item.title}</strong>
-                        <small>{decisionReason(item, enteredTitles)}</small>
+                        <small>{decisionReason(item, enteredTitles, selectedQuickPicks)}</small>
                       </span>
                     </button>
                   ))}

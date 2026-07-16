@@ -49,7 +49,9 @@ for (const testCase of liveCases) {
   if (qaMode === "warm") await executeProductCase(testCase);
   const payload = await executeProductCase(testCase);
   const results = payload.results || [];
-  const report = evaluateRecommendationCase(testCase, results, { diagnostics: payload.diagnostics || {} });
+  const report = evaluateRecommendationCase(testCase, results, {
+    diagnostics: { ...(payload.diagnostics || {}), liveQa: true },
+  });
   hasFailure ||= !report.pass;
   const caseOutput = {
     caseId: testCase.id,
@@ -67,6 +69,7 @@ for (const testCase of liveCases) {
       canonicalGenreValues: item.canonicalGenreValues || [],
       combinedGenreValues: item.combinedGenreValues || [],
       semanticGenreValues: item.semanticGenreValues || [],
+      controlledSemanticGenreValues: item.controlledSemanticGenreValues || [],
       formatValues: item.formatValues || [],
       audienceValues: item.audienceValues || [],
       styleValues: item.styleValues || [],
@@ -75,6 +78,9 @@ for (const testCase of liveCases) {
       resultTier: item.resultTier,
       genreMatchMode: item.genreMatchMode || "",
       semanticGenreMatched: Boolean(item.semanticGenreMatched),
+      matchedTaxonomyValues: item.matchedTaxonomyValues || [],
+      semanticConfidence: item.semanticConfidence || "none",
+      reason: item.reason || "",
       taxonomyCategory: item.formatValues?.length
         ? "format"
         : item.audienceValues?.length

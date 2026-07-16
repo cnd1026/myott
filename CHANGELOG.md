@@ -2,6 +2,31 @@
 
 프로젝트의 주요 변경 사항을 날짜별로 기록합니다.
 
+## 2026-07-16 - MYOTT-S09-006A2B
+
+### 변경 내용
+
+- TV Action/Adventure의 필터 통과와 Weight Engine 점수 기여를 분리하고 동점 evidence가 두 필터에서 모두 탈락하지 않도록 수정했습니다.
+- Action/Adventure semantic signal을 실제 Keyword/Overview 근거로 확장하고 제한적 `provider-combined-controlled` 보강을 추가했습니다.
+- 동일 semantic family는 Genre score를 한 번만 계산하고 일반 Drama false positive를 차단했습니다.
+- 드라마, 영화, 애니 Provider 경로와 animation content type/style 경계를 공통 helper로 검증했습니다.
+- Provider Genre ID 기반 한국어 Canonical label을 카드와 Detail 표시 경로에 적용했습니다.
+- 선택한 옵션 중 실제 match된 장르를 카드와 Detail 추천 이유에 우선 반영했습니다.
+- 동일 TMDB ID와 동일 한국어 표시 제목을 Primary 결과에서 중복 제거했습니다.
+- Dataset을 60개로 확장하고 Fixture/Live 임계값, content type, label, reason, duplicate metric을 추가했습니다.
+- Recommendation Architecture를 v2.5로 갱신했습니다.
+
+### 검증
+
+- Recommendation unit/integration tests: 54/54 PASS
+- Deterministic Recommendation QA: 60/60 PASS
+- Live TMDB Cold QA: 42/42 PASS, maximum aggregate 24/24
+- Live TMDB Warm QA: 42/42 PASS, maximum aggregate 6, cache hits 794
+- Product API smoke: Action 10, Adventure 8, Action-Adventure 12, Action+SF 12
+- `pnpm build`: PASS
+- `pnpm dev`: PASS (`http://localhost:3101`)
+- Founder Review: Pending
+
 ## 2026-07-13 - MYOTT-S09-006A2A
 
 ### 변경 내용

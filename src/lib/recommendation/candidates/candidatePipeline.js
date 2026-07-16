@@ -1,6 +1,7 @@
 import { calculateRecommendationScore } from "../scoring/recommendationWeightEngine.js";
 import {
   candidateGenreMatchDetail,
+  genreContractFor,
   genreIdsForFilters,
   normalizeTaxonomyValue,
   selectedGenreFilters,
@@ -60,9 +61,10 @@ const GENRE_MATCH_MODE_ORDER = Object.freeze({
   "provider-exact": 1,
   "semantic-specialized": 2,
   semantic: 2,
-  "provider-combined": 3,
-  adjacent: 4,
-  relaxed: 5,
+  "provider-combined-controlled": 3,
+  "provider-combined": 4,
+  adjacent: 5,
+  relaxed: 6,
 });
 
 const normalizeText = (value) => String(value || "").trim().toLowerCase();
@@ -129,7 +131,7 @@ function selectedTypes(contentTypes = []) {
   return unique(contentTypes.map((type) => (type === "tv" || type === "series" ? "drama" : type)));
 }
 
-function candidateContentTypeMatches(item, contentTypes, filters = []) {
+export function candidateContentTypeMatches(item, contentTypes, filters = []) {
   const types = selectedTypes(contentTypes);
   if (!types.length) return true;
   const outputType = normalizeContentType(item);
@@ -192,8 +194,11 @@ function contextualFranchiseCandidates(items = []) {
 export function classifyCandidate(item = {}, { filters = [], contentTypes = [] } = {}) {
   const country = selectedCountryCode(filters);
   const countryCodes = normalizedCountryCodes(item);
-  const contentTypeMatched = candidateContentTypeMatches(item, contentTypes, filters);
   const genreMatch = candidateGenreMatchDetail(item, filters);
+  const selectedContracts = selectedGenreFilters(filters).map(genreContractFor).filter(Boolean);
+  const formatSelected = selectedContracts.some((contract) => contract.category === "format");
+  const unexpectedFormat = genreMatch.formatValues.length > 0 && !formatSelected;
+  const contentTypeMatched = candidateContentTypeMatches(item, contentTypes, filters) && !unexpectedFormat;
   const genreMatched = candidateGenreMatches(item, filters);
   const providerFiltered = item.countryValidation === "provider-filtered";
   const countryVerified = !country || countryCodes.includes(country) || providerFiltered;
@@ -229,11 +234,21 @@ export function classifyCandidate(item = {}, { filters = [], contentTypes = [] }
     semanticGenreMatched: genreMatched && genreMatch.semanticGenreMatched,
     semanticGenreReasons: genreMatched ? genreMatch.semanticGenreReasons : [],
     matchedTaxonomyValues: genreMatched ? genreMatch.matchedTaxonomyValues : [],
+    matchedSemanticGenres: genreMatched ? genreMatch.matchedSemanticGenres || [] : [],
+    primarySemanticGenre: genreMatched ? genreMatch.primarySemanticGenre || "" : "",
+    semanticConfidence: genreMatched ? genreMatch.semanticConfidence || "none" : "none",
+    selectedTaxonomyValues: genreMatch.selectedTaxonomyValues || [],
+    unmatchedSelectedTaxonomyValues: genreMatch.unmatchedSelectedTaxonomyValues || [],
+    matchedSelectedGenreCount: genreMatch.matchedSelectedGenreCount || 0,
+    selectedGenreCount: genreMatch.selectedGenreCount || 0,
+    allSelectedGenresMatched: Boolean(genreMatch.allSelectedGenresMatched),
+    providerCombinedFallbackReason: genreMatch.providerCombinedFallbackReason || "",
     providerGenreIds: genreMatch.providerGenreIds,
     providerGenreNames: genreMatch.providerGenreNames,
     canonicalGenreValues: genreMatch.canonicalGenreValues,
     combinedGenreValues: genreMatch.combinedGenreValues,
     semanticGenreValues: genreMatch.semanticGenreValues,
+    controlledSemanticGenreValues: genreMatch.controlledSemanticGenreValues || [],
     formatValues: genreMatch.formatValues,
     audienceValues: genreMatch.audienceValues,
     styleValues: genreMatch.styleValues,
@@ -256,6 +271,12 @@ function contentKey(item = {}) {
   const tmdbId = item.tmdbId || item.providerContentId;
   if (tmdbId) return `${providerId}:${item.mediaType || item.type}:${tmdbId}`;
   return `${providerId}:${normalizeContentType(item)}:${normalizeText(item.originalTitle || item.title)}`;
+}
+
+function displayTitleKey(item = {}) {
+  const title = normalizeText(item.title || item.name).replace(/[^\p{L}\p{N}]+/gu, "");
+  if (!title || ["제목없음", "unknown"].includes(title)) return "";
+  return title;
 }
 
 function scoreCandidate(item, preferences) {
@@ -330,6 +351,7 @@ function balanceSeedSources(items = [], seedTitles = [], contentTypes = [], limi
 
 function dedupeCandidates(items = [], { franchiseLimit = 1 } = {}) {
   const seenContent = new Set();
+  const seenDisplayTitles = new Set();
   const franchiseCounts = new Map();
   const kept = [];
   const excluded = [];
@@ -340,6 +362,11 @@ function dedupeCandidates(items = [], { franchiseLimit = 1 } = {}) {
       excluded.push({ ...item, exclusionReason: "duplicate-content" });
       continue;
     }
+    const titleKey = displayTitleKey(item);
+    if (titleKey && seenDisplayTitles.has(titleKey)) {
+      excluded.push({ ...item, exclusionReason: "duplicate-display-title" });
+      continue;
+    }
 
     const franchiseKey = item.franchiseKey;
     if (franchiseKey && (franchiseCounts.get(franchiseKey) || 0) >= franchiseLimit) {
@@ -348,6 +375,7 @@ function dedupeCandidates(items = [], { franchiseLimit = 1 } = {}) {
     }
 
     seenContent.add(key);
+    if (titleKey) seenDisplayTitles.add(titleKey);
     if (franchiseKey) franchiseCounts.set(franchiseKey, (franchiseCounts.get(franchiseKey) || 0) + 1);
     kept.push(item);
   }
@@ -418,6 +446,7 @@ export function roundRobinCandidates(items = [], limit = RAW_CANDIDATE_LIMIT) {
 
 function dedupeAgainst(items = [], selected = []) {
   const selectedContent = new Set(selected.map(contentKey));
+  const selectedDisplayTitles = new Set(selected.map(displayTitleKey).filter(Boolean));
   const selectedFranchises = new Set(selected.map((item) => item.franchiseKey).filter(Boolean));
   const eligible = [];
   const excluded = [];
@@ -425,6 +454,10 @@ function dedupeAgainst(items = [], selected = []) {
   for (const item of items) {
     if (selectedContent.has(contentKey(item))) {
       excluded.push({ ...item, exclusionReason: "duplicate-content" });
+      continue;
+    }
+    if (selectedDisplayTitles.has(displayTitleKey(item))) {
+      excluded.push({ ...item, exclusionReason: "duplicate-display-title" });
       continue;
     }
     if (item.franchiseKey && selectedFranchises.has(item.franchiseKey)) {
@@ -448,10 +481,15 @@ function diagnosticCandidate(item = {}) {
     canonicalGenreValues: item.canonicalGenreValues || [],
     combinedGenreValues: item.combinedGenreValues || [],
     semanticGenreValues: item.semanticGenreValues || [],
+    controlledSemanticGenreValues: item.controlledSemanticGenreValues || [],
     formatValues: item.formatValues || [],
     audienceValues: item.audienceValues || [],
     styleValues: item.styleValues || [],
     genreMatchMode: item.genreMatchMode,
+    matchedTaxonomyValues: item.matchedTaxonomyValues || [],
+    selectedTaxonomyValues: item.selectedTaxonomyValues || [],
+    unmatchedSelectedTaxonomyValues: item.unmatchedSelectedTaxonomyValues || [],
+    semanticConfidence: item.semanticConfidence || "none",
     contentType: item.contentType || item.type,
     resultTier: item.resultTier,
     candidateSource: item.candidateSource,
@@ -510,7 +548,14 @@ export function finalizeCandidatePool(
   const sameCountryDedupe = dedupeCandidates(scored.filter((item) => item.resultTier === "same-country-relaxed"));
   const sameCountryEligible = dedupeAgainst(sameCountryDedupe.kept, exactResults);
   const remainingSlots = Math.max(0, limit - exactResults.length);
-  const maxSameCountryRelaxed = Math.min(remainingSlots, Math.floor(exactResults.length * 0.25));
+  const selectedGenres = selectedGenreFilters(filters).map(normalizeTaxonomyValue);
+  const requestedTypes = selectedTypes(contentTypes);
+  const requiresSpecializedTvRecall = requestedTypes.length === 1 &&
+    requestedTypes[0] === "drama" &&
+    selectedGenres.some((value) => ["genre-action", "genre-adventure"].includes(value));
+  const maxSameCountryRelaxed = requiresSpecializedTvRecall
+    ? 0
+    : Math.min(remainingSlots, Math.floor(exactResults.length * 0.25));
   const sameCountryResults = balanceSeedSources(
     sameCountryEligible.eligible,
     seedTitles,

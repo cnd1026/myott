@@ -247,6 +247,21 @@ export function providerGenreLabelForId(id) {
   return genreLabelForValue(providerIdCanonicalValue.get(Number(id))) || "";
 }
 
+export function localizedGenreLabels(item = {}) {
+  const labels = [];
+  const append = (label) => {
+    const normalized = String(label || "").trim();
+    if (normalized && !labels.includes(normalized)) labels.push(normalized);
+  };
+  const ids = providerGenreIds(item);
+  ids.forEach((id) => append(providerGenreLabelForId(id)));
+  providerGenreNames(item).forEach((name) => {
+    const value = genreValueForProviderName(name);
+    append(value ? genreLabelForValue(value) : name);
+  });
+  return labels;
+}
+
 export function selectedTaxonomyFilters(filters = []) {
   return uniqueStrings(filters.map((filter) => {
     const value = String(filter || "");
@@ -335,10 +350,12 @@ export function classifyTaxonomyValues(item = {}) {
   const canonicalGenreValues = [];
   const combinedGenreValues = [];
   const semanticGenreValues = [];
+  const controlledSemanticGenreValues = [];
   const formatValues = [];
   const audienceValues = [];
   const styleValues = [];
   const semanticEvidenceByGenre = {};
+  let primarySemanticGenreValue = "";
 
   for (const entry of GENRE_CONTRACT) {
     const policy = entry[targetType];
@@ -367,8 +384,16 @@ export function classifyTaxonomyValues(item = {}) {
     if (!candidates.length) continue;
     const specialization = chooseSemanticSpecialization(item, candidates);
     specialization.evaluated.forEach((entry) => { semanticEvidenceByGenre[entry.value] = entry; });
-    semanticGenreValues.push(...specialization.selected);
-    if (specialization.selected.length) {
+    const selectedSpecializations = group === "action-adventure"
+      ? specialization.selected
+      : specialization.primary
+        ? [specialization.primary]
+        : [];
+    const controlledSpecializations = group === "action-adventure" ? specialization.controlled : [];
+    semanticGenreValues.push(...selectedSpecializations);
+    controlledSemanticGenreValues.push(...controlledSpecializations);
+    if (!primarySemanticGenreValue && specialization.primary) primarySemanticGenreValue = specialization.primary;
+    if (selectedSpecializations.length) {
       const combinedValue = GENRE_CONTRACT.find((entry) => entry.category === "combined" && entry.specializationGroup === group)?.value;
       if (combinedValue && !combinedGenreValues.includes(combinedValue)) combinedGenreValues.push(combinedValue);
     }
@@ -380,6 +405,8 @@ export function classifyTaxonomyValues(item = {}) {
     canonicalGenreValues: uniqueStrings(canonicalGenreValues),
     combinedGenreValues: uniqueStrings(combinedGenreValues),
     semanticGenreValues: uniqueStrings(semanticGenreValues),
+    controlledSemanticGenreValues: uniqueStrings(controlledSemanticGenreValues),
+    primarySemanticGenreValue,
     formatValues: uniqueStrings(formatValues),
     audienceValues: uniqueStrings(audienceValues),
     styleValues: uniqueStrings(styleValues),
@@ -391,9 +418,10 @@ const matchPriority = Object.freeze({
   "provider-exact": 1,
   "semantic-specialized": 2,
   semantic: 2,
-  "provider-combined": 3,
-  adjacent: 4,
-  relaxed: 5,
+  "provider-combined-controlled": 3,
+  "provider-combined": 4,
+  adjacent: 5,
+  relaxed: 6,
 });
 
 export function candidateGenreMatchDetail(item = {}, filters = []) {
@@ -406,6 +434,11 @@ export function candidateGenreMatchDetail(item = {}, filters = []) {
       semanticGenreMatched: false,
       semanticGenreReasons: [],
       matchedTaxonomyValues: [],
+      selectedTaxonomyValues: [],
+      unmatchedSelectedTaxonomyValues: [],
+      matchedSelectedGenreCount: 0,
+      selectedGenreCount: 0,
+      allSelectedGenresMatched: true,
       ...taxonomy,
     };
   }
@@ -442,6 +475,14 @@ export function candidateGenreMatchDetail(item = {}, filters = []) {
       });
       continue;
     }
+    if (taxonomy.controlledSemanticGenreValues.includes(contract.value)) {
+      matches.push({
+        value: contract.value,
+        mode: "provider-combined-controlled",
+        reasons: taxonomy.semanticEvidenceByGenre[contract.value]?.reasons || [],
+      });
+      continue;
+    }
     if (contract.category === "combined" && taxonomy.combinedGenreValues.includes(contract.value)) {
       matches.push({ value: contract.value, mode: "provider-combined", reasons: [`${contract.value}:provider-combined`] });
       continue;
@@ -471,12 +512,19 @@ export function candidateGenreMatchDetail(item = {}, filters = []) {
       semanticGenreMatched: false,
       semanticGenreReasons: [],
       matchedTaxonomyValues: [],
+      selectedTaxonomyValues: taxonomyFilters,
+      unmatchedSelectedTaxonomyValues: taxonomyFilters,
+      matchedSelectedGenreCount: 0,
+      selectedGenreCount: taxonomyFilters.length,
+      allSelectedGenresMatched: false,
       ...taxonomy,
     };
   }
 
   matches.sort((left, right) => matchPriority[left.mode] - matchPriority[right.mode]);
   const best = matches[0];
+  const matchedTaxonomyValues = uniqueStrings(matches.map((match) => match.value));
+  const unmatchedSelectedTaxonomyValues = taxonomyFilters.filter((value) => !matchedTaxonomyValues.includes(value));
   const bestContract = genreContractFor(best.value);
   const combinedReasonValue = bestContract?.category === "combined"
     ? bestContract.value
@@ -490,9 +538,26 @@ export function candidateGenreMatchDetail(item = {}, filters = []) {
     genreMatchMode: best.mode,
     semanticGenreMatched: ["semantic", "semantic-specialized"].includes(best.mode),
     semanticGenreReasons: uniqueStrings(matches.flatMap((match) => match.reasons)),
-    matchedTaxonomyValues: uniqueStrings(matches.map((match) => match.value)),
+    matchedTaxonomyValues,
+    matchedSemanticGenres: matchedTaxonomyValues.filter((value) => (
+      taxonomy.semanticGenreValues.includes(value) || taxonomy.controlledSemanticGenreValues.includes(value)
+    )),
+    primarySemanticGenre: taxonomy.primarySemanticGenreValue || best.value,
+    semanticConfidence: taxonomy.semanticEvidenceByGenre[best.value]?.confidence || (
+      best.mode === "provider-combined" ? "provider-combined" : "none"
+    ),
+    selectedTaxonomyValues: taxonomyFilters,
+    unmatchedSelectedTaxonomyValues,
+    matchedSelectedGenreCount: matchedTaxonomyValues.length,
+    selectedGenreCount: taxonomyFilters.length,
+    allSelectedGenresMatched: unmatchedSelectedTaxonomyValues.length === 0,
+    providerCombinedFallbackReason: best.mode === "provider-combined-controlled"
+      ? `${best.value}:controlled-provider-combined`
+      : "",
     recommendationReason: ["semantic", "semantic-specialized"].includes(best.mode)
       ? semanticRecommendationReason(best.value)
+      : best.mode === "provider-combined-controlled"
+        ? `TMDB의 통합 ${genreLabelForValue(combinedReasonValue || best.value)} 분류와 ${genreLabelForValue(best.value)} 관련 신호를 함께 반영한 추천입니다.`
       : best.mode === "provider-combined"
         ? `TMDB의 통합 ${genreLabelForValue(combinedReasonValue || best.value)} 분류를 반영한 추천입니다.`
         : "",
@@ -508,6 +573,7 @@ export function genreMatchStrength(item = {}, filters = []) {
       "provider-exact": 1,
       "semantic-specialized": 0.85,
       semantic: 0.85,
+      "provider-combined-controlled": 0.72,
       "provider-combined": 0.65,
       adjacent: 0.35,
       relaxed: 0,
@@ -541,6 +607,7 @@ export function genreValuesForItem(item = {}) {
   return uniqueStrings([
     ...taxonomy.canonicalGenreValues,
     ...taxonomy.semanticGenreValues,
+    ...taxonomy.controlledSemanticGenreValues,
     ...taxonomy.combinedGenreValues,
     ...taxonomy.formatValues,
     ...taxonomy.audienceValues,

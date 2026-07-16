@@ -31,6 +31,24 @@ test("10759 specializes action and adventure without assigning every shared valu
   assert.deepEqual(action.combinedGenreValues, ["genre-action-adventure"]);
 });
 
+test("10759 keeps equal action and adventure evidence for filtering", () => {
+  const equal = classifyTaxonomyValues(fixture([10759], ["fight", "journey"]));
+  const actionMatch = candidateGenreMatchDetail(fixture([10759], ["fight", "journey"]), ["genre-action"]);
+  const adventureMatch = candidateGenreMatchDetail(fixture([10759], ["fight", "journey"]), ["genre-adventure"]);
+
+  assert.deepEqual(equal.semanticGenreValues, ["genre-action", "genre-adventure"]);
+  assert.equal(actionMatch.genreMatched, true);
+  assert.equal(adventureMatch.genreMatched, true);
+});
+
+test("10759 controlled action evidence does not turn a plain police procedural into action", () => {
+  const controlled = candidateGenreMatchDetail(fixture([10759], ["agent", "mission"]), ["genre-action"]);
+  const plain = candidateGenreMatchDetail(fixture([18, 80], ["police", "investigation"]), ["genre-action"]);
+
+  assert.equal(controlled.genreMatchMode, "provider-combined-controlled");
+  assert.equal(plain.genreMatched, false);
+});
+
 test("10765 specializes SF and fantasy while retaining the provider combined value", () => {
   const sf = classifyTaxonomyValues(fixture([10765], ["space", "robot"]));
   const fantasy = classifyTaxonomyValues(fixture([10765], ["magic", "dragon"]));
@@ -114,6 +132,19 @@ test("animation content type and animation style do not duplicate the genre sign
   assert.equal(classifyCandidate(animatedTv, { contentTypes: ["drama"], filters: ["style-animation"] }).contentTypeMatched, true);
 });
 
+test("action and adventure preferences share one semantic family score", () => {
+  const item = fixture([10759], ["fight", "journey"], { rating: 8 });
+  const actionOnly = calculateRecommendationScore(item, {
+    contentTypes: ["drama"],
+    filters: ["genre-action"],
+  });
+  const actionAndAdventure = calculateRecommendationScore(item, {
+    contentTypes: ["drama"],
+    filters: ["genre-action", "genre-adventure"],
+  });
+
+  assert.equal(actionOnly.signals.genreMatch, actionAndAdventure.signals.genreMatch);
+});
 test("expanded genre options preserve the established primary eight and taxonomy groups", () => {
   const groups = genreOptionGroups();
   assert.deepEqual(groups.map((group) => group.title), [

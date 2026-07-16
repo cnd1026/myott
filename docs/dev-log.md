@@ -2,6 +2,64 @@
 
 개발 과정에서의 작업 내용, 결정, 아쉬운 점, 다음 개선 사항을 날짜별로 기록합니다.
 
+## 2026-07-16 - MYOTT-S09-006A2B Baseline
+
+### Founder Browser / Product Path
+
+- 옵션만 선택한 실제 Submit은 `GET /api/recommend/options?filters=<filters>&types=<contentTypes>`를 한 번 호출한다.
+- `드라마 + 액션`은 `filters=genre-action`, `types=drama`로 전달되며 서버는 `/discover/tv`와 `with_genres=10759`, `without_genres=16`을 사용한다.
+- `드라마 + 모험`은 `filters=genre-adventure`, `types=drama`로 같은 TV Provider 경로를 사용한다.
+- `드라마 + 액션·모험`은 `filters=genre-action-adventure`, `types=drama`로 전달된다.
+- `드라마 + 액션 + SF`는 `filters=genre-action,genre-sf`, `types=drama`로 전달되며 다중 장르는 OR 정책을 유지한다.
+- Candidate의 `mediaType`은 `tv`, `type/contentType`은 `drama`, UI의 `providerContentTypeForUi()` 결과도 `drama`다. 영화 Discover 혼입은 확인되지 않았다.
+- 일반 `pnpm dev` 프로세스에서는 로컬 TLS 신뢰 설정이 없어 TMDB 요청이 실패할 수 있다. 아래 Live 수치는 `node --use-system-ca --env-file-if-exists=.env.local`로 동일 Product Provider 함수를 호출해 기록했다.
+
+### Live TMDB Before
+
+| 조합 | Raw / Detail | Semantic exact | Controlled combined | Final | List / Detail / Total | 주요 문제 |
+| --- | ---: | ---: | ---: | ---: | ---: | --- |
+| Drama + Action | 71 / 16 | 3 | 미지원 | 3 | 4 / 16 / 20 | 10759 후보 대부분 탈락 |
+| Drama + Adventure | 71 / 16 | 7 | 미지원 | 8 | 4 / 16 / 20 | exact 7 + same-country-relaxed 1 |
+| Drama + Action-Adventure | 20 / 16 | 12 | 해당 없음 | 12 | 1 / 16 / 17 | Provider combined 경로는 정상 |
+| Drama + Action + SF | 30 / 16 | 12 | 미지원 | 12 | 2 / 16 / 18 | OR 정책과 TV 경로 정상 |
+
+### Root Cause Before
+
+- `chooseSemanticSpecialization()`은 같은 specialization group에서 최고 점수가 동점이면 `selected: []`를 반환한다. `프리즌 브레이크`처럼 Action과 Adventure evidence가 같은 후보는 두 필터 모두에서 탈락한다.
+- Action / Adventure TV 필터는 `semantic-required`이므로 Detail 16개 안에서 현재 단어 목록과 정확히 맞는 후보만 exact가 된다.
+- Filtering 통과와 Weight Engine 점수 계산이 분리되지 않았다. 복수 semantic match를 허용하면 같은 10759 family가 중복 점수화될 위험이 있다.
+- TMDB Provider 이름 `Action & Adventure`가 `normalizeTmdbItem()`과 UI `normalizeProviderResult()`를 지나 카드와 Detail에 그대로 남을 수 있다.
+- 카드 `decisionReason()`은 선택 옵션을 보지 않고 SF, Romance, Thriller, Mood tag 순으로 이유를 고른다. 액션 요청에서도 SF 또는 여운 문구가 대표 이유가 될 수 있다.
+- Candidate deduplication은 TMDB ID와 franchise만 검사한다. 서로 다른 TMDB ID가 같은 한국어 표시 제목을 가질 때 Primary에 함께 남을 수 있다.
+
+### 구현 결과
+
+- 콘텐츠 타입 경로는 정상으로 확인됐다. 드라마 요청은 `/discover/tv`, 영화 요청은 `/discover/movie`, 애니 요청은 Animation content type을 사용하며 Founder 재현의 실제 원인은 TV `10759` Semantic Recall이었다.
+- Filtering Match는 Action과 Adventure evidence를 각각 보존하고, Weight Engine은 같은 `action-adventure` family의 최고 strength만 반영한다.
+- Action은 strong semantic 8개와 controlled combined 2개로 10개를 반환했다. Adventure는 semantic exact 8개를 반환했으며 무관한 일반 Drama로 12개를 강제 충전하지 않았다.
+- `provider-combined-controlled`는 `10759`와 복수 evidence가 함께 있을 때만 허용하고 Police/Crime 단일 신호나 Provider ID가 없는 Drama는 제외한다.
+- Provider Genre ID와 alias를 Unified Genre Contract의 한국어 label로 변환해 카드용 `genres`에서 Known English Provider Genre를 제거했다.
+- 카드, Detail, Related 이유는 Seed 다음에 실제로 match된 선택 옵션을 우선한다. 다중 장르 OR 결과는 실제 match된 장르만 이유로 사용한다.
+- Candidate Pipeline과 UI normalization에서 동일 TMDB ID 및 동일 한국어 표시 제목을 중복 제거한다.
+- Fixture의 엄격한 semantic false-positive 기준과 Live Provider taxonomy 한계를 별도 임계값으로 평가한다.
+
+### 검증 결과
+
+| 검증 | 결과 |
+| --- | --- |
+| Unit / Integration | 54 / 54 PASS |
+| Deterministic Dataset | 60 / 60 PASS |
+| Live Cold | 42 / 42 PASS, 최대 aggregate 24회, 최대 2,228ms |
+| Live Warm | 42 / 42 PASS, 최대 aggregate 6회, cache hit 794회, 최대 866ms |
+| Product API | Drama+Action 10, Drama+Adventure 8, Action-Adventure 12, Action+SF 12 |
+| Content Type Matrix | Drama/TV, Movie/Movie, Animation/Animation 모두 혼입 0 |
+| Presentation | Known English Provider Genre 0, 선택 이유 불일치 0, 중복 표시 제목 0 |
+| Build | PASS |
+| Dev | PASS, `http://localhost:3101` |
+| Terminal Runtime Error | 0 |
+
+Founder Review는 Pending이다.
+
 ## 2026-07-13 - MYOTT-S09-006A2A Baseline
 
 ### Genre Taxonomy Matrix Before Classification

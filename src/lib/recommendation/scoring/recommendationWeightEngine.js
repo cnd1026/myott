@@ -202,8 +202,15 @@ const genreMatchSignal = (item, preferences, selectedContentTypes) => {
     !(value === "style-animation" && selectedContentTypes.includes("animation")),
   );
   if (!preferenceGenres.length) return 0.5;
-  const total = preferenceGenres.reduce((sum, value) => sum + genreMatchStrength(item, [value]).strength, 0);
-  return clamp01(total / preferenceGenres.length);
+  const groups = new Map();
+  for (const value of preferenceGenres) {
+    const contract = genreContractFor(value);
+    const groupKey = contract?.specializationGroup || value;
+    const strength = genreMatchStrength(item, [value]).strength;
+    groups.set(groupKey, Math.max(groups.get(groupKey) || 0, strength));
+  }
+  const contributions = [...groups.values()];
+  return clamp01(contributions.reduce((sum, value) => sum + value, 0) / contributions.length);
 };
 
 const getItemMoods = (item) =>

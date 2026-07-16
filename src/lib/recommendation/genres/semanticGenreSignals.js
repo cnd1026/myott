@@ -4,23 +4,65 @@ const COMBINED_PROVIDER_NAMES = new Set([
   "action & adventure",
   "sci-fi & fantasy",
   "war & politics",
+  "액션·모험",
+  "sf·판타지",
+  "전쟁·정치",
 ]);
 
-const signal = (positive, { negative = [], minimumEvidence = 1 } = {}) => Object.freeze({
+const signal = (
+  positive,
+  {
+    negative = [],
+    minimumEvidence = 1,
+    controlledPositive = [],
+    controlledStrong = [],
+    minimumControlledEvidence = 0,
+    minimumControlledStrongEvidence = 0,
+  } = {},
+) => Object.freeze({
   positive: Object.freeze(positive),
   negative: Object.freeze(negative),
   minimumEvidence,
+  controlledPositive: Object.freeze(controlledPositive),
+  controlledStrong: Object.freeze(controlledStrong),
+  minimumControlledEvidence,
+  minimumControlledStrongEvidence,
 });
 
 export const SEMANTIC_GENRE_SIGNALS = Object.freeze({
   "genre-action": signal([
     "action", "combat", "fight", "battle", "martial arts", "chase", "spy", "espionage",
-    "military", "superhero", "gunfight", "explosion", "액션", "전투", "격투", "추격", "첩보", "군사",
-  ]),
+    "military", "superhero", "gunfight", "explosion", "special agent", "assassin", "mercenary",
+    "hostage", "rescue mission", "secret mission", "액션", "전투", "격투", "추격", "첩보", "군사",
+    "특수요원", "암살자", "용병", "인질", "구출 작전", "비밀 임무",
+  ], {
+    controlledPositive: [
+      "agent", "mission", "operation", "police", "detective", "investigation", "fbi", "cia",
+      "rescue", "escape", "criminal organization", "secret organization", "요원", "임무", "작전",
+      "경찰", "형사", "수사", "구조", "탈출", "범죄 조직", "비밀 조직",
+    ],
+    controlledStrong: [
+      "agent", "mission", "operation", "fbi", "cia", "rescue", "escape", "요원", "임무", "작전", "구조", "탈출",
+    ],
+    minimumControlledEvidence: 2,
+    minimumControlledStrongEvidence: 1,
+  }),
   "genre-adventure": signal([
     "adventure", "journey", "expedition", "quest", "exploration", "treasure", "travel", "survival",
     "모험", "여정", "탐험", "원정", "보물", "여행", "생존",
-  ]),
+  ], {
+    controlledPositive: [
+      "unknown world", "new world", "wilderness", "voyage", "odyssey", "frontier", "island",
+      "stranded", "discover", "ancient", "artifact", "realm", "world", "미지의 세계", "신세계",
+      "황야", "항해", "표류", "발견", "고대", "유물", "왕국", "세계",
+    ],
+    controlledStrong: [
+      "unknown world", "new world", "wilderness", "voyage", "odyssey", "frontier", "island",
+      "stranded", "artifact", "realm", "미지의 세계", "신세계", "황야", "항해", "표류", "유물",
+    ],
+    minimumControlledEvidence: 2,
+    minimumControlledStrongEvidence: 1,
+  }),
   "genre-sf": signal([
     "science fiction", "sci-fi", "space", "alien", "robot", "android", "artificial intelligence",
     "time travel", "future", "dystopia", "technology", "cyberpunk", "우주", "외계", "로봇", "인공지능",
@@ -80,7 +122,18 @@ export function semanticEvidenceValues(item = {}) {
 export function semanticGenreEvidence(item = {}, genreValue) {
   const policy = SEMANTIC_GENRE_SIGNALS[genreValue];
   if (!policy) {
-    return { matched: false, score: 0, matchedSignals: [], negativeSignals: [], reasons: [] };
+    return {
+      matched: false,
+      controlledMatched: false,
+      score: 0,
+      controlledScore: 0,
+      confidence: "none",
+      matchedSignals: [],
+      controlledSignals: [],
+      controlledStrongSignals: [],
+      negativeSignals: [],
+      reasons: [],
+    };
   }
 
   const evidence = semanticEvidenceValues(item);
@@ -90,27 +143,55 @@ export function semanticGenreEvidence(item = {}, genreValue) {
   const negativeSignals = policy.negative.filter((candidate) =>
     evidence.some((value) => value.includes(candidate)),
   );
+  const controlledSignals = policy.controlledPositive.filter((candidate) =>
+    evidence.some((value) => value.includes(candidate)),
+  );
+  const controlledStrongSignals = policy.controlledStrong.filter((candidate) =>
+    evidence.some((value) => value.includes(candidate)),
+  );
   const evidenceCount = Math.max(0, matchedSignals.length - negativeSignals.length);
   const matched = evidenceCount >= policy.minimumEvidence;
+  const controlledEvidenceCount = Math.max(0, controlledSignals.length - negativeSignals.length);
+  const controlledMatched = !matched &&
+    policy.minimumControlledEvidence > 0 &&
+    controlledEvidenceCount >= policy.minimumControlledEvidence &&
+    controlledStrongSignals.length >= policy.minimumControlledStrongEvidence;
 
   return {
     matched,
+    controlledMatched,
     score: matched ? Math.min(1, evidenceCount / Math.max(policy.minimumEvidence, 2)) : 0,
+    controlledScore: controlledMatched
+      ? Math.min(0.7, 0.45 + controlledEvidenceCount * 0.08 + controlledStrongSignals.length * 0.04)
+      : 0,
+    confidence: matched ? "high" : controlledMatched ? "controlled" : "none",
     matchedSignals: [...new Set(matchedSignals)],
+    controlledSignals: [...new Set(controlledSignals)],
+    controlledStrongSignals: [...new Set(controlledStrongSignals)],
     negativeSignals: [...new Set(negativeSignals)],
-    reasons: matched ? [...new Set(matchedSignals)].map((value) => `${genreValue}:${value}`) : [],
+    reasons: matched
+      ? [...new Set(matchedSignals)].map((value) => `${genreValue}:${value}`)
+      : controlledMatched
+        ? [...new Set(controlledSignals)].map((value) => `${genreValue}:controlled:${value}`)
+        : [],
   };
 }
 
 export function chooseSemanticSpecialization(item = {}, genreValues = []) {
   const evaluated = genreValues.map((value) => ({ value, ...semanticGenreEvidence(item, value) }));
   const matched = evaluated.filter((entry) => entry.matched);
-  if (!matched.length) return { selected: [], evaluated };
+  const controlled = evaluated.filter((entry) => entry.controlledMatched);
+  if (!matched.length && !controlled.length) {
+    return { selected: [], controlled: [], primary: "", evaluated };
+  }
 
-  const highestScore = Math.max(...matched.map((entry) => entry.score));
-  const strongest = matched.filter((entry) => entry.score === highestScore);
+  const ranked = matched.length ? matched : controlled;
+  const highestScore = Math.max(...ranked.map((entry) => entry.score || entry.controlledScore));
+  const strongest = ranked.filter((entry) => (entry.score || entry.controlledScore) === highestScore);
   return {
-    selected: strongest.length === 1 ? [strongest[0].value] : [],
+    selected: matched.map((entry) => entry.value),
+    controlled: controlled.map((entry) => entry.value),
+    primary: strongest.length === 1 ? strongest[0].value : "",
     evaluated,
   };
 }
