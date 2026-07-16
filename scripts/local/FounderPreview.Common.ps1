@@ -11,6 +11,8 @@ function Get-FounderPreviewExitCodes {
     LockTimeout = 6
     ValidationFailedRestored = 7
     ValidationFailedRestoreFailed = 8
+    TemporaryCleanupFailed = 9
+    QaReadyDirtyWorktree = 10
   }
 }
 
@@ -30,7 +32,7 @@ function Get-FounderPreviewConfig {
   )
 
   $normalizedRepositoryPath = Normalize-FounderRepositoryPath -Path $RepositoryPath
-  $runtimeRoot = Join-Path $env:TEMP 'myott-founder-preview'
+  $baseRuntimeRoot = Join-Path $env:TEMP 'myott-founder-preview'
   $hashProvider = [System.Security.Cryptography.SHA256]::Create()
   try {
     $pathBytes = [System.Text.Encoding]::UTF8.GetBytes($normalizedRepositoryPath.ToLowerInvariant())
@@ -38,27 +40,37 @@ function Get-FounderPreviewConfig {
   } finally {
     $hashProvider.Dispose()
   }
+  $repositoryRuntimeRoot = Join-Path $baseRuntimeRoot $pathHash
+  $globalRuntimeRoot = Join-Path $baseRuntimeRoot 'global'
 
   return [pscustomobject]@{
-    SchemaVersion = 1
+    SchemaVersion = 2
     RepositoryPath = $normalizedRepositoryPath
+    RepositoryPathHash = $pathHash
     HostName = '127.0.0.1'
     FounderPort = 3000
     TemporaryPortMinimum = 3001
     TemporaryPortMaximum = 3100
     LegacyCleanupPortMaximum = 3101
-    RuntimeRoot = $runtimeRoot
-    StatePath = Join-Path $runtimeRoot 'state.json'
-    LockInfoPath = Join-Path $runtimeRoot 'lifecycle.lock'
-    LastOperationPath = Join-Path $runtimeRoot 'last-operation.json'
-    StdoutLogPath = Join-Path $runtimeRoot 'founder-3000.out.log'
-    StderrLogPath = Join-Path $runtimeRoot 'founder-3000.err.log'
+    BaseRuntimeRoot = $baseRuntimeRoot
+    RuntimeRoot = $repositoryRuntimeRoot
+    GlobalRuntimeRoot = $globalRuntimeRoot
+    StatePath = Join-Path $repositoryRuntimeRoot 'state.json'
+    LockInfoPath = Join-Path $globalRuntimeRoot 'lifecycle.lock'
+    LastOperationPath = Join-Path $repositoryRuntimeRoot 'last-operation.json'
+    LegacyMigrationMarkerPath = Join-Path $repositoryRuntimeRoot 'legacy-migration.json'
+    StdoutLogPath = Join-Path $repositoryRuntimeRoot 'founder-3000.out.log'
+    StderrLogPath = Join-Path $repositoryRuntimeRoot 'founder-3000.err.log'
+    LegacyStatePath = Join-Path $baseRuntimeRoot 'state.json'
+    LegacyLastOperationPath = Join-Path $baseRuntimeRoot 'last-operation.json'
+    LegacyStdoutLogPath = Join-Path $baseRuntimeRoot 'founder-3000.out.log'
+    LegacyStderrLogPath = Join-Path $baseRuntimeRoot 'founder-3000.err.log'
     Url = 'http://127.0.0.1:3000'
     VerifyUrl = 'http://127.0.0.1:3000/api/recommend/options?filters=genre-action&types=drama'
     ReadyTimeoutSeconds = 60
     HttpTimeoutSeconds = 15
     LockTimeoutSeconds = 30
-    MutexName = "Local\MyOTTFounderPreview_$pathHash"
+    MutexName = 'Local\MyOTTFounderPreview_Port3000'
     ExitCodes = Get-FounderPreviewExitCodes
   }
 }
@@ -71,6 +83,9 @@ function Initialize-FounderRuntimeDirectory {
 
   if (-not (Test-Path -LiteralPath $Config.RuntimeRoot)) {
     New-Item -ItemType Directory -Path $Config.RuntimeRoot -Force | Out-Null
+  }
+  if (-not (Test-Path -LiteralPath $Config.GlobalRuntimeRoot)) {
+    New-Item -ItemType Directory -Path $Config.GlobalRuntimeRoot -Force | Out-Null
   }
 }
 
@@ -216,6 +231,64 @@ function Get-FounderGitInfo {
   }
 
   return [pscustomobject]$result
+}
+
+function Test-FounderRepositoryPathEqual {
+  param(
+    [AllowNull()]
+    [string]$Left,
+    [AllowNull()]
+    [string]$Right
+  )
+
+  if ([string]::IsNullOrWhiteSpace($Left) -or [string]::IsNullOrWhiteSpace($Right)) {
+    return $false
+  }
+
+  try {
+    $normalizedLeft = Normalize-FounderRepositoryPath -Path $Left
+    $normalizedRight = Normalize-FounderRepositoryPath -Path $Right
+    return [string]::Equals($normalizedLeft, $normalizedRight, [System.StringComparison]::OrdinalIgnoreCase)
+  } catch {
+    return $false
+  }
+}
+
+function Test-FounderQaReadyWorkingTree {
+  param(
+    [AllowEmptyCollection()]
+    [string[]]$Entries
+  )
+
+  $allowedPaths = @(
+    'docs/project/QA_CHECKLIST.md',
+    'docs/project/QA_CHECKLIST.pdf'
+  )
+  $allowedEntries = @()
+  $blockingEntries = @()
+
+  foreach ($entry in @($Entries)) {
+    if ([string]::IsNullOrWhiteSpace($entry)) {
+      continue
+    }
+
+    $normalizedEntry = $entry.Trim()
+    $isUntracked = $normalizedEntry.StartsWith('?? ')
+    $path = if ($normalizedEntry.Length -gt 3) { $normalizedEntry.Substring(3).Trim('"') } else { '' }
+    $path = $path.Replace('\', '/')
+    if ($isUntracked -and $path -in $allowedPaths) {
+      $allowedEntries += $normalizedEntry
+    } else {
+      $blockingEntries += $normalizedEntry
+    }
+  }
+
+  return [pscustomobject]@{
+    Success = $blockingEntries.Count -eq 0
+    Status = if ($blockingEntries.Count -eq 0) { 'QA_WORKTREE_ALLOWED' } else { 'BLOCKED_DIRTY_WORKTREE' }
+    AllowedEntries = $allowedEntries
+    BlockingEntries = $blockingEntries
+  }
 }
 
 function Get-FounderListeners {
@@ -377,9 +450,10 @@ function Test-FounderCommandLineReferencesRepository {
   }
 
   $normalizedRepositoryPath = Normalize-FounderRepositoryPath -Path $RepositoryPath
-  $forwardSlashPath = $normalizedRepositoryPath.Replace('\', '/')
-  return $CommandLine.IndexOf($normalizedRepositoryPath, [System.StringComparison]::OrdinalIgnoreCase) -ge 0 -or
-    $CommandLine.IndexOf($forwardSlashPath, [System.StringComparison]::OrdinalIgnoreCase) -ge 0
+  $normalizedCommandLine = $CommandLine.Replace('/', '\')
+  $escapedPath = [System.Text.RegularExpressions.Regex]::Escape($normalizedRepositoryPath)
+  $pattern = '(?i)(?:^|[\s"''=])' + $escapedPath + '(?=$|[\s"''\\])'
+  return [System.Text.RegularExpressions.Regex]::IsMatch($normalizedCommandLine, $pattern)
 }
 
 function Test-FounderCommandLooksLikeDevServer {
@@ -543,6 +617,84 @@ function Get-FounderSyntheticStatusClassification {
     return 'RUNNING_MANAGED'
   }
   return 'RUNNING_OWNED_UNMANAGED'
+}
+
+function New-FounderCleanupResult {
+  param(
+    [switch]$DryRun,
+    [object[]]$Stopped = @(),
+    [object[]]$WouldStop = @(),
+    [object[]]$Failed = @(),
+    [object[]]$Unrelated = @(),
+    [object[]]$RemainingOwned = @(),
+    [object[]]$RemainingUnrelated = @(),
+    $ExitCodes = $null
+  )
+
+  if ($null -eq $ExitCodes) {
+    $ExitCodes = Get-FounderPreviewExitCodes
+  }
+  $success = $DryRun -or ($Failed.Count -eq 0 -and $RemainingOwned.Count -eq 0)
+  return [pscustomobject]@{
+    Success = $success
+    ExitCode = if ($success) { $ExitCodes.Pass } else { $ExitCodes.TemporaryCleanupFailed }
+    Status = if ($DryRun) { 'DRY_RUN_COMPLETE' } elseif ($success) { 'CLEANUP_COMPLETE' } else { 'CLEANUP_FAILED' }
+    Stopped = @($Stopped)
+    WouldStop = @($WouldStop)
+    Failed = @($Failed)
+    Unrelated = @($Unrelated)
+    RemainingOwned = @($RemainingOwned)
+    RemainingUnrelated = @($RemainingUnrelated)
+  }
+}
+
+function Test-FounderCleanupGate {
+  param(
+    [Parameter(Mandatory = $true)]
+    $CleanupResult
+  )
+
+  return [bool]$CleanupResult.Success -and
+    @($CleanupResult.Failed).Count -eq 0 -and
+    @($CleanupResult.RemainingOwned).Count -eq 0
+}
+
+function Get-FounderPreflightCleanupStatus {
+  param(
+    [Parameter(Mandatory = $true)]
+    $CleanupResult
+  )
+
+  if (-not (Test-FounderCleanupGate -CleanupResult $CleanupResult)) {
+    return 'CLEANUP_FAILED'
+  }
+  if (@($CleanupResult.RemainingUnrelated).Count -gt 0) {
+    return 'READY_WITH_WARNINGS'
+  }
+  return 'READY'
+}
+
+function Get-FounderLegacyStateMigrationDecision {
+  param(
+    $LegacyState,
+    [Parameter(Mandatory = $true)]
+    $Config,
+    $ProcessMetadata
+  )
+
+  if ($null -eq $LegacyState) {
+    return 'NO_LEGACY_STATE'
+  }
+  if (-not (Test-FounderRepositoryPathEqual -Left ([string](Get-FounderPropertyValue -Object $LegacyState -Name 'repositoryPath' -DefaultValue '')) -Right $Config.RepositoryPath)) {
+    return 'PRESERVE_DIFFERENT_REPOSITORY'
+  }
+  if ($null -eq $ProcessMetadata) {
+    return 'PRESERVE_INVALID_STATE'
+  }
+  if (-not (Test-FounderStateProcessIdentity -State $LegacyState -ProcessMetadata $ProcessMetadata -RepositoryPath $Config.RepositoryPath)) {
+    return 'PRESERVE_INVALID_STATE'
+  }
+  return 'MIGRATE_CURRENT_REPOSITORY'
 }
 
 function Invoke-FounderHttpRequest {
@@ -838,12 +990,140 @@ function Write-FounderLastOperation {
   Write-FounderJsonFile -Path $Config.LastOperationPath -Value $record
 }
 
+function Convert-FounderStateToCurrentSchema {
+  param(
+    [Parameter(Mandatory = $true)]
+    $State,
+    [Parameter(Mandatory = $true)]
+    $Config,
+    [switch]$MigratedFromLegacy
+  )
+
+  return [ordered]@{
+    schemaVersion = $Config.SchemaVersion
+    repositoryPath = $Config.RepositoryPath
+    repositoryRemote = [string](Get-FounderPropertyValue -Object $State -Name 'repositoryRemote' -DefaultValue '')
+    branch = [string](Get-FounderPropertyValue -Object $State -Name 'branch' -DefaultValue '')
+    commitAtStart = [string](Get-FounderPropertyValue -Object $State -Name 'commitAtStart' -DefaultValue '')
+    commitAtAdoption = [string](Get-FounderPropertyValue -Object $State -Name 'commitAtAdoption' -DefaultValue '')
+    adoptedAt = [string](Get-FounderPropertyValue -Object $State -Name 'adoptedAt' -DefaultValue '')
+    adoptedExistingServer = [bool](Get-FounderPropertyValue -Object $State -Name 'adoptedExistingServer' -DefaultValue $false)
+    requestedHost = [string](Get-FounderPropertyValue -Object $State -Name 'requestedHost' -DefaultValue $Config.HostName)
+    requestedPort = [int](Get-FounderPropertyValue -Object $State -Name 'requestedPort' -DefaultValue $Config.FounderPort)
+    launcherPid = [int](Get-FounderPropertyValue -Object $State -Name 'launcherPid' -DefaultValue 0)
+    launcherStartedAt = [string](Get-FounderPropertyValue -Object $State -Name 'launcherStartedAt' -DefaultValue '')
+    listenerPid = [int](Get-FounderPropertyValue -Object $State -Name 'listenerPid' -DefaultValue 0)
+    listenerStartedAt = [string](Get-FounderPropertyValue -Object $State -Name 'listenerStartedAt' -DefaultValue '')
+    startedAt = [string](Get-FounderPropertyValue -Object $State -Name 'startedAt' -DefaultValue '')
+    stateRecordedAt = [string](Get-FounderPropertyValue -Object $State -Name 'stateRecordedAt' -DefaultValue (Get-Date).ToUniversalTime().ToString('o'))
+    command = [string](Get-FounderPropertyValue -Object $State -Name 'command' -DefaultValue '')
+    stdoutLog = [string](Get-FounderPropertyValue -Object $State -Name 'stdoutLog' -DefaultValue $Config.LegacyStdoutLogPath)
+    stderrLog = [string](Get-FounderPropertyValue -Object $State -Name 'stderrLog' -DefaultValue $Config.LegacyStderrLogPath)
+    nodeOptions = [string](Get-FounderPropertyValue -Object $State -Name 'nodeOptions' -DefaultValue '--use-system-ca')
+    migratedFromLegacy = [bool]$MigratedFromLegacy
+    migratedAt = if ($MigratedFromLegacy) { (Get-Date).ToUniversalTime().ToString('o') } else { [string](Get-FounderPropertyValue -Object $State -Name 'migratedAt' -DefaultValue '') }
+  }
+}
+
+function Invoke-FounderLegacyRuntimeMigration {
+  param(
+    [Parameter(Mandatory = $true)]
+    $Config
+  )
+
+  Initialize-FounderRuntimeDirectory -Config $Config
+  if (Test-Path -LiteralPath $Config.StatePath) {
+    $currentState = Read-FounderJsonFile -Path $Config.StatePath
+    if ($null -ne $currentState -and
+      [bool](Get-FounderPropertyValue -Object $currentState -Name 'migratedFromLegacy' -DefaultValue $false) -and
+      [string]::Equals([string](Get-FounderPropertyValue -Object $currentState -Name 'stdoutLog' -DefaultValue ''), $Config.LegacyStdoutLogPath, [System.StringComparison]::OrdinalIgnoreCase) -and
+      -not (Test-Path -LiteralPath $Config.LegacyMigrationMarkerPath)) {
+      Write-FounderJsonFile -Path $Config.LegacyMigrationMarkerPath -Value ([ordered]@{
+          schemaVersion = 1
+          repositoryPath = $Config.RepositoryPath
+          migratedAt = (Get-Date).ToUniversalTime().ToString('o')
+          legacyStdoutLog = $Config.LegacyStdoutLogPath
+          legacyStderrLog = $Config.LegacyStderrLogPath
+        })
+    }
+    return [pscustomobject]@{ Status = 'CURRENT_STATE_PRESENT'; Migrated = $false }
+  }
+
+  $legacyState = Read-FounderJsonFile -Path $Config.LegacyStatePath
+  if ($null -eq $legacyState) {
+    return [pscustomobject]@{ Status = 'NO_LEGACY_STATE'; Migrated = $false }
+  }
+
+  $listenerPid = [int](Get-FounderPropertyValue -Object $legacyState -Name 'listenerPid' -DefaultValue 0)
+  $processMetadata = if ($listenerPid -gt 0) { Get-FounderProcessMetadata -ProcessId $listenerPid } else { $null }
+  $decision = Get-FounderLegacyStateMigrationDecision -LegacyState $legacyState -Config $Config -ProcessMetadata $processMetadata
+  if ($decision -ne 'MIGRATE_CURRENT_REPOSITORY') {
+    return [pscustomobject]@{ Status = $decision; Migrated = $false }
+  }
+
+  $migratedState = Convert-FounderStateToCurrentSchema -State $legacyState -Config $Config -MigratedFromLegacy
+  Write-FounderJsonFile -Path $Config.StatePath -Value $migratedState
+  $savedState = Read-FounderJsonFile -Path $Config.StatePath
+  if ($null -eq $savedState -or -not (Test-FounderStateProcessIdentity -State $savedState -ProcessMetadata $processMetadata -RepositoryPath $Config.RepositoryPath)) {
+    Remove-FounderFile -Path $Config.StatePath
+    return [pscustomobject]@{ Status = 'MIGRATION_VALIDATION_FAILED'; Migrated = $false }
+  }
+  Write-FounderJsonFile -Path $Config.LegacyMigrationMarkerPath -Value ([ordered]@{
+      schemaVersion = 1
+      repositoryPath = $Config.RepositoryPath
+      migratedAt = (Get-Date).ToUniversalTime().ToString('o')
+      legacyStdoutLog = $Config.LegacyStdoutLogPath
+      legacyStderrLog = $Config.LegacyStderrLogPath
+    })
+
+  $legacyOperation = Read-FounderJsonFile -Path $Config.LegacyLastOperationPath
+  if ($null -ne $legacyOperation -and
+    (Test-FounderRepositoryPathEqual -Left ([string](Get-FounderPropertyValue -Object $legacyOperation -Name 'repositoryPath' -DefaultValue '')) -Right $Config.RepositoryPath)) {
+    Write-FounderJsonFile -Path $Config.LastOperationPath -Value $legacyOperation
+    Remove-FounderFile -Path $Config.LegacyLastOperationPath
+  }
+  Remove-FounderFile -Path $Config.LegacyStatePath
+
+  return [pscustomobject]@{
+    Status = 'MIGRATED_CURRENT_REPOSITORY'
+    Migrated = $true
+    StatePath = $Config.StatePath
+  }
+}
+
+function Complete-FounderLegacyRuntimeMigration {
+  param(
+    [Parameter(Mandatory = $true)]
+    $Config,
+    [Parameter(Mandatory = $true)]
+    $State
+  )
+
+  if (-not (Test-Path -LiteralPath $Config.LegacyMigrationMarkerPath)) {
+    return
+  }
+  if (-not (Test-FounderRepositoryPathEqual -Left ([string](Get-FounderPropertyValue -Object $State -Name 'repositoryPath' -DefaultValue '')) -Right $Config.RepositoryPath)) {
+    return
+  }
+  if (-not [string]::Equals([string](Get-FounderPropertyValue -Object $State -Name 'stdoutLog' -DefaultValue ''), $Config.StdoutLogPath, [System.StringComparison]::OrdinalIgnoreCase)) {
+    return
+  }
+
+  Remove-FounderFile -Path $Config.LegacyStdoutLogPath
+  Remove-FounderFile -Path $Config.LegacyStderrLogPath
+  if (-not (Test-Path -LiteralPath $Config.LegacyStdoutLogPath) -and
+    -not (Test-Path -LiteralPath $Config.LegacyStderrLogPath)) {
+    Remove-FounderFile -Path $Config.LegacyMigrationMarkerPath
+  }
+}
+
 function Get-FounderPreviewState {
   param(
     [Parameter(Mandatory = $true)]
     $Config
   )
 
+  Invoke-FounderLegacyRuntimeMigration -Config $Config | Out-Null
   return Read-FounderJsonFile -Path $Config.StatePath
 }
 
@@ -972,11 +1252,17 @@ function Get-FounderPreviewStatus {
   $startedAt = ''
   $uptime = ''
   $commitAtStart = ''
+  $commitAtAdoption = ''
+  $adoptedAt = ''
+  $adoptedExistingServer = $false
   $stdoutLog = $Config.StdoutLogPath
   $stderrLog = $Config.StderrLogPath
   if ($null -ne $state) {
     $startedAt = [string](Get-FounderPropertyValue -Object $state -Name 'startedAt' -DefaultValue '')
     $commitAtStart = [string](Get-FounderPropertyValue -Object $state -Name 'commitAtStart' -DefaultValue '')
+    $commitAtAdoption = [string](Get-FounderPropertyValue -Object $state -Name 'commitAtAdoption' -DefaultValue '')
+    $adoptedAt = [string](Get-FounderPropertyValue -Object $state -Name 'adoptedAt' -DefaultValue '')
+    $adoptedExistingServer = [bool](Get-FounderPropertyValue -Object $state -Name 'adoptedExistingServer' -DefaultValue $false)
     $stdoutLog = [string](Get-FounderPropertyValue -Object $state -Name 'stdoutLog' -DefaultValue $Config.StdoutLogPath)
     $stderrLog = [string](Get-FounderPropertyValue -Object $state -Name 'stderrLog' -DefaultValue $Config.StderrLogPath)
   }
@@ -1016,6 +1302,9 @@ function Get-FounderPreviewStatus {
     CurrentBranch = $git.Branch
     CurrentCommit = $git.Commit
     CommitAtStart = $commitAtStart
+    CommitAtAdoption = $commitAtAdoption
+    AdoptedAt = $adoptedAt
+    AdoptedExistingServer = $adoptedExistingServer
     StartedAt = $startedAt
     Uptime = $uptime
     StdoutLog = $stdoutLog
@@ -1043,6 +1332,8 @@ function Write-FounderStatus {
   Write-Host "Root HTTP: $($Status.RootHttpStatus)"
   Write-Host "Git: $($Status.CurrentBranch) $($Status.CurrentCommit)"
   Write-Host "Commit at start: $($Status.CommitAtStart)"
+  Write-Host "Adopted existing server: $($Status.AdoptedExistingServer)"
+  Write-Host "Commit at adoption: $($Status.CommitAtAdoption)"
   Write-Host "Uptime: $($Status.Uptime)"
   Write-Host "stdout: $($Status.StdoutLog)"
   Write-Host "stderr: $($Status.StderrLog)"
@@ -1068,7 +1359,8 @@ function New-FounderStateFromListener {
     [Parameter(Mandatory = $true)]
     $Ownership,
     [int]$LauncherPid,
-    [string]$Command
+    [string]$Command,
+    [switch]$AdoptedExistingServer
   )
 
   $listenerMetadata = Get-FounderProcessMetadata -ProcessId $Listener.OwningProcess
@@ -1086,24 +1378,56 @@ function New-FounderStateFromListener {
   $launcherMetadata = Get-FounderProcessMetadata -ProcessId $LauncherPid
   $git = Get-FounderGitInfo -RepositoryPath $Config.RepositoryPath
 
+  return New-FounderStateRecord `
+    -Config $Config `
+    -ListenerMetadata $listenerMetadata `
+    -LauncherMetadata $launcherMetadata `
+    -LauncherPid $LauncherPid `
+    -Command $Command `
+    -GitInfo $git `
+    -AdoptedExistingServer:$AdoptedExistingServer
+}
+
+function New-FounderStateRecord {
+  param(
+    [Parameter(Mandatory = $true)]
+    $Config,
+    [Parameter(Mandatory = $true)]
+    $ListenerMetadata,
+    $LauncherMetadata,
+    [Parameter(Mandatory = $true)]
+    [int]$LauncherPid,
+    [Parameter(Mandatory = $true)]
+    [string]$Command,
+    [Parameter(Mandatory = $true)]
+    $GitInfo,
+    [switch]$AdoptedExistingServer
+  )
+
+  $recordedAt = (Get-Date).ToUniversalTime().ToString('o')
   return [ordered]@{
     schemaVersion = $Config.SchemaVersion
     repositoryPath = $Config.RepositoryPath
-    repositoryRemote = $git.Remote
-    branch = $git.Branch
-    commitAtStart = $git.Commit
+    repositoryRemote = $GitInfo.Remote
+    branch = $GitInfo.Branch
+    commitAtStart = if ($AdoptedExistingServer) { '' } else { $GitInfo.Commit }
+    commitAtAdoption = if ($AdoptedExistingServer) { $GitInfo.Commit } else { '' }
+    adoptedAt = if ($AdoptedExistingServer) { $recordedAt } else { '' }
+    adoptedExistingServer = [bool]$AdoptedExistingServer
     requestedHost = $Config.HostName
     requestedPort = $Config.FounderPort
     launcherPid = $LauncherPid
-    launcherStartedAt = if ($null -ne $launcherMetadata) { $launcherMetadata.StartTime } else { '' }
-    listenerPid = [int]$Listener.OwningProcess
-    listenerStartedAt = $listenerMetadata.StartTime
-    startedAt = $listenerMetadata.StartTime
-    stateRecordedAt = (Get-Date).ToUniversalTime().ToString('o')
+    launcherStartedAt = if ($null -ne $LauncherMetadata) { $LauncherMetadata.StartTime } else { '' }
+    listenerPid = [int]$ListenerMetadata.ProcessId
+    listenerStartedAt = $ListenerMetadata.StartTime
+    startedAt = $ListenerMetadata.StartTime
+    stateRecordedAt = $recordedAt
     command = $Command
     stdoutLog = $Config.StdoutLogPath
     stderrLog = $Config.StderrLogPath
     nodeOptions = '--use-system-ca'
+    migratedFromLegacy = $false
+    migratedAt = ''
   }
 }
 
@@ -1211,7 +1535,13 @@ function Start-FounderPreview {
   }
   if ($status.Status -eq 'RUNNING_OWNED_UNMANAGED') {
     $listener = Get-FounderListeners -Ports @($Config.FounderPort) | Select-Object -First 1
-    $state = New-FounderStateFromListener -Config $Config -Listener $listener -Ownership $status.Ownership -LauncherPid $status.LauncherPid -Command $status.CommandLine
+    $state = New-FounderStateFromListener `
+      -Config $Config `
+      -Listener $listener `
+      -Ownership $status.Ownership `
+      -LauncherPid $status.LauncherPid `
+      -Command $status.CommandLine `
+      -AdoptedExistingServer
     Save-FounderPreviewState -Config $Config -State $state
     $adoptedStatus = Get-FounderPreviewStatus -Config $Config
     if ($adoptedStatus.Status -eq 'RUNNING_MANAGED') {
@@ -1306,6 +1636,7 @@ function Start-FounderPreview {
   if ($finalStatus.Status -ne 'RUNNING_MANAGED') {
     return [pscustomobject]@{ Success = $false; ExitCode = $Config.ExitCodes.Unhealthy; Status = 'STARTED_BUT_NOT_MANAGED'; Details = $finalStatus }
   }
+  Complete-FounderLegacyRuntimeMigration -Config $Config -State $finalStatus.State
 
   return [pscustomobject]@{ Success = $true; ExitCode = $Config.ExitCodes.Pass; Status = 'STARTED'; Details = $finalStatus }
 }
@@ -1371,6 +1702,40 @@ function Ensure-FounderPreview {
   }
 }
 
+function Get-FounderTemporaryListenerSnapshot {
+  param(
+    [Parameter(Mandatory = $true)]
+    $Config
+  )
+
+  $owned = @()
+  $unrelated = @()
+  foreach ($listener in @(Get-FounderListeners -Ports ($Config.TemporaryPortMinimum..$Config.LegacyCleanupPortMaximum))) {
+    $ownership = Get-FounderProcessOwnership -ProcessId $listener.OwningProcess -RepositoryPath $Config.RepositoryPath
+    $process = Get-FounderProcessMetadata -ProcessId $listener.OwningProcess
+    $entry = [pscustomobject]@{
+      Port = [int]$listener.LocalPort
+      LocalAddress = [string]$listener.LocalAddress
+      ProcessId = [int]$listener.OwningProcess
+      Name = if ($null -ne $process) { $process.Name } else { '' }
+      CommandLine = if ($null -ne $process) { $process.CommandLine } else { '' }
+      Owned = [bool]$ownership.Owned
+      OwnershipReason = $ownership.Reason
+      OwnershipUnknown = $ownership.Reason -eq 'process-metadata-unavailable'
+    }
+    if ($ownership.Owned) {
+      $owned += $entry
+    } else {
+      $unrelated += $entry
+    }
+  }
+
+  return [pscustomobject]@{
+    Owned = $owned
+    Unrelated = $unrelated
+  }
+}
+
 function Cleanup-FounderTemporaryServers {
   param(
     [Parameter(Mandatory = $true)]
@@ -1380,32 +1745,34 @@ function Cleanup-FounderTemporaryServers {
 
   $stopped = @()
   $wouldStop = @()
+  $failed = @()
   $unrelated = @()
   $visited = @{}
-  foreach ($listener in @(Get-FounderListeners -Ports ($Config.TemporaryPortMinimum..$Config.LegacyCleanupPortMaximum))) {
-    if ($visited.ContainsKey([int]$listener.OwningProcess)) {
+  $initialSnapshot = Get-FounderTemporaryListenerSnapshot -Config $Config
+  $unrelated = @($initialSnapshot.Unrelated)
+  foreach ($entry in @($initialSnapshot.Owned)) {
+    if ($visited.ContainsKey([int]$entry.ProcessId)) {
       continue
     }
-    $visited[[int]$listener.OwningProcess] = $true
-    $ownership = Get-FounderProcessOwnership -ProcessId $listener.OwningProcess -RepositoryPath $Config.RepositoryPath
-    $process = Get-FounderProcessMetadata -ProcessId $listener.OwningProcess
-    $entry = [pscustomobject]@{
-      Port = $listener.LocalPort
-      ProcessId = $listener.OwningProcess
-      Name = if ($null -ne $process) { $process.Name } else { '' }
-      CommandLine = if ($null -ne $process) { $process.CommandLine } else { '' }
-      OwnershipReason = $ownership.Reason
-    }
-    if (-not $ownership.Owned) {
-      $unrelated += $entry
-      continue
-    }
+    $visited[[int]$entry.ProcessId] = $true
     if ($DryRun) {
       $wouldStop += $entry
       continue
     }
 
-    $rootProcessId = [int]$listener.OwningProcess
+    $ownership = Get-FounderProcessOwnership -ProcessId $entry.ProcessId -RepositoryPath $Config.RepositoryPath
+    if (-not $ownership.Owned) {
+      $failed += [pscustomobject]@{
+        Port = $entry.Port
+        ProcessId = $entry.ProcessId
+        Name = $entry.Name
+        CommandLine = $entry.CommandLine
+        Reason = "ownership-became-unstable: $($ownership.Reason)"
+      }
+      continue
+    }
+
+    $rootProcessId = [int]$entry.ProcessId
     $launcher = Get-FounderLauncherFromChain -Chain $ownership.Chain -RepositoryPath $Config.RepositoryPath
     if ($null -ne $launcher) {
       $launcherOwnership = Get-FounderProcessOwnership -ProcessId $launcher.ProcessId -RepositoryPath $Config.RepositoryPath
@@ -1417,24 +1784,26 @@ function Cleanup-FounderTemporaryServers {
     if ($stopResult.Success) {
       $stopped += $entry
     } else {
-      $unrelated += [pscustomobject]@{
+      $failed += [pscustomobject]@{
         Port = $entry.Port
         ProcessId = $entry.ProcessId
         Name = $entry.Name
         CommandLine = $entry.CommandLine
-        OwnershipReason = $stopResult.Reason
+        Reason = $stopResult.Reason
       }
     }
   }
 
-  return [pscustomobject]@{
-    Success = $true
-    ExitCode = $Config.ExitCodes.Pass
-    Status = if ($DryRun) { 'DRY_RUN_COMPLETE' } else { 'CLEANUP_COMPLETE' }
-    Stopped = $stopped
-    WouldStop = $wouldStop
-    Unrelated = $unrelated
-  }
+  $remainingSnapshot = Get-FounderTemporaryListenerSnapshot -Config $Config
+  return New-FounderCleanupResult `
+    -DryRun:$DryRun `
+    -Stopped $stopped `
+    -WouldStop $wouldStop `
+    -Failed $failed `
+    -Unrelated $unrelated `
+    -RemainingOwned $remainingSnapshot.Owned `
+    -RemainingUnrelated $remainingSnapshot.Unrelated `
+    -ExitCodes $Config.ExitCodes
 }
 
 function Test-FounderValueLooksMock {
@@ -1592,6 +1961,18 @@ function Invoke-FounderPreflight {
   }
 
   $cleanup = Cleanup-FounderTemporaryServers -Config $Config
+  if (-not (Test-FounderCleanupGate -CleanupResult $cleanup)) {
+    return [pscustomobject]@{
+      Success = $false
+      ExitCode = $Config.ExitCodes.TemporaryCleanupFailed
+      Status = 'CLEANUP_FAILED'
+      Details = [pscustomobject]@{
+        Git = $git
+        DryRun = $dryRun
+        Cleanup = $cleanup
+      }
+    }
+  }
   $ensure = Ensure-FounderPreview -Config $Config
   if (-not $ensure.Success) {
     return $ensure
@@ -1602,16 +1983,28 @@ function Invoke-FounderPreflight {
     return [pscustomobject]@{ Success = $false; ExitCode = $Config.ExitCodes.SmokeFailure; Status = 'PREFLIGHT_ROOT_FAILED'; Details = $root }
   }
 
-  $warnings = @($cleanup.Unrelated)
+  $finalStatus = Get-FounderPreviewStatus -Config $Config
+  if ($finalStatus.Status -ne 'RUNNING_MANAGED' -or -not $finalStatus.BindingValid) {
+    return [pscustomobject]@{
+      Success = $false
+      ExitCode = $Config.ExitCodes.Unhealthy
+      Status = 'PREFLIGHT_FOUNDER_STATUS_FAILED'
+      Details = $finalStatus
+    }
+  }
+
+  $preflightStatus = Get-FounderPreflightCleanupStatus -CleanupResult $cleanup
   return [pscustomobject]@{
     Success = $true
     ExitCode = $Config.ExitCodes.Pass
-    Status = if ($warnings.Count -gt 0) { 'READY_WITH_WARNINGS' } else { 'READY' }
+    Status = $preflightStatus
     Details = [pscustomobject]@{
       Git = $git
+      DryRun = $dryRun
       Cleanup = $cleanup
       Ensure = $ensure
       RootHttp = $root.StatusCode
+      Status = $finalStatus
     }
   }
 }
@@ -1623,6 +2016,14 @@ function Invoke-FounderFinalize {
   )
 
   $cleanup = Cleanup-FounderTemporaryServers -Config $Config
+  if (-not (Test-FounderCleanupGate -CleanupResult $cleanup)) {
+    return [pscustomobject]@{
+      Success = $false
+      ExitCode = $Config.ExitCodes.TemporaryCleanupFailed
+      Status = 'FINALIZE_CLEANUP_FAILED'
+      Details = $cleanup
+    }
+  }
   $restart = Restart-FounderPreview -Config $Config
   if (-not $restart.Success) {
     return $restart
@@ -1630,6 +2031,15 @@ function Invoke-FounderFinalize {
   $verify = Verify-FounderPreview -Config $Config
   if (-not $verify.Success) {
     return [pscustomobject]@{ Success = $false; ExitCode = $verify.ExitCode; Status = 'FINALIZE_VERIFY_FAILED'; Details = $verify }
+  }
+  $finalStatus = Get-FounderPreviewStatus -Config $Config
+  if ($finalStatus.Status -ne 'RUNNING_MANAGED' -or -not $finalStatus.BindingValid) {
+    return [pscustomobject]@{
+      Success = $false
+      ExitCode = $Config.ExitCodes.Unhealthy
+      Status = 'FINALIZE_STATUS_FAILED'
+      Details = $finalStatus
+    }
   }
 
   return [pscustomobject]@{
@@ -1641,7 +2051,99 @@ function Invoke-FounderFinalize {
       Restart = $restart
       Verify = $verify
       Git = Get-FounderGitInfo -RepositoryPath $Config.RepositoryPath
-      Status = Get-FounderPreviewStatus -Config $Config
+      Status = $finalStatus
+    }
+  }
+}
+
+function Invoke-FounderQaReady {
+  param(
+    [Parameter(Mandatory = $true)]
+    $Config
+  )
+
+  $git = Get-FounderGitInfo -RepositoryPath $Config.RepositoryPath
+  $worktree = Test-FounderQaReadyWorkingTree -Entries $git.WorkingTree
+  if (-not $worktree.Success) {
+    return [pscustomobject]@{
+      Success = $false
+      ExitCode = $Config.ExitCodes.QaReadyDirtyWorktree
+      Status = 'BLOCKED_DIRTY_WORKTREE'
+      Details = [pscustomobject]@{
+        Git = $git
+        Worktree = $worktree
+      }
+    }
+  }
+
+  $cleanup = Cleanup-FounderTemporaryServers -Config $Config
+  if (-not (Test-FounderCleanupGate -CleanupResult $cleanup)) {
+    return [pscustomobject]@{
+      Success = $false
+      ExitCode = $Config.ExitCodes.TemporaryCleanupFailed
+      Status = 'QA_READY_CLEANUP_FAILED'
+      Details = [pscustomobject]@{
+        Git = $git
+        Worktree = $worktree
+        Cleanup = $cleanup
+      }
+    }
+  }
+
+  $restart = Restart-FounderPreview -Config $Config
+  if (-not $restart.Success) {
+    return $restart
+  }
+  $status = Get-FounderPreviewStatus -Config $Config
+  if ($status.Status -ne 'RUNNING_MANAGED' -or
+    -not $status.BindingValid -or
+    $status.CurrentCommit -ne $git.Commit -or
+    $status.CommitAtStart -ne $git.Commit -or
+    $status.AdoptedExistingServer) {
+    return [pscustomobject]@{
+      Success = $false
+      ExitCode = $Config.ExitCodes.Unhealthy
+      Status = 'QA_READY_STATUS_FAILED'
+      Details = [pscustomobject]@{
+        Git = $git
+        Status = $status
+      }
+    }
+  }
+
+  $verify = Verify-FounderPreview -Config $Config
+  if (-not $verify.Success) {
+    return [pscustomobject]@{
+      Success = $false
+      ExitCode = $verify.ExitCode
+      Status = 'QA_READY_VERIFY_FAILED'
+      Details = $verify
+    }
+  }
+
+  $finalTemporary = Get-FounderTemporaryListenerSnapshot -Config $Config
+  if ($finalTemporary.Owned.Count -gt 0) {
+    return [pscustomobject]@{
+      Success = $false
+      ExitCode = $Config.ExitCodes.TemporaryCleanupFailed
+      Status = 'QA_READY_TEMPORARY_LISTENER_REMAINED'
+      Details = $finalTemporary
+    }
+  }
+
+  return [pscustomobject]@{
+    Success = $true
+    ExitCode = $Config.ExitCodes.Pass
+    Status = 'READY_FOR_FOUNDER_QA'
+    Details = [pscustomobject]@{
+      Git = $git
+      Worktree = $worktree
+      Cleanup = $cleanup
+      Restart = $restart
+      Status = $status
+      Verify = $verify
+      RemainingOwned = $finalTemporary.Owned
+      RemainingUnrelated = $finalTemporary.Unrelated
     }
   }
 }

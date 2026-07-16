@@ -2,6 +2,42 @@
 
 개발 과정에서의 작업 내용, 결정, 아쉬운 점, 다음 개선 사항을 날짜별로 기록합니다.
 
+## 2026-07-17 - MYOTT-S09-OPS-001A
+
+### 코드 리뷰에서 확인한 문제
+
+- Temporary Cleanup이 Owned Process 종료 실패를 `Unrelated`로 낮추고 성공으로 끝날 수 있었습니다.
+- Preflight와 Finalize가 Cleanup 뒤 `3001-3101`을 다시 확인하지 않아 잔류 Listener를 놓칠 수 있었습니다.
+- Command Line의 Repository Path를 단순 부분 문자열로 비교해 `Myott-copy`, `Myott-old`, `Myott-test`, `Myott2`가 현재 Repository로 오인될 수 있었습니다.
+- Mutex는 Repository별인데 State와 Log는 공통 경로여서 clone/worktree가 Port 3000과 runtime state를 서로 다르게 바라볼 수 있었습니다.
+- 기존 Server adoption 시 실제 Start Commit을 증명하지 못하면서 adoption 시점 Commit을 `commitAtStart`로 기록할 수 있었습니다.
+
+### 구현
+
+- Cleanup 결과를 `Stopped`, `WouldStop`, `Failed`, `Unrelated`, `RemainingOwned`, `RemainingUnrelated`로 분리하고 실제 Port 재검사 결과를 성공 조건에 포함했습니다.
+- Preflight, Finalize, QA Ready는 Cleanup 실패 또는 Remaining Owned Listener가 있으면 즉시 실패합니다.
+- Repository Path boundary matcher와 Next/pnpm command evidence를 결합해 prefix collision을 차단했습니다.
+- `Local\MyOTTFounderPreview_Port3000` 전역 Mutex와 `%TEMP%\myott-founder-preview\<repository-path-hash>` Repository별 State/Log를 적용했습니다.
+- Legacy State는 Repository, PID, Start Time, ownership을 확인한 경우에만 migration하며 다른 Repository State는 보존합니다.
+- 직접 시작과 adoption state를 분리해 `commitAtStart`, `commitAtAdoption`, `adoptedAt`, `adoptedExistingServer` 의미를 명확히 했습니다.
+- `founder:qa-ready`는 두 QA Checklist untracked 파일만 허용하고 현재 Commit으로 Restart/Verify한 뒤 `READY_FOR_FOUNDER_QA`를 출력합니다.
+
+### Baseline과 검증
+
+- Base: `main` / `4fa43820bd2e`.
+- 기존 Founder Preview는 `127.0.0.1:3000`, Root/API 200, TMDB, fallback false, 결과 10개였습니다.
+- 기존 Runtime은 `%TEMP%\myott-founder-preview` 공통 경로였으며 실제 Restart에서 Repository별 경로로 전환했습니다. Legacy State, Log, migration marker 정리도 완료했습니다.
+- 기존 Self Test 22개를 유지하고 failure injection, path boundary, runtime isolation, migration, QA Ready contract를 더해 59개로 확장했습니다.
+- Windows PowerShell 5.1 / PowerShell 7 parser: PASS.
+- Recommendation tests: 54/54 PASS.
+- Deterministic Recommendation QA: 60/60 PASS.
+- 커밋 전 `founder:qa-ready`: dirty tracked files를 Exit Code 10으로 차단.
+- Preflight: READY.
+- Ensure, Start, Start: 기존 건강한 Listener PID 7608 유지.
+- Safe Check: `VALIDATION_PASS_SERVER_RESTORED`, Root/API 200/200, TMDB, fallback false, Mock 0, 결과 10개.
+- Finalize: FINALIZED, `3001-3101` MyOTT Listener 0, Repository별 State/Log 사용.
+- Product Recommendation Logic과 Recommendation Architecture v2.5는 변경하지 않습니다.
+
 ## 2026-07-17 - MYOTT-S09-OPS-001
 
 ### 운영 문제

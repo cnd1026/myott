@@ -126,6 +126,178 @@ Assert-FounderTest 'Automatic port increment is absent from allocation policy' {
   (Test-FounderPortCanBeAllocated -Port 3000 -Config $config) -and
     -not (Test-FounderPortCanBeAllocated -Port 3101 -Config $config)
 }
+Assert-FounderTest 'Exact quoted repository argument matches' {
+  Test-FounderCommandLineReferencesRepository `
+    -CommandLine "pnpm --dir `"$repositoryPath`" exec next dev" `
+    -RepositoryPath $repositoryPath
+}
+Assert-FounderTest 'Repository internal Next path matches' {
+  Test-FounderCommandLineReferencesRepository `
+    -CommandLine "node `"$repositoryPath\node_modules\next\dist\bin\next`" dev" `
+    -RepositoryPath $repositoryPath
+}
+Assert-FounderTest 'Forward slash repository path matches' {
+  $forwardPath = $repositoryPath.Replace('\', '/')
+  Test-FounderCommandLineReferencesRepository `
+    -CommandLine "node `"$forwardPath/node_modules/next/dist/bin/next`" dev" `
+    -RepositoryPath $repositoryPath
+}
+Assert-FounderTest 'Myott-copy path collision is rejected' {
+  -not (Test-FounderCommandLineReferencesRepository -CommandLine "node `"$repositoryPath-copy\node_modules\next\dist\bin\next`" dev" -RepositoryPath $repositoryPath)
+}
+Assert-FounderTest 'Myott-old path collision is rejected' {
+  -not (Test-FounderCommandLineReferencesRepository -CommandLine "node `"$repositoryPath-old\node_modules\next\dist\bin\next`" dev" -RepositoryPath $repositoryPath)
+}
+Assert-FounderTest 'Myott-test path collision is rejected' {
+  -not (Test-FounderCommandLineReferencesRepository -CommandLine "node `"$repositoryPath-test\node_modules\next\dist\bin\next`" dev" -RepositoryPath $repositoryPath)
+}
+Assert-FounderTest 'Myott2 path collision is rejected' {
+  -not (Test-FounderCommandLineReferencesRepository -CommandLine "node `"$($repositoryPath)2\node_modules\next\dist\bin\next`" dev" -RepositoryPath $repositoryPath)
+}
+Assert-FounderTest 'MyottBackup path collision is rejected' {
+  -not (Test-FounderCommandLineReferencesRepository -CommandLine "node `"$($repositoryPath)Backup\node_modules\next\dist\bin\next`" dev" -RepositoryPath $repositoryPath)
+}
+
+$ownedEntry = [pscustomobject]@{ Port = 3001; ProcessId = 101; Owned = $true }
+$failedEntry = [pscustomobject]@{ Port = 3002; ProcessId = 102; Reason = 'injected-stop-failure' }
+$unrelatedEntry = [pscustomobject]@{ Port = 3003; ProcessId = 103; Owned = $false }
+$cleanupSuccess = New-FounderCleanupResult -Stopped @($ownedEntry) -ExitCodes $config.ExitCodes
+$cleanupFailed = New-FounderCleanupResult -Failed @($failedEntry) -ExitCodes $config.ExitCodes
+$cleanupResidual = New-FounderCleanupResult -RemainingOwned @($ownedEntry) -ExitCodes $config.ExitCodes
+$cleanupUnrelated = New-FounderCleanupResult -Unrelated @($unrelatedEntry) -RemainingUnrelated @($unrelatedEntry) -ExitCodes $config.ExitCodes
+
+Assert-FounderTest 'Owned temporary listener stop success remains successful' {
+  $cleanupSuccess.Success -and $cleanupSuccess.Stopped.Count -eq 1
+}
+Assert-FounderTest 'Owned temporary listener stop failure fails cleanup' {
+  -not $cleanupFailed.Success -and $cleanupFailed.Status -eq 'CLEANUP_FAILED'
+}
+Assert-FounderTest 'Listener residual after stop fails cleanup' {
+  -not $cleanupResidual.Success -and $cleanupResidual.RemainingOwned.Count -eq 1
+}
+Assert-FounderTest 'Failed list prevents cleanup success' {
+  -not (Test-FounderCleanupGate -CleanupResult $cleanupFailed)
+}
+Assert-FounderTest 'Remaining owned list prevents cleanup success' {
+  -not (Test-FounderCleanupGate -CleanupResult $cleanupResidual)
+}
+Assert-FounderTest 'Unrelated listener only preserves cleanup success' {
+  $cleanupUnrelated.Success -and $cleanupUnrelated.RemainingUnrelated.Count -eq 1
+}
+Assert-FounderTest 'Unrelated listener only makes preflight ready with warnings' {
+  (Get-FounderPreflightCleanupStatus -CleanupResult $cleanupUnrelated) -eq 'READY_WITH_WARNINGS'
+}
+Assert-FounderTest 'Owned residual makes preflight cleanup fail' {
+  (Get-FounderPreflightCleanupStatus -CleanupResult $cleanupResidual) -eq 'CLEANUP_FAILED'
+}
+Assert-FounderTest 'Owned residual blocks finalize cleanup gate' {
+  -not (Test-FounderCleanupGate -CleanupResult $cleanupResidual)
+}
+Assert-FounderTest 'Cleanup result exposes all six result lists' {
+  $cleanupSuccess.PSObject.Properties['Stopped'] -and
+    $cleanupSuccess.PSObject.Properties['WouldStop'] -and
+    $cleanupSuccess.PSObject.Properties['Failed'] -and
+    $cleanupSuccess.PSObject.Properties['Unrelated'] -and
+    $cleanupSuccess.PSObject.Properties['RemainingOwned'] -and
+    $cleanupSuccess.PSObject.Properties['RemainingUnrelated']
+}
+Assert-FounderTest 'Cleanup failure uses dedicated exit code' {
+  $cleanupFailed.ExitCode -eq 9
+}
+
+$otherConfig = Get-FounderPreviewConfig -RepositoryPath "$repositoryPath-copy"
+Assert-FounderTest 'Different repositories have different state directories' {
+  $config.RuntimeRoot -ne $otherConfig.RuntimeRoot -and $config.StatePath -ne $otherConfig.StatePath
+}
+Assert-FounderTest 'Different repositories share the global port mutex' {
+  $config.MutexName -eq $otherConfig.MutexName -and $config.MutexName -eq 'Local\MyOTTFounderPreview_Port3000'
+}
+Assert-FounderTest 'Different repositories have different log paths' {
+  $config.StdoutLogPath -ne $otherConfig.StdoutLogPath -and $config.StderrLogPath -ne $otherConfig.StderrLogPath
+}
+Assert-FounderTest 'Global lock diagnostic path is shared' {
+  $config.LockInfoPath -eq $otherConfig.LockInfoPath
+}
+
+Assert-FounderTest 'Legacy current repository state is migration eligible' {
+  (Get-FounderLegacyStateMigrationDecision -LegacyState $validState -Config $config -ProcessMetadata $processMetadata) -eq 'MIGRATE_CURRENT_REPOSITORY'
+}
+Assert-FounderTest 'Legacy different repository state is preserved' {
+  $differentState = $validState.PSObject.Copy()
+  $differentState.repositoryPath = "$repositoryPath-copy"
+  (Get-FounderLegacyStateMigrationDecision -LegacyState $differentState -Config $config -ProcessMetadata $processMetadata) -eq 'PRESERVE_DIFFERENT_REPOSITORY'
+}
+Assert-FounderTest 'Legacy invalid process identity is preserved' {
+  (Get-FounderLegacyStateMigrationDecision -LegacyState $validState -Config $config -ProcessMetadata $null) -eq 'PRESERVE_INVALID_STATE'
+}
+
+$gitInfo = [pscustomobject]@{
+  Branch = 'main'
+  Commit = 'abc123def456'
+  Remote = 'https://github.com/cnd1026/myott.git'
+}
+$launcherMetadata = [pscustomobject]@{
+  ProcessId = 1000
+  StartTime = $startTime
+}
+$adoptedState = New-FounderStateRecord `
+  -Config $config `
+  -ListenerMetadata $processMetadata `
+  -LauncherMetadata $launcherMetadata `
+  -LauncherPid 1000 `
+  -Command $repoCommand `
+  -GitInfo $gitInfo `
+  -AdoptedExistingServer
+$directState = New-FounderStateRecord `
+  -Config $config `
+  -ListenerMetadata $processMetadata `
+  -LauncherMetadata $launcherMetadata `
+  -LauncherPid 1000 `
+  -Command $repoCommand `
+  -GitInfo $gitInfo
+
+Assert-FounderTest 'Adopted server commitAtStart remains unknown' {
+  $adoptedState.commitAtStart -eq ''
+}
+Assert-FounderTest 'Adopted server records commitAtAdoption' {
+  $adoptedState.commitAtAdoption -eq $gitInfo.Commit
+}
+Assert-FounderTest 'Adopted server records adoptedAt and flag' {
+  $adoptedState.adoptedExistingServer -and -not [string]::IsNullOrWhiteSpace($adoptedState.adoptedAt)
+}
+Assert-FounderTest 'Directly started server records commitAtStart' {
+  $directState.commitAtStart -eq $gitInfo.Commit -and -not $directState.adoptedExistingServer
+}
+
+$allowedQaTree = Test-FounderQaReadyWorkingTree -Entries @(
+  '?? docs/project/QA_CHECKLIST.md',
+  '?? docs/project/QA_CHECKLIST.pdf'
+)
+$trackedDirtyTree = Test-FounderQaReadyWorkingTree -Entries @(' M README.md')
+$unexpectedTree = Test-FounderQaReadyWorkingTree -Entries @('?? src/debug.js')
+$stagedTree = Test-FounderQaReadyWorkingTree -Entries @('M  package.json')
+
+Assert-FounderTest 'QA Ready accepts only the two QA checklist files' {
+  $allowedQaTree.Success -and $allowedQaTree.AllowedEntries.Count -eq 2
+}
+Assert-FounderTest 'QA Ready rejects tracked modification' {
+  -not $trackedDirtyTree.Success -and $trackedDirtyTree.Status -eq 'BLOCKED_DIRTY_WORKTREE'
+}
+Assert-FounderTest 'QA Ready rejects unexpected untracked code file' {
+  -not $unexpectedTree.Success
+}
+Assert-FounderTest 'QA Ready rejects staged files' {
+  -not $stagedTree.Success
+}
+Assert-FounderTest 'QA Ready dirty tree uses dedicated exit code' {
+  $config.ExitCodes.QaReadyDirtyWorktree -eq 10
+}
+Assert-FounderTest 'Repository state schema version is current' {
+  $config.SchemaVersion -eq 2
+}
+Assert-FounderTest 'Repository runtime remains below the shared base root' {
+  $config.RuntimeRoot.StartsWith($config.BaseRuntimeRoot, [System.StringComparison]::OrdinalIgnoreCase)
+}
 
 Write-Host ''
 Write-Host "Founder Preview self-test: $passed passed, $failed failed."

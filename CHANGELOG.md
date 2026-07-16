@@ -2,6 +2,19 @@
 
 프로젝트의 주요 변경 사항을 날짜별로 기록합니다.
 
+## 2026-07-17 - MYOTT-S09-OPS-001A
+
+### Developer Operations
+
+- Temporary Server Cleanup 결과를 stopped, failed, unrelated, remaining listener로 분리하고 종료 실패 또는 Owned Listener 잔류를 Exit Code 9로 전파합니다.
+- Preflight와 Finalize가 Cleanup 실패를 warning으로 낮추지 않고 `3001-3101`의 Remaining Owned Listener 0을 필수 gate로 사용합니다.
+- Repository Path ownership을 argument 경계 기준으로 판정해 `Myott-copy`, `Myott-old`, `Myott-test`, `Myott2` prefix collision을 차단합니다.
+- Port 3000 mutation은 clone/worktree 공통 Mutex를 사용하고 State와 Log는 Repository Path hash별 runtime directory로 분리합니다.
+- Legacy Runtime State를 ownership 검증 후 migration하고 adopted server의 시작 Commit과 adoption Commit 의미를 분리합니다.
+- `pnpm founder:qa-ready`를 추가해 허용된 QA Checklist 두 파일만 남은 clean tree, Cleanup, Restart, Root/API Verify를 Founder QA 직전 한 번에 확정합니다.
+- 순수 failure injection과 ownership/runtime 계약 Self Test를 59개로 확장했습니다.
+- Product Recommendation Logic과 Recommendation Architecture v2.5는 변경하지 않았습니다.
+
 ## 2026-07-17 - MYOTT-S09-OPS-001
 
 ### Developer Operations

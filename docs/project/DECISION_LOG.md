@@ -95,3 +95,13 @@ Process 종료는 Port 번호나 `node.exe` 이름이 아니라 현재 Repositor
 모든 코드 작업은 `founder:preflight`로 시작 환경을 준비하고 `founder:finalize`로 임시 Server 정리, 3000 Restart, Root/API 검증을 수행합니다. Build와 Check는 3000을 안전하게 일시 중지하고 성공/실패와 관계없이 복구를 시도합니다. 원래 검증 Exit Code는 Server 복구 성공으로 덮어쓰지 않습니다.
 
 Runtime State, Lock, stdout/stderr는 Repository가 아니라 `%TEMP%\myott-founder-preview`에서 관리합니다. 일반 코드 변경은 Next.js HMR를 사용하고 Browser 강제 UI Automation 대신 Dev Client 재연결을 사용합니다. Product Recommendation Logic과 Recommendation Architecture v2.5에는 영향이 없습니다.
+
+## DL-019 Founder Preview Cleanup과 QA Readiness를 실패 폐쇄형 Gate로 운영
+
+Temporary MyOTT Server Cleanup은 Process 종료 호출의 성공만으로 완료하지 않습니다. `3001-3101`을 다시 조회해 `Failed`와 `RemainingOwned`가 모두 0일 때만 성공하며, Preflight와 Finalize는 이 실패를 warning으로 낮추지 않습니다. Unrelated Listener는 종료하지 않고 경고로만 유지합니다.
+
+Repository ownership은 단순 path prefix가 아니라 argument 경계와 Next/pnpm dev command evidence를 함께 사용합니다. 따라서 `Myott-copy`, `Myott-old`, `Myott-test`, `Myott2`는 현재 Repository 소유로 판정하지 않습니다.
+
+Port 3000 mutation은 모든 clone/worktree가 공유하는 `Local\MyOTTFounderPreview_Port3000` Mutex로 직렬화합니다. State와 Log는 Repository Path hash별 디렉터리로 분리하며 Legacy State는 ownership identity를 확인한 경우에만 migration합니다. 기존 Server adoption은 실제 Start Commit을 추측하지 않고 adoption 시점 Commit을 별도 기록합니다.
+
+Founder QA 전에는 `founder:qa-ready`를 release gate로 사용합니다. 두 QA Checklist untracked 파일 외의 변경이 있으면 차단하고, Cleanup, 현재 Commit Restart, Root/API Verify, Remaining Owned 0이 모두 충족될 때만 `READY_FOR_FOUNDER_QA`를 반환합니다. Product Recommendation Logic과 Recommendation Architecture v2.5에는 영향이 없습니다.

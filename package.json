@@ -21,6 +21,7 @@
     "founder:verify": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/local/founder-preview.ps1 -Action verify",
     "founder:preflight": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/local/founder-preview.ps1 -Action preflight",
     "founder:finalize": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/local/founder-preview.ps1 -Action finalize",
+    "founder:qa-ready": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/local/founder-preview.ps1 -Action qa-ready",
     "founder:build": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/local/founder-preview.ps1 -Action build",
     "founder:check": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/local/founder-preview.ps1 -Action check",
     "founder:selftest": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/local/founder-preview.ps1 -Action selftest"

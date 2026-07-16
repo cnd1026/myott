@@ -87,9 +87,14 @@ pnpm founder:check
 
 # 작업 종료 시 임시 Server 정리와 최종 Preview 검증
 pnpm founder:finalize
+
+# Founder QA 시작 직전 clean tree, cleanup, restart, verify 확정
+pnpm founder:qa-ready
 ```
 
 일반 코드 변경은 Next.js Fast Refresh로 반영합니다. Codex 임시 Server는 `3001-3100`만 사용하며 `3101` 이상에는 새 Server를 열지 않습니다. Process 소유권을 확인하지 않은 종료는 금지합니다.
+
+Founder QA는 `pnpm founder:qa-ready`가 `READY_FOR_FOUNDER_QA`를 반환한 뒤 [http://127.0.0.1:3000](http://127.0.0.1:3000)에서 시작합니다.
 
 상세 운영 기준은 [FOUNDER_PREVIEW_OPERATIONS.md](docs/project/FOUNDER_PREVIEW_OPERATIONS.md)를 참고합니다.
 
