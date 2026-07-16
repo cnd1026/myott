@@ -2,6 +2,19 @@
 
 프로젝트의 주요 변경 사항을 날짜별로 기록합니다.
 
+## 2026-07-17 - MYOTT-S09-OPS-001
+
+### Developer Operations
+
+- Founder Preview를 `127.0.0.1:3000`에 유지하는 PowerShell lifecycle automation을 추가했습니다.
+- `3001-3100` 임시 Port와 `3101` legacy cleanup 경계를 중앙 정책으로 정의했습니다.
+- Repository Path와 Process Tree를 확인한 MyOTT Process만 종료하도록 ownership guard를 추가했습니다.
+- Runtime State, Lock, stdout/stderr, 마지막 작업 기록을 `%TEMP%\myott-founder-preview`에서 관리합니다.
+- Start/Stop/Restart/Ensure/Cleanup/Verify/Preflight/Finalize/Safe Build/Safe Check 명령을 package script로 연결했습니다.
+- Build/Check 성공 여부와 별개로 Founder Preview 복구를 시도하고 원래 검증 Exit Code를 보존합니다.
+- 22개 순수 안전 self-test와 실제 Root/API lifecycle 검증 절차를 추가했습니다.
+- 제품 기능과 Recommendation Architecture v2.5는 변경하지 않았습니다.
+
 ## 2026-07-16 - MYOTT-S09-006A2B
 
 ### 변경 내용

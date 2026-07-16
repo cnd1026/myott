@@ -73,10 +73,25 @@ MyOTT is developed using APS, an internal AI Project System. Core APS documentat
 
 ```powershell
 pnpm install
-pnpm dev
+pnpm founder:preflight
 ```
 
-브라우저에서 `http://127.0.0.1:3000/`을 엽니다.
+Founder Preview는 `http://127.0.0.1:3000/`에서 유지합니다.
+
+```powershell
+# 현재 Preview 상태
+pnpm founder:status
+
+# 테스트, QA, Build 후 Preview 자동 복구
+pnpm founder:check
+
+# 작업 종료 시 임시 Server 정리와 최종 Preview 검증
+pnpm founder:finalize
+```
+
+일반 코드 변경은 Next.js Fast Refresh로 반영합니다. Codex 임시 Server는 `3001-3100`만 사용하며 `3101` 이상에는 새 Server를 열지 않습니다. Process 소유권을 확인하지 않은 종료는 금지합니다.
+
+상세 운영 기준은 [FOUNDER_PREVIEW_OPERATIONS.md](docs/project/FOUNDER_PREVIEW_OPERATIONS.md)를 참고합니다.
 
 현재 앱은 저장소 루트에서 Next.js 구조로 동작합니다.
 

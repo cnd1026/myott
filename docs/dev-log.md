@@ -2,6 +2,58 @@
 
 개발 과정에서의 작업 내용, 결정, 아쉬운 점, 다음 개선 사항을 날짜별로 기록합니다.
 
+## 2026-07-17 - MYOTT-S09-OPS-001
+
+### 운영 문제
+
+- 이전 수동 QA에서 Codex 임시 Server가 `3100`, `3101`에 남을 수 있었고, Founder Preview의 시작/종료/검증 책임이 작업별 Prompt에만 존재했습니다.
+- Port 번호나 `node.exe` 이름만으로 종료하면 다른 프로젝트를 손상할 수 있어 자동 정리 규칙이 없었습니다.
+- `pnpm build` 또는 `pnpm check` 중 3000을 중지한 뒤 실패하면 Founder QA 환경을 복구하는 공통 `finally` 경로가 없었습니다.
+- 기존 3000 수동 Server는 건강했지만 신규 lifecycle State에는 등록되지 않은 unmanaged 상태였습니다.
+
+### 구현
+
+- `scripts/local/FounderPreview.Common.ps1`에 Port 정책, Process Tree, Repository ownership, State identity, PID Start Time, HTTP Verify, Lock, 안전 종료를 집중했습니다.
+- `founder-preview.ps1` Dispatcher에 status/start/stop/restart/ensure/cleanup/verify/preflight/finalize/build/check/selftest Action을 추가했습니다.
+- Runtime State와 Log는 `%TEMP%\myott-founder-preview`에만 저장하며 Repository에는 PID/Log/Lock 파일을 만들지 않습니다.
+- Lifecycle mutation은 Repository Path hash 기반 Named Mutex를 사용합니다.
+- `NODE_OPTIONS`는 기존 값을 유지하고 Child Dev Server에 `--use-system-ca`를 한 번만 추가합니다.
+- 3000은 Founder 전용, 3001-3100은 임시 범위, 3101은 legacy cleanup 전용으로 고정했습니다.
+
+### HMR / Restart 정책
+
+- 일반 코드 변경은 Next.js Fast Refresh/HMR를 사용해 3000을 계속 유지합니다.
+- package, dependency, environment, Next config, server initialization, Build 이후에는 Restart를 사용합니다.
+- Finalize는 3000을 최종 Working Tree로 재시작하고 Browser Dev Client 재연결을 허용합니다.
+- OS 수준 Browser 강제 새로고침과 Process 종료는 사용하지 않습니다.
+
+### 검증
+
+- Windows PowerShell 5.1 parser: PASS
+- Pure lifecycle self-test: 22/22 PASS
+- 기존 수동 3000 Server ownership 확인 및 managed State adopt: PASS
+- 신규 Script 기반 Restart: PASS
+- Start 2회 반복 시 Listener PID 유지: PASS
+- Ensure 반복 시 Listener PID 유지: PASS
+- Stop 2회 반복 후 Listener 0, Start 복구: PASS
+- Safe Build: PASS, 원래 Build Exit Code 0, Founder Preview 복구
+- Safe Check: Recommendation test 54/54, deterministic QA 60/60, Build PASS
+- Safe Check 종료 후 Root/API Verify: HTTP 200/200, TMDB 10개, fallback false, Mock 혼합 0
+- Preflight: READY
+- Finalize: FINALIZED
+- Runtime State의 Listener PID/Start Time/Repository identity: PASS
+- `127.0.0.1:3000` 단일 Listener: PASS
+- 3001-3101 MyOTT Listener: 0
+- Recommendation Architecture v2.5 및 Product Recommendation Logic: 변경 없음
+
+### 최종 운영 상태
+
+- Founder Preview: `RUNNING_MANAGED`
+- URL: `http://127.0.0.1:3000`
+- Runtime directory: `%TEMP%\myott-founder-preview`
+- Temporary MyOTT Server: 없음
+- Founder Review: Not Applicable
+
 ## 2026-07-16 - MYOTT-S09-006A2B Baseline
 
 ### Founder Browser / Product Path

@@ -11,7 +11,19 @@
     "qa:recommendation:live": "pnpm qa:recommendation:live:cold",
     "qa:recommendation:live:cold": "node --use-system-ca --env-file-if-exists=.env.local scripts/recommendation-live-qa.mjs --cold",
     "qa:recommendation:live:warm": "node --use-system-ca --env-file-if-exists=.env.local scripts/recommendation-live-qa.mjs --warm",
-    "check": "pnpm test:recommendation && pnpm qa:recommendation && pnpm build"
+    "check": "pnpm test:recommendation && pnpm qa:recommendation && pnpm build",
+    "founder:status": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/local/founder-preview.ps1 -Action status",
+    "founder:start": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/local/founder-preview.ps1 -Action start",
+    "founder:stop": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/local/founder-preview.ps1 -Action stop",
+    "founder:restart": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/local/founder-preview.ps1 -Action restart",
+    "founder:ensure": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/local/founder-preview.ps1 -Action ensure",
+    "founder:cleanup": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/local/founder-preview.ps1 -Action cleanup",
+    "founder:verify": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/local/founder-preview.ps1 -Action verify",
+    "founder:preflight": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/local/founder-preview.ps1 -Action preflight",
+    "founder:finalize": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/local/founder-preview.ps1 -Action finalize",
+    "founder:build": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/local/founder-preview.ps1 -Action build",
+    "founder:check": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/local/founder-preview.ps1 -Action check",
+    "founder:selftest": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/local/founder-preview.ps1 -Action selftest"
   },
   "dependencies": {
     "next": "^15.3.4",
