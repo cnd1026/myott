@@ -9,6 +9,7 @@ import {
   genreContractTokens,
   genreMatchStrength,
 } from "../genres/genreContract.js";
+import { RUNTIME_FILTERS } from "../filters/hardFilterContract.js";
 
 const CONTENT_TYPE_ALIASES = Object.freeze({
   movie: ["movie", "film", "영화"],
@@ -29,9 +30,9 @@ const COUNTRY_ALIASES = Object.freeze({
 });
 
 const RUNTIME_PRESETS = Object.freeze({
-  short: { max: 60 },
-  medium: { min: 61, max: 120 },
-  long: { min: 121 },
+  short: RUNTIME_FILTERS["runtime-short"],
+  medium: RUNTIME_FILTERS["runtime-medium"],
+  long: RUNTIME_FILTERS["runtime-long"],
 });
 
 const clamp01 = (value) => Math.max(0, Math.min(1, Number(value) || 0));

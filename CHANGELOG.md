@@ -2,6 +2,22 @@
 
 프로젝트의 주요 변경 사항을 날짜별로 기록합니다.
 
+## 2026-07-18 - MYOTT-S09-006A2C1
+
+### Product Correctness
+
+- 초기 및 전체 초기화 상태의 OTT 선택을 비워 사용자가 직접 선택한 경우에만 OTT Hard Constraint를 적용합니다.
+- Runtime Tag, Weight Engine, Client Insight가 공통 60분 이하/120분 이하/140분 이상 계약을 사용하도록 통일했습니다.
+- Provider ID `350`은 Apple TV+, `2`는 Apple TV Store로 표시하며 알 수 없는 ID의 원래 이름은 보존합니다.
+- 초기 Browser 렌더의 불안정한 Session fallback 배열로 발생하던 `Maximum update depth exceeded` Console 오류를 제거했습니다.
+- Recommendation Architecture v2.6의 API Shape Breaking은 No, Behavioral Breaking은 Yes로 정정했습니다.
+
+### QA Governance
+
+- `CODEX_QA_PROTOCOL.md` v1.0을 생성해 No Evidence, No PASS, QA Layer 분리, 상태 taxonomy, adversarial QA, Stop-The-Line, Browser 보안 경계와 Final Commit 재실행을 표준화했습니다.
+- `PROMPT_GUIDE.md`를 v1.5.0으로 올리고 Codex Mode를 울트라까지 5단계로 확장했습니다.
+- Standard Prompt에 재사용 가능한 Codex QA Contract를 추가했습니다.
+
 ## 2026-07-18 - MYOTT-S09-006A2C
 
 ### 변경 내용

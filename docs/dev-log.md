@@ -2,6 +2,36 @@
 
 개발 과정에서의 작업 내용, 결정, 아쉬운 점, 다음 개선 사항을 날짜별로 기록합니다.
 
+## 2026-07-18 - MYOTT-S09-006A2C1
+
+### Reproduction Baseline
+
+- Base: `main` / `4f1d12fd0ebf6e71017fbf3d7999a1d510b4f4cf`, Founder Preflight `READY`.
+- 초기 UI의 `initialOtt`가 Netflix로 설정돼 OTT Hard Constraint가 사용자 선택 없이 활성화됐습니다.
+- Weight Engine의 `runtime-medium`은 61~120분으로 해석해 45분 작품의 signal을 0으로 계산했지만 Candidate Hard Filter는 120분 이하로 PASS했습니다.
+- Watch Provider 표시가 이름 문자열을 우선해 `Apple TV`를 ID와 무관하게 Apple TV+로 오인할 수 있었습니다.
+- In-App Browser 연결은 성공했으나 최초 `/` 렌더에서 `Maximum update depth exceeded` Console 오류가 반복됐습니다. `submittedFilters || []`가 매 render마다 새 배열을 만들고 Related effect가 상태를 다시 쓰는 순환이 원인이었습니다.
+
+### Implementation
+
+- 초기/Reset preference helper의 OTT를 빈 배열로 고정했습니다.
+- Runtime Tag와 Client Insight는 `evaluateRuntimeHardFilter`, Weight Engine은 동일 `RUNTIME_FILTERS`를 사용합니다. 45분은 short와 medium에 모두 일치합니다.
+- `serviceName(providerId, providerName)`은 알려진 Provider ID를 우선하고 unknown ID는 원래 이름을 보존합니다.
+- Submitted fallback에 안정된 빈 배열을 사용해 초기 Related effect의 무한 상태 업데이트를 제거했습니다.
+- `CODEX_QA_PROTOCOL.md` v1.0과 Prompt Guide v1.5.0을 추가하고 Architecture v2.6의 Behavioral Breaking Change를 명시했습니다.
+
+### Browser / Full CDP QA
+
+- Browser: Codex In-App Browser. 사용자가 Full CDP 사용을 명시적으로 승인했으며 `http://127.0.0.1:3000`의 현재 탭만 검사했습니다. 다른 Origin, Profile, Cookie, Storage에는 접근하지 않았습니다.
+- 초기 상태를 3회 확인해 OTT 4개 모두 미선택, 영화/드라마/애니 선택, 추천 API 자동 호출 0회, 일반 `/` QA panel 미노출을 확인했습니다.
+- Drama + Action 무 OTT 요청은 OTT query 없이 10개를 반환했습니다. Netflix는 6개 모두 Provider ID `8`, Netflix + Disney+는 10개 모두 `8` 또는 `337`, Apple TV+는 12개 모두 streaming Provider ID `350`이었고 Store ID `2`와 unknown label은 0개였습니다.
+- Runtime medium은 3회 모두 10개로 안정적이었고 7분/24분 작품을 포함해 최대 115분, unknown 0개, `runtimeMatch=1`이었습니다. Runtime long은 12개 모두 최소 140분, unknown 0개, `runtimeMatch=1`이었습니다.
+- 제출 후 Draft를 Action에서 Adventure로 바꿔도 카드, Detail, Related, 적용 조건은 Action snapshot을 유지했습니다. CDP로 첫 요청을 일시 정지한 동안 두 번째 submit은 단일 실행 가드가 네트워크 요청을 만들지 않았고, Reset은 대기 요청을 abort해 늦은 결과가 다시 나타나지 않았습니다. Related A를 정지한 뒤 Detail B를 열면 A가 abort됐고, B 완료 후에도 이전 Related가 덮어쓰지 않았습니다.
+- Movie + Animation style은 Movie 12개, Drama + Animation style은 TV 12개, Animation content type은 Movie/TV Animation 12개로 각각 provider media type과 genre ID `16` 계약을 지켰습니다.
+- Related Picks를 3회 검사해 현재 작품 재노출 0개, 내부 중복 0개였고 sequel은 유지됐습니다. Desktop `1440x900`, Tablet `768x1024`, Mobile `390x844`에서 가로 overflow와 핵심 컨트롤 겹침이 없었습니다.
+- Console error/warning 0건, localhost 4xx/5xx와 loading failure 0건입니다. 증거 요약과 스크린샷은 Repository 밖 `%TEMP%\myott-founder-preview\browser-qa\working-tree`에 저장했습니다.
+- Keyboard-only Browser QA는 인앱 raw CDP bridge가 `Input.dispatchKeyEvent`를 지원하지 않고 Playwright/DOM/CUA 시도도 trusted key interaction을 만들지 못해 `BLOCKED`입니다. 제품 실패로 판정하거나 PASS로 대체하지 않습니다.
+
 ## 2026-07-18 - MYOTT-S09-006A2C
 
 ### Founder QA Baseline

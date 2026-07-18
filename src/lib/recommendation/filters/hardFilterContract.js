@@ -17,6 +17,14 @@ export const OTT_PROVIDER_REGISTRY = Object.freeze({
   }),
 });
 
+const PROVIDER_LABELS_BY_ID = Object.freeze({
+  2: "Apple TV Store",
+  8: "Netflix",
+  119: "Amazon Prime Video",
+  337: "Disney+",
+  350: "Apple TV+",
+});
+
 const OTT_ALIASES = Object.freeze({
   prime: "amazon-prime-video",
   amazon: "amazon-prime-video",
@@ -113,6 +121,14 @@ export function canonicalOttFilter(value = "") {
   const normalized = String(value || "").trim().toLowerCase();
   const canonical = OTT_ALIASES[normalized] || normalized;
   return OTT_PROVIDER_REGISTRY[canonical] ? canonical : "";
+}
+
+export function serviceName(providerId, providerName = "") {
+  const numericId = Number(providerId);
+  if (Number.isFinite(numericId) && PROVIDER_LABELS_BY_ID[numericId]) {
+    return PROVIDER_LABELS_BY_ID[numericId];
+  }
+  return String(providerName || "").trim();
 }
 
 export function selectedOttEntries(filters = []) {
@@ -222,6 +238,10 @@ export function evaluateRuntimeHardFilter(item = {}, filters = []) {
     runtimeMinutes,
     selected: selected.value,
   };
+}
+
+export function runtimeFilterValuesForItem(item = {}) {
+  return Object.keys(RUNTIME_FILTERS).filter((value) => evaluateRuntimeHardFilter(item, [value]).pass);
 }
 
 export function evaluateHardFilters(item = {}, { contentTypes = [], filters = [] } = {}) {

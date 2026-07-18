@@ -24,10 +24,13 @@ import {
 import {
   PRIMARY_OTT_OPTIONS,
   evaluateHardFilters,
+  evaluateRuntimeHardFilter,
   normalizeDisplayContentType,
   normalizeProviderMediaType,
+  runtimeFilterValuesForItem,
 } from "../src/lib/recommendation/filters/hardFilterContract.js";
 import {
+  createInitialPreferenceDraft,
   createRecommendationRequestId,
   createRecommendationSession,
   createSubmittedPreferences,
@@ -320,9 +323,11 @@ const recommendationInsightText = {
   metadataTieBreak: "평점과 인기도를 보조 기준으로 참고했습니다.",
 };
 
-const initialOtt = ["netflix"];
-const initialTypes = ["movie", "drama", "animation"];
+const initialPreferenceDraft = createInitialPreferenceDraft();
+const initialOtt = initialPreferenceDraft.ottProviders;
+const initialTypes = initialPreferenceDraft.contentTypes;
 const initialTitles = ["", "", ""];
+const emptyPreferenceValues = Object.freeze([]);
 const titlePlaceholders = ["예: 인터스텔라", "예: 오징어 게임", "예: 너의 이름은"];
 const showDevProviderStatus = process.env.NODE_ENV !== "production";
 const initialProviderStatus = {
@@ -550,9 +555,7 @@ function tagsFromProviderContent(content) {
   if (country === "브라질") tags.add("country-br");
   if (country === "멕시코") tags.add("country-mx");
 
-  if (runtime >= 140) tags.add("runtime-long");
-  else if (runtime > 0 && runtime <= 60) tags.add("runtime-short");
-  else if (runtime > 0 && runtime <= 120) tags.add("runtime-medium");
+  runtimeFilterValuesForItem({ runtime }).forEach((value) => tags.add(value));
 
   return [...tags];
 }
@@ -720,7 +723,8 @@ function analyzeProviderResult(item, selectedTypes, quickPicks, selectedOtt, opt
   );
   const quickPickTagMatches = quickPicks.reduce((score, quickPick) => score + (item.tags.includes(quickPick) ? 1 : 0), 0);
   const runtimePicks = runtimeQuickPicks(quickPicks);
-  const runtimeMatched = runtimePicks.length > 0 && runtimePicks.some((quickPick) => item.tags.includes(quickPick));
+  const runtimeEvaluation = evaluateRuntimeHardFilter(item, runtimePicks);
+  const runtimeMatched = runtimePicks.length > 0 && runtimeEvaluation.pass;
   const runtimeScore = runtimePicks.length ? (runtimeMatched ? 14 : -10) : 0;
   const relaxedFallbackScore = item.fallbackRelaxed ? -20 : 0;
   const focusedTypes = hasFocusedSelectedTypes(selectedTypes);
@@ -1381,10 +1385,10 @@ export default function Home() {
     ottProviders: selectedOtt,
   }), [titles, confirmedSeeds, selectedTypes, selectedQuickPicks, selectedOtt]);
   const submittedPreferences = recommendationSession?.submittedPreferences || null;
-  const submittedTitles = submittedPreferences?.titles || [];
-  const submittedFilters = submittedPreferences?.filters || [];
-  const submittedTypes = submittedPreferences?.contentTypes || [];
-  const submittedOtt = submittedPreferences?.ottProviders || [];
+  const submittedTitles = submittedPreferences?.titles || emptyPreferenceValues;
+  const submittedFilters = submittedPreferences?.filters || emptyPreferenceValues;
+  const submittedTypes = submittedPreferences?.contentTypes || emptyPreferenceValues;
+  const submittedOtt = submittedPreferences?.ottProviders || emptyPreferenceValues;
   const preferencesDirty = Boolean(submittedPreferences && preferencesChanged(draftPreferences, submittedPreferences));
   const hasOptionPreference = selectedQuickPicks.length > 0 || selectedOtt.length > 0 || selectedTypes.length > 0;
   const canRecommend = (enteredTitles.length > 0 || hasOptionPreference) && recommendationStatus !== "loading";

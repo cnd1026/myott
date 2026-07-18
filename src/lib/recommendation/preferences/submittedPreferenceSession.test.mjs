@@ -2,10 +2,20 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import {
+  createInitialPreferenceDraft,
   createRecommendationSession,
   createSubmittedPreferences,
   preferencesChanged,
 } from "./submittedPreferenceSession.js";
+
+test("initial and reset preference drafts do not activate an OTT hard filter", () => {
+  const initial = createInitialPreferenceDraft();
+  initial.ottProviders.push("netflix");
+  const reset = createInitialPreferenceDraft();
+  assert.deepEqual(reset.ottProviders, []);
+  assert.deepEqual(reset.filters, []);
+  assert.deepEqual(reset.contentTypes, ["movie", "drama", "animation"]);
+});
 
 test("submitted preferences are detached from later draft mutation", () => {
   const draft = { titles: ["인터스텔라"], contentTypes: ["movie"], filters: ["genre-action"], ottProviders: ["netflix"] };

@@ -10,6 +10,8 @@ import {
   normalizeDisplayContentType,
   normalizeProviderMediaType,
   ottDiscoverParameters,
+  runtimeFilterValuesForItem,
+  serviceName,
 } from "./hardFilterContract.js";
 
 const animatedMovie = { mediaType: "movie", type: "animation", genreIds: [16], runtime: 90 };
@@ -72,10 +74,22 @@ test("OTT discover parameters use KR, provider OR, and streaming monetization", 
 test("runtime filters reject unknown and enforce documented ranges", () => {
   assert.equal(evaluateRuntimeHardFilter({ runtime: 0 }, ["runtime-short"]).reason, "runtime-unknown");
   assert.equal(evaluateRuntimeHardFilter({ runtime: 45 }, ["runtime-short"]).pass, true);
+  assert.equal(evaluateRuntimeHardFilter({ runtime: 45 }, ["runtime-medium"]).pass, true);
   assert.equal(evaluateRuntimeHardFilter({ runtime: 100 }, ["runtime-medium"]).pass, true);
   assert.equal(evaluateRuntimeHardFilter({ runtime: 130 }, ["runtime-medium"]).reason, "runtime-mismatch");
   assert.equal(evaluateRuntimeHardFilter({ runtime: 150 }, ["runtime-long"]).pass, true);
   assert.equal(evaluateRuntimeHardFilter({ runtime: 130 }, ["runtime-long"]).reason, "runtime-mismatch");
+  assert.deepEqual(runtimeFilterValuesForItem({ runtime: 45 }), ["runtime-short", "runtime-medium"]);
+  assert.deepEqual(runtimeFilterValuesForItem({ runtime: 100 }), ["runtime-medium"]);
+  assert.deepEqual(runtimeFilterValuesForItem({ runtime: 150 }), ["runtime-long"]);
+});
+
+test("provider display labels prefer stable IDs over ambiguous names", () => {
+  assert.equal(serviceName(350, "Apple TV"), "Apple TV+");
+  assert.equal(serviceName(2, "Apple TV Store"), "Apple TV Store");
+  assert.equal(serviceName(2, "Apple TV"), "Apple TV Store");
+  assert.equal(serviceName(350, "Apple TV+"), "Apple TV+");
+  assert.equal(serviceName(999, "Unknown Stream"), "Unknown Stream");
 });
 
 test("combined hard filters report the first hard exclusion and statuses", () => {

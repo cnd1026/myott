@@ -8,7 +8,7 @@ Last Updated: 2026-07-18
 
 Related Sprint: Sprint 9
 
-Breaking Change: No
+Breaking Change: Yes
 
 Decision Log: [DECISION_LOG.md](./DECISION_LOG.md)
 
@@ -263,9 +263,11 @@ Primary OTT registry는 KR watch provider 기준으로 관리합니다.
 | `amazon-prime-video` | Amazon Prime Video | 119 | Amazon Prime Video |
 | `apple-tv-plus` | Apple TV+ | 350 | Apple TV |
 
-Apple TV+ 구독 Provider `350`은 Apple TV Store rent/buy Provider `2`와 구분합니다. OTT를 선택하면 Discover에 `watch_region=KR`, Provider ID, `flatrate|free|ads` monetization을 전달하고 Detail의 KR `flatrate`, `free`, `ads`를 최종 검증합니다. `rent`, `buy`, Provider unknown, 선택 Provider mismatch는 Primary에 포함하지 않습니다. 여러 OTT 선택은 OR이며 OTT 미선택 요청에는 이 제약을 적용하지 않습니다.
+Apple TV+ 구독 Provider `350`은 Apple TV Store rent/buy Provider `2`와 구분합니다. 표시 이름은 문자열 추정이 아니라 Provider ID를 우선해 `350`은 Apple TV+, `2`는 Apple TV Store로 고정합니다. OTT를 선택하면 Discover에 `watch_region=KR`, Provider ID, `flatrate|free|ads` monetization을 전달하고 Detail의 KR `flatrate`, `free`, `ads`를 최종 검증합니다. `rent`, `buy`, Provider unknown, 선택 Provider mismatch는 Primary에 포함하지 않습니다. 여러 OTT 선택은 OR이며 OTT 미선택 요청에는 이 제약을 적용하지 않습니다.
 
-런타임은 Discover query와 Detail metadata를 함께 사용합니다. `runtime-short`은 60분 이하, `runtime-medium`은 120분 이하, `runtime-long`은 140분 이상입니다. 선택된 런타임을 확인할 수 없거나 범위를 벗어난 후보는 Primary에서 제외합니다. Same-country relaxation은 콘텐츠 타입, OTT, 런타임을 완화하지 않습니다.
+초기 화면과 Reset 상태는 특정 OTT를 자동 선택하지 않습니다. 사용자가 OTT를 직접 선택한 요청에서만 OTT Hard Constraint를 활성화합니다.
+
+런타임은 Discover query와 Detail metadata를 함께 사용합니다. `runtime-short`은 60분 이하, `runtime-medium`은 120분 이하, `runtime-long`은 140분 이상입니다. `runtime-medium`은 하한이 없으므로 45분 작품도 조건과 점수/Insight에 일치합니다. Candidate, Weight Engine, Client ranking은 같은 Runtime Contract를 사용합니다. 선택된 런타임을 확인할 수 없거나 범위를 벗어난 후보는 Primary에서 제외합니다. Same-country relaxation은 콘텐츠 타입, OTT, 런타임을 완화하지 않습니다.
 
 Candidate 처리 순서는 다음 hard filter gate를 포함합니다.
 
@@ -284,7 +286,7 @@ Related는 현재 카드의 `providerMediaType + providerContentId`를 endpoint 
 
 `?qa=1` Founder diagnostics는 production이 아닌 환경에서만 활성화합니다. Environment Provider 상태와 Last Recommendation Source를 분리하고 Request ID, Submitted 조건, Provider genre ID, semantic mode, hard-filter status와 exclusion count를 표시합니다. Credential과 인증 header는 항상 redaction하며 production API는 상세 diagnostics를 반환하지 않습니다.
 
-기존 `results` 배열과 `titles` 입력 계약은 유지하고 optional diagnostics와 metadata만 추가하므로 Breaking Change는 `No`입니다.
+API `results` 배열과 `titles` 입력 Shape는 유지하므로 API Shape Breaking Change는 `No`입니다. 그러나 OTT/런타임이 score-only에서 Hard Constraint로 바뀌고 Submitted Snapshot과 콘텐츠 타입 matrix가 결과 의미를 변경하므로 Behavioral Breaking Change는 `Yes`입니다. Migration 대상은 저장 데이터가 아니라 기존 QA 기대값과 제품 결과 구성입니다.
 
 ### Seed Coverage And Empty State
 
@@ -601,7 +603,8 @@ AI Recommendation 원칙:
 - 추천과 Related의 Abort/sequence latest-response-wins 계약 추가
 - 비 production `?qa=1` Founder diagnostics와 credential redaction 적용
 - QA Dataset 81개, Live Cold/Warm 49개 계약으로 확장
-- 기존 `results`, Country Hard Constraint, Exact 80%, 24/8/16 예산을 유지하므로 Breaking Change `No`
+- API Shape Breaking Change `No`, OTT/런타임 Hard Constraint와 Submitted Snapshot에 따른 Behavioral Breaking Change `Yes`
+- 초기/Reset OTT 미선택, Runtime scoring shared contract, Apple Provider ID 우선 표시 보정
 
 ### v2.5
 

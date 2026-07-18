@@ -113,3 +113,11 @@ Founder QA 전에는 `founder:qa-ready`를 release gate로 사용합니다. 두 
 Provider media type `movie/tv`와 display content type `movie/drama/animation`을 분리합니다. 콘텐츠 타입, 국가, 선택 OTT, 선택 런타임은 공통 hard-filter contract를 사용하며 unknown 또는 mismatch metadata로 Primary 수를 채우지 않습니다. KR OTT registry는 Netflix `8`, Disney Plus `337`, Amazon Prime Video `119`, Apple TV 구독 `350`을 사용하고 Apple TV Store `2`의 rent/buy evidence를 구독 일치로 취급하지 않습니다.
 
 Related는 현재 content의 Provider media type과 TMDB ID를 endpoint identity로 사용하고 현재 작품과 제목 alias를 제거합니다. 추천과 Related 요청은 독립된 Abort/sequence gate에서 최신 응답만 commit합니다. 로컬 `?qa=1` diagnostics는 이 판정 근거를 Founder에게 노출하지만 credential은 redaction하고 production 상세 diagnostics는 비활성화합니다. 기존 `results` 배열과 24/8/16 예산을 유지하므로 Breaking Change는 아닙니다.
+
+## DL-021 Hard Filter 기본값과 QA 증거 계약을 실패 폐쇄형으로 운영
+
+OTT가 Hard Constraint인 상태에서 Netflix를 기본 선택하면 사용자가 선택하지 않은 제한이 모든 최초 요청에 숨어 들어갑니다. 초기 화면과 Reset은 OTT 미선택으로 고정하고, 직접 선택한 경우에만 Provider filter를 활성화합니다. Runtime은 Candidate gate, Weight Engine, Client Insight가 동일한 60분 이하/120분 이하/140분 이상 계약을 사용하며, Apple Provider 표시는 이름보다 ID `350`과 `2`를 우선합니다.
+
+Recommendation Architecture v2.6은 API Shape를 유지하지만 결과 의미가 달라지는 Behavioral Breaking Change입니다. 저장 데이터 migration은 없으며 QA 기대값과 제품 결과 구성을 다시 검토합니다.
+
+`CODEX_QA_PROTOCOL.md`를 MyOTT Codex QA의 canonical Source of Truth로 사용합니다. No Evidence, No PASS, QA Layer 분리, adversarial 검사, Stop-The-Line, Browser 보안 경계와 Final Commit 재실행을 모든 후속 Task에 적용합니다. Codex 기술 PASS는 Founder 제품 PASS를 대체하지 않습니다.

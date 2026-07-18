@@ -7,6 +7,16 @@ const cleanArray = (values = []) => (Array.isArray(values) ? values : [])
   .map((value) => typeof value === "string" ? value : value)
   .filter((value) => typeof value !== "string" || value.trim());
 
+const DEFAULT_CONTENT_TYPES = Object.freeze(["movie", "drama", "animation"]);
+
+export function createInitialPreferenceDraft() {
+  return {
+    contentTypes: [...DEFAULT_CONTENT_TYPES],
+    filters: [],
+    ottProviders: [],
+  };
+}
+
 export function createSubmittedPreferences({
   titles = [],
   confirmedSeeds = {},
