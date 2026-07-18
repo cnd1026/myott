@@ -119,7 +119,7 @@ test("legacy filters resolve to canonical format, audience, and style values", (
 test("genre match strength orders exact, semantic specialization, combined, and relaxed", () => {
   const exact = genreMatchStrength({ mediaType: "movie", genreIds: [28] }, ["genre-action"]);
   const semantic = genreMatchStrength(fixture([10759], ["martial arts"]), ["genre-action"]);
-  const combined = genreMatchStrength(fixture([10765]), ["genre-sf"]);
+  const combined = genreMatchStrength(fixture([10765]), ["genre-sf-fantasy"]);
   const relaxed = genreMatchStrength(fixture([18]), ["genre-horror"]);
 
   assert.ok(exact.strength > semantic.strength);

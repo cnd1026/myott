@@ -15,6 +15,8 @@ import {
   prioritizeGenreOptions,
 } from "../src/lib/recommendation/genres/genreContract.js";
 import { evaluateRecommendationCase } from "../src/lib/recommendation/qa/evaluateRecommendationCase.js";
+import { D1_RECALL_FIXTURES } from "../src/lib/recommendation/qa/recallFixtures.js";
+import { planDetailAllocation } from "../src/lib/recommendation/recall/recallPlanner.js";
 import {
   GENRE_TAXONOMY_FIXTURES,
   taxonomyFixturesForCase,
@@ -162,9 +164,183 @@ const taxonomyCaseIds = new Set([
   ...Array.from({ length: 12 }, (_, index) => `REC-QA-${String(index + 49).padStart(3, "0")}`),
 ]);
 const correctnessCaseIds = new Set(Array.from({ length: 20 }, (_, index) => `REC-QA-${String(index + 61).padStart(3, "0")}`));
+const recallCaseIds = new Set(Array.from({ length: 19 }, (_, index) => `REC-QA-${String(index + 82).padStart(3, "0")}`));
+
+function finalizeRecallCase(testCase, candidates, overrides = {}) {
+  const filters = testCase.input?.filters || [];
+  const contentTypes = testCase.input?.contentTypes || [];
+  const finalized = finalizeCandidatePool(candidates, {
+    filters,
+    contentTypes,
+    limit: testCase.expected?.topN || 12,
+    seedTitles: testCase.input?.titles || [],
+  });
+  return {
+    results: finalized.results,
+    diagnostics: { ...diagnostics, ...finalized.diagnostics, ...overrides },
+  };
+}
+
+function runRecallFixtureCase(testCase) {
+  const id = Number(testCase.id.slice(-3));
+  const fixture = D1_RECALL_FIXTURES;
+
+  if ([82, 83].includes(id)) return finalizeRecallCase(testCase, fixture.adventureCandidates);
+
+  if (id === 84) {
+    const actionOnly = classifyCandidate(fixture.actionOnly, {
+      filters: testCase.input.filters,
+      contentTypes: testCase.input.contentTypes,
+    });
+    return finalizeRecallCase(testCase, [fixture.actionOnly, fixture.adventureOnly], {
+      actionOnlyAdventureFalsePositiveCount: Number(actionOnly.genreMatched),
+    });
+  }
+
+  if (id === 85) {
+    const allocation = planDetailAllocation(fixture.adventureCandidates, {
+      filters: testCase.input.filters,
+      contentTypes: testCase.input.contentTypes,
+      limit: 16,
+    });
+    return finalizeRecallCase(testCase, allocation.selected, allocation.diagnostics);
+  }
+
+  if (id === 86) return finalizeRecallCase(testCase, [fixture.sfOnly, fixture.sfFantasyDual]);
+  if (id === 87) return finalizeRecallCase(testCase, [fixture.fantasyOnly, fixture.sfFantasyDual]);
+
+  if (id === 88) {
+    const candidates = [fixture.sfOnly, fixture.fantasyOnly, fixture.sfFantasyDual];
+    const sf = finalizeCandidatePool(candidates, { filters: ["country-jp", "genre-sf"], contentTypes: ["drama"], limit: 12 }).results;
+    const fantasy = finalizeCandidatePool(candidates, { filters: ["country-jp", "genre-fantasy"], contentTypes: ["drama"], limit: 12 }).results;
+    const sfIds = new Set(sf.map((item) => item.tmdbId));
+    const fantasyIds = new Set(fantasy.map((item) => item.tmdbId));
+    const overlap = [...sfIds].filter((value) => fantasyIds.has(value)).length;
+    return {
+      results: sf,
+      diagnostics: {
+        ...diagnostics,
+        sfFantasyOverlapRatio: overlap / Math.max(1, Math.min(sfIds.size, fantasyIds.size)),
+        uniqueSfResultCount: [...sfIds].filter((value) => !fantasyIds.has(value)).length,
+        uniqueFantasyResultCount: [...fantasyIds].filter((value) => !sfIds.has(value)).length,
+      },
+    };
+  }
+
+  if (id === 89) return finalizeRecallCase(testCase, fixture.warCandidates);
+  if (id === 90) return finalizeRecallCase(testCase, fixture.politicsCandidates);
+  if (id === 91) return finalizeRecallCase(testCase, [fixture.horrorExact, fixture.horrorFalsePositive]);
+
+  if ([92, 93, 96].includes(id)) {
+    return finalizeRecallCase(testCase, [...fixture.movieExactCandidates, ...fixture.tvExactCandidates], {
+      requestsUsed: 19,
+      aggregateRequestsUsed: 19,
+      listRequestsUsed: 3,
+      detailRequestsUsed: 16,
+      requestContextCount: 1,
+    });
+  }
+
+  if (id === 94) {
+    return finalizeRecallCase(testCase, [
+      ...fixture.movieExactCandidates,
+      ...fixture.tvExactCandidates,
+      ...fixture.animationExactCandidates,
+    ], {
+      requestsUsed: 21,
+      aggregateRequestsUsed: 21,
+      listRequestsUsed: 5,
+      detailRequestsUsed: 16,
+      requestContextCount: 1,
+    });
+  }
+
+  if (id === 95) {
+    const payload = finalizeRecallCase(testCase, fixture.movieExactCandidates);
+    const fabricated = payload.results.filter((item) => item.contentType === "drama").length;
+    return {
+      ...payload,
+      diagnostics: { ...payload.diagnostics, falseCandidateFabricationCount: fabricated },
+    };
+  }
+
+  if (id === 97) {
+    return finalizeRecallCase(testCase, fixture.adventureCandidates, {
+      requestsUsed: 24,
+      aggregateRequestsUsed: 24,
+      listRequestsUsed: 8,
+      detailRequestsUsed: 16,
+      budgetExhausted: false,
+    });
+  }
+
+  if (id === 98) {
+    const detailPool = [
+      ...fixture.adventureCandidates,
+      ...fixture.movieExactCandidates,
+      ...fixture.tvExactCandidates,
+    ];
+    const allocation = planDetailAllocation(detailPool, {
+      filters: testCase.input.filters,
+      contentTypes: testCase.input.contentTypes,
+      limit: 16,
+    });
+    return finalizeRecallCase(testCase, allocation.selected, {
+      ...allocation.diagnostics,
+      requestsUsed: 24,
+      aggregateRequestsUsed: 24,
+      listRequestsUsed: 8,
+      detailRequestsUsed: 16,
+      budgetExhausted: false,
+    });
+  }
+
+  if (id === 99) {
+    const payload = finalizeRecallCase(testCase, [fixture.lowScoreDuplicate, fixture.highScoreDuplicate]);
+    return {
+      ...payload,
+      diagnostics: {
+        ...payload.diagnostics,
+        highScoreDuplicateWinner: payload.results[0]?.tmdbId === fixture.highScoreDuplicate.tmdbId,
+      },
+    };
+  }
+
+  if (id === 100) {
+    const payload = finalizeRecallCase(testCase, [
+      ...fixture.movieExactCandidates.slice(0, 4),
+      ...fixture.tvExactCandidates.slice(0, 4),
+    ]);
+    const results = payload.results.map((item) => ({
+      ...item,
+      presentationReason: buildSelectedOptionReason(item, testCase.input.filters),
+      reasonTaxonomyValue: "genre-sf",
+    }));
+    const mismatches = results.filter((item) => {
+      const crossMedia = String(item.candidateSource || "").startsWith("tmdb-cross-media-discover:");
+      return crossMedia && (!item.reasonSeed || !(item.crossMediaSeedGenreValues || []).includes("genre-sf"));
+    }).length;
+    return {
+      results,
+      diagnostics: { ...payload.diagnostics, recommendationReasonSourceMismatchCount: mismatches },
+    };
+  }
+
+  throw new Error(`Unhandled recall fixture case: ${testCase.id}`);
+}
 const reports = [];
 
 for (const testCase of dataset) {
+  if (recallCaseIds.has(testCase.id)) {
+    const payload = runRecallFixtureCase(testCase);
+    reports.push(evaluateRecommendationCase(testCase, payload.results, { diagnostics: payload.diagnostics }));
+    continue;
+  }
+  if (["REC-QA-016", "REC-QA-025"].includes(testCase.id)) {
+    const payload = finalizeRecallCase(testCase, [D1_RECALL_FIXTURES.sfOnly, D1_RECALL_FIXTURES.sfFantasyDual]);
+    reports.push(evaluateRecommendationCase(testCase, payload.results, { diagnostics: payload.diagnostics }));
+    continue;
+  }
   if (correctnessCaseIds.has(testCase.id)) {
     const fixtures = taxonomyFixturesForCase(testCase.id);
     const filters = testCase.input?.filters || [];

@@ -428,6 +428,20 @@ export function evaluateRecommendationCase(testCase, recommendationResults = [],
   const duplicateTmdbIdCount = duplicateValueCount(scopedResults.map((result) => (
     result.tmdbId || result.providerContentId || ""
   )).filter(Boolean));
+  const requestedContentTypes = normalizeValues(testCase.input?.contentTypes || []);
+  const selectedExactByType = diagnostics.selectedExactByType || scopedResults.reduce((counts, result) => {
+    const type = resultContentType(result);
+    counts[type] = (counts[type] || 0) + 1;
+    return counts;
+  }, { movie: 0, drama: 0, animation: 0 });
+  const availableExactByType = diagnostics.availableExactByType || selectedExactByType;
+  const availableRequestedTypes = requestedContentTypes.filter((type) => Number(availableExactByType[type] || 0) > 0);
+  const minimumSelectedAvailableTypeCount = availableRequestedTypes.length
+    ? Math.min(...availableRequestedTypes.map((type) => Number(selectedExactByType[type] || 0)))
+    : 0;
+  const crossMediaResults = scopedResults.filter((result) => (
+    String(result.candidateSource || "").startsWith("tmdb-cross-media-discover:")
+  ));
 
   const metrics = {
     countryRatio: ratio(countBy(scopedResults, (result) => resultCountryMatches(result, expected.match?.country || [])), totalCount),
@@ -641,6 +655,32 @@ export function evaluateRecommendationCase(testCase, recommendationResults = [],
     diagnosticsSecretExposureCount: Number.isFinite(diagnostics.diagnosticsSecretExposureCount)
       ? Number(diagnostics.diagnosticsSecretExposureCount)
       : founderDiagnosticsSecretExposureCount(diagnostics),
+    sameCountryGenreRelaxedCount: countBy(scopedResults, (result) => result.resultTier === "same-country-relaxed"),
+    actionOnlyAdventureFalsePositiveCount: Number(diagnostics.actionOnlyAdventureFalsePositiveCount || 0),
+    adventureDetailAllocationCount: Number(
+      diagnostics.detailSelectedBySemanticFamily?.["action-adventure"] ||
+      diagnostics.adventureDetailAllocationCount ||
+      0
+    ),
+    sfFantasyOverlapRatio: Number(diagnostics.sfFantasyOverlapRatio || 0),
+    uniqueSfResultCount: Number(diagnostics.uniqueSfResultCount || 0),
+    uniqueFantasyResultCount: Number(diagnostics.uniqueFantasyResultCount || 0),
+    minimumSelectedAvailableTypeCount,
+    selectedExactByType,
+    availableExactByType,
+    typeCoverageShortfallCount: Object.values(diagnostics.typeCoverageShortfall || {}).reduce((sum, value) => sum + Number(value || 0), 0),
+    crossMediaResultCount: crossMediaResults.length,
+    crossMediaSeedRelatedRatio: ratio(
+      countBy(crossMediaResults, (result) => (
+        Boolean(result.reasonSeed || result.seedTitle) && (result.crossMediaSeedGenreValues || []).length > 0
+      )),
+      crossMediaResults.length,
+    ),
+    falseCandidateFabricationCount: Number(diagnostics.falseCandidateFabricationCount || 0),
+    highScoreDuplicateWinner: diagnostics.highScoreDuplicateWinner !== false,
+    recommendationReasonSourceMismatchCount: Number(diagnostics.recommendationReasonSourceMismatchCount || 0),
+    detailSelectedCount: Number(diagnostics.detailSelectedCount || 0),
+    recallAvailability: diagnostics.recallAvailability || "not-provided",
   };
 
   const failedReasons = [];
@@ -886,7 +926,10 @@ export function evaluateRecommendationCase(testCase, recommendationResults = [],
   if (metrics.semanticDoubleScoreCount > Number(expected.maximumSemanticDoubleScoreCount ?? Infinity)) {
     failedReasons.push("semantic-family-double-counted");
   }
-  if (Number.isFinite(expected.minimumControlledCombinedCount) && metrics.controlledCombinedCount < expected.minimumControlledCombinedCount) {
+  const minimumControlledCombinedCount = diagnostics.liveQa && Number.isFinite(expected.minimumLiveControlledCombinedCount)
+    ? expected.minimumLiveControlledCombinedCount
+    : expected.minimumControlledCombinedCount;
+  if (Number.isFinite(minimumControlledCombinedCount) && metrics.controlledCombinedCount < minimumControlledCombinedCount) {
     failedReasons.push("controlled-combined-quality-failure");
   }
   if (metrics.plainDramaActionFalsePositiveCount > Number(expected.maximumPlainDramaActionFalsePositiveCount ?? Infinity)) {
@@ -993,6 +1036,69 @@ export function evaluateRecommendationCase(testCase, recommendationResults = [],
   }
   if (expected.requiresFallbackDiagnostics && !diagnostics.fallbackDiagnosticsVisible) {
     failedReasons.push("qa-diagnostics-missing");
+  }
+  if (
+    Number.isFinite(expected.maximumSameCountryGenreRelaxedCount) &&
+    metrics.sameCountryGenreRelaxedCount > expected.maximumSameCountryGenreRelaxedCount
+  ) {
+    failedReasons.push("same-country-genre-relaxation-used");
+  }
+  if (
+    Number.isFinite(expected.maximumActionOnlyAdventureFalsePositiveCount) &&
+    metrics.actionOnlyAdventureFalsePositiveCount > expected.maximumActionOnlyAdventureFalsePositiveCount
+  ) {
+    failedReasons.push("action-candidate-misclassified-as-adventure");
+  }
+  if (
+    Number.isFinite(expected.minimumAdventureDetailAllocationCount) &&
+    metrics.adventureDetailAllocationCount < expected.minimumAdventureDetailAllocationCount
+  ) {
+    failedReasons.push("semantic-detail-allocation-missing");
+  }
+  if (Number.isFinite(expected.maximumSfFantasyOverlapRatio) && metrics.sfFantasyOverlapRatio > expected.maximumSfFantasyOverlapRatio) {
+    failedReasons.push("sf-fantasy-overlap-above-threshold");
+  }
+  if (Number.isFinite(expected.minimumUniqueSfResultCount) && metrics.uniqueSfResultCount < expected.minimumUniqueSfResultCount) {
+    failedReasons.push("sf-unique-result-count-below-threshold");
+  }
+  if (Number.isFinite(expected.minimumUniqueFantasyResultCount) && metrics.uniqueFantasyResultCount < expected.minimumUniqueFantasyResultCount) {
+    failedReasons.push("fantasy-unique-result-count-below-threshold");
+  }
+  if (
+    Number.isFinite(expected.minimumSelectedAvailableTypeCount) &&
+    metrics.minimumSelectedAvailableTypeCount < expected.minimumSelectedAvailableTypeCount
+  ) {
+    failedReasons.push("requested-type-coverage-shortfall");
+  }
+  if (Number.isFinite(expected.maximumTypeCoverageShortfallCount) && metrics.typeCoverageShortfallCount > expected.maximumTypeCoverageShortfallCount) {
+    failedReasons.push("requested-type-coverage-shortfall");
+  }
+  if (Number.isFinite(expected.minimumCrossMediaResultCount) && metrics.crossMediaResultCount < expected.minimumCrossMediaResultCount) {
+    failedReasons.push("cross-media-supplement-missing");
+  }
+  if (
+    Number.isFinite(expected.minimumCrossMediaSeedRelatedRatio) &&
+    metrics.crossMediaSeedRelatedRatio < expected.minimumCrossMediaSeedRelatedRatio
+  ) {
+    failedReasons.push("cross-media-seed-relationship-missing");
+  }
+  if (metrics.falseCandidateFabricationCount > Number(expected.maximumFalseCandidateFabricationCount ?? Infinity)) {
+    failedReasons.push("missing-type-fabricated");
+  }
+  if (expected.highScoreDuplicateWinner === true && !metrics.highScoreDuplicateWinner) {
+    failedReasons.push("low-score-duplicate-won");
+  }
+  if (
+    metrics.recommendationReasonSourceMismatchCount >
+    Number(expected.maximumRecommendationReasonSourceMismatchCount ?? Infinity)
+  ) {
+    failedReasons.push("recommendation-reason-source-mismatch");
+  }
+  if (Number.isFinite(expected.minimumDetailSelectedCount) && metrics.detailSelectedCount < expected.minimumDetailSelectedCount) {
+    failedReasons.push("semantic-detail-allocation-missing");
+  }
+  if (expected.recallAvailability && metrics.recallAvailability !== expected.recallAvailability) {
+    failedReasons.push("recall-availability-mismatch");
   }
 
   for (const condition of expected.failIf || []) {

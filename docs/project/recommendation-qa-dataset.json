@@ -1361,7 +1361,7 @@
     "mood": [],
     "runtime": null,
     "input": { "titles": [], "filters": ["genre-action"], "contentTypes": ["drama"] },
-    "expected": { "topN": 12, "match": { "contentType": ["drama"], "genreAny": ["action"] }, "minimumControlledCombinedCount": 1, "maximumPlainDramaActionFalsePositiveCount": 0 },
+    "expected": { "topN": 12, "match": { "contentType": ["drama"], "genreAny": ["action"] }, "minimumControlledCombinedCount": 1, "minimumLiveControlledCombinedCount": 0, "maximumPlainDramaActionFalsePositiveCount": 0 },
     "minimumMatchRatio": 0.5,
     "priority": "critical",
     "scope": ["fixture", "tmdb"],
@@ -1576,5 +1576,195 @@
     "priority": "critical",
     "scope": ["fixture", "tmdb"],
     "notes": "Live and deterministic paths require known movie runtime at or below 120 minutes."
+  },
+  {
+    "id": "REC-QA-082",
+    "title": "Drama Adventure exact recall reaches available threshold",
+    "input": { "titles": [], "filters": ["genre-adventure"], "contentTypes": ["drama"] },
+    "expected": { "topN": 12, "minimumResultCount": 8, "match": { "contentType": ["drama"], "genreAny": ["adventure"] }, "minimumContentTypeRatio": 1, "minimumSemanticSpecializedGenreRatio": 1, "minimumLiveSemanticSpecializedGenreRatio": 0.8 },
+    "minimumMatchRatio": 1,
+    "priority": "critical",
+    "scope": ["fixture", "tmdb"],
+    "notes": "Available TV adventure evidence is retrieved before any genre relaxation."
+  },
+  {
+    "id": "REC-QA-083",
+    "title": "Drama Adventure never uses same-country genre relaxation",
+    "input": { "titles": [], "filters": ["genre-adventure"], "contentTypes": ["drama"] },
+    "expected": { "topN": 12, "match": { "contentType": ["drama"], "genreAny": ["adventure"] }, "maximumSameCountryGenreRelaxedCount": 0, "maximumCountryRelaxedRatio": 0 },
+    "minimumMatchRatio": 1,
+    "priority": "critical",
+    "scope": ["fixture", "tmdb"],
+    "notes": "Adventure breadth never comes from unrelated same-country drama."
+  },
+  {
+    "id": "REC-QA-084",
+    "title": "Action candidate is not automatically Adventure",
+    "input": { "titles": [], "filters": ["genre-adventure"], "contentTypes": ["drama"] },
+    "expected": { "topN": 2, "match": { "contentType": ["drama"], "genreAny": ["adventure"] }, "maximumActionOnlyAdventureFalsePositiveCount": 0 },
+    "minimumMatchRatio": 1,
+    "priority": "critical",
+    "scope": ["fixture"],
+    "notes": "TV 10759 action-only evidence cannot satisfy the adventure specialization."
+  },
+  {
+    "id": "REC-QA-085",
+    "title": "Adventure semantic candidate receives detail allocation",
+    "input": { "titles": [], "filters": ["genre-adventure"], "contentTypes": ["drama"] },
+    "expected": { "topN": 8, "match": { "contentType": ["drama"], "genreAny": ["adventure"] }, "minimumAdventureDetailAllocationCount": 8, "minimumDetailSelectedCount": 8 },
+    "minimumMatchRatio": 1,
+    "priority": "critical",
+    "scope": ["fixture"],
+    "notes": "Provider-combined candidates receive fair detail opportunities before semantic filtering."
+  },
+  {
+    "id": "REC-QA-086",
+    "title": "Japan SF retains SF-specialized evidence",
+    "input": { "titles": [], "filters": ["country-jp", "genre-sf"], "contentTypes": ["drama"] },
+    "expected": { "topN": 12, "minimumLiveResultCount": 8, "match": { "country": ["JP"], "contentType": ["drama"], "genreAny": ["sf"] }, "minimumCountryRatio": 1, "minimumContentTypeRatio": 1, "minimumSemanticSpecializedGenreRatio": 1, "minimumLiveSemanticSpecializedGenreRatio": 0.8 },
+    "minimumMatchRatio": 1,
+    "priority": "critical",
+    "scope": ["fixture", "tmdb"],
+    "notes": "TV 10765 requires SF evidence for the specialized SF filter."
+  },
+  {
+    "id": "REC-QA-087",
+    "title": "Japan Fantasy retains Fantasy-specialized evidence",
+    "input": { "titles": [], "filters": ["country-jp", "genre-fantasy"], "contentTypes": ["drama"] },
+    "expected": { "topN": 12, "minimumLiveResultCount": 8, "match": { "country": ["JP"], "contentType": ["drama"], "genreAny": ["fantasy"] }, "minimumCountryRatio": 1, "minimumContentTypeRatio": 1, "minimumSemanticSpecializedGenreRatio": 1, "minimumLiveSemanticSpecializedGenreRatio": 0.8 },
+    "minimumMatchRatio": 1,
+    "priority": "critical",
+    "scope": ["fixture", "tmdb"],
+    "notes": "TV 10765 requires fantasy evidence for the specialized fantasy filter."
+  },
+  {
+    "id": "REC-QA-088",
+    "title": "SF and Fantasy overlap remains within contract",
+    "input": { "titles": [], "filters": ["country-jp"], "contentTypes": ["drama"] },
+    "expected": { "topN": 3, "maximumSfFantasyOverlapRatio": 0.6, "minimumUniqueSfResultCount": 1, "minimumUniqueFantasyResultCount": 1 },
+    "minimumMatchRatio": 0,
+    "priority": "critical",
+    "scope": ["fixture"],
+    "notes": "Specialized evidence creates distinct SF and fantasy sets without random exclusion."
+  },
+  {
+    "id": "REC-QA-089",
+    "title": "UK War country hard constraint",
+    "input": { "titles": [], "filters": ["country-gb", "genre-war"], "contentTypes": ["drama"] },
+    "expected": { "topN": 12, "minimumLiveResultCount": 8, "match": { "country": ["GB"], "contentType": ["drama"], "genreAny": ["war"] }, "minimumCountryRatio": 1, "minimumContentTypeRatio": 1, "minimumLiveSemanticSpecializedGenreRatio": 0.8 },
+    "minimumMatchRatio": 1,
+    "priority": "critical",
+    "scope": ["fixture", "tmdb"],
+    "notes": "Additional breadth cannot relax the UK hard constraint."
+  },
+  {
+    "id": "REC-QA-090",
+    "title": "UK Politics country hard constraint",
+    "input": { "titles": [], "filters": ["country-gb", "genre-politics"], "contentTypes": ["drama"] },
+    "expected": { "topN": 12, "minimumLiveResultCount": 8, "match": { "country": ["GB"], "contentType": ["drama"], "genreAny": ["politics"] }, "minimumCountryRatio": 1, "minimumContentTypeRatio": 1, "minimumLiveSemanticSpecializedGenreRatio": 0.8 },
+    "minimumMatchRatio": 1,
+    "priority": "critical",
+    "scope": ["fixture", "tmdb"],
+    "notes": "Additional breadth cannot relax the UK hard constraint."
+  },
+  {
+    "id": "REC-QA-091",
+    "title": "US Horror semantic precision",
+    "input": { "titles": [], "filters": ["country-us", "genre-horror"], "contentTypes": ["drama"] },
+    "expected": { "topN": 12, "minimumLiveResultCount": 8, "match": { "country": ["US"], "contentType": ["drama"], "genreAny": ["horror"] }, "minimumCountryRatio": 1, "minimumContentTypeRatio": 1, "minimumLiveSemanticSpecializedGenreRatio": 0.8, "maximumPlainMysteryHorrorFalsePositiveCount": 0 },
+    "minimumMatchRatio": 1,
+    "priority": "critical",
+    "scope": ["fixture", "tmdb"],
+    "notes": "Mystery 9648 alone remains insufficient for TV horror."
+  },
+  {
+    "id": "REC-QA-092",
+    "title": "Movie Seed plus Movie and Drama collects both media types",
+    "input": { "titles": ["인터스텔라"], "filters": [], "contentTypes": ["movie", "drama"] },
+    "expected": { "topN": 12, "minimumResultCount": 6, "minimumSelectedAvailableTypeCount": 3, "maximumTypeCoverageShortfallCount": 0, "minimumCrossMediaResultCount": 3, "minimumCrossMediaSeedRelatedRatio": 1, "maximumTmdbRequestCount": 24, "maximumListRequestCount": 8, "maximumDetailRequestCount": 16 },
+    "minimumMatchRatio": 0,
+    "priority": "critical",
+    "scope": ["fixture", "tmdb"],
+    "notes": "A movie seed reserves a related TV collection path when drama is selected."
+  },
+  {
+    "id": "REC-QA-093",
+    "title": "Two-type exact pool reserves at least three per available type",
+    "input": { "titles": [], "filters": [], "contentTypes": ["movie", "drama"] },
+    "expected": { "topN": 12, "minimumSelectedAvailableTypeCount": 3, "maximumTypeCoverageShortfallCount": 0 },
+    "minimumMatchRatio": 0,
+    "priority": "critical",
+    "scope": ["fixture"],
+    "notes": "Final assembly reserves coverage before filling remaining score-ranked slots."
+  },
+  {
+    "id": "REC-QA-094",
+    "title": "Three-type exact pool reserves at least two per available type",
+    "input": { "titles": ["인터스텔라"], "filters": [], "contentTypes": ["movie", "drama", "animation"] },
+    "expected": { "topN": 12, "minimumSelectedAvailableTypeCount": 2, "maximumTypeCoverageShortfallCount": 0, "maximumTmdbRequestCount": 24, "maximumListRequestCount": 8, "maximumDetailRequestCount": 16 },
+    "minimumMatchRatio": 0,
+    "priority": "critical",
+    "scope": ["fixture", "tmdb"],
+    "notes": "Animation counts as one display type while movie and TV provider paths remain distinct."
+  },
+  {
+    "id": "REC-QA-095",
+    "title": "Missing type pool does not create false candidates",
+    "input": { "titles": [], "filters": [], "contentTypes": ["movie", "drama"] },
+    "expected": { "topN": 12, "maximumFalseCandidateFabricationCount": 0 },
+    "minimumMatchRatio": 0,
+    "priority": "critical",
+    "scope": ["fixture"],
+    "notes": "An empty TV exact pool remains an explicit scarcity instead of a fabricated result."
+  },
+  {
+    "id": "REC-QA-096",
+    "title": "Cross-media supplement preserves seed relationship",
+    "input": { "titles": ["인터스텔라"], "filters": [], "contentTypes": ["movie", "drama"] },
+    "expected": { "topN": 12, "minimumCrossMediaResultCount": 3, "minimumCrossMediaSeedRelatedRatio": 1 },
+    "minimumMatchRatio": 0,
+    "priority": "critical",
+    "scope": ["fixture", "tmdb"],
+    "notes": "Cross-media candidates carry both the seed identity and transferable genre evidence."
+  },
+  {
+    "id": "REC-QA-097",
+    "title": "Adaptive recall list budget remains eight",
+    "input": { "titles": [], "filters": ["genre-adventure"], "contentTypes": ["drama"] },
+    "expected": { "topN": 8, "maximumTmdbRequestCount": 24, "maximumListRequestCount": 8, "requestBudgetExceeded": false },
+    "minimumMatchRatio": 0,
+    "priority": "critical",
+    "scope": ["fixture", "tmdb"],
+    "notes": "Recall breadth comes from scheduling rather than a larger list budget."
+  },
+  {
+    "id": "REC-QA-098",
+    "title": "Detail allocation remains sixteen",
+    "input": { "titles": [], "filters": ["genre-adventure"], "contentTypes": ["drama"] },
+    "expected": { "topN": 12, "maximumTmdbRequestCount": 24, "maximumDetailRequestCount": 16, "minimumDetailSelectedCount": 8, "requestBudgetExceeded": false },
+    "minimumMatchRatio": 0,
+    "priority": "critical",
+    "scope": ["fixture", "tmdb"],
+    "notes": "Semantic detail fairness stays within the existing detail ceiling."
+  },
+  {
+    "id": "REC-QA-099",
+    "title": "High-score duplicate wins over lower-score duplicate",
+    "input": { "titles": [], "filters": ["genre-sf"], "contentTypes": ["movie"] },
+    "expected": { "topN": 1, "highScoreDuplicateWinner": true, "maximumDuplicateDisplayTitleCount": 0, "maximumDuplicateTmdbIdCount": 0 },
+    "minimumMatchRatio": 0,
+    "priority": "critical",
+    "scope": ["fixture"],
+    "notes": "Scoring precedes display-title deduplication."
+  },
+  {
+    "id": "REC-QA-100",
+    "title": "Recommendation reason matches actual candidate source and genre",
+    "input": { "titles": ["인터스텔라"], "filters": ["genre-sf"], "contentTypes": ["movie", "drama"] },
+    "expected": { "topN": 8, "maximumRecommendationReasonSourceMismatchCount": 0, "minimumCrossMediaSeedRelatedRatio": 1 },
+    "minimumMatchRatio": 0,
+    "priority": "critical",
+    "scope": ["fixture"],
+    "notes": "Direct and cross-media reasons retain their real seed and genre provenance."
   }
 ]

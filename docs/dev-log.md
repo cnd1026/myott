@@ -1,6 +1,70 @@
 # Development Log
 
 개발 과정에서의 작업 내용, 결정, 아쉬운 점, 다음 개선 사항을 날짜별로 기록합니다.
+
+## 2026-07-18 - MYOTT-S09-006A2D1 Baseline
+
+### Recall / Cross-media Reproduction
+
+- Base: `main` / `090555918e2c238e4b3735302d1520c2531317a5`, Founder Preflight `READY`.
+- Live Cold fixture와 실제 Product multi-seed API를 사용했으며 Provider는 TMDB, fallback과 Mock 혼합은 없었습니다.
+- 현재 진단에 없는 `rawCandidatesByStage`, `detailSelectedByMediaType`, `detailSkippedByReason`, `availableExactByType` 값은 0으로 추정하지 않고 `not-provided`로 기록했습니다.
+
+| Case | Provider total | Raw / Detail | Semantic / Exact | Final | List / Detail | Early stop / 핵심 관측 |
+| --- | ---: | ---: | ---: | ---: | ---: | --- |
+| Drama + Adventure | 964 | 64 / 16 | 9 / 8 | 8 | 4 / 16 | exact 3단계 후 genre-relaxed 목록까지 요청. Detail 대상 밖에 Provider Combined 후보가 남아 회수 손실 가능성이 큼 |
+| Japan + SF + Drama | 24 | 20 / 16 | 20 / 20 | 12 | 1 / 16 | `exact-target-and-type-coverage-reached`; semantic-specialized 8, provider-combined 4 |
+| Japan + Fantasy + Drama | 24 | 20 / 16 | 20 / 20 | 12 | 1 / 16 | semantic-specialized 2, provider-combined 10 |
+| UK + War + Drama | 57 | 57 / 16 | 6 / 6 | 7 | 4 / 16 | specialized 6 + same-country-relaxed 1; genre mismatch 49 |
+| UK + Politics + Drama | 57 | 57 / 16 | 4 / 4 | 5 | 4 / 16 | specialized 4 + same-country-relaxed 1; genre mismatch 51 |
+| US + Horror + Drama | 453 | 61 / 16 | 8 / 8 | 10 | 4 / 16 | specialized 8 + same-country-relaxed 2; genre mismatch 51 |
+| Interstellar + Movie + Drama | recommendations 481 | 19 / 16 | 12 / 12 | 12 | 2 / 16 | `seed-recommendations-sufficient`; raw movie 19, drama 0 |
+
+### Root Cause Evidence
+
+- Drama + Adventure는 Provider의 TV `10759` 후보가 충분하지만 Detail Budget 16이 타입 내부의 요청 source와 semantic family를 예약하지 않아 정확 후보 회수율이 실행마다 7~8개 경계에 머뭅니다. Same-country genre relaxation은 최종 결과에 쓰이지 않았습니다.
+- Japan SF와 Fantasy는 같은 TV `10765` 목록을 사용합니다. 두 결과의 중복은 8/12(66.7%), 각 고유 결과는 4개였고 Fantasy specialized evidence는 2/12에 불과해 Provider Combined가 세부 장르 분리를 대신하고 있었습니다.
+- UK War/Politics와 US Horror는 Provider pool보다 Detail 선택과 semantic evidence 확보가 병목입니다. 현재 pipeline은 정확 후보가 부족한 경우에도 same-country genre-relaxed 목록을 요청하고 최종 relaxed 결과를 추가했습니다.
+- Interstellar + Movie + Drama는 Seed direct movie recommendations 12개만으로 충분하다고 판단해 TV Discover를 시작하지 않았습니다. 최종 type balancer는 후보 pool에 없는 TV를 복구할 수 없습니다.
+- 요청별 page, URL과 `total_results`는 확인했지만 단계별 raw/detail allocation 진단은 기존 응답에 없었습니다. D1에서는 이를 명시적 diagnostics로 추가해 Provider scarcity와 retrieval recall failure를 구분합니다.
+
+### Implementation
+
+- Adaptive Recall Planner가 선택 타입별 exact shortfall과 남은 List Budget을 기준으로 Discover task를 배정합니다. 모든 요청에 page를 추가하지 않습니다.
+- Detail 16개는 display/provider type, semantic family와 candidate source bucket으로 round-robin하며 hard metadata와 아직 판정되지 않은 Provider Combined 후보를 우선합니다.
+- TV SF/Fantasy specialized filter는 각각 semantic evidence를 요구합니다. `genre-sf-fantasy` combined 선택은 기존 `10765` Provider Combined 계약을 유지합니다.
+- 복수 타입 Seed 요청은 direct 결과에 없는 타입을 Seed genre의 대상 Provider ID로 변환해 `tmdb-cross-media-discover:*`로 수집하고 Detail 후 관계 근거가 없는 후보를 제외합니다.
+- Final assembly는 score 이후 identity dedupe와 type reservation을 적용합니다. 두 타입은 각 3개 이상, 세 타입은 각 2개 이상을 목표로 하되 없는 exact 후보를 만들지 않습니다.
+- Provider total/page, stage raw, Detail allocation, classification 전후, exclusion, type coverage와 `provider-scarcity`/`retrieval-recall-failure` diagnostics를 추가했습니다.
+
+### Focused Results
+
+| Case | Final | 핵심 결과 | Requests |
+| --- | ---: | --- | ---: |
+| Drama + Adventure | 8 | TV semantic exact 8, genre relaxation 0 | 19 |
+| Japan + SF + Drama | 12 | semantic-specialized 12 | 19 |
+| Japan + Fantasy + Drama | 8 | semantic-specialized 8 | 19 |
+| SF/Fantasy separation | - | overlap 1/8(12.5%), SF unique 11, Fantasy unique 7 | - |
+| UK + War + Drama | 12 | GB/TV semantic exact | 19 |
+| UK + Politics + Drama | 8 | GB/TV semantic exact | 19 |
+| US + Horror + Drama | 8 | US/TV semantic exact, Mystery-only 0 | 19 |
+| Interstellar + Movie + Drama | 12 | Movie 7 / TV 5 | 19 |
+| Interstellar + Movie + Drama + Animation | 12 | Movie 4 / Drama 3 / Animation 5 | 21 |
+
+### Focused Validation
+
+- Recommendation unit: 88/88 PASS.
+- Deterministic Recommendation QA: 100/100 PASS.
+- New Recall/Balance Live Cold: 12/12 PASS, maximum aggregate requests 21.
+- New Recall/Balance Live Warm: 12/12 PASS, maximum requests 0, cache hits 230.
+- Full Live Cold: 61/61 PASS, maximum aggregate requests 24, maximum elapsed 2,307ms.
+- Full Live Warm: 61/61 PASS, maximum aggregate requests 4, cache hits 1,144, maximum elapsed 714ms.
+- Browser Product Path: 8개 핵심 Case를 각 3회, 총 24회 실행해 HTTP 200, TMDB, fallback false, API 4xx/5xx 0, Console error 0, 중복 ID/표시 제목 0을 확인했습니다.
+- Browser SF/Fantasy 분리는 overlap 1/8(12.5%), SF unique 11, Fantasy unique 7이었습니다. Interstellar 복수 타입은 Movie/Drama 7/5, Movie/Drama/Animation 4/3/5였습니다.
+- Founder safe check와 production build: PASS. 브라우저 증거는 Repository 밖 %TEMP%\myott-founder-preview\browser-qa\MYOTT-S09-006A2D1에 저장했습니다.
+- Keyboard/focus/dialog behavior는 변경하지 않았으므로 `FOUNDER-KEYBOARD-001 PASS — Founder manual verification` 증거를 유지합니다.
+- Founder의 모험 체감, SF/Fantasy 구분, 전쟁/정치/공포 자연스러움과 Cross-media 연관성 판단은 Pending입니다.
+
 ## 2026-07-18 - MYOTT-S09-006A2C2
 
 ### Reproduction Baseline

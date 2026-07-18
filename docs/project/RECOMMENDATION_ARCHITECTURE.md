@@ -1,6 +1,6 @@
 # Recommendation Architecture
 
-Version: 2.6
+Version: 2.7
 
 Author: MYOTT Team
 
@@ -12,7 +12,7 @@ Breaking Change: Yes
 
 Decision Log: [DECISION_LOG.md](./DECISION_LOG.md)
 
-Architecture Version: v2.6
+Architecture Version: v2.7
 
 Status: ACTIVE
 
@@ -97,6 +97,21 @@ flowchart TD
 7. Final Ranking
 
 `Weight Engine`은 적격 후보의 순위를 정하며, 국가 또는 콘텐츠 타입 hard constraint를 대신하지 않습니다. Raw 후보는 최대 72개까지 수집하고 TMDB 요청은 동시 4개 이하로 제한합니다.
+
+### Adaptive Recall And Cross-media Coverage
+
+Recommendation Action은 전체 24회, List 8회, Detail 16회, 동시 4회와 Shared Context 1개를 유지합니다. Recall은 호출 상한을 늘리지 않고 남은 후보 상태에 따라 다음 요청과 Detail 대상을 재배분합니다.
+
+- **Adaptive Recall Planner:** 선택 타입 중 exact 후보가 없거나 최소 coverage에 미달한 타입을 다음 Discover 우선순위로 둡니다. 작은 국가/장르 시장의 추가 exact page와 다른 sort는 남은 List Budget에서만 실행합니다.
+- **List Budget Reservation:** 복수 타입은 각 선택 타입에 최소 한 번의 initial exact Discover 기회를 예약합니다. Seed direct 결과가 한 타입만 공급하면 부족 타입의 Discover를 Similar보다 먼저 검토합니다.
+- **Detail Allocation:** Detail 후보는 표시 타입, animation provider subtype, semantic family와 candidate source bucket으로 나누어 round-robin합니다. 특정 인기 응답이나 Movie 후보가 16회를 독점하지 않습니다.
+- **Cross-media Seed Supplement:** Seed의 Provider media type과 다른 선택 타입이 비면 Seed 장르를 대상 Provider taxonomy로 변환해 Discover합니다. `tmdb-cross-media-discover:movie|tv` source와 transferable genre evidence를 남기며, Detail 후 Seed 장르 근거가 없는 후보는 제외합니다.
+- **Type Coverage:** 두 타입은 exact pool이 존재할 때 타입별 최소 3개, 세 타입은 타입별 최소 2개를 목표로 합니다. 두 타입 모두 4개 이상 있으면 8/4 이내 분포를 우선합니다. 부족 타입의 exact pool이 없으면 후보를 만들지 않고 scarcity로 기록합니다.
+- **Coverage-aware Early Stop:** exact 수뿐 아니라 요청 타입, semantic evidence와 Seed source coverage를 확인합니다. 결과가 12개여도 선택 타입 하나가 비어 있거나 provider-combined 후보의 Detail 판정이 남아 있으면 중단하지 않습니다.
+
+Provider total과 fetched page를 확인하고도 exact pool 자체가 부족하면 `provider-scarcity`, 후보가 남았지만 page/detail/source 배정 때문에 놓쳤으면 `retrieval-recall-failure` 또는 `detail-budget-unresolved`로 기록합니다. 제공되지 않은 진단값은 0으로 위장하지 않고 `null` 또는 `not-provided`를 사용합니다.
+
+Final assembly는 hard filter, exact score, content/display-title identity, type coverage, Seed source coverage, franchise diversity, 남은 score 순서의 상호작용을 검증합니다. 낮은 점수 후보가 먼저 dedupe key를 차지해 높은 점수 후보를 제거하지 않습니다. Country, Content Type, OTT, Runtime과 semantic precision은 결과 수를 위해 완화하지 않습니다.
 
 ### Candidate Quality Contract
 
@@ -591,6 +606,18 @@ AI Recommendation 원칙:
 ---
 
 ## Changelog
+
+### v2.7
+
+- Adaptive Recall Planner가 exact/type/semantic 부족 상태와 남은 List Budget으로 다음 Discover task를 선택
+- 복수 콘텐츠 타입의 initial List 기회와 Detail 16개를 타입, semantic family, candidate source별로 배분
+- Movie/TV Seed direct 결과에 없는 선택 타입을 transferable Seed genre 기반 Cross-media Discover로 보강
+- 두 타입 최소 3개, 세 타입 최소 2개의 exact type coverage 목표와 provider scarcity 예외 정의
+- exact 수, type coverage, semantic evidence와 Seed source를 함께 확인하는 Early Stop gate 적용
+- Provider total/page, raw/detail/classification/exclusion/final assembly diagnostics와 scarcity/recall failure 분리
+- SF/Fantasy TV specialized evidence를 필수화하고 Provider Combined만으로 양쪽 결과에 자동 포함하지 않음
+- Dataset 100개와 고정 Recall fixture, Live cross-case separation/budget 검증으로 확장
+- API `results` Shape Breaking Change `No`, 후보 수집과 결과 분포의 Behavioral Breaking Change `Yes`
 
 ### v2.6
 

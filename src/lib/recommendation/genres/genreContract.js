@@ -89,7 +89,7 @@ export const GENRE_CONTRACT = Object.freeze([
     value: "genre-sf", label: "SF", displayPriority: 2, providerNames: ["Science Fiction"], aliases: ["sf", "sci-fi", "science fiction"],
     specializationGroup: "sf-fantasy", providerLimitation: "TMDB TV combines Sci-Fi and Fantasy as genre 10765.",
     movie: { providerExactIds: [878] },
-    tv: { providerCombinedIds: [10765], semanticSpecialization: true, exactMatchPolicy: "provider-combined-allowed" },
+    tv: { providerCombinedIds: [10765], semanticRequired: true, semanticSpecialization: true, exactMatchPolicy: "semantic-required" },
   }),
   mainGenre({ value: "genre-drama", label: "드라마", displayPriority: 3, providerNames: ["Drama"], aliases: ["drama", "드라마"], movie: { providerExactIds: [18] }, tv: { providerExactIds: [18] } }),
   mainGenre({
@@ -123,7 +123,7 @@ export const GENRE_CONTRACT = Object.freeze([
     value: "genre-fantasy", label: "판타지", displayPriority: 22, providerNames: ["Fantasy"], aliases: ["fantasy", "판타지"], specializationGroup: "sf-fantasy",
     providerLimitation: "TMDB TV combines Sci-Fi and Fantasy as genre 10765.",
     movie: { providerExactIds: [14] },
-    tv: { providerCombinedIds: [10765], semanticSpecialization: true, exactMatchPolicy: "provider-combined-allowed" },
+    tv: { providerCombinedIds: [10765], semanticRequired: true, semanticSpecialization: true, exactMatchPolicy: "semantic-required" },
   }),
   taxonomyOption({
     value: "genre-war", label: "전쟁", displayPriority: 23, providerNames: ["War"], aliases: ["war", "전쟁"], specializationGroup: "war-politics",
@@ -384,11 +384,7 @@ export function classifyTaxonomyValues(item = {}) {
     if (!candidates.length) continue;
     const specialization = chooseSemanticSpecialization(item, candidates);
     specialization.evaluated.forEach((entry) => { semanticEvidenceByGenre[entry.value] = entry; });
-    const selectedSpecializations = group === "action-adventure"
-      ? specialization.selected
-      : specialization.primary
-        ? [specialization.primary]
-        : [];
+    const selectedSpecializations = specialization.selected;
     const controlledSpecializations = group === "action-adventure" ? specialization.controlled : [];
     semanticGenreValues.push(...selectedSpecializations);
     controlledSemanticGenreValues.push(...controlledSpecializations);

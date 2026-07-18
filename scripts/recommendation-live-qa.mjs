@@ -99,6 +99,10 @@ for (const testCase of liveCases) {
               ? "combined"
               : "narrative",
       franchiseKey: item.franchiseKey || "",
+      candidateSource: item.candidateSource || "",
+      crossMediaSeedGenreValues: item.crossMediaSeedGenreValues || [],
+      reasonSeed: item.reasonSeed || "",
+      seedTitle: item.seedTitle || "",
       reasonSeeds: item.reasonSeeds || (item.reasonSeed ? [item.reasonSeed] : []),
     })),
   };
@@ -135,6 +139,29 @@ for (const testCase of liveCases) {
     console.table(caseOutput.results);
     console.log(requestSummary);
   }
+}
+
+const sfCase = output.find((item) => item.caseId === "REC-QA-086");
+const fantasyCase = output.find((item) => item.caseId === "REC-QA-087");
+if (sfCase && fantasyCase) {
+  const sfIds = new Set(sfCase.results.map((item) => `${item.providerMediaType}:${item.tmdbId}`));
+  const fantasyIds = new Set(fantasyCase.results.map((item) => `${item.providerMediaType}:${item.tmdbId}`));
+  const overlapCount = [...sfIds].filter((value) => fantasyIds.has(value)).length;
+  const overlapRatio = overlapCount / Math.max(1, Math.min(sfIds.size, fantasyIds.size));
+  const uniqueSf = [...sfIds].filter((value) => !fantasyIds.has(value)).length;
+  const uniqueFantasy = [...fantasyIds].filter((value) => !sfIds.has(value)).length;
+  const separationPass = overlapRatio <= 0.6 && uniqueSf >= 4 && uniqueFantasy >= 4;
+  if (!separationPass) {
+    hasFailure = true;
+    for (const item of [sfCase, fantasyCase]) {
+      item.pass = false;
+      item.failedReasons.push("live-sf-fantasy-separation-failed");
+    }
+  }
+  console.log(
+    `${separationPass ? "PASS" : "FAIL"} LIVE-TAXONOMY-SF-FANTASY-SEPARATION ` +
+      `overlap=${overlapCount}; ratio=${overlapRatio.toFixed(3)}; uniqueSf=${uniqueSf}; uniqueFantasy=${uniqueFantasy}`,
+  );
 }
 
 if (process.env.QA_OUTPUT) {

@@ -1,6 +1,24 @@
 # Changelog
 
 프로젝트의 주요 변경 사항을 날짜별로 기록합니다.
+## 2026-07-18 - MYOTT-S09-006A2D1
+
+### Recall Breadth And Type Balance
+
+- exact/type/semantic 부족 상태와 남은 List Budget으로 다음 Discover를 선택하는 Adaptive Recall Planner를 추가했습니다.
+- 복수 콘텐츠 타입에 initial List 기회를 예약하고 Detail 16개를 타입, animation provider subtype, semantic family와 source별로 배분합니다.
+- Movie/TV Seed direct 후보에 없는 선택 타입을 transferable Seed genre 기반 Cross-media Discover로 수집하고 Detail 후 Seed 연관성을 다시 검증합니다.
+- 두 타입 최소 3개, 세 타입 최소 2개의 exact coverage 목표를 Final Assembly에 적용하며 없는 타입 후보를 만들지 않습니다.
+- SF/Fantasy TV specialized filter는 각각 semantic evidence를 요구하고 Provider `10765`만으로 두 결과에 자동 포함하지 않습니다.
+- Provider total/page, raw/detail/classification/exclusion/type coverage diagnostics와 provider scarcity/recall failure 구분을 추가했습니다.
+
+### QA And Architecture
+
+- Recommendation Architecture를 v2.7, CODEX QA Protocol을 v1.1.0으로 갱신했습니다.
+- 고정 Recall fixture와 Evaluator metric을 추가해 Recommendation Unit 88개, Deterministic Dataset 100개 계약으로 확장했습니다.
+- 새 Recall/Balance matrix 12/12와 전체 Live Cold/Warm 61/61이 통과했습니다. 전체 최대 외부 호출은 Cold 24회, Warm 4회였고 Warm cache hit는 1,144회였습니다.
+- 실제 Browser Product Path 8개 Case를 각 3회 검증해 SF/Fantasy overlap 12.5%, 복수 타입 7/5 및 4/3/5, Console/API 오류와 중복 0을 확인했습니다.
+- 기존 API `results` Shape는 유지하며 후보 구성과 타입 분포가 달라지는 Behavioral Breaking Change로 기록했습니다.
 ## 2026-07-18 - MYOTT-S09-006A2C2
 
 ### Runtime Contract

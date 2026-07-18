@@ -12,6 +12,11 @@ import {
   normalizeDisplayContentType,
   normalizeProviderMediaType,
 } from "../filters/hardFilterContract.js";
+import {
+  contentTypeCounts,
+  reserveTypeCoverage,
+  typeCoverageState,
+} from "../recall/recallPlanner.js";
 
 export { selectedGenreFilters };
 
@@ -379,44 +384,8 @@ function dedupeCandidates(items = [], { franchiseLimit = 1 } = {}) {
 }
 
 function balanceTypes(items = [], contentTypes = [], limit = PRIMARY_RESULT_LIMIT) {
-  const types = selectedTypes(contentTypes);
-  if (types.length <= 1) return items.slice(0, limit);
-
-  const byTier = new Map();
-  for (const item of items) {
-    const tier = item.resultTier || "exact";
-    if (!byTier.has(tier)) byTier.set(tier, []);
-    byTier.get(tier).push(item);
-  }
-
-  const balanced = [];
-  for (const tier of ["exact", "same-country-relaxed", "country-relaxed"]) {
-    const tierItems = byTier.get(tier) || [];
-    const groups = new Map(types.map((type) => [type, []]));
-    for (const item of tierItems) groups.get(normalizeContentType(item))?.push(item);
-    let cursor = 0;
-    while (balanced.length < limit) {
-      let added = false;
-      for (const type of types) {
-        const item = groups.get(type)?.[cursor];
-        if (!item) continue;
-        balanced.push(item);
-        added = true;
-        if (balanced.length >= limit) break;
-      }
-      if (!added) break;
-      cursor += 1;
-    }
-    if (balanced.length >= limit) break;
-  }
-
-  for (const item of items) {
-    if (balanced.length >= limit) break;
-    if (!balanced.includes(item)) balanced.push(item);
-  }
-  return balanced;
+  return reserveTypeCoverage(items, contentTypes, limit);
 }
-
 export function roundRobinCandidates(items = [], limit = RAW_CANDIDATE_LIMIT) {
   const bucketOrder = ["movie", "drama", "animation"];
   const buckets = new Map(bucketOrder.map((type) => [type, []]));
@@ -554,9 +523,8 @@ export function finalizeCandidatePool(
   const remainingSlots = Math.max(0, limit - exactResults.length);
   const selectedGenres = selectedGenreFilters(filters).map(normalizeTaxonomyValue);
   const requestedTypes = selectedTypes(contentTypes);
-  const requiresSpecializedTvRecall = requestedTypes.length === 1 &&
-    requestedTypes[0] === "drama" &&
-    selectedGenres.some((value) => ["genre-action", "genre-adventure"].includes(value));
+  const requiresSpecializedTvRecall = requestedTypes.includes("drama") &&
+    selectedGenres.some((value) => genreContractFor(value)?.tv?.semanticRequired);
   const maxSameCountryRelaxed = requiresSpecializedTvRecall
     ? 0
     : Math.min(remainingSlots, Math.floor(exactResults.length * 0.25));
@@ -587,6 +555,23 @@ export function finalizeCandidatePool(
     counts[type] = (counts[type] || 0) + 1;
     return counts;
   }, { movie: 0, drama: 0, animation: 0 });
+  const availableExactByType = contentTypeCounts(exactDedupe.kept);
+  const selectedExactByType = contentTypeCounts(exactResults);
+  const exactTypeCoverage = typeCoverageState(availableExactByType, requestedTypes, { finalLimit: limit });
+  const selectedTypeCoverage = typeCoverageState(selectedExactByType, requestedTypes, { finalLimit: limit });
+  const requestedTypeCoverage = Object.fromEntries(requestedTypes.map((type) => [
+    type,
+    Number(selectedExactByType[type] || 0) >= Math.min(
+      Number(exactTypeCoverage.targets[type] || 0),
+      Number(availableExactByType[type] || 0),
+    ),
+  ]));
+  const dedupeExclusions = allExclusions.filter((item) => ["duplicate-content", "duplicate-display-title"].includes(item.exclusionReason)).length;
+  const franchiseExclusions = allExclusions.filter((item) => item.exclusionReason === "duplicate-franchise").length;
+  const contentTypeExclusions = allExclusions.filter((item) => item.hardFilterStatus?.contentType === "fail").length;
+  const genreExclusions = allExclusions.filter((item) => item.genreMatched === false).length;
+  const countryExclusions = allExclusions.filter((item) => item.countryValidation === "mismatch").length;
+  const hardFilterExclusions = allExclusions.filter((item) => item.pass === false).length;
 
   return {
     results: primaryResults,
@@ -597,6 +582,18 @@ export function finalizeCandidatePool(
       rawCandidateCountByType,
       classifiedCount: classified.length,
       primaryCount: primaryResults.length,
+      finalCount: primaryResults.length,
+      availableExactByType,
+      selectedExactByType,
+      requestedTypeCoverage,
+      typeCoverageShortfall: selectedTypeCoverage.shortfall,
+      typeCoverageScarcity: exactTypeCoverage.shortfall,
+      dedupeExclusions,
+      franchiseExclusions,
+      contentTypeExclusions,
+      genreExclusions,
+      countryExclusions,
+      hardFilterExclusions,
       exactCandidateCount: exactResults.length,
       sameCountryRelaxedCount: sameCountryResults.length,
       primaryExactRatio: exactResultRatio,

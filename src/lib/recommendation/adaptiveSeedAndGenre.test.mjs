@@ -27,7 +27,9 @@ test("shared genre contract keeps movie and TV SF semantics distinct", () => {
   assert.deepEqual(genreIdsForFilters(["genre-sf"], "tv"), [10765]);
   assert.deepEqual(genreIdsForFilters(["genre-sf-fantasy"], "movie"), [878, 14]);
   assert.deepEqual(genreIdsForFilters(["genre-sf-fantasy"], "tv"), [10765]);
-  assert.equal(candidateGenreMatchDetail({ mediaType: "tv", genreIds: [10765] }, ["genre-sf"]).genreMatchMode, "provider-combined");
+  assert.equal(candidateGenreMatchDetail({ mediaType: "tv", genreIds: [10765] }, ["genre-sf"]).genreMatched, false);
+  assert.equal(candidateGenreMatchDetail({ mediaType: "tv", genreIds: [10765], keywords: ["space"] }, ["genre-sf"]).genreMatchMode, "semantic-specialized");
+  assert.equal(candidateGenreMatchDetail({ mediaType: "tv", genreIds: [10765] }, ["genre-sf-fantasy"]).genreMatchMode, "provider-combined");
   assert.equal(candidateGenreMatchDetail({ mediaType: "tv", genreIds: [16] }, ["genre-sf"]).genreMatched, false);
 });
 
