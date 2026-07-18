@@ -42,7 +42,7 @@ export const PRIMARY_OTT_OPTIONS = Object.freeze(
 export const RUNTIME_FILTERS = Object.freeze({
   "runtime-short": Object.freeze({ value: "runtime-short", label: "60분 이하", max: 60 }),
   "runtime-medium": Object.freeze({ value: "runtime-medium", label: "2시간 이하", max: 120 }),
-  "runtime-long": Object.freeze({ value: "runtime-long", label: "긴 작품", min: 140 }),
+  "runtime-long": Object.freeze({ value: "runtime-long", label: "긴 작품 (2시간 이상)", min: 120 }),
 });
 
 const uniqueNumbers = (values = []) => [...new Set(
@@ -210,6 +210,22 @@ export function evaluateOttHardFilter(item = {}, filters = []) {
 export function selectedRuntimeFilter(filters = []) {
   const value = (Array.isArray(filters) ? filters : []).find((filter) => RUNTIME_FILTERS[filter]);
   return value ? RUNTIME_FILTERS[value] : null;
+}
+
+export function runtimeConstraintFromFilters(filters = []) {
+  const constraints = (Array.isArray(filters) ? filters : [])
+    .map((filter) => RUNTIME_FILTERS[filter])
+    .filter(Boolean);
+  if (!constraints.length) return {};
+
+  const maxValues = constraints.map((constraint) => constraint.max).filter(Number.isFinite);
+  const minValues = constraints.map((constraint) => constraint.min).filter(Number.isFinite);
+  const runtime = {};
+
+  if (maxValues.length) runtime.max = Math.min(...maxValues);
+  if (minValues.length) runtime.min = Math.max(...minValues);
+  if (Number.isFinite(runtime.max) && Number.isFinite(runtime.min) && runtime.min > runtime.max) return {};
+  return runtime;
 }
 
 export function runtimeMinutesForItem(item = {}) {

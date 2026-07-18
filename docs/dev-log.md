@@ -1,6 +1,36 @@
 # Development Log
 
 개발 과정에서의 작업 내용, 결정, 아쉬운 점, 다음 개선 사항을 날짜별로 기록합니다.
+## 2026-07-18 - MYOTT-S09-006A2C2
+
+### Reproduction Baseline
+
+- Base: `main` / `59b946eb165cff5304494ab8b0a7a2581847fb4b`, Founder Preflight `READY`.
+- 기존 `runtime-long`은 140분부터 시작해 121~139분 19개 값이 short, medium, long 어디에도 포함되지 않았습니다.
+- TMDB Discover에 별도 `min: 140`, UI와 option metadata에 `긴 작품` label이 중복 하드코딩돼 shared contract를 우회했습니다.
+
+### Implementation
+
+- `runtime-long`을 120분 이상, `긴 작품 (2시간 이상)`으로 변경했습니다.
+- UI, option metadata와 TMDB Discover가 공통 `RUNTIME_FILTERS`와 `runtimeConstraintFromFilters()`를 사용합니다.
+- 명시적 경계표와 1~300분 전체 partition test를 추가해 uncovered 0과 의도하지 않은 overlap 0을 검증합니다.
+- `CODEX_QA_PROTOCOL.md` v1.0.1과 Prompt Guide v1.5.1에 range coverage 원칙을 반영했습니다.
+- `FOUNDER-KEYBOARD-001`: `PASS — Founder manual verification`.
+
+### Focused Validation
+
+- Runtime Hard Filter / Weight Engine: 9/9 PASS.
+- 1~60분 short+medium, 120분 medium+long은 의도된 overlap입니다.
+- Keyboard synthetic event는 사용하지 않았으며 Founder 수동 증거를 사용했습니다.
+
+### Full Validation
+
+- Recommendation tests: 74/74 PASS.
+- Deterministic QA: 81/81 PASS.
+- Live Cold/Warm QA: 각각 49/49 PASS. Cold 최대 요청 24회, Warm 최대 요청 5회.
+- Founder safe check: PASS.
+- Browser product path: `filters=runtime-long`, HTTP 200, TMDB 12개, 최소 120분, runtime unknown 0개, 120분 미만 0개.
+- Browser Console error/warning 0건, Network failure와 HTTP 4xx/5xx 0건.
 
 ## 2026-07-18 - MYOTT-S09-006A2C1
 

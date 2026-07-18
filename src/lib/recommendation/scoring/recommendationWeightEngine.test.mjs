@@ -13,7 +13,13 @@ function runtimeSignal(runtime, filter) {
 test("weight runtime signal uses the shared hard-filter ranges", () => {
   assert.equal(runtimeSignal(45, "runtime-medium"), 1);
   assert.equal(runtimeSignal(100, "runtime-medium"), 1);
+  assert.equal(runtimeSignal(120, "runtime-medium"), 1);
+  assert.equal(runtimeSignal(120, "runtime-long"), 1);
+  assert.equal(runtimeSignal(121, "runtime-medium"), 0);
+  assert.equal(runtimeSignal(121, "runtime-long"), 1);
   assert.equal(runtimeSignal(130, "runtime-medium"), 0);
-  assert.equal(runtimeSignal(130, "runtime-long"), 0);
+  assert.equal(runtimeSignal(130, "runtime-long"), 1);
+  assert.equal(runtimeSignal(139, "runtime-long"), 1);
+  assert.equal(runtimeSignal(140, "runtime-long"), 1);
   assert.equal(runtimeSignal(150, "runtime-long"), 1);
 });

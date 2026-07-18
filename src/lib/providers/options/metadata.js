@@ -1,4 +1,5 @@
 import { getTmdbGenreMetadata, hasTmdbKey } from "../../../../lib/tmdb";
+import { RUNTIME_FILTERS } from "../../recommendation/filters/hardFilterContract.js";
 import {
   GENRE_CONTRACT,
   genreOptionGroups,
@@ -52,11 +53,7 @@ export const fallbackOptionGroups = [
   {
     title: "러닝타임",
     source: "fallback",
-    options: [
-      ["runtime-short", "60분 이하"],
-      ["runtime-medium", "2시간 이하"],
-      ["runtime-long", "긴 작품"],
-    ],
+    options: Object.values(RUNTIME_FILTERS).map(({ value, label }) => [value, label]),
   },
 ];
 

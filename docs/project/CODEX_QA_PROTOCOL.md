@@ -1,6 +1,6 @@
 # Codex QA Protocol
 
-Version: 1.0
+Version: 1.0.1
 
 Last Updated: 2026-07-18
 
@@ -253,7 +253,7 @@ Screenshot과 Raw Network dump는 Repository에 Commit하지 않습니다. Secre
 | `BROWSER-OTT-002` | Netflix 선택 | ID 8, KR, Streaming match, unknown/mismatch 0 |
 | `BROWSER-OTT-003` | Netflix + Disney+ | OR, 각 결과가 하나 이상 일치 |
 | `BROWSER-RUNTIME-001` | 2시간 이하 | 60분 이하도 match, 120분 초과/unknown 0 |
-| `BROWSER-RUNTIME-002` | 긴 작품 | 140분 미만/unknown 0 |
+| `BROWSER-RUNTIME-002` | 긴 작품 (2시간 이상) | 120분 미만/unknown 0 |
 | `BROWSER-APPLE-001` | Apple TV+ | 350은 Apple TV+, 2는 Store, rent/buy-only 제외 |
 | `BROWSER-STATE-001` | 제출 후 Draft 변경 | Card/Detail/Related/Applied는 Submitted 유지, Dirty banner, 자동 요청 없음 |
 | `BROWSER-STATE-002` | 요청 중 Reset | Abort, Session/Detail/결과 없음, OTT 기본값 없음 |
@@ -287,6 +287,20 @@ Keyboard:
 - Enter로 추천 실행
 - Escape로 Quick Pick과 Detail 닫기
 - Focus가 화면 밖으로 사라지지 않음
+
+Trusted Keyboard Input을 Codex Browser가 지원하지 않으면 DOM synthetic event로 대체하지 않고 `BLOCKED`로 기록합니다. Founder는 다음 수동 절차로 별도 승인할 수 있습니다.
+
+`FOUNDER-KEYBOARD-001`:
+
+1. Tab 순방향 이동
+2. Shift+Tab 역방향 이동
+3. Space로 checkbox 선택
+4. Enter로 추천 실행
+5. Escape로 Quick Pick 닫기
+6. Escape로 Detail 닫기
+7. Focus indicator 확인
+
+승인 기록은 `PASS — Founder manual verification`으로 남깁니다.
 
 ---
 
@@ -359,3 +373,26 @@ Live API PASS is not Browser PASS.
 Codex PASS is not Founder PASS.
 Unavailable Browser Automation must be reported as BLOCKED, not PASS.
 ```
+---
+
+## 19. Range And Partition Coverage
+
+숫자 범위 옵션은 일부 대표값만 검사하지 않고 지원 Domain 전체의 합집합과 교집합을 검증합니다.
+
+필수 규칙:
+
+- 각 옵션의 UI label과 실제 `min`/`max` bound가 일치해야 합니다.
+- `이하`, `미만`, `이상`, `초과`의 포함 관계를 경계값 테스트로 고정합니다.
+- 전체 Domain의 합집합에서 빠지는 의도하지 않은 gap은 `MAJOR`입니다.
+- 둘 이상의 옵션이 겹치는 구간은 사용자 intent와 함께 명시적으로 문서화합니다.
+- 의도하지 않은 overlap은 실패이며, single-select UI라도 계약 오류를 숨기지 않습니다.
+- Coverage 테스트는 구현의 현재 `min`/`max`를 그대로 복사해 기대값을 생성하지 않습니다.
+
+Runtime Domain `1~300분`의 현재 의도:
+
+- `1~60`: `runtime-short` + `runtime-medium`
+- `61~119`: `runtime-medium`
+- `120`: `runtime-medium` + `runtime-long`
+- `121~300`: `runtime-long`
+- uncovered runtime: 0
+- unintended overlap: 0

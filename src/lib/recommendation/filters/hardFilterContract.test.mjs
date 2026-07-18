@@ -3,6 +3,7 @@ import test from "node:test";
 
 import {
   OTT_PROVIDER_REGISTRY,
+  RUNTIME_FILTERS,
   contentTypeMatchesSubmittedPreferences,
   evaluateHardFilters,
   evaluateOttHardFilter,
@@ -10,6 +11,7 @@ import {
   normalizeDisplayContentType,
   normalizeProviderMediaType,
   ottDiscoverParameters,
+  runtimeConstraintFromFilters,
   runtimeFilterValuesForItem,
   serviceName,
 } from "./hardFilterContract.js";
@@ -71,17 +73,51 @@ test("OTT discover parameters use KR, provider OR, and streaming monetization", 
   });
 });
 
-test("runtime filters reject unknown and enforce documented ranges", () => {
+test("runtime filters reject unknown and enforce explicit boundary policy", () => {
   assert.equal(evaluateRuntimeHardFilter({ runtime: 0 }, ["runtime-short"]).reason, "runtime-unknown");
-  assert.equal(evaluateRuntimeHardFilter({ runtime: 45 }, ["runtime-short"]).pass, true);
-  assert.equal(evaluateRuntimeHardFilter({ runtime: 45 }, ["runtime-medium"]).pass, true);
-  assert.equal(evaluateRuntimeHardFilter({ runtime: 100 }, ["runtime-medium"]).pass, true);
-  assert.equal(evaluateRuntimeHardFilter({ runtime: 130 }, ["runtime-medium"]).reason, "runtime-mismatch");
-  assert.equal(evaluateRuntimeHardFilter({ runtime: 150 }, ["runtime-long"]).pass, true);
-  assert.equal(evaluateRuntimeHardFilter({ runtime: 130 }, ["runtime-long"]).reason, "runtime-mismatch");
-  assert.deepEqual(runtimeFilterValuesForItem({ runtime: 45 }), ["runtime-short", "runtime-medium"]);
-  assert.deepEqual(runtimeFilterValuesForItem({ runtime: 100 }), ["runtime-medium"]);
-  assert.deepEqual(runtimeFilterValuesForItem({ runtime: 150 }), ["runtime-long"]);
+  assert.equal(RUNTIME_FILTERS["runtime-long"].label, "긴 작품 (2시간 이상)");
+  assert.deepEqual(runtimeConstraintFromFilters(["runtime-long"]), { min: 120 });
+
+  const boundaries = [
+    [59, true, true, false],
+    [60, true, true, false],
+    [61, false, true, false],
+    [119, false, true, false],
+    [120, false, true, true],
+    [121, false, false, true],
+    [139, false, false, true],
+    [140, false, false, true],
+    [141, false, false, true],
+  ];
+
+  for (const [runtime, short, medium, long] of boundaries) {
+    assert.equal(evaluateRuntimeHardFilter({ runtime }, ["runtime-short"]).pass, short, `${runtime} short`);
+    assert.equal(evaluateRuntimeHardFilter({ runtime }, ["runtime-medium"]).pass, medium, `${runtime} medium`);
+    assert.equal(evaluateRuntimeHardFilter({ runtime }, ["runtime-long"]).pass, long, `${runtime} long`);
+  }
+});
+
+test("runtime option union covers 1-300 without unintended overlaps", () => {
+  const uncovered = [];
+  const unintendedOverlaps = [];
+
+  for (let runtime = 1; runtime <= 300; runtime += 1) {
+    const actual = runtimeFilterValuesForItem({ runtime });
+    const expected = runtime <= 60
+      ? ["runtime-short", "runtime-medium"]
+      : runtime < 120
+        ? ["runtime-medium"]
+        : runtime === 120
+          ? ["runtime-medium", "runtime-long"]
+          : ["runtime-long"];
+
+    if (!actual.length) uncovered.push(runtime);
+    if (actual.length > 1 && runtime > 60 && runtime !== 120) unintendedOverlaps.push(runtime);
+    assert.deepEqual(actual, expected, `${runtime} minute partition`);
+  }
+
+  assert.deepEqual(uncovered, []);
+  assert.deepEqual(unintendedOverlaps, []);
 });
 
 test("provider display labels prefer stable IDs over ambiguous names", () => {

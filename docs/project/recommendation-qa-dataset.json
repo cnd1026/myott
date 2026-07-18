@@ -285,7 +285,7 @@
     "expected": {
       "topN": 10,
       "match": {
-        "runtimeMinMinutes": 140
+        "runtimeMinMinutes": 120
       },
       "minimumRuntimeRatio": 0.6,
       "failIf": ["same-results-as-runtime-short", "short-runtime-dominates-top-results"]
@@ -293,7 +293,7 @@
     "minimumMatchRatio": 0.6,
     "priority": "major",
     "scope": ["tmdb", "mock-fallback"],
-    "notes": "Long runtime should favor long movies or long-form content where provider metadata supports it."
+    "notes": "Long runtime starts at 120 minutes; 120 intentionally overlaps the medium option."
   },
   {
     "id": "REC-QA-010",

@@ -23,6 +23,7 @@ import {
 } from "../src/lib/recommendation/seeds/seedRequest.js";
 import {
   PRIMARY_OTT_OPTIONS,
+  RUNTIME_FILTERS,
   evaluateHardFilters,
   evaluateRuntimeHardFilter,
   normalizeDisplayContentType,
@@ -287,11 +288,7 @@ const quickPickGroups = [
   },
   {
     title: "러닝타임",
-    options: [
-      ["runtime-short", "60분 이하"],
-      ["runtime-medium", "2시간 이하"],
-      ["runtime-long", "긴 작품"],
-    ],
+    options: Object.values(RUNTIME_FILTERS).map(({ value, label }) => [value, label]),
   },
 ];
 

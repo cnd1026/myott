@@ -59,7 +59,8 @@
 | MYOTT-S09-006A2A | Genre Taxonomy Classification & Semantic Pair Audit | `이번 커밋` | Provider/Canonical 장르 분리, shared TV ID semantic specialization, format/audience/style 분류, seed metric 보정, 48-case QA 적용. Founder QA 대기. | 완료 |
 | MYOTT-S09-006A2B | TV Semantic Recall & Korean Genre Presentation | `이번 커밋` | Action/Adventure filtering과 scoring 분리, controlled combined 보강, 한국어 장르 표시와 선택 이유 우선순위, 표시 제목 중복 방지, 60-case QA 적용. Founder QA 대기. | 완료 |
 | MYOTT-S09-006A2C | Submitted Preference Snapshot & Hard Filter Integrity | `4f1d12f` | Submitted Session 고정, Provider/display 타입 분리, KR OTT와 런타임 Hard Filter, Related identity, latest-response gate, 로컬 QA diagnostics, 81-case QA 적용. Founder QA 대기. | 완료 |
-| MYOTT-S09-006A2C1 | Hard Filter Defaults, Provider Label Integrity & Codex QA Protocol | `이번 커밋` | 초기 OTT/Runtime scoring/Apple Provider label 보정, Browser Console 회귀 제거, QA Protocol v1.0과 Prompt Guide v1.5.0 적용. Founder Browser QA 대기. | 완료 |
+| MYOTT-S09-006A2C1 | Hard Filter Defaults, Provider Label Integrity & Codex QA Protocol | `59b946e` | 초기 OTT/Runtime scoring/Apple Provider label 보정, Browser Console 회귀 제거, QA Protocol v1.0과 Prompt Guide v1.5.0 적용. Founder Browser QA 대기. | 완료 |
+| MYOTT-S09-006A2C2 | Runtime Range Coverage & Keyboard QA Closure | `이번 커밋` | Runtime Long 120분 경계, 1~300분 partition coverage, QA Protocol v1.0.1, Founder Keyboard 수동 PASS 적용. | 완료 |
 | MYOTT-S09-OPS-001 | Persistent Founder Preview Server Automation | `이번 커밋` | 3000 Founder Preview lifecycle, 3001-3101 cleanup governance, ownership-safe Process control, TEMP State/Lock, Safe Build/Check, 22-case self-test를 표준화. 제품 코드 미수정. | 완료 |
 | MYOTT-S09-OPS-001A | Founder Preview Failure Propagation, Ownership Boundary & QA Readiness Hardening | `이번 커밋` | Cleanup 실패 전파, exact repository boundary, global 3000 mutex, repository별 runtime migration, adoption semantics, founder:qa-ready gate, 59-case self-test를 적용. 제품 코드 미수정. | 완료 |
 

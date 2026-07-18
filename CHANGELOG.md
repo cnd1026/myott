@@ -1,6 +1,19 @@
 # Changelog
 
 프로젝트의 주요 변경 사항을 날짜별로 기록합니다.
+## 2026-07-18 - MYOTT-S09-006A2C2
+
+### Runtime Contract
+
+- `runtime-long`을 120분 이상으로 조정하고 label을 `긴 작품 (2시간 이상)`으로 명확히 했습니다.
+- UI, option metadata, TMDB Discover, Candidate Hard Filter, Weight Engine과 diagnostics가 공통 `RUNTIME_FILTERS`를 사용합니다.
+- 1~300분 전체를 검사해 uncovered 0, 의도하지 않은 overlap 0을 보장합니다. 1~60분 short/medium과 120분 medium/long overlap은 의도된 사용자 intent입니다.
+
+### QA Governance
+
+- `CODEX_QA_PROTOCOL.md` v1.0.1에 Range And Partition Coverage와 `FOUNDER-KEYBOARD-001` 수동 절차를 추가했습니다.
+- Prompt Guide v1.5.1에 범위 합집합, 경계 포함 관계와 label/bound 일치 질문을 추가했습니다.
+- Founder가 trusted keyboard 흐름을 수동 확인해 Keyboard QA를 PASS했습니다.
 
 ## 2026-07-18 - MYOTT-S09-006A2C1
 

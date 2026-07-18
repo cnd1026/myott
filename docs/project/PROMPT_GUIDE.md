@@ -1,6 +1,6 @@
 # Prompt Guide
 
-Version: 1.5.0
+Version: 1.5.1
 
 Last Updated: 2026-07-18
 
@@ -372,6 +372,7 @@ Prompt Guide는 Semantic Versioning을 사용합니다.
 | v1.4 | AI Execution Profile과 AI Session Review 표준 추가 |
 | v1.4.1 | 제공 Platform UI 기준에 맞춘 Profile 표현 보정 |
 | v1.5.0 | Codex Mode 5단계와 영구 QA Protocol/증거 계약 추가 |
+| v1.5.1 | 숫자 범위 합집합·교집합과 label/bound 경계 QA 질문 추가 |
 | v2.0 | Major Workflow 변경 |
 
 Version 변경 기준:
@@ -427,6 +428,12 @@ Version 변경 기준:
 - Standard Prompt에 Codex QA Contract 필수 Section 추가
 - No Evidence, No PASS와 QA Layer 분리, Browser Security, Stop-The-Line, Final Commit 재실행 원칙 추가
 - canonical QA 기준으로 `CODEX_QA_PROTOCOL.md` 연결
+### v1.5.1
+
+- 숫자 범위 옵션의 전체 Domain 합집합과 교집합 검사 추가
+- 의도하지 않은 gap과 overlap을 QA 실패로 분류
+- UI label의 이하/미만/이상/초과와 실제 bound 일치 질문 추가
+- Trusted Keyboard 자동화 불가 시 Founder 수동 검증 기록 유지
 
 ---
 
@@ -587,6 +594,13 @@ Unavailable Browser Automation must be reported as BLOCKED, not PASS.
 ```
 
 QA 상태는 `PASS`, `FAIL`, `BLOCKED`, `NOT RUN`, `SKIPPED`, `PARTIAL` 중 하나로 기록합니다. Browser가 요구됐으나 사용할 수 없으면 Task Overall PASS를 금지합니다.
+Range QA 질문:
+
+- 여러 옵션의 합집합에 빈 구간이 존재하는가?
+- 경계값은 어느 옵션에 포함되는가?
+- Label의 `이하`, `미만`, `이상`, `초과`가 코드와 일치하는가?
+- 의도된 overlap과 의도하지 않은 overlap이 구분되어 있는가?
+- 기대값이 현재 구현 상수를 복사해 만들어지지 않았는가?
 
 ---
 
