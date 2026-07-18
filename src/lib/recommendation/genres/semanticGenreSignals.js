@@ -58,9 +58,9 @@ export const SEMANTIC_GENRE_SIGNALS = Object.freeze({
     ],
     controlledStrong: [
       "unknown world", "new world", "wilderness", "voyage", "odyssey", "frontier", "island",
-      "stranded", "artifact", "realm", "미지의 세계", "신세계", "황야", "항해", "표류", "유물",
+      "stranded", "artifact", "realm", "kingdom", "미지의 세계", "신세계", "황야", "항해", "표류", "유물", "왕국",
     ],
-    minimumControlledEvidence: 2,
+    minimumControlledEvidence: 1,
     minimumControlledStrongEvidence: 1,
   }),
   "genre-sf": signal([

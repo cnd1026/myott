@@ -2,6 +2,47 @@
 
 개발 과정에서의 작업 내용, 결정, 아쉬운 점, 다음 개선 사항을 날짜별로 기록합니다.
 
+## 2026-07-18 - MYOTT-S09-006A2C
+
+### Founder QA Baseline
+
+- Base: `main` / `55d657334023adc0d576c8f738869133ab32b738`.
+- 결과 카드 이유가 추천 실행 당시 조건이 아니라 현재 Draft checkbox를 참조해, 액션 결과를 둔 채 모험으로 바꾸면 카드와 Detail/Related 설명이 달라질 수 있었습니다.
+- 애니메이션 display type만 남기고 TMDB `movie/tv` identity를 잃을 수 있어 영화 + 애니메이션 스타일과 드라마 + 애니메이션 스타일이 서로 섞일 수 있었습니다.
+- OTT UI는 Netflix, Disney+, Watcha, TVING이었고 선택 OTT는 score 보조 신호일 뿐 Discover/Primary hard filter가 아니었습니다.
+- Watch Provider unknown, rent/buy-only, 런타임 unknown 후보가 선택 조건의 Primary에 포함될 수 있었습니다.
+- Related가 display type으로 endpoint를 고르고 현재 TMDB content와 제목 alias를 공통 identity로 제외하지 않아 현재 작품이 다시 나타날 수 있었습니다.
+- Provider, Fallback, semantic mode, hard-filter exclusion을 Founder 화면에서 확인할 안전한 진단 경로가 없었습니다.
+
+### 구현
+
+- Draft Preferences와 Submitted Recommendation Session을 분리하고 Request ID, Submitted At, 적용 조건, 결과와 이유를 Snapshot에 고정했습니다.
+- 서버와 클라이언트가 공유하는 hard filter contract에서 Provider media type, display content type, OTT, 런타임을 판정합니다.
+- Primary OTT를 Netflix, Disney+, Amazon Prime Video, Apple TV+로 변경하고 KR Discover query와 Detail watch availability를 함께 검증합니다.
+- Watch availability를 `flatrate`, `free`, `ads`, `rent`, `buy`로 보존하며 streaming 그룹만 OTT hard match에 사용합니다.
+- 런타임 60분 이하, 120분 이하, 140분 이상을 Discover와 Detail 이후 모두 검증하고 unknown/mismatch를 Primary에서 제외합니다.
+- Related identity를 Provider media type + TMDB ID로 통일하고 현재 작품, 현재 한국어/원제 alias, Related 내부 중복을 제거합니다.
+- 추천과 Related에 AbortController/sequence gate를 적용해 최신 응답만 UI state를 갱신합니다.
+- 비 production `?qa=1`에서 Environment Provider와 Last Recommendation Source, Submitted 조건, 카드 판정 근거를 분리 표시하고 credential을 redaction합니다.
+- Detail 대상 선정 전에 동일 표시 제목을 중복 제거해 제한된 16회 Detail 예산을 Primary에 함께 들어갈 수 없는 두 작품에 중복 사용하지 않습니다.
+
+### TMDB Provider 확인
+
+- KR watch provider metadata에서 Netflix `8`, Amazon Prime Video `119`, Disney Plus `337`을 movie/tv 모두 확인했습니다.
+- Apple TV 구독 Provider `350`은 KR movie/tv 제공 목록에 존재하며 Apple TV Store `2`와 별도 ID입니다.
+- UI label은 Apple TV+를 사용하지만 진단에는 TMDB 원문 `Apple TV`와 Provider ID `350`을 보존합니다.
+- Rent/buy-only Apple TV Store evidence는 Apple TV+ 구독 일치로 처리하지 않습니다.
+
+### 검증
+
+- Recommendation unit/integration: 70/70 PASS.
+- Deterministic Recommendation QA: 81/81 PASS.
+- Live TMDB Cold: 49/49 PASS, maximum aggregate 24, maximum elapsed 2093ms.
+- Live TMDB Warm: 49/49 PASS, maximum aggregate 6, cache hits 917, maximum elapsed 876ms.
+- Movie + animation style, Drama + animation style, animation content type, Disney+, Prime Video, Apple TV+, short/medium/long runtime가 Live에서 PASS했습니다.
+- Drama + Adventure는 Semantic 통과 8개를 확보했습니다. 일반 Drama relaxation은 0개이며 broad `world` 단독 신호는 계속 제외합니다.
+- Recommendation Architecture는 v2.6, Breaking Change는 No입니다.
+
 ## 2026-07-17 - MYOTT-S09-OPS-001A
 
 ### 코드 리뷰에서 확인한 문제

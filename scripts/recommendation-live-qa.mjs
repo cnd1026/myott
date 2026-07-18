@@ -74,7 +74,15 @@ for (const testCase of liveCases) {
       audienceValues: item.audienceValues || [],
       styleValues: item.styleValues || [],
       semanticEvidence: item.semanticEvidenceByGenre || {},
+      providerMediaType: item.providerMediaType || item.mediaType || "",
+      displayContentType: item.displayContentType || item.contentType || item.type || "",
       contentType: item.contentType || item.type,
+      runtimeMinutes: item.runtimeMinutes ?? item.runtime ?? null,
+      actualStreamingProviderIds: item.actualStreamingProviderIds || [],
+      actualStreamingProviders: item.actualStreamingProviders || [],
+      watchAvailability: item.watchAvailability || {},
+      hardFilterStatus: item.hardFilterStatus || {},
+      exclusionReason: item.exclusionReason || "",
       resultTier: item.resultTier,
       genreMatchMode: item.genreMatchMode || "",
       semanticGenreMatched: Boolean(item.semanticGenreMatched),
@@ -109,8 +117,17 @@ for (const testCase of liveCases) {
     processedSeedCount: caseOutput.diagnostics.processedSeedCount,
     deferredSeedCount: caseOutput.diagnostics.deferredSeedCount,
   };
+  const budgetFailure = Number(requestSummary.aggregateRequestsUsed ?? requestSummary.requestsUsed ?? 0) > 24 ||
+    Number(requestSummary.listRequestsUsed || 0) > 8 ||
+    Number(requestSummary.detailRequestsUsed || 0) > 16 ||
+    Number(requestSummary.requestContextCount || 0) !== 1;
+  if (budgetFailure) {
+    hasFailure = true;
+    caseOutput.pass = false;
+    caseOutput.failedReasons.push("live-request-budget-contract-failed");
+  }
   console.log(
-    `${report.pass ? "PASS" : "FAIL"} ${testCase.id} ` +
+    `${caseOutput.pass ? "PASS" : "FAIL"} ${testCase.id} ` +
       `${results.length} results; requests=${requestSummary.aggregateRequestsUsed ?? requestSummary.requestsUsed ?? 0}; ` +
       `${report.failedReasons.join(", ") || "criteria-met"}`,
   );

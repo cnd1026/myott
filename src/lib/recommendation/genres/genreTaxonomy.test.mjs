@@ -49,6 +49,16 @@ test("10759 controlled action evidence does not turn a plain police procedural i
   assert.equal(plain.genreMatched, false);
 });
 
+test("10759 controlled adventure accepts a strong signal but rejects broad world alone", () => {
+  const strong = candidateGenreMatchDetail(fixture([10759], ["island"]), ["genre-adventure"]);
+  const broad = candidateGenreMatchDetail(fixture([10759], ["world"]), ["genre-adventure"]);
+  const withoutProvider = candidateGenreMatchDetail(fixture([18], ["island"]), ["genre-adventure"]);
+
+  assert.equal(strong.genreMatchMode, "provider-combined-controlled");
+  assert.equal(broad.genreMatched, false);
+  assert.equal(withoutProvider.genreMatched, false);
+});
+
 test("10765 specializes SF and fantasy while retaining the provider combined value", () => {
   const sf = classifyTaxonomyValues(fixture([10765], ["space", "robot"]));
   const fantasy = classifyTaxonomyValues(fixture([10765], ["magic", "dragon"]));

@@ -2,6 +2,29 @@
 
 프로젝트의 주요 변경 사항을 날짜별로 기록합니다.
 
+## 2026-07-18 - MYOTT-S09-006A2C
+
+### 변경 내용
+
+- Draft Preferences와 Submitted Recommendation Session을 분리해 카드, Detail, Related와 추천 이유를 제출 시점 조건에 고정했습니다.
+- Provider media type과 display content type을 별도 보존하고 영화/드라마/애니메이션 hard-filter matrix를 서버와 클라이언트에서 공유합니다.
+- Primary OTT를 Netflix, Disney+, Amazon Prime Video, Apple TV+로 개편하고 KR Discover/Detail 기반 subscription hard filter를 적용했습니다.
+- Apple TV+ Provider `350`과 Apple TV Store `2`를 구분하고 rent/buy-only 및 Provider unknown 후보를 Primary에서 제외합니다.
+- 선택 런타임의 unknown/mismatch 후보를 Primary에서 제외하고 short/medium/long Discover 조건과 post-detail 검증을 통일했습니다.
+- Related endpoint를 Provider media type으로 선택하고 현재 TMDB content, 제목 alias와 내부 중복을 제거했습니다.
+- 추천과 Related 요청에 latest-response Abort/sequence gate를 적용했습니다.
+- 비 production `?qa=1` Founder diagnostics와 credential redaction을 추가했습니다.
+- Dataset을 81개로 확장하고 Live Runner가 Provider 타입, OTT, 런타임, hard-filter 상태와 24/8/16 예산을 검증하도록 보강했습니다.
+- Recommendation Architecture를 v2.6으로 갱신했습니다.
+
+### 검증
+
+- Recommendation unit/integration tests: 70/70 PASS
+- Deterministic Recommendation QA: 81/81 PASS
+- Live TMDB Cold QA: 49/49 PASS, maximum aggregate 24
+- Live TMDB Warm QA: 49/49 PASS, maximum aggregate 6, cache hits 917
+- Existing `results` contract, Country Hard Constraint, Exact 80%, Shared Context 1 유지
+
 ## 2026-07-17 - MYOTT-S09-OPS-001A
 
 ### Developer Operations

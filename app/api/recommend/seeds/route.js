@@ -3,6 +3,7 @@ import {
   getFallbackProvider,
   isTmdbProviderEnabled,
 } from "../../../../src/lib/providers/registry";
+import { sanitizeFounderDiagnostics } from "../../../../src/lib/recommendation/qa/founderDiagnostics.js";
 
 function sourceMetadata(provider, {
   message = "",
@@ -46,7 +47,7 @@ function confirmedSeedArray(value) {
 
 async function recommendWithProvider(
   provider,
-  { titles, seeds, filters, contentTypes },
+  { titles, seeds, filters, contentTypes, requestId, qaDiagnostics },
   sourceOptions = {},
 ) {
   const payload = await provider.getSeedRecommendations({
@@ -87,7 +88,13 @@ async function recommendWithProvider(
     resolvedBySearchCount: Array.isArray(payload) ? 0 : payload.resolvedBySearchCount || 0,
     inputAliasCount: Array.isArray(payload) ? titles.length : payload.inputAliasCount || 0,
     eligibleLaterSeedDeferredCount: Array.isArray(payload) ? 0 : payload.eligibleLaterSeedDeferredCount || 0,
-    diagnostics: Array.isArray(payload) ? {} : payload.diagnostics || {},
+    requestId,
+    diagnostics: process.env.NODE_ENV === "production"
+      ? {}
+      : sanitizeFounderDiagnostics(Array.isArray(payload) ? {} : payload.diagnostics || {}),
+    ...(process.env.NODE_ENV !== "production" && qaDiagnostics
+      ? { recommendationDebug: sanitizeFounderDiagnostics(Array.isArray(payload) ? {} : payload.diagnostics || {}) }
+      : {}),
   };
 }
 
@@ -104,6 +111,8 @@ export async function POST(request) {
     seeds: confirmedSeedArray(body?.seeds),
     contentTypes: stringArray(body?.contentTypes),
     filters: stringArray(body?.filters),
+    requestId: typeof body?.requestId === "string" ? body.requestId : "",
+    qaDiagnostics: process.env.NODE_ENV !== "production" && body?.qaDiagnostics === true,
   };
   const activeProvider = getActiveProvider();
 

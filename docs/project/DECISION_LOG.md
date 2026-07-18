@@ -82,7 +82,7 @@ TV Drama `18`은 로맨스 evidence가 없으면 로맨스로, Mystery `9648`은
 
 TV `10759`는 액션과 모험을 하나의 Provider 장르로 제공하므로 가장 높은 semantic score 하나만 남기는 방식은 동점 후보를 모두 탈락시키고 Action Recall을 과도하게 낮췄습니다. Recommendation Architecture v2.5부터 필터 통과는 선택 장르별 evidence를 독립적으로 판정하고, 점수 계산은 같은 specialization family에서 최고 strength 하나만 사용합니다.
 
-정확 semantic 후보가 부족할 때는 Provider combined ID와 복수의 인접 evidence가 함께 확인된 후보만 `provider-combined-controlled`로 허용합니다. 이는 장르를 완화한 결과가 아니며 일반 Drama나 반대쪽 세부 장르로 결과 수를 채우는 용도로 사용할 수 없습니다.
+정확 semantic 후보가 부족할 때는 Provider combined ID와 복수의 인접 evidence를 우선 사용합니다. 제한된 강한 모험 evidence는 Provider combined ID가 함께 있을 때만 Controlled Match로 허용하며 광범위한 `world` 단독은 제외합니다. 이는 장르를 완화한 결과가 아니며 일반 Drama나 반대쪽 세부 장르로 결과 수를 채우는 용도로 사용할 수 없습니다.
 
 사용자 화면은 Provider 원문이 아니라 Canonical 한국어 label을 표시하고, 추천 이유는 실제로 match된 선택 옵션을 우선합니다. Primary 결과는 동일 TMDB ID와 동일 한국어 표시 제목을 중복 노출하지 않습니다. 기존 API `results`, Country Hard Constraint, Exact 80%, 24/8/16 요청 예산은 유지하므로 Breaking Change는 아닙니다.
 
@@ -105,3 +105,11 @@ Repository ownership은 단순 path prefix가 아니라 argument 경계와 Next/
 Port 3000 mutation은 모든 clone/worktree가 공유하는 `Local\MyOTTFounderPreview_Port3000` Mutex로 직렬화합니다. State와 Log는 Repository Path hash별 디렉터리로 분리하며 Legacy State는 ownership identity를 확인한 경우에만 migration합니다. 기존 Server adoption은 실제 Start Commit을 추측하지 않고 adoption 시점 Commit을 별도 기록합니다.
 
 Founder QA 전에는 `founder:qa-ready`를 release gate로 사용합니다. 두 QA Checklist untracked 파일 외의 변경이 있으면 차단하고, Cleanup, 현재 Commit Restart, Root/API Verify, Remaining Owned 0이 모두 충족될 때만 `READY_FOR_FOUNDER_QA`를 반환합니다. Product Recommendation Logic과 Recommendation Architecture v2.5에는 영향이 없습니다.
+
+## DL-020 추천 결과를 Submitted Snapshot과 Hard Filter에 고정
+
+결과 생성 뒤 Draft 옵션만 바뀌었을 때 기존 카드 이유가 새 옵션을 참조하면 한 화면 안에서 카드, Detail, Related의 조건이 서로 달라집니다. Recommendation Architecture v2.6부터 추천 버튼을 누른 순간 Submitted Preference Snapshot과 Request ID를 생성하고, 결과와 모든 설명 계층을 해당 Session에 고정합니다. Draft가 달라지면 변경 안내를 표시하며 다시 추천하기 전에는 기존 결과를 재해석하지 않습니다.
+
+Provider media type `movie/tv`와 display content type `movie/drama/animation`을 분리합니다. 콘텐츠 타입, 국가, 선택 OTT, 선택 런타임은 공통 hard-filter contract를 사용하며 unknown 또는 mismatch metadata로 Primary 수를 채우지 않습니다. KR OTT registry는 Netflix `8`, Disney Plus `337`, Amazon Prime Video `119`, Apple TV 구독 `350`을 사용하고 Apple TV Store `2`의 rent/buy evidence를 구독 일치로 취급하지 않습니다.
+
+Related는 현재 content의 Provider media type과 TMDB ID를 endpoint identity로 사용하고 현재 작품과 제목 alias를 제거합니다. 추천과 Related 요청은 독립된 Abort/sequence gate에서 최신 응답만 commit합니다. 로컬 `?qa=1` diagnostics는 이 판정 근거를 Founder에게 노출하지만 credential은 redaction하고 production 상세 diagnostics는 비활성화합니다. 기존 `results` 배열과 24/8/16 예산을 유지하므로 Breaking Change는 아닙니다.

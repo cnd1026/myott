@@ -21,6 +21,24 @@ import {
   buildSeedRequestPayload,
   resolveEmptyStateMessage,
 } from "../src/lib/recommendation/seeds/seedRequest.js";
+import {
+  PRIMARY_OTT_OPTIONS,
+  evaluateHardFilters,
+  normalizeDisplayContentType,
+  normalizeProviderMediaType,
+} from "../src/lib/recommendation/filters/hardFilterContract.js";
+import {
+  createRecommendationRequestId,
+  createRecommendationSession,
+  createSubmittedPreferences,
+  preferencesChanged,
+} from "../src/lib/recommendation/preferences/submittedPreferenceSession.js";
+import { dedupeRelatedItems } from "../src/lib/recommendation/content/contentIdentity.js";
+import { createLatestRequestGate } from "../src/lib/recommendation/requests/latestRequestGate.js";
+import {
+  attachFounderDiagnostics,
+  sanitizeFounderDiagnostics,
+} from "../src/lib/recommendation/qa/founderDiagnostics.js";
 
 const dummyRecommendations = [
   {
@@ -217,12 +235,7 @@ const dummyRecommendations = [
   },
 ];
 
-const ottOptions = [
-  ["netflix", "Netflix"],
-  ["disney", "Disney+"],
-  ["watcha", "Watcha"],
-  ["tving", "TVING"],
-];
+const ottOptions = PRIMARY_OTT_OPTIONS;
 const ottLabelByValue = new Map(ottOptions);
 
 const contentTypeOptions = [
@@ -545,17 +558,7 @@ function tagsFromProviderContent(content) {
 }
 
 function contentTypeForUi(content) {
-  const genreIds = normalizedIdList(content.genreIds);
-  if (genreIds.includes(16) || content.type === "animation" || content.contentType === "animation") return "animation";
-  if (["drama", "series", "tv"].includes(content.type) || ["drama", "series", "tv"].includes(content.contentType)) return "drama";
-  return content.type || content.contentType || "movie";
-}
-
-function providerContentTypeForUi(content) {
-  const mediaType = String(content.mediaType || content.media_type || "").toLowerCase();
-  if (mediaType === "tv") return "drama";
-  if (mediaType === "movie") return "movie";
-  return contentTypeForUi(content);
+  return normalizeDisplayContentType(content) || "movie";
 }
 
 function hasFocusedSelectedTypes(selectedTypes = []) {
@@ -679,7 +682,9 @@ function isUnknownOttValue(value) {
 }
 
 function safeOttPlatforms(content) {
-  const actualProviders = Array.isArray(content.actualProviders) ? content.actualProviders : [];
+  const actualProviders = Array.isArray(content.actualStreamingProviders) && content.actualStreamingProviders.length
+    ? content.actualStreamingProviders
+    : Array.isArray(content.actualProviders) ? content.actualProviders : [];
   const rawPlatforms = Array.isArray(content.ott) && content.ott.length ? content.ott : content.platforms || [];
   const providers = (actualProviders.length ? actualProviders : rawPlatforms)
     .map((provider) => String(provider || "").trim())
@@ -848,6 +853,10 @@ function normalizeProviderResult(content, quickPicks = [], reasonSeed = "", labe
     title,
     reasonSeed: cleanSeedTitleForDisplay(content.seedTitle || reasonSeed),
     type,
+    contentType: type,
+    displayContentType: type,
+    providerMediaType: normalizeProviderMediaType(content),
+    mediaType: normalizeProviderMediaType(content),
     genreIds: normalizedIdList(content.genreIds),
     seedGenreIds: normalizedIdList(content.seedGenreIds),
     runtimeMinutes: Number.isFinite(runtime) && runtime > 0 ? runtime : content.runtimeMinutes,
@@ -957,7 +966,16 @@ function logRecommendationSource(context, payload, resultCount = 0) {
   });
 }
 
-async function fetchProviderRecommendations(titles, confirmedSeeds, selectedTypes, quickPicks, selectedOtt, optionMetadata, labelByValue) {
+async function fetchProviderRecommendations(
+  titles,
+  confirmedSeeds,
+  selectedTypes,
+  quickPicks,
+  selectedOtt,
+  optionMetadata,
+  labelByValue,
+  { signal, requestId, qaMode = false } = {},
+) {
   const uniqueTitles = [...new Set(titles.filter((title) => title.trim()))];
   const filters = [...quickPicks, ...selectedOtt];
   const seedPayload = buildSeedRequestPayload({
@@ -966,11 +984,14 @@ async function fetchProviderRecommendations(titles, confirmedSeeds, selectedType
     contentTypes: selectedTypes,
     filters,
   });
+  seedPayload.requestId = requestId;
+  seedPayload.qaDiagnostics = qaMode;
   const response = await fetch("/api/recommend/seeds", {
     method: "POST",
     cache: "no-store",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(seedPayload),
+    signal,
   });
 
   if (!response.ok) {
@@ -979,7 +1000,12 @@ async function fetchProviderRecommendations(titles, confirmedSeeds, selectedType
 
   const payload = await response.json();
   logRecommendationSource("multi-seed", payload, payload.results?.length || 0);
-  const normalizedResults = dedupePrimaryDisplayTitles((payload.results || [])
+  const recommendationDiagnostics = sanitizeFounderDiagnostics(payload.recommendationDebug || payload.diagnostics || {});
+  const diagnosticsResults = qaMode
+    ? attachFounderDiagnostics(payload.results || [], recommendationDiagnostics)
+    : payload.results || [];
+  const allFilters = [...quickPicks, ...selectedOtt];
+  const normalizedResults = dedupePrimaryDisplayTitles(diagnosticsResults
     .map((item) =>
       normalizeProviderResult(
         {
@@ -994,7 +1020,7 @@ async function fetchProviderRecommendations(titles, confirmedSeeds, selectedType
       ),
     )
     .filter((item) => !uniqueTitles.some((title) => titleMatchesSeed(item, title)))
-    .filter((item) => !hasFocusedSelectedTypes(selectedTypes) || isSelectedContentType(item, selectedTypes, quickPicks))
+    .filter((item) => evaluateHardFilters(item, { contentTypes: selectedTypes, filters: allFilters }).pass)
     .map((item) => ({
       ...item,
       score: item.scoreDetail?.finalScore ?? 0,
@@ -1029,17 +1055,28 @@ async function fetchProviderRecommendations(titles, confirmedSeeds, selectedType
       unresolvedSeeds: payload.unresolvedSeeds || [],
       deferredSeeds: payload.deferredSeeds || [],
     },
+    recommendationDiagnostics,
   };
 }
 
-async function fetchOptionRecommendations(selectedTypes, quickPicks, selectedOtt, optionMetadata, labelByValue) {
+async function fetchOptionRecommendations(
+  selectedTypes,
+  quickPicks,
+  selectedOtt,
+  optionMetadata,
+  labelByValue,
+  { signal, requestId, qaMode = false } = {},
+) {
   const filters = [...quickPicks, ...selectedOtt];
   const params = new URLSearchParams({
     filters: filters.join(","),
     types: selectedTypes.join(","),
+    requestId: requestId || "",
   });
+  if (qaMode) params.set("qa", "1");
   const response = await fetch(`/api/recommend/options?${params.toString()}`, {
     cache: "no-store",
+    signal,
   });
 
   if (!response.ok) {
@@ -1048,7 +1085,11 @@ async function fetchOptionRecommendations(selectedTypes, quickPicks, selectedOtt
 
   const payload = await response.json();
   logRecommendationSource("options", payload, payload.results?.length || 0);
-  const normalizedResults = (payload.results || []).map((item) =>
+  const recommendationDiagnostics = sanitizeFounderDiagnostics(payload.recommendationDebug || payload.diagnostics || {});
+  const diagnosticsResults = qaMode
+    ? attachFounderDiagnostics(payload.results || [], recommendationDiagnostics)
+    : payload.results || [];
+  const normalizedResults = diagnosticsResults.map((item) =>
     normalizeProviderResult(
       {
         ...item,
@@ -1061,7 +1102,8 @@ async function fetchOptionRecommendations(selectedTypes, quickPicks, selectedOtt
       selectedOtt,
     ),
   );
-  const eligibleResults = filterFocusedContentTypes(mergeProviderResults(normalizedResults), selectedTypes, quickPicks);
+  const eligibleResults = mergeProviderResults(normalizedResults)
+    .filter((item) => evaluateHardFilters(item, { contentTypes: selectedTypes, filters }).pass);
   const sortedResults = sortProviderResults(eligibleResults, selectedTypes, quickPicks, selectedOtt, optionMetadata);
   const balancedResults = balanceContentDiversity(sortedResults, selectedTypes);
   const results = balancedResults.slice(0, targetProviderResultCount);
@@ -1069,19 +1111,24 @@ async function fetchOptionRecommendations(selectedTypes, quickPicks, selectedOtt
   return {
     results,
     providerStatus: combineProviderStatuses([providerStatusFromPayload(payload)], results),
+    recommendationDiagnostics,
   };
 }
 
-async function fetchRelatedRecommendations(item, quickPicks, labelByValue) {
+async function fetchRelatedRecommendations(item, quickPicks, labelByValue, { signal } = {}) {
   const providerContentId = item.providerContentId || item.tmdbId || "";
   if (!providerContentId) return [];
 
   const params = new URLSearchParams({
     id: String(providerContentId),
-    type: item.type || item.contentType || "movie",
+    type: item.displayContentType || item.type || item.contentType || "movie",
+    mediaType: item.providerMediaType || item.mediaType || "",
+    title: item.title || "",
+    originalTitle: item.originalTitle || "",
   });
   const response = await fetch(`/api/related?${params.toString()}`, {
     cache: "no-store",
+    signal,
   });
 
   if (!response.ok) {
@@ -1089,10 +1136,9 @@ async function fetchRelatedRecommendations(item, quickPicks, labelByValue) {
   }
 
   const payload = await response.json();
-  return (payload.results || [])
+  return dedupeRelatedItems((payload.results || [])
     .map((content) => normalizeProviderResult(content, quickPicks, "", labelByValue))
-    .filter((relatedItem) => contentKey(relatedItem) !== contentKey(item))
-    .slice(0, relatedPickCount);
+  , item).slice(0, relatedPickCount);
 }
 
 function toggleValue(values, value) {
@@ -1130,9 +1176,116 @@ function providerStatusLabel(providerStatus) {
   return providerStatus.providerName || providerStatus.providerId || "Unknown";
 }
 
-function DecisionCard({ item, enteredTitles, selectedFilters = [], onOpen, badge, reasonOverride, className = "" }) {
+function displayDiagnostic(value) {
+  if (value === undefined || value === null || value === "") return "미제공";
+  if (Array.isArray(value)) return value.length ? value.join(", ") : "없음";
+  if (typeof value === "object") return JSON.stringify(value);
+  return String(value);
+}
+
+function preferenceConditionLabels(preferences = {}, labelByValue = new Map()) {
+  const contentLabels = new Map(contentTypeOptions);
+  return [
+    ...(preferences.contentTypes || []).map((value) => `콘텐츠: ${contentLabels.get(value) || value}`),
+    ...(preferences.filters || []).map((value) => `옵션: ${labelByValue.get(value) || value}`),
+    ...(preferences.ottProviders || []).map((value) => `OTT: ${ottLabelByValue.get(value) || value}`),
+    ...(preferences.titles || []).map((value) => `작품: ${value}`),
+  ];
+}
+
+function FounderQaPanel({ environmentStatus, session, dirty, requestGate, relatedGate }) {
+  if (!session) {
+    return (
+      <aside className="founder-qa-panel" aria-label="Founder QA diagnostics">
+        <h2>Founder QA</h2>
+        <p>추천을 실행하면 마지막 요청의 Provider, 후보, Hard Filter 진단이 표시됩니다.</p>
+        <dl>
+          <div><dt>TMDB Enabled</dt><dd>{environmentStatus.tmdbEnabled ? "Yes" : "No"}</dd></div>
+          <div><dt>Environment Provider</dt><dd>{displayDiagnostic(environmentStatus.providerId)}</dd></div>
+        </dl>
+      </aside>
+    );
+  }
+  const diagnostics = session.diagnostics || {};
+  const exclusionCounts = diagnostics.exclusionCounts || {};
+  const resultSources = new Set(session.results.map((item) => item.providerId || item.source).filter(Boolean));
+  const mockMixedCount = resultSources.has("tmdb") && resultSources.has("mock")
+    ? session.results.filter((item) => (item.providerId || item.source) === "mock").length
+    : 0;
   return (
-    <button className={`result-card decision-card ${className}`.trim()} type="button" onClick={() => onOpen(item)} aria-label={`${item.title} 상세 보기`}>
+    <aside className="founder-qa-panel" aria-label="Founder QA diagnostics">
+      <div className="founder-qa-heading">
+        <div><p className="eyebrow">Development only</p><h2>Founder QA</h2></div>
+        <strong>{session.status}</strong>
+      </div>
+      <div className="founder-qa-columns">
+        <section>
+          <h3>Request</h3>
+          <dl>
+            <div><dt>Request ID</dt><dd>{session.requestId}</dd></div>
+            <div><dt>Sequence</dt><dd>{session.requestSequence}</dd></div>
+            <div><dt>Endpoint</dt><dd>{displayDiagnostic(session.endpoint)}</dd></div>
+            <div><dt>Submitted At</dt><dd>{session.submittedAt}</dd></div>
+            <div><dt>Draft Changed</dt><dd>{dirty ? "Yes" : "No"}</dd></div>
+            <div><dt>Titles</dt><dd>{displayDiagnostic(session.submittedPreferences.titles)}</dd></div>
+            <div><dt>Content Types</dt><dd>{displayDiagnostic(session.submittedPreferences.contentTypes)}</dd></div>
+            <div><dt>Filters</dt><dd>{displayDiagnostic(session.submittedPreferences.filters)}</dd></div>
+            <div><dt>OTT</dt><dd>{displayDiagnostic(session.submittedPreferences.ottProviders)}</dd></div>
+          </dl>
+        </section>
+        <section>
+          <h3>Provider</h3>
+          <dl>
+            <div><dt>Environment</dt><dd>{displayDiagnostic(environmentStatus.providerId)}</dd></div>
+            <div><dt>Last Request</dt><dd>{displayDiagnostic(session.providerStatus.providerId)}</dd></div>
+            <div><dt>Data Source</dt><dd>{displayDiagnostic(session.providerStatus.dataSource)}</dd></div>
+            <div><dt>Fallback</dt><dd>{session.providerStatus.fallback ? "Yes" : "No"}</dd></div>
+            <div><dt>Fallback Reason</dt><dd>{displayDiagnostic(session.providerStatus.fallbackReason)}</dd></div>
+            <div><dt>Result Count</dt><dd>{session.results.length}</dd></div>
+            <div><dt>Mock Mixed</dt><dd>{mockMixedCount}</dd></div>
+          </dl>
+        </section>
+        <section>
+          <h3>Candidates</h3>
+          <dl>
+            <div><dt>Raw</dt><dd>{displayDiagnostic(diagnostics.rawCandidateCount)}</dd></div>
+            <div><dt>Classified</dt><dd>{displayDiagnostic(diagnostics.classifiedCount)}</dd></div>
+            <div><dt>Exact</dt><dd>{displayDiagnostic(diagnostics.exactCandidateCount)}</dd></div>
+            <div><dt>Primary</dt><dd>{displayDiagnostic(diagnostics.primaryCount)}</dd></div>
+            <div><dt>Relaxed</dt><dd>{displayDiagnostic(diagnostics.relaxedCount)}</dd></div>
+            <div><dt>Controlled</dt><dd>{displayDiagnostic(diagnostics.controlledCombinedCount)}</dd></div>
+            <div><dt>Duplicate Content</dt><dd>{displayDiagnostic(exclusionCounts["duplicate-content"])}</dd></div>
+            <div><dt>Duplicate Title</dt><dd>{displayDiagnostic(exclusionCounts["duplicate-display-title"])}</dd></div>
+            <div><dt>Duplicate Franchise</dt><dd>{displayDiagnostic(exclusionCounts["duplicate-franchise"])}</dd></div>
+            <div><dt>Content Type Excluded</dt><dd>{displayDiagnostic(exclusionCounts["content-type-mismatch"])}</dd></div>
+            <div><dt>OTT Unknown</dt><dd>{displayDiagnostic(exclusionCounts["ott-provider-unknown"])}</dd></div>
+            <div><dt>OTT Mismatch</dt><dd>{displayDiagnostic(exclusionCounts["ott-provider-mismatch"])}</dd></div>
+            <div><dt>Runtime Unknown</dt><dd>{displayDiagnostic(exclusionCounts["runtime-unknown"])}</dd></div>
+            <div><dt>Runtime Mismatch</dt><dd>{displayDiagnostic(exclusionCounts["runtime-mismatch"])}</dd></div>
+          </dl>
+        </section>
+        <section>
+          <h3>Requests</h3>
+          <dl>
+            <div><dt>Total</dt><dd>{displayDiagnostic(diagnostics.requestsUsed)}</dd></div>
+            <div><dt>List</dt><dd>{displayDiagnostic(diagnostics.listRequestsUsed)}</dd></div>
+            <div><dt>Detail</dt><dd>{displayDiagnostic(diagnostics.detailRequestsUsed)}</dd></div>
+            <div><dt>Cache Hits</dt><dd>{displayDiagnostic(diagnostics.cacheHits)}</dd></div>
+            <div><dt>Early Stop</dt><dd>{displayDiagnostic(diagnostics.earlyStopReason)}</dd></div>
+            <div><dt>Request Failures</dt><dd>{displayDiagnostic(diagnostics.requestFailureCount)}</dd></div>
+            <div><dt>Recommendation Stale</dt><dd>{requestGate.diagnostics().staleCommitCount}</dd></div>
+            <div><dt>Related Stale</dt><dd>{relatedGate.diagnostics().staleCommitCount}</dd></div>
+          </dl>
+        </section>
+      </div>
+    </aside>
+  );
+}
+
+function DecisionCard({ item, enteredTitles, selectedFilters = [], onOpen, badge, reasonOverride, className = "", qaMode = false }) {
+  return (
+    <article className={`result-card decision-card ${className}`.trim()}>
+      <button className="decision-card-open" type="button" onClick={() => onOpen(item)} aria-label={`${item.title} 상세 보기`}>
       <div className="thumbnail poster" aria-hidden="true"><PosterVisual poster={item.poster} title={item.title} /></div>
       <div className="result-body">
         {badge ? <span className="card-context">{badge}</span> : null}
@@ -1148,7 +1301,35 @@ function DecisionCard({ item, enteredTitles, selectedFilters = [], onOpen, badge
           <span><strong>OTT</strong>{item.ott.join(", ")}</span>
         </div>
       </div>
-    </button>
+      </button>
+      {qaMode ? (
+          <details className="card-qa-diagnostics">
+            <summary>QA 진단</summary>
+            <dl>
+              <div><dt>Provider Content</dt><dd>{item.providerId}:{item.providerContentId || item.tmdbId}</dd></div>
+              <div><dt>Provider Media Type</dt><dd>{displayDiagnostic(item.providerMediaType || item.mediaType)}</dd></div>
+              <div><dt>Display Content Type</dt><dd>{displayDiagnostic(item.displayContentType || item.type)}</dd></div>
+              <div><dt>Provider Genre IDs</dt><dd>{displayDiagnostic(item.providerGenreIds || item.genreIds)}</dd></div>
+              <div><dt>Provider Genre Names</dt><dd>{displayDiagnostic(item.providerGenreNames)}</dd></div>
+              <div><dt>Matched Taxonomy</dt><dd>{displayDiagnostic(item.matchedTaxonomyValues)}</dd></div>
+              <div><dt>Unmatched Selected</dt><dd>{displayDiagnostic(item.unmatchedSelectedTaxonomyValues)}</dd></div>
+              <div><dt>Match Mode</dt><dd>{displayDiagnostic(item.genreMatchMode)}</dd></div>
+              <div><dt>Semantic Values</dt><dd>{displayDiagnostic(item.semanticGenreValues)}</dd></div>
+              <div><dt>Controlled Values</dt><dd>{displayDiagnostic(item.controlledSemanticGenreValues)}</dd></div>
+              <div><dt>Semantic Confidence</dt><dd>{displayDiagnostic(item.semanticConfidence)}</dd></div>
+              <div><dt>Tier / Source</dt><dd>{displayDiagnostic([item.resultTier, item.candidateSource])}</dd></div>
+              <div><dt>Fallback Stage</dt><dd>{displayDiagnostic(item.fallbackStage)}</dd></div>
+              <div><dt>Runtime / Pass</dt><dd>{displayDiagnostic([item.runtimeMinutes, item.hardFilterStatus?.runtime])}</dd></div>
+              <div><dt>OTT IDs / Pass</dt><dd>{displayDiagnostic([...(item.actualStreamingProviderIds || []), item.hardFilterStatus?.ott])}</dd></div>
+              <div><dt>OTT Names</dt><dd>{displayDiagnostic(item.actualStreamingProviders)}</dd></div>
+              <div><dt>Country Codes</dt><dd>{displayDiagnostic(item.countryCodes)}</dd></div>
+              <div><dt>Country Validation</dt><dd>{displayDiagnostic(item.countryValidation)}</dd></div>
+              <div><dt>Country / Type Pass</dt><dd>{displayDiagnostic([item.hardFilterStatus?.country, item.hardFilterStatus?.contentType])}</dd></div>
+              <div><dt>Final Score</dt><dd>{displayDiagnostic(item.scoreDetail?.finalScore ?? item.score)}</dd></div>
+            </dl>
+          </details>
+      ) : null}
+    </article>
   );
 }
 
@@ -1168,6 +1349,9 @@ export default function Home() {
   const [relatedItems, setRelatedItems] = useState([]);
   const [relatedStatus, setRelatedStatus] = useState("idle");
   const [providerStatus, setProviderStatus] = useState(initialProviderStatus);
+  const [environmentProviderStatus, setEnvironmentProviderStatus] = useState(initialProviderStatus);
+  const [recommendationSession, setRecommendationSession] = useState(null);
+  const [qaMode, setQaMode] = useState(false);
   const [timeSlot, setTimeSlot] = useState("evening");
   const [suggestions, setSuggestions] = useState({});
   const [activeSuggestionIndex, setActiveSuggestionIndex] = useState(null);
@@ -1183,12 +1367,37 @@ export default function Home() {
     suppressClickUntil: 0,
   });
   const quickPickSearchRef = useRef(null);
+  const recommendationRequestGateRef = useRef(null);
+  const relatedRequestGateRef = useRef(null);
+  if (!recommendationRequestGateRef.current) recommendationRequestGateRef.current = createLatestRequestGate();
+  if (!relatedRequestGateRef.current) relatedRequestGateRef.current = createLatestRequestGate();
 
   const enteredTitles = useMemo(() => titles.map((title) => title.trim()).filter(Boolean), [titles]);
+  const draftPreferences = useMemo(() => createSubmittedPreferences({
+    titles,
+    confirmedSeeds,
+    contentTypes: selectedTypes,
+    filters: selectedQuickPicks,
+    ottProviders: selectedOtt,
+  }), [titles, confirmedSeeds, selectedTypes, selectedQuickPicks, selectedOtt]);
+  const submittedPreferences = recommendationSession?.submittedPreferences || null;
+  const submittedTitles = submittedPreferences?.titles || [];
+  const submittedFilters = submittedPreferences?.filters || [];
+  const submittedTypes = submittedPreferences?.contentTypes || [];
+  const submittedOtt = submittedPreferences?.ottProviders || [];
+  const preferencesDirty = Boolean(submittedPreferences && preferencesChanged(draftPreferences, submittedPreferences));
   const hasOptionPreference = selectedQuickPicks.length > 0 || selectedOtt.length > 0 || selectedTypes.length > 0;
-  const canRecommend = enteredTitles.length > 0 || hasOptionPreference;
+  const canRecommend = (enteredTitles.length > 0 || hasOptionPreference) && recommendationStatus !== "loading";
   const heroRecommendations = useMemo(() => buildHeroRecommendations(timeSlot).slice(0, 3), [timeSlot]);
   const optionLabelByValue = useMemo(() => new Map(optionGroups.flatMap((group) => group.options)), [optionGroups]);
+  const appliedConditionLabels = useMemo(
+    () => submittedPreferences ? preferenceConditionLabels(submittedPreferences, optionLabelByValue) : [],
+    [submittedPreferences, optionLabelByValue],
+  );
+  const draftConditionLabels = useMemo(
+    () => preferenceConditionLabels(draftPreferences, optionLabelByValue),
+    [draftPreferences, optionLabelByValue],
+  );
   const filteredOptionGroups = useMemo(
     () => visibleOptionGroups(filterOptionGroups(optionGroups, quickPickSearch), quickPickSearch, expandedOptionGroups),
     [optionGroups, quickPickSearch, expandedOptionGroups],
@@ -1196,15 +1405,20 @@ export default function Home() {
   const selectedQuickPickChips = selectedQuickPicks.map((value) => [value, optionLabelByValue.get(value)]).filter(([, label]) => Boolean(label));
   const relatedRecommendations = relatedStatus === "success" ? relatedItems : [];
   const seedCoverageMessage = buildSeedCoverageMessage(seedDiagnostics);
+  const visibleProviderStatus = recommendationSession ? providerStatus : environmentProviderStatus;
   const emptyStateMessage = resolveEmptyStateMessage({
     recommendationStatus,
-    selectedTypes,
+    selectedTypes: submittedPreferences ? submittedTypes : selectedTypes,
     resultCount: results.length,
     dataSource: providerStatus.dataSource,
-    hasSeedInput: enteredTitles.length > 0,
+    hasSeedInput: submittedPreferences ? submittedTitles.length > 0 : enteredTitles.length > 0,
     processedSeedCount: seedDiagnostics.processedSeedCount,
     unresolvedSeedCount: seedDiagnostics.unresolvedSeedCount,
   });
+
+  useEffect(() => {
+    setQaMode(process.env.NODE_ENV !== "production" && new URLSearchParams(window.location.search).get("qa") === "1");
+  }, []);
 
   useEffect(() => {
     function handleEscape(event) {
@@ -1273,23 +1487,25 @@ export default function Home() {
   }, []);
 
   useEffect(() => {
-    let isMounted = true;
-
     async function loadRelatedRecommendations() {
       if (!selectedDetail) {
+        relatedRequestGateRef.current.abort();
         setRelatedItems([]);
         setRelatedStatus("idle");
         return;
       }
 
+      const request = relatedRequestGateRef.current.begin();
       setRelatedStatus("loading");
       try {
-        const nextRelated = await fetchRelatedRecommendations(selectedDetail, selectedQuickPicks, optionLabelByValue);
-        if (!isMounted) return;
+        const nextRelated = await fetchRelatedRecommendations(selectedDetail, submittedFilters, optionLabelByValue, {
+          signal: request.signal,
+        });
+        if (!relatedRequestGateRef.current.canCommit(request.sequence)) return;
         setRelatedItems(nextRelated);
         setRelatedStatus(nextRelated.length ? "success" : "empty");
-      } catch {
-        if (!isMounted) return;
+      } catch (error) {
+        if (error?.name === "AbortError" || !relatedRequestGateRef.current.canCommit(request.sequence)) return;
         setRelatedItems([]);
         setRelatedStatus("error");
       }
@@ -1300,9 +1516,9 @@ export default function Home() {
     loadRelatedRecommendations();
 
     return () => {
-      isMounted = false;
+      relatedRequestGateRef.current.abort();
     };
-  }, [selectedDetail, selectedQuickPicks, optionLabelByValue]);
+  }, [selectedDetail, submittedFilters, optionLabelByValue]);
 
   useEffect(() => {
     if (activeSuggestionIndex === null) return undefined;
@@ -1351,9 +1567,9 @@ export default function Home() {
         cache: "no-store",
       });
       const payload = await response.json();
-      setProviderStatus(providerStatusFromPayload(payload));
+      setEnvironmentProviderStatus(providerStatusFromPayload(payload));
     } catch (error) {
-      setProviderStatus({
+      setEnvironmentProviderStatus({
         providerId: "error",
         providerName: "Provider check failed",
         fallback: false,
@@ -1370,28 +1586,54 @@ export default function Home() {
     const canSubmit = currentTitles.length > 0 || hasOptionPreference;
     if (!canSubmit) return;
 
+    const request = recommendationRequestGateRef.current.begin();
+    const requestId = createRecommendationRequestId(request.sequence);
+    const submittedAt = new Date().toISOString();
+    const snapshot = createSubmittedPreferences({
+      titles,
+      confirmedSeeds,
+      contentTypes: selectedTypes,
+      filters: selectedQuickPicks,
+      ottProviders: selectedOtt,
+    });
     setRecommendationStatus("loading");
-    setResults([]);
     setSelectedDetail(null);
+    relatedRequestGateRef.current.abort();
     setShowQuickPick(false);
     closeSuggestions();
 
     if (!currentTitles.length) {
       setSeedDiagnostics(initialSeedDiagnostics);
       try {
-        const { results: optionResults, providerStatus: nextProviderStatus } = await fetchOptionRecommendations(
-          selectedTypes,
-          selectedQuickPicks,
-          selectedOtt,
+        const {
+          results: optionResults,
+          providerStatus: nextProviderStatus,
+          recommendationDiagnostics,
+        } = await fetchOptionRecommendations(
+          snapshot.contentTypes,
+          snapshot.filters,
+          snapshot.ottProviders,
           optionMetadata,
           optionLabelByValue,
+          { signal: request.signal, requestId, qaMode },
         );
+        if (!recommendationRequestGateRef.current.canCommit(request.sequence)) return;
         setResults(optionResults);
         setRecommendationStatus(optionResults.length ? "success" : "empty");
-        if (showDevProviderStatus && nextProviderStatus) {
-          setProviderStatus(nextProviderStatus);
-        }
-      } catch {
+        setProviderStatus(nextProviderStatus || initialProviderStatus);
+        setRecommendationSession(createRecommendationSession({
+          requestId,
+          requestSequence: request.sequence,
+          endpoint: "/api/recommend/options",
+          submittedAt,
+          submittedPreferences: snapshot,
+          results: optionResults,
+          providerStatus: nextProviderStatus,
+          diagnostics: recommendationDiagnostics,
+          status: optionResults.length ? "success" : "empty",
+        }));
+      } catch (error) {
+        if (error?.name === "AbortError" || !recommendationRequestGateRef.current.canCommit(request.sequence)) return;
         setResults([]);
         setRecommendationStatus("error");
         if (showDevProviderStatus) {
@@ -1415,22 +1657,35 @@ export default function Home() {
         results: providerResults,
         providerStatus: nextProviderStatus,
         seedDiagnostics: nextSeedDiagnostics,
+        recommendationDiagnostics,
       } = await fetchProviderRecommendations(
-        titles,
-        confirmedSeeds,
-        selectedTypes,
-        selectedQuickPicks,
-        selectedOtt,
+        snapshot.titles,
+        snapshot.confirmedSeeds,
+        snapshot.contentTypes,
+        snapshot.filters,
+        snapshot.ottProviders,
         optionMetadata,
         optionLabelByValue,
+        { signal: request.signal, requestId, qaMode },
       );
+      if (!recommendationRequestGateRef.current.canCommit(request.sequence)) return;
       setResults(providerResults);
       setSeedDiagnostics(nextSeedDiagnostics || initialSeedDiagnostics);
       setRecommendationStatus(providerResults.length ? "success" : "empty");
-      if (showDevProviderStatus && nextProviderStatus) {
-        setProviderStatus(nextProviderStatus);
-      }
-    } catch {
+      setProviderStatus(nextProviderStatus || initialProviderStatus);
+      setRecommendationSession(createRecommendationSession({
+        requestId,
+        requestSequence: request.sequence,
+        endpoint: "/api/recommend/seeds",
+        submittedAt,
+        submittedPreferences: snapshot,
+        results: providerResults,
+        providerStatus: nextProviderStatus,
+        diagnostics: recommendationDiagnostics,
+        status: providerResults.length ? "success" : "empty",
+      }));
+    } catch (error) {
+      if (error?.name === "AbortError" || !recommendationRequestGateRef.current.canCommit(request.sequence)) return;
       setResults([]);
       setSeedDiagnostics(initialSeedDiagnostics);
       setRecommendationStatus("error");
@@ -1470,6 +1725,14 @@ export default function Home() {
       ...current,
       [groupTitle]: expanded,
     }));
+  }
+
+  function toggleQuickPickValue(value) {
+    setSelectedQuickPicks((current) => {
+      if (!value.startsWith("runtime-")) return toggleValue(current, value);
+      const withoutRuntime = current.filter((item) => !item.startsWith("runtime-"));
+      return current.includes(value) ? withoutRuntime : [...withoutRuntime, value];
+    });
   }
 
   function startRelatedDrag(event) {
@@ -1567,6 +1830,8 @@ export default function Home() {
   }
 
   function resetAll() {
+    recommendationRequestGateRef.current.abort();
+    relatedRequestGateRef.current.abort();
     setSelectedOtt([...initialOtt]);
     setSelectedTypes([...initialTypes]);
     setTitles([...initialTitles]);
@@ -1583,6 +1848,7 @@ export default function Home() {
     setActiveSuggestionIndex(null);
     setConfirmedSeeds({});
     setSeedDiagnostics(initialSeedDiagnostics);
+    setRecommendationSession(null);
   }
 
   return (
@@ -1618,11 +1884,11 @@ export default function Home() {
           <h1 id="pageTitle">취향을 알려주면 더 좁혀드릴게요</h1>
           <p>이용 중인 OTT와 콘텐츠 종류를 고르고, 좋아했던 작품이나 추천 옵션을 더하면 결과가 바로 아래에 표시됩니다.</p>
           {showDevProviderStatus ? (
-            <div className="provider-status" id="providerStatus" aria-label="Provider status" title={providerStatus.message}>
+            <div className="provider-status" id="providerStatus" aria-label="Provider status" title={visibleProviderStatus.message}>
               <span>Data Source</span>
-              <strong>{providerStatusLabel(providerStatus)}</strong>
+              <strong>{providerStatusLabel(visibleProviderStatus)}</strong>
               <span>Fallback</span>
-              <strong>{providerStatus.fallback ? "Yes" : "No"}</strong>
+              <strong>{visibleProviderStatus.fallback ? "Yes" : "No"}</strong>
             </div>
           ) : null}
         </div>
@@ -1742,6 +2008,16 @@ export default function Home() {
         </form>
       </section>
 
+      {qaMode ? (
+        <FounderQaPanel
+          environmentStatus={environmentProviderStatus}
+          session={recommendationSession}
+          dirty={preferencesDirty}
+          requestGate={recommendationRequestGateRef.current}
+          relatedGate={relatedRequestGateRef.current}
+        />
+      ) : null}
+
       <section className="results-panel" aria-labelledby="resultsTitle">
         <div className="section-heading">
           <div>
@@ -1750,6 +2026,28 @@ export default function Home() {
           </div>
           <p className="result-count" id="resultCount">{results.length}개</p>
         </div>
+        {submittedPreferences ? (
+          <section className="applied-preferences" aria-label="적용된 추천 조건">
+            <p>적용된 조건</p>
+            <div className="preference-chip-list">
+              {appliedConditionLabels.map((label) => <span key={label}>{label}</span>)}
+            </div>
+          </section>
+        ) : null}
+        {preferencesDirty ? (
+          <section className="preferences-dirty-banner" role="status">
+            <div>
+              <strong>추천 조건이 변경되었습니다.</strong>
+              <p>새 조건으로 다시 추천받아 주세요. 현재 카드는 이전 적용 조건을 유지합니다.</p>
+              <div className="preference-chip-list draft">
+                {draftConditionLabels.map((label) => <span key={label}>{label}</span>)}
+              </div>
+            </div>
+            <button className="secondary-button" type="submit" form="recommendationForm" disabled={recommendationStatus === "loading"}>
+              새 조건으로 다시 추천
+            </button>
+          </section>
+        ) : null}
         {seedCoverageMessage && recommendationStatus !== "loading" ? (
           <p className="seed-coverage" role="status">{seedCoverageMessage}</p>
         ) : null}
@@ -1765,9 +2063,10 @@ export default function Home() {
           {results.map((item) => (
             <DecisionCard
               item={item}
-              enteredTitles={enteredTitles}
-              selectedFilters={selectedQuickPicks}
+              enteredTitles={submittedTitles}
+              selectedFilters={submittedFilters}
               onOpen={openDetail}
+              qaMode={qaMode}
               key={item.id || item.providerContentId || item.title}
             />
           ))}
@@ -1875,7 +2174,7 @@ export default function Home() {
                               name="quickPick"
                               value={value}
                               checked={selectedQuickPicks.includes(value)}
-                              onChange={() => setSelectedQuickPicks((current) => toggleValue(current, value))}
+                              onChange={() => toggleQuickPickValue(value)}
                             />
                             <span>{label}</span>
                           </label>
@@ -1907,7 +2206,7 @@ export default function Home() {
                   <span><strong>감독</strong> {selectedDetail.director}</span>
                   <span><strong>주요 배우</strong> {selectedDetail.actors.join(", ")}</span>
                 </div>
-                <p className="detail-reason"><strong>추천 이유</strong><br />{recommendationReason(selectedDetail, enteredTitles, selectedQuickPicks)}</p>
+                <p className="detail-reason"><strong>추천 이유</strong><br />{recommendationReason(selectedDetail, submittedTitles, submittedFilters)}</p>
                 {selectedDetail.recommendationInsight?.length ? (
                   <section className="insight-panel" aria-labelledby="recommendationInsightTitle">
                     <p className="trust-label" id="recommendationInsightTitle">Recommendation Insight</p>
@@ -1924,7 +2223,7 @@ export default function Home() {
                     <p className="trust-copy">선택을 돕기 위한 참고 단서입니다. 이후 실제 지표로 교체됩니다.</p>
                   </div>
                   <div className="trust-grid">
-                    {trustSignals(selectedDetail, enteredTitles).map((signal) => (
+                    {trustSignals(selectedDetail, submittedTitles).map((signal) => (
                       <span className="trust-signal" key={signal.label}>
                         <strong>{signal.label}</strong>
                         {signal.value}
@@ -1996,7 +2295,7 @@ export default function Home() {
                       <span className="related-thumb" aria-hidden="true"><PosterVisual poster={item.poster} title={item.title} /></span>
                       <span>
                         <strong>{item.title}</strong>
-                        <small>{decisionReason(item, enteredTitles, selectedQuickPicks)}</small>
+                        <small>{decisionReason(item, submittedTitles, submittedFilters)}</small>
                       </span>
                     </button>
                   ))}

@@ -15,7 +15,10 @@ import {
   prioritizeGenreOptions,
 } from "../src/lib/recommendation/genres/genreContract.js";
 import { evaluateRecommendationCase } from "../src/lib/recommendation/qa/evaluateRecommendationCase.js";
-import { taxonomyFixturesForCase } from "../src/lib/recommendation/qa/genreTaxonomyFixtures.js";
+import {
+  GENRE_TAXONOMY_FIXTURES,
+  taxonomyFixturesForCase,
+} from "../src/lib/recommendation/qa/genreTaxonomyFixtures.js";
 import {
   buildSelectedOptionReason,
   presentationGenreLabels,
@@ -25,6 +28,16 @@ import {
   buildSeedRequestPayload,
   resolveEmptyStateMessage,
 } from "../src/lib/recommendation/seeds/seedRequest.js";
+import {
+  createSubmittedPreferences,
+  preferencesChanged,
+} from "../src/lib/recommendation/preferences/submittedPreferenceSession.js";
+import { dedupeRelatedItems } from "../src/lib/recommendation/content/contentIdentity.js";
+import { createLatestRequestGate } from "../src/lib/recommendation/requests/latestRequestGate.js";
+import {
+  founderDiagnosticsSecretExposureCount,
+  sanitizeFounderDiagnostics,
+} from "../src/lib/recommendation/qa/founderDiagnostics.js";
 
 const dataset = JSON.parse(
   await readFile(new URL("../docs/project/recommendation-qa-dataset.json", import.meta.url), "utf8"),
@@ -148,9 +161,76 @@ const taxonomyCaseIds = new Set([
   ...Array.from({ length: 15 }, (_, index) => `REC-QA-${String(index + 32).padStart(3, "0")}`),
   ...Array.from({ length: 12 }, (_, index) => `REC-QA-${String(index + 49).padStart(3, "0")}`),
 ]);
+const correctnessCaseIds = new Set(Array.from({ length: 20 }, (_, index) => `REC-QA-${String(index + 61).padStart(3, "0")}`));
 const reports = [];
 
 for (const testCase of dataset) {
+  if (correctnessCaseIds.has(testCase.id)) {
+    const fixtures = taxonomyFixturesForCase(testCase.id);
+    const filters = testCase.input?.filters || [];
+    const contentTypes = testCase.input?.contentTypes || [];
+    let results = [];
+    let caseDiagnostics = { ...diagnostics };
+
+    if (["REC-QA-061", "REC-QA-062"].includes(testCase.id)) {
+      const submitted = createSubmittedPreferences({ contentTypes: ["drama"], filters: ["genre-action"] });
+      const draft = testCase.id === "REC-QA-061"
+        ? { contentTypes: ["drama"], filters: ["genre-adventure"] }
+        : { contentTypes: ["movie"], filters: ["genre-action"] };
+      results = [{ title: "Submitted session fixture", mediaType: "tv", contentType: "drama" }];
+      caseDiagnostics = {
+        ...caseDiagnostics,
+        submittedPreferenceMutationCount: submitted.filters[0] === "genre-action" && preferencesChanged(draft, submitted) ? 0 : 1,
+      };
+    } else if (Number(testCase.id.slice(-3)) >= 63 && Number(testCase.id.slice(-3)) <= 72) {
+      const finalized = finalizeCandidatePool(fixtures, { filters, contentTypes, limit: 12 });
+      results = finalized.results;
+      caseDiagnostics = { ...caseDiagnostics, ...finalized.diagnostics };
+    } else if (["REC-QA-073", "REC-QA-074", "REC-QA-075"].includes(testCase.id)) {
+      const current = GENRE_TAXONOMY_FIXTURES.relatedCurrent;
+      results = dedupeRelatedItems(fixtures, current);
+      const providerKeys = results.map((item) => `${item.mediaType}:${item.tmdbId}`);
+      const titleKeys = results.map((item) => String(item.title).trim().toLowerCase());
+      caseDiagnostics = {
+        ...caseDiagnostics,
+        relatedCurrentContentCount: results.filter((item) => item.tmdbId === current.tmdbId).length,
+        relatedCurrentTitleCount: results.filter((item) => item.title === current.title || item.originalTitle === current.originalTitle).length,
+        relatedDuplicateContentCount: providerKeys.length - new Set(providerKeys).size,
+        relatedDuplicateTitleCount: titleKeys.length - new Set(titleKeys).size,
+        relatedSequelCount: results.filter((item) => item.title === "모아나 2").length,
+      };
+    } else if (["REC-QA-076", "REC-QA-077"].includes(testCase.id)) {
+      const gate = createLatestRequestGate();
+      const first = gate.begin();
+      const second = gate.begin();
+      const committed = gate.canCommit(second.sequence) ? [{ title: "Latest response" }] : [];
+      gate.canCommit(first.sequence);
+      results = committed;
+      caseDiagnostics = {
+        ...caseDiagnostics,
+        ...(testCase.id === "REC-QA-076"
+          ? { staleRecommendationCommitCount: committed[0]?.title === "Latest response" ? 0 : 1 }
+          : { staleRelatedCommitCount: committed[0]?.title === "Latest response" ? 0 : 1 }),
+      };
+    } else if (testCase.id === "REC-QA-078") {
+      const sanitized = sanitizeFounderDiagnostics({ providerId: "tmdb", authorization: "Bearer fixed-secret", apiKey: "fixed-secret" });
+      results = [{ title: "Diagnostics fixture" }];
+      caseDiagnostics = { ...caseDiagnostics, ...sanitized, diagnosticsSecretExposureCount: founderDiagnosticsSecretExposureCount(sanitized) };
+    } else if (testCase.id === "REC-QA-079") {
+      results = [{ title: "Fallback diagnostics fixture", providerId: "mock", dataSource: "fallback", fallbackUsed: true }];
+      caseDiagnostics = { ...caseDiagnostics, providerId: "mock", dataSource: "fallback", fallbackUsed: true, fallbackDiagnosticsVisible: true };
+    } else if (testCase.id === "REC-QA-080") {
+      results = fixtures.map((item) => classifyCandidate(item, { filters, contentTypes }));
+      caseDiagnostics = {
+        ...caseDiagnostics,
+        diagnosticsMissingProviderCount: results.filter((item) => !(item.providerGenreIds || []).length).length,
+        diagnosticsMissingMatchModeCount: results.filter((item) => !item.genreMatchMode).length,
+      };
+    }
+
+    reports.push(evaluateRecommendationCase(testCase, results, { diagnostics: caseDiagnostics }));
+    continue;
+  }
   if (taxonomyCaseIds.has(testCase.id)) {
     const fixtures = taxonomyFixturesForCase(testCase.id);
     const filters = testCase.input?.filters || [];

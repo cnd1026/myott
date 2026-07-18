@@ -4,6 +4,11 @@ import {
   localizedGenreLabels,
   selectedTaxonomyFilters,
 } from "../genres/genreContract.js";
+import {
+  contentTypeMatchesSubmittedPreferences,
+  normalizeDisplayContentType,
+  normalizeProviderMediaType,
+} from "../filters/hardFilterContract.js";
 
 const normalizeTitleKey = (value = "") => String(value)
   .trim()
@@ -64,23 +69,10 @@ export function dedupePrimaryDisplayTitles(items = []) {
 }
 
 export function contentTypeMatchesSelection(item = {}, selectedTypes = [], selectedFilters = []) {
-  if (!selectedTypes.length) return true;
-  const genreIds = (item.providerGenreIds || item.genreIds || item.genre_ids || []).map(Number);
-  const mediaType = String(item.mediaType || item.media_type || "").toLowerCase();
-  const rawType = String(item.contentType || item.type || "").toLowerCase();
-  const animation = rawType === "animation" || genreIds.includes(16);
-  const animationStyleSelected = selectedTaxonomyFilters(selectedFilters).includes("style-animation");
-  if (selectedTypes.includes("animation") && animation) return true;
-  if (animation) {
-    if (!animationStyleSelected) return false;
-    if (selectedTypes.includes("drama") && mediaType === "tv") return true;
-    if (selectedTypes.includes("movie") && mediaType === "movie") return true;
-    return false;
-  }
-  if (selectedTypes.includes("drama") && ["tv", "drama", "series"].includes(mediaType || rawType)) return true;
-  if (selectedTypes.includes("movie") && (mediaType === "movie" || (!mediaType && rawType === "movie"))) return true;
-  return false;
+  return contentTypeMatchesSubmittedPreferences(item, selectedTypes, selectedFilters);
 }
+
+export { normalizeDisplayContentType, normalizeProviderMediaType };
 
 export function presentationGenreLabels(item = {}) {
   return localizedGenreLabels(item);

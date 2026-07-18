@@ -3,6 +3,13 @@ import {
   classifyTaxonomyValues,
   genreContractTokens,
 } from "../genres/genreContract.js";
+import {
+  normalizeDisplayContentType,
+  normalizeProviderMediaType,
+  selectedOttEntries,
+  selectedRuntimeFilter,
+} from "../filters/hardFilterContract.js";
+import { founderDiagnosticsSecretExposureCount } from "./founderDiagnostics.js";
 
 const COUNTRY_ALIASES = {
   KR: ["KR", "한국", "country-kr"],
@@ -596,6 +603,44 @@ export function evaluateRecommendationCase(testCase, recommendationResults = [],
     duplicateTmdbIdCount,
     multiGenreMatchedCount: countBy(scopedResults, (result) => Number(result.matchedSelectedGenreCount || matchedValues(result).size) > 1),
     singleGenreMatchedCount: countBy(scopedResults, (result) => Number(result.matchedSelectedGenreCount || matchedValues(result).size) === 1),
+    submittedPreferenceMutationCount: Number(diagnostics.submittedPreferenceMutationCount || 0),
+    staleRecommendationCommitCount: Number(diagnostics.staleRecommendationCommitCount || 0),
+    staleRelatedCommitCount: Number(diagnostics.staleRelatedCommitCount || 0),
+    contentTypeHardFilterFailureCount: countBy(scopedResults, (result) => result.hardFilterStatus?.contentType === "fail"),
+    providerMediaTypeLostCount: countBy(scopedResults, (result) => (
+      normalizeDisplayContentType(result) === "animation" && !normalizeProviderMediaType(result)
+    )),
+    movieAnimationTvLeakCount: countBy(scopedResults, (result) => (
+      (testCase.input?.contentTypes || []).includes("movie") &&
+      (testCase.input?.filters || []).includes("style-animation") &&
+      normalizeDisplayContentType(result) === "animation" && normalizeProviderMediaType(result) === "tv"
+    )),
+    dramaAnimationMovieLeakCount: countBy(scopedResults, (result) => (
+      (testCase.input?.contentTypes || []).includes("drama") &&
+      (testCase.input?.filters || []).includes("style-animation") &&
+      normalizeDisplayContentType(result) === "animation" && normalizeProviderMediaType(result) === "movie"
+    )),
+    ottProviderMatchedCount: countBy(scopedResults, (result) => (
+      selectedOttEntries(testCase.input?.filters || []).length > 0 && result.hardFilterStatus?.ott === "pass"
+    )),
+    ottProviderMismatchCount: countBy(scopedResults, (result) => result.hardFilterStatus?.ott === "fail" && result.exclusionReason === "ott-provider-mismatch"),
+    ottProviderUnknownCount: countBy(scopedResults, (result) => result.hardFilterStatus?.ott === "unknown"),
+    ottRentBuyOnlyCount: countBy(scopedResults, (result) => result.exclusionReason === "ott-streaming-tier-unavailable"),
+    runtimeMatchedCount: countBy(scopedResults, (result) => (
+      Boolean(selectedRuntimeFilter(testCase.input?.filters || [])) && result.hardFilterStatus?.runtime === "pass"
+    )),
+    runtimeMismatchCount: countBy(scopedResults, (result) => result.hardFilterStatus?.runtime === "fail"),
+    runtimeUnknownCount: countBy(scopedResults, (result) => result.hardFilterStatus?.runtime === "unknown"),
+    relatedCurrentContentCount: Number(diagnostics.relatedCurrentContentCount || 0),
+    relatedCurrentTitleCount: Number(diagnostics.relatedCurrentTitleCount || 0),
+    relatedDuplicateContentCount: Number(diagnostics.relatedDuplicateContentCount || 0),
+    relatedDuplicateTitleCount: Number(diagnostics.relatedDuplicateTitleCount || 0),
+    relatedSequelCount: Number(diagnostics.relatedSequelCount || 0),
+    diagnosticsMissingProviderCount: Number(diagnostics.diagnosticsMissingProviderCount || 0),
+    diagnosticsMissingMatchModeCount: Number(diagnostics.diagnosticsMissingMatchModeCount || 0),
+    diagnosticsSecretExposureCount: Number.isFinite(diagnostics.diagnosticsSecretExposureCount)
+      ? Number(diagnostics.diagnosticsSecretExposureCount)
+      : founderDiagnosticsSecretExposureCount(diagnostics),
   };
 
   const failedReasons = [];
@@ -879,6 +924,75 @@ export function evaluateRecommendationCase(testCase, recommendationResults = [],
   }
   if (Number.isFinite(expected.minimumMultiGenreMatchedCount) && metrics.multiGenreMatchedCount < expected.minimumMultiGenreMatchedCount) {
     failedReasons.push("multi-genre-match-missing");
+  }
+  if (metrics.submittedPreferenceMutationCount > Number(expected.maximumSubmittedPreferenceMutationCount ?? Infinity)) {
+    failedReasons.push("submitted-preference-mutated");
+  }
+  if (metrics.staleRecommendationCommitCount > Number(expected.maximumStaleRecommendationCommitCount ?? Infinity)) {
+    failedReasons.push("stale-recommendation-response-committed");
+  }
+  if (metrics.staleRelatedCommitCount > Number(expected.maximumStaleRelatedCommitCount ?? Infinity)) {
+    failedReasons.push("stale-related-response-committed");
+  }
+  if (metrics.contentTypeHardFilterFailureCount > Number(expected.maximumContentTypeHardFilterFailureCount ?? Infinity)) {
+    failedReasons.push("content-type-hard-filter-failed");
+  }
+  if (metrics.providerMediaTypeLostCount > Number(expected.maximumProviderMediaTypeLostCount ?? Infinity)) {
+    failedReasons.push("provider-media-type-lost");
+  }
+  if (metrics.movieAnimationTvLeakCount > Number(expected.maximumMovieAnimationTvLeakCount ?? Infinity)) {
+    failedReasons.push("movie-animation-tv-leak");
+  }
+  if (metrics.dramaAnimationMovieLeakCount > Number(expected.maximumDramaAnimationMovieLeakCount ?? Infinity)) {
+    failedReasons.push("drama-animation-movie-leak");
+  }
+  if (Number.isFinite(expected.minimumOttProviderMatchedCount) && metrics.ottProviderMatchedCount < expected.minimumOttProviderMatchedCount) {
+    failedReasons.push("ott-provider-mismatch");
+  }
+  if (metrics.ottProviderMismatchCount > Number(expected.maximumOttProviderMismatchCount ?? Infinity)) {
+    failedReasons.push("ott-provider-mismatch");
+  }
+  if (metrics.ottProviderUnknownCount > Number(expected.maximumOttProviderUnknownCount ?? Infinity)) {
+    failedReasons.push("ott-provider-unknown");
+  }
+  if (metrics.ottRentBuyOnlyCount > Number(expected.maximumOttRentBuyOnlyCount ?? Infinity)) {
+    failedReasons.push("ott-rent-buy-only");
+  }
+  if (Number.isFinite(expected.minimumRuntimeMatchedCount) && metrics.runtimeMatchedCount < expected.minimumRuntimeMatchedCount) {
+    failedReasons.push("runtime-mismatch");
+  }
+  if (metrics.runtimeMismatchCount > Number(expected.maximumRuntimeMismatchCount ?? Infinity)) {
+    failedReasons.push("runtime-mismatch");
+  }
+  if (metrics.runtimeUnknownCount > Number(expected.maximumRuntimeUnknownCount ?? Infinity)) {
+    failedReasons.push("runtime-unknown");
+  }
+  if (metrics.relatedCurrentContentCount > Number(expected.maximumRelatedCurrentContentCount ?? Infinity)) {
+    failedReasons.push("related-current-content");
+  }
+  if (metrics.relatedCurrentTitleCount > Number(expected.maximumRelatedCurrentTitleCount ?? Infinity)) {
+    failedReasons.push("related-current-title");
+  }
+  if (metrics.relatedDuplicateContentCount > Number(expected.maximumRelatedDuplicateContentCount ?? Infinity)) {
+    failedReasons.push("related-duplicate-content");
+  }
+  if (metrics.relatedDuplicateTitleCount > Number(expected.maximumRelatedDuplicateTitleCount ?? Infinity)) {
+    failedReasons.push("related-duplicate-title");
+  }
+  if (Number.isFinite(expected.minimumRelatedSequelCount) && metrics.relatedSequelCount < expected.minimumRelatedSequelCount) {
+    failedReasons.push("related-sequel-missing");
+  }
+  if (metrics.diagnosticsMissingProviderCount > Number(expected.maximumDiagnosticsMissingProviderCount ?? Infinity)) {
+    failedReasons.push("qa-diagnostics-missing");
+  }
+  if (metrics.diagnosticsMissingMatchModeCount > Number(expected.maximumDiagnosticsMissingMatchModeCount ?? Infinity)) {
+    failedReasons.push("qa-diagnostics-missing");
+  }
+  if (metrics.diagnosticsSecretExposureCount > Number(expected.maximumDiagnosticsSecretExposureCount ?? Infinity)) {
+    failedReasons.push("qa-diagnostics-secret-exposed");
+  }
+  if (expected.requiresFallbackDiagnostics && !diagnostics.fallbackDiagnosticsVisible) {
+    failedReasons.push("qa-diagnostics-missing");
   }
 
   for (const condition of expected.failIf || []) {

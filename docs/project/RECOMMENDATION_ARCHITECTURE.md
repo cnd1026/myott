@@ -1,10 +1,10 @@
 # Recommendation Architecture
 
-Version: 2.5
+Version: 2.6
 
 Author: MYOTT Team
 
-Last Updated: 2026-07-16
+Last Updated: 2026-07-18
 
 Related Sprint: Sprint 9
 
@@ -12,7 +12,7 @@ Breaking Change: No
 
 Decision Log: [DECISION_LOG.md](./DECISION_LOG.md)
 
-Architecture Version: v2.5
+Architecture Version: v2.6
 
 Status: ACTIVE
 
@@ -79,7 +79,7 @@ flowchart TD
 | Search | seed를 식별하거나 option recommendation 요청을 시작 | Seed / Request Context |
 | Candidate Collection | recommendations, similar, country-scoped discover에서 충분한 raw 후보 확보 | Raw Candidate Pool |
 | Metadata Normalization | 국가, 장르, 타입, collection metadata를 provider-independent value로 정규화 | Normalized Candidates |
-| Hard Constraint Filtering | 콘텐츠 타입과 선택 국가를 primary 후보에 강제 | Eligible Candidates |
+| Hard Constraint Filtering | 콘텐츠 타입, 국가, OTT, 런타임을 선택한 경우 primary 후보에 강제 | Eligible Candidates |
 | Result Tier Classification | exact와 same-country genre-relaxed 결과를 구분 | Primary Result Tiers |
 | Franchise Deduplication | 동일 콘텐츠와 동일 franchise의 최초 결과 과점을 제한 | Diverse Candidates |
 | Weight Engine Scoring | 적격 후보 안에서 Signal과 Weight를 계산 | Score Detail |
@@ -219,7 +219,7 @@ TV 복합 Provider 장르는 필터 통과와 점수 기여를 분리합니다.
 
 - Filtering Match: 선택한 세부 장르의 semantic evidence가 기준을 넘으면 통과하며, Action/Adventure evidence 동점은 두 필터 모두에서 탈락시키지 않는다.
 - Scoring Match: 같은 `action-adventure` specialization family의 여러 match는 최고 strength 하나만 Genre signal에 반영한다.
-- Controlled Combined: exact semantic 후보가 부족할 때 `10759`와 두 개 이상의 인접 evidence가 함께 확인된 후보만 `provider-combined-controlled`로 허용한다. 일반 Drama, 단일 Police/Crime 신호, 반대쪽 장르 evidence만 있는 후보는 허용하지 않는다.
+- Controlled Combined: exact semantic 후보가 부족할 때 `10759`와 복수의 인접 evidence 또는 미리 정의된 강한 모험 evidence가 함께 확인된 후보만 `provider-combined-controlled`로 허용한다. 일반 Drama, 광범위한 `world` 단독, 단일 Police/Crime 신호, 반대쪽 장르 evidence만 있는 후보는 허용하지 않는다.
 - Result assembly: 드라마 단일 타입의 Action/Adventure 요청은 무관한 same-country genre relaxation으로 12개를 강제 충전하지 않는다.
 
 콘텐츠 타입 경로는 Provider와 UI에서 같은 계약을 사용합니다.
@@ -237,7 +237,54 @@ TV 복합 Provider 장르는 필터 통과와 점수 기여를 분리합니다.
 - 다중 장르 OR 요청은 실제 match된 선택 장르만 이유에 사용한다.
 - 동일 TMDB ID는 항상 제거하고 Primary에서는 동일 한국어 표시 제목도 한 작품만 유지한다.
 
-QA는 고정 Fixture와 Live Provider 한계를 구분합니다. Fixture는 semantic specialization의 엄격한 false-positive 계약을 검증하고, Live는 Provider combined taxonomy와 Exact 80% 정책을 반영한 별도 최소 임계값을 사용할 수 있습니다.
+QA는 고정 Fixture와 Live Provider 한계를 구분합니다. Fixture는 semantic specialization의 엄격한 false-positive 계약을 검증하고, Live는 Provider combined taxonomy와 Exact 80% 정책을 반영한 별도 최소 임계값을 사용할 수 있습니다. 강한 모험 신호 하나를 Controlled Match로 사용할 때도 Provider Combined `10759`가 함께 있어야 하며 광범위한 `world` 단독 신호는 허용하지 않습니다.
+
+### Submitted Preference And Hard Filter Integrity
+
+추천 결과는 입력 화면의 현재 값이 아니라 추천 버튼을 누른 순간 생성한 Submitted Preference Snapshot에 귀속됩니다. 이후 사용자가 Draft 조건을 수정해도 기존 카드, Detail, Related, 추천 이유는 Submitted 조건을 계속 사용합니다. Draft와 Submitted가 달라지면 결과를 조용히 재해석하지 않고 변경 안내와 다시 추천 명령을 제공합니다.
+
+Provider identity와 화면 표시 타입은 별도 필드로 유지합니다.
+
+| Provider Media Type | Display Content Type | 허용 조건 |
+| --- | --- | --- |
+| `movie` | `movie` | 영화 선택 |
+| `tv` | `drama` | 드라마 선택 |
+| `movie` | `animation` | 애니 선택 또는 영화 + 애니메이션 스타일 |
+| `tv` | `animation` | 애니 선택 또는 드라마 + 애니메이션 스타일 |
+
+애니메이션은 표시 타입이며 TMDB endpoint identity는 항상 `movie` 또는 `tv`입니다. Client normalization 이후에도 `providerMediaType`을 보존하고 서버와 클라이언트가 같은 content type hard-filter helper를 사용합니다.
+
+Primary OTT registry는 KR watch provider 기준으로 관리합니다.
+
+| Canonical Value | UI Label | TMDB Provider ID | TMDB Provider Name |
+| --- | --- | --- | --- |
+| `netflix` | Netflix | 8 | Netflix |
+| `disney` | Disney+ | 337 | Disney Plus |
+| `amazon-prime-video` | Amazon Prime Video | 119 | Amazon Prime Video |
+| `apple-tv-plus` | Apple TV+ | 350 | Apple TV |
+
+Apple TV+ 구독 Provider `350`은 Apple TV Store rent/buy Provider `2`와 구분합니다. OTT를 선택하면 Discover에 `watch_region=KR`, Provider ID, `flatrate|free|ads` monetization을 전달하고 Detail의 KR `flatrate`, `free`, `ads`를 최종 검증합니다. `rent`, `buy`, Provider unknown, 선택 Provider mismatch는 Primary에 포함하지 않습니다. 여러 OTT 선택은 OR이며 OTT 미선택 요청에는 이 제약을 적용하지 않습니다.
+
+런타임은 Discover query와 Detail metadata를 함께 사용합니다. `runtime-short`은 60분 이하, `runtime-medium`은 120분 이하, `runtime-long`은 140분 이상입니다. 선택된 런타임을 확인할 수 없거나 범위를 벗어난 후보는 Primary에서 제외합니다. Same-country relaxation은 콘텐츠 타입, OTT, 런타임을 완화하지 않습니다.
+
+Candidate 처리 순서는 다음 hard filter gate를 포함합니다.
+
+1. Provider media type normalize
+2. Display content type derive
+3. Country integrity
+4. Genre classification
+5. Content type hard filter
+6. OTT hard filter
+7. Runtime hard filter
+8. Tier assembly and ranking
+
+Detail 예산은 OTT, 런타임, 국가처럼 hard metadata 확인이 필요한 후보에 우선 사용합니다. 같은 표시 제목은 Primary에 함께 들어갈 수 없으므로 Detail 보강 전에도 중복 후보가 제한된 16회 예산을 중복 소비하지 않게 합니다.
+
+Related는 현재 카드의 `providerMediaType + providerContentId`를 endpoint identity로 사용합니다. 현재 TMDB content, 현재 한국어/원제 alias, Related 내부 동일 content와 동일 표시 제목을 제거하되 다른 ID의 후속작은 허용합니다. 추천과 Related 요청은 각각 AbortController와 sequence gate를 사용해 최신 응답만 상태를 갱신합니다.
+
+`?qa=1` Founder diagnostics는 production이 아닌 환경에서만 활성화합니다. Environment Provider 상태와 Last Recommendation Source를 분리하고 Request ID, Submitted 조건, Provider genre ID, semantic mode, hard-filter status와 exclusion count를 표시합니다. Credential과 인증 header는 항상 redaction하며 production API는 상세 diagnostics를 반환하지 않습니다.
+
+기존 `results` 배열과 `titles` 입력 계약은 유지하고 optional diagnostics와 metadata만 추가하므로 Breaking Change는 `No`입니다.
 
 ### Seed Coverage And Empty State
 
@@ -542,6 +589,19 @@ AI Recommendation 원칙:
 ---
 
 ## Changelog
+
+### v2.6
+
+- Draft Preferences와 Submitted Recommendation Session을 분리해 기존 결과와 이유를 제출 시점 조건에 고정
+- Provider media type과 display content type을 분리하고 movie/drama/animation hard-filter matrix를 공통화
+- Netflix, Disney+, Amazon Prime Video, Apple TV+ KR Provider registry와 Discover/Detail OTT hard filter 적용
+- Apple TV+ 구독 Provider와 Apple TV Store rent/buy evidence 분리
+- 런타임 60분 이하, 120분 이하, 140분 이상 조건의 unknown/mismatch Primary 제외
+- Related provider identity, current item/title exclusion, latest request gate 적용
+- 추천과 Related의 Abort/sequence latest-response-wins 계약 추가
+- 비 production `?qa=1` Founder diagnostics와 credential redaction 적용
+- QA Dataset 81개, Live Cold/Warm 49개 계약으로 확장
+- 기존 `results`, Country Hard Constraint, Exact 80%, 24/8/16 예산을 유지하므로 Breaking Change `No`
 
 ### v2.5
 

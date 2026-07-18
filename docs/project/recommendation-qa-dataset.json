@@ -1366,5 +1366,215 @@
     "priority": "critical",
     "scope": ["fixture", "tmdb"],
     "notes": "Controlled 10759 fallback requires adjacent action evidence and never admits plain Drama."
+  },
+  {
+    "id": "REC-QA-061",
+    "title": "Submitted preference snapshot remains stable after draft genre change",
+    "input": { "titles": [], "filters": ["genre-action"], "contentTypes": ["drama"] },
+    "expected": { "topN": 1, "maximumSubmittedPreferenceMutationCount": 0 },
+    "minimumMatchRatio": 0,
+    "priority": "critical",
+    "scope": ["fixture", "ui-contract"],
+    "notes": "Draft genre edits never mutate the submitted session used by existing cards."
+  },
+  {
+    "id": "REC-QA-062",
+    "title": "Draft content type change does not mutate existing card reason",
+    "input": { "titles": [], "filters": ["genre-action"], "contentTypes": ["drama"] },
+    "expected": { "topN": 1, "maximumSubmittedPreferenceMutationCount": 0 },
+    "minimumMatchRatio": 0,
+    "priority": "critical",
+    "scope": ["fixture", "ui-contract"],
+    "notes": "Card and detail reasons remain bound to submitted content types and filters."
+  },
+  {
+    "id": "REC-QA-063",
+    "title": "Movie and animation style excludes TV animation",
+    "input": { "titles": [], "filters": ["style-animation"], "contentTypes": ["movie"] },
+    "expected": { "topN": 12, "maximumMovieAnimationTvLeakCount": 0, "maximumProviderMediaTypeLostCount": 0 },
+    "minimumMatchRatio": 0,
+    "priority": "critical",
+    "scope": ["fixture", "tmdb"],
+    "notes": "Animation display type preserves movie provider identity."
+  },
+  {
+    "id": "REC-QA-064",
+    "title": "Drama and animation style excludes movie animation",
+    "input": { "titles": [], "filters": ["style-animation"], "contentTypes": ["drama"] },
+    "expected": { "topN": 12, "maximumDramaAnimationMovieLeakCount": 0, "maximumProviderMediaTypeLostCount": 0 },
+    "minimumMatchRatio": 0,
+    "priority": "critical",
+    "scope": ["fixture", "tmdb"],
+    "notes": "Animation display type preserves TV provider identity."
+  },
+  {
+    "id": "REC-QA-065",
+    "title": "Animation content type allows movie and TV animation",
+    "input": { "titles": [], "filters": [], "contentTypes": ["animation"] },
+    "expected": { "topN": 12, "minimumResultCount": 2, "maximumContentTypeHardFilterFailureCount": 0, "maximumProviderMediaTypeLostCount": 0 },
+    "minimumMatchRatio": 0,
+    "priority": "critical",
+    "scope": ["fixture", "tmdb"],
+    "notes": "Animation hard type allows both provider media paths and rejects live action."
+  },
+  {
+    "id": "REC-QA-066",
+    "title": "Disney Plus hard filter requires matching KR streaming provider",
+    "input": { "titles": [], "filters": ["disney"], "contentTypes": ["movie"] },
+    "expected": { "topN": 12, "minimumOttProviderMatchedCount": 1, "maximumOttProviderMismatchCount": 0, "maximumOttProviderUnknownCount": 0 },
+    "minimumMatchRatio": 0,
+    "priority": "critical",
+    "scope": ["fixture", "tmdb"],
+    "notes": "KR Disney Plus flatrate/free/ads evidence is mandatory."
+  },
+  {
+    "id": "REC-QA-067",
+    "title": "Amazon Prime Video hard filter requires matching KR streaming provider",
+    "input": { "titles": [], "filters": ["amazon-prime-video"], "contentTypes": ["movie"] },
+    "expected": { "topN": 12, "minimumOttProviderMatchedCount": 1, "maximumOttProviderMismatchCount": 0, "maximumOttProviderUnknownCount": 0 },
+    "minimumMatchRatio": 0,
+    "priority": "critical",
+    "scope": ["fixture", "tmdb"],
+    "notes": "Prime Video provider 119 is verified through KR streaming availability."
+  },
+  {
+    "id": "REC-QA-068",
+    "title": "Apple TV Plus hard filter requires matching KR streaming provider",
+    "input": { "titles": [], "filters": ["apple-tv-plus"], "contentTypes": ["movie"] },
+    "expected": { "topN": 12, "minimumOttProviderMatchedCount": 1, "maximumOttProviderMismatchCount": 0, "maximumOttRentBuyOnlyCount": 0 },
+    "minimumMatchRatio": 0,
+    "priority": "critical",
+    "scope": ["fixture", "tmdb"],
+    "notes": "Apple TV subscription provider 350 is distinct from Apple TV Store provider 2."
+  },
+  {
+    "id": "REC-QA-069",
+    "title": "Unknown OTT metadata excluded when OTT selected",
+    "input": { "titles": [], "filters": ["netflix"], "contentTypes": ["movie"] },
+    "expected": { "topN": 12, "maximumOttProviderUnknownCount": 0 },
+    "minimumMatchRatio": 0,
+    "priority": "critical",
+    "scope": ["fixture"],
+    "notes": "Unknown watch metadata cannot pass a selected OTT hard constraint."
+  },
+  {
+    "id": "REC-QA-070",
+    "title": "Rent or buy only availability does not pass subscription OTT filter",
+    "input": { "titles": [], "filters": ["apple-tv-plus"], "contentTypes": ["movie"] },
+    "expected": { "topN": 12, "maximumOttRentBuyOnlyCount": 0 },
+    "minimumMatchRatio": 0,
+    "priority": "critical",
+    "scope": ["fixture"],
+    "notes": "Apple TV Store rent-only availability is not Apple TV Plus subscription availability."
+  },
+  {
+    "id": "REC-QA-071",
+    "title": "Unknown runtime excluded when runtime selected",
+    "input": { "titles": [], "filters": ["runtime-short"], "contentTypes": ["movie"] },
+    "expected": { "topN": 12, "maximumRuntimeUnknownCount": 0 },
+    "minimumMatchRatio": 0,
+    "priority": "critical",
+    "scope": ["fixture"],
+    "notes": "Runtime zero or missing cannot pass a selected runtime hard constraint."
+  },
+  {
+    "id": "REC-QA-072",
+    "title": "Runtime mismatch excluded from Primary",
+    "input": { "titles": [], "filters": ["runtime-short"], "contentTypes": ["movie"] },
+    "expected": { "topN": 12, "maximumRuntimeMismatchCount": 0, "minimumRuntimeMatchedCount": 1 },
+    "minimumMatchRatio": 0,
+    "priority": "critical",
+    "scope": ["fixture"],
+    "notes": "Post-detail runtime validation excludes mismatches from Primary."
+  },
+  {
+    "id": "REC-QA-073",
+    "title": "Related current TMDB item excluded",
+    "input": { "titles": [], "filters": [], "contentTypes": ["movie"] },
+    "expected": { "topN": 12, "maximumRelatedCurrentContentCount": 0, "maximumRelatedDuplicateContentCount": 0 },
+    "minimumMatchRatio": 0,
+    "priority": "critical",
+    "scope": ["fixture", "api-contract"],
+    "notes": "The current provider content identity never reappears in Related."
+  },
+  {
+    "id": "REC-QA-074",
+    "title": "Related current normalized title excluded",
+    "input": { "titles": [], "filters": [], "contentTypes": ["movie"] },
+    "expected": { "topN": 12, "maximumRelatedCurrentTitleCount": 0, "maximumRelatedDuplicateTitleCount": 0 },
+    "minimumMatchRatio": 0,
+    "priority": "critical",
+    "scope": ["fixture", "api-contract"],
+    "notes": "Localized and original title aliases of the current item are excluded."
+  },
+  {
+    "id": "REC-QA-075",
+    "title": "Related sequel remains allowed",
+    "input": { "titles": [], "filters": [], "contentTypes": ["movie"] },
+    "expected": { "topN": 12, "minimumResultCount": 1, "minimumRelatedSequelCount": 1 },
+    "minimumMatchRatio": 0,
+    "priority": "major",
+    "scope": ["fixture", "api-contract"],
+    "notes": "A distinct sequel such as Moana 2 remains eligible."
+  },
+  {
+    "id": "REC-QA-076",
+    "title": "Latest recommendation request wins",
+    "input": { "titles": [], "filters": ["genre-action"], "contentTypes": ["drama"] },
+    "expected": { "topN": 1, "maximumStaleRecommendationCommitCount": 0 },
+    "minimumMatchRatio": 0,
+    "priority": "critical",
+    "scope": ["fixture", "ui-contract"],
+    "notes": "A delayed earlier response cannot overwrite the latest recommendation session."
+  },
+  {
+    "id": "REC-QA-077",
+    "title": "Latest related request wins",
+    "input": { "titles": [], "filters": [], "contentTypes": ["movie"] },
+    "expected": { "topN": 1, "maximumStaleRelatedCommitCount": 0 },
+    "minimumMatchRatio": 0,
+    "priority": "critical",
+    "scope": ["fixture", "ui-contract"],
+    "notes": "A delayed Related response cannot attach to a newer detail item."
+  },
+  {
+    "id": "REC-QA-078",
+    "title": "Founder QA diagnostics contain no secret value",
+    "input": { "titles": [], "filters": [], "contentTypes": ["movie"] },
+    "expected": { "topN": 1, "maximumDiagnosticsSecretExposureCount": 0 },
+    "minimumMatchRatio": 0,
+    "priority": "critical",
+    "scope": ["fixture", "ui-contract"],
+    "notes": "Credentials are redacted while configured state remains visible."
+  },
+  {
+    "id": "REC-QA-079",
+    "title": "Fallback and Mock status visible in QA diagnostics",
+    "input": { "titles": [], "filters": [], "contentTypes": ["movie"] },
+    "expected": { "topN": 1, "maximumDiagnosticsMissingProviderCount": 0, "requiresFallbackDiagnostics": true },
+    "minimumMatchRatio": 0,
+    "priority": "critical",
+    "scope": ["fixture", "ui-contract"],
+    "notes": "The last recommendation source is distinct from the environment health check."
+  },
+  {
+    "id": "REC-QA-080",
+    "title": "Provider Genre ID and Semantic Match visible in QA diagnostics",
+    "input": { "titles": [], "filters": ["genre-action"], "contentTypes": ["drama"] },
+    "expected": { "topN": 1, "maximumDiagnosticsMissingProviderCount": 0, "maximumDiagnosticsMissingMatchModeCount": 0 },
+    "minimumMatchRatio": 0,
+    "priority": "critical",
+    "scope": ["fixture", "ui-contract"],
+    "notes": "Card diagnostics expose provider genre 10759 and its semantic match mode without secrets."
+  },
+  {
+    "id": "REC-QA-081",
+    "title": "Runtime medium live hard filter integrity",
+    "input": { "titles": [], "filters": ["runtime-medium"], "contentTypes": ["movie"] },
+    "expected": { "topN": 12, "match": { "runtimeMaxMinutes": 120 }, "minimumRuntimeMatchedCount": 1, "maximumRuntimeMismatchCount": 0, "maximumRuntimeUnknownCount": 0 },
+    "minimumMatchRatio": 1,
+    "priority": "critical",
+    "scope": ["fixture", "tmdb"],
+    "notes": "Live and deterministic paths require known movie runtime at or below 120 minutes."
   }
 ]

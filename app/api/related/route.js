@@ -16,10 +16,16 @@ async function relatedWithProvider(provider, params, message) {
 export async function GET(request) {
   const providerContentId = request.nextUrl.searchParams.get("id")?.trim() || "";
   const contentType = request.nextUrl.searchParams.get("type")?.trim() || "movie";
+  const providerMediaType = request.nextUrl.searchParams.get("mediaType")?.trim() || "";
+  const title = request.nextUrl.searchParams.get("title")?.trim() || "";
+  const originalTitle = request.nextUrl.searchParams.get("originalTitle")?.trim() || "";
   const activeProvider = getActiveProvider();
   const params = {
     providerContentId,
+    providerMediaType,
     contentType,
+    title,
+    originalTitle,
     contentTypes: contentType ? [contentType] : [],
     limit: 12,
   };

@@ -24,6 +24,8 @@ function toUnifiedContentModel(item) {
     id: `tmdb-${providerContentId}`,
     providerId: "tmdb",
     providerContentId,
+    providerMediaType: item.providerMediaType || item.mediaType || "",
+    displayContentType: item.displayContentType || contentType,
     contentType,
     releaseYear: item.year || 0,
     platforms,
@@ -93,10 +95,13 @@ export const tmdbProvider = {
     };
   },
 
-  async getRelated({ providerContentId, contentType, limit } = {}) {
+  async getRelated({ providerContentId, providerMediaType, contentType, title, originalTitle, limit } = {}) {
     const payload = await relatedTmdb({
       tmdbId: providerContentId,
+      providerMediaType,
       contentType,
+      title,
+      originalTitle,
       limit,
     });
     return (payload.results || []).map(toUnifiedContentModel);

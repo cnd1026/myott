@@ -6,6 +6,12 @@ import {
   normalizeTaxonomyValue,
   selectedGenreFilters,
 } from "../genres/genreContract.js";
+import {
+  contentTypeMatchesSubmittedPreferences,
+  evaluateHardFilters,
+  normalizeDisplayContentType,
+  normalizeProviderMediaType,
+} from "../filters/hardFilterContract.js";
 
 export { selectedGenreFilters };
 
@@ -79,18 +85,7 @@ export function selectedCountryCode(filters = []) {
 }
 
 export function normalizeContentType(item = {}) {
-  const genreIds = uniqueNumbers(item.genreIds || item.genre_ids || []);
-  const rawType = normalizeText(item.contentType || item.type || item.mediaType || item.media_type);
-  if (rawType === "animation" || genreIds.includes(16)) return "animation";
-  if (["drama", "series", "tv"].includes(rawType)) return "drama";
-  return "movie";
-}
-
-function providerMediaType(item = {}) {
-  const rawType = normalizeText(item.mediaType || item.media_type || item.providerMediaType || item.contentType || item.type);
-  if (["tv", "drama", "series"].includes(rawType)) return "drama";
-  if (rawType === "animation") return "animation";
-  return "movie";
+  return normalizeDisplayContentType(item) || "movie";
 }
 
 export function normalizedCountryCodes(item = {}) {
@@ -132,19 +127,7 @@ function selectedTypes(contentTypes = []) {
 }
 
 export function candidateContentTypeMatches(item, contentTypes, filters = []) {
-  const types = selectedTypes(contentTypes);
-  if (!types.length) return true;
-  const outputType = normalizeContentType(item);
-  const mediaType = providerMediaType(item);
-  const animationStyleSelected = selectedGenreFilters(filters)
-    .some((filter) => normalizeTaxonomyValue(filter) === "style-animation");
-  return types.some((type) => {
-    if (type === "animation") return outputType === "animation";
-    if (outputType === "animation" && !animationStyleSelected) return false;
-    if (type === "movie") return mediaType === "movie";
-    if (type === "drama") return mediaType === "drama";
-    return type === outputType;
-  });
+  return contentTypeMatchesSubmittedPreferences(item, contentTypes, filters);
 }
 
 function officialFranchiseKey(item = {}) {
@@ -222,8 +205,10 @@ export function classifyCandidate(item = {}, { filters = [], contentTypes = [] }
   const exactMatch = contentTypeMatched && countryMatched && genreMatched;
   const fallbackRelaxed = resultTier !== "exact";
 
-  return {
+  const classified = {
     ...item,
+    providerMediaType: normalizeProviderMediaType(item),
+    displayContentType: normalizeDisplayContentType(item),
     contentType: normalizeContentType(item),
     type: normalizeContentType(item),
     countryCodes: countryCodes.length || !providerFiltered || !country ? countryCodes : [country],
@@ -264,12 +249,22 @@ export function classifyCandidate(item = {}, { filters = [], contentTypes = [] }
     franchiseKey: candidateFranchiseKey(item),
     candidateSource: item.candidateSource || "provider",
   };
+  const hardFilters = evaluateHardFilters(classified, { filters, contentTypes });
+  return {
+    ...classified,
+    ...hardFilters,
+    hardFilterStatus: {
+      ...hardFilters.hardFilterStatus,
+      country: countryValidation === "unknown" ? "unknown" : countryMatched ? "pass" : "fail",
+      genre: genreMatched ? "pass" : "fail",
+    },
+  };
 }
 
 function contentKey(item = {}) {
   const providerId = item.providerId || item.source || "unknown";
   const tmdbId = item.tmdbId || item.providerContentId;
-  if (tmdbId) return `${providerId}:${item.mediaType || item.type}:${tmdbId}`;
+  if (tmdbId) return `${providerId}:${normalizeProviderMediaType(item) || item.type}:${tmdbId}`;
   return `${providerId}:${normalizeContentType(item)}:${normalizeText(item.originalTitle || item.title)}`;
 }
 
@@ -490,12 +485,21 @@ function diagnosticCandidate(item = {}) {
     selectedTaxonomyValues: item.selectedTaxonomyValues || [],
     unmatchedSelectedTaxonomyValues: item.unmatchedSelectedTaxonomyValues || [],
     semanticConfidence: item.semanticConfidence || "none",
+    semanticEvidenceByGenre: item.semanticEvidenceByGenre || {},
+    providerMediaType: item.providerMediaType || normalizeProviderMediaType(item),
+    displayContentType: item.displayContentType || normalizeDisplayContentType(item),
     contentType: item.contentType || item.type,
     resultTier: item.resultTier,
     candidateSource: item.candidateSource,
     fallbackStage: item.fallbackStage,
     franchiseKey: item.franchiseKey || "",
     finalScore: item.scoreDetail?.finalScore ?? null,
+    runtimeMinutes: item.runtimeMinutes ?? item.runtime ?? null,
+    actualProviderIds: item.actualProviderIds || [],
+    actualProviders: item.actualProviders || [],
+    actualStreamingProviderIds: item.actualStreamingProviderIds || [],
+    actualStreamingProviders: item.actualStreamingProviders || [],
+    hardFilterStatus: item.hardFilterStatus || {},
     exclusionReason: item.exclusionReason || "",
   };
 }
@@ -524,8 +528,8 @@ export function finalizeCandidatePool(
         : candidate,
       { filters, contentTypes },
     );
-    if (!item.contentTypeMatched) {
-      exclusions.push({ ...item, exclusionReason: "content-type-mismatch" });
+    if (!item.pass) {
+      exclusions.push({ ...item, exclusionReason: item.exclusionReason || "hard-filter-failed" });
       continue;
     }
     classified.push(item);
@@ -562,6 +566,10 @@ export function finalizeCandidatePool(
     contentTypes,
     maxSameCountryRelaxed,
   );
+  const selectedSameCountryKeys = new Set(sameCountryResults.map(contentKey));
+  const unusedSameCountryCandidates = sameCountryEligible.eligible
+    .filter((item) => !selectedSameCountryKeys.has(contentKey(item)))
+    .map((item) => ({ ...item, exclusionReason: item.exclusionReason || "genre-mismatch" }));
   const primaryResults = [...exactResults, ...sameCountryResults];
   const relaxedDedupe = dedupeCandidates(relaxedEligible);
   const allExclusions = [
@@ -569,6 +577,7 @@ export function finalizeCandidatePool(
     ...exactDedupe.excluded,
     ...sameCountryDedupe.excluded,
     ...sameCountryEligible.excluded,
+    ...unusedSameCountryCandidates,
     ...relaxedDedupe.excluded,
   ];
   const exactResultRatio = primaryResults.length ? exactResults.length / primaryResults.length : 0;
