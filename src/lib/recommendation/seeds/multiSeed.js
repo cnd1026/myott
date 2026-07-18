@@ -152,6 +152,22 @@ function mergeCandidate(existing, incoming) {
     ]),
     seedSupplement: Boolean(existing.seedSupplement && incoming.seedSupplement),
     candidateSources,
+    crossMediaSeedTransferValues: uniqueStrings([
+      ...(existing.crossMediaSeedTransferValues || existing.crossMediaSeedGenreValues || []),
+      ...(incoming.crossMediaSeedTransferValues || incoming.crossMediaSeedGenreValues || []),
+    ]),
+    crossMediaSelectedGenreValues: uniqueStrings([
+      ...(existing.crossMediaSelectedGenreValues || []),
+      ...(incoming.crossMediaSelectedGenreValues || []),
+    ]),
+    crossMediaSeedGenreValues: uniqueStrings([
+      ...(existing.crossMediaSeedTransferValues || existing.crossMediaSeedGenreValues || []),
+      ...(incoming.crossMediaSeedTransferValues || incoming.crossMediaSeedGenreValues || []),
+    ]),
+    crossMediaRelationshipStatus:
+      existing.crossMediaRelationshipStatus === "pending" || incoming.crossMediaRelationshipStatus === "pending"
+        ? "pending"
+        : existing.crossMediaRelationshipStatus || incoming.crossMediaRelationshipStatus || "not-applicable",
     reason: reasonSeeds.length > 1 ? "여러 취향을 함께 반영한 추천" : existing.reason,
     popularity: Math.max(Number(existing.popularity || 0), Number(incoming.popularity || 0)),
     rating: Math.max(Number(existing.rating || 0), Number(incoming.rating || 0)),

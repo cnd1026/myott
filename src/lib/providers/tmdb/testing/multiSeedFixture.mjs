@@ -35,39 +35,72 @@ function jsonResponse(status, payload = {}, headers = {}) {
   };
 }
 
-function candidate(id) {
-  return {
+function genreName(id) {
+  return ({
+    18: "Drama",
+    28: "Action",
+    878: "Science Fiction",
+    10749: "Romance",
+    10759: "Action & Adventure",
+    10765: "Sci-Fi & Fantasy",
+  })[Number(id)] || ("Genre-" + id);
+}
+
+function candidate(id, {
+  mediaType = "movie",
+  genreIds = mediaType === "tv" ? [10765, 18] : [28, 18],
+  overview = "Overview " + id,
+} = {}) {
+  const common = {
     id,
-    title: `Work-${id}`,
-    original_title: `Work-${id}`,
-    media_type: "movie",
-    genre_ids: [28, 18],
+    media_type: mediaType,
+    genre_ids: genreIds,
     origin_country: ["US"],
-    release_date: "2024-01-01",
     vote_average: 7.5,
     vote_count: 500,
     popularity: 100 - (id % 10),
-    overview: `Overview ${id}`,
+    overview,
   };
+  return mediaType === "tv"
+    ? {
+        ...common,
+        name: "Work-" + id,
+        original_name: "Work-" + id,
+        first_air_date: "2024-01-01",
+      }
+    : {
+        ...common,
+        title: "Work-" + id,
+        original_title: "Work-" + id,
+        release_date: "2024-01-01",
+      };
 }
 
-function candidateList(seedId, count) {
+function candidateList(seedId, count, options = {}) {
   if (!count) return [];
-  return [candidate(9_000), ...Array.from({ length: count - 1 }, (_, index) => candidate(seedId * 100 + index + 1))];
+  return [
+    candidate(9_000, options),
+    ...Array.from({ length: count - 1 }, (_, index) => candidate(seedId * 100 + index + 1, options)),
+  ];
 }
 
-function detail(id) {
+function detail(id, {
+  mediaType = "movie",
+  genreIds = mediaType === "tv" ? [10765, 18] : [28, 18],
+  overview,
+  keywordNames = mediaType === "tv" ? ["space", "future"] : [],
+} = {}) {
+  const base = candidate(id, { mediaType, genreIds, overview });
+  const keywordItems = keywordNames.map((name, index) => ({ id: id * 10 + index, name }));
   return {
-    ...candidate(id),
-    genres: [
-      { id: 28, name: "Action" },
-      { id: 18, name: "Drama" },
-    ],
+    ...base,
+    genres: genreIds.map((genreId) => ({ id: genreId, name: genreName(genreId) })),
     production_countries: [{ iso_3166_1: "US", name: "United States" }],
-    runtime: 112,
+    runtime: mediaType === "movie" ? 112 : undefined,
+    episode_run_time: mediaType === "tv" ? [52] : undefined,
     belongs_to_collection: null,
     credits: { cast: [], crew: [] },
-    keywords: { keywords: [] },
+    keywords: mediaType === "tv" ? { results: keywordItems } : { keywords: keywordItems },
     "watch/providers": { results: {} },
   };
 }
@@ -77,6 +110,9 @@ export function createFixtureFetch({
   similarCount = 14,
   failSearchTitles = [],
   stallRecommendationTitles = [],
+  tvDiscoverGenreIds = [10765, 18],
+  tvDiscoverKeywordNames = ["space", "future"],
+  tvDiscoverOverview = "A future journey through space and advanced technology.",
 } = {}) {
   const calls = [];
   const failedSearches = new Set(failSearchTitles.map((title) => title.toLocaleLowerCase()));
@@ -127,12 +163,29 @@ export function createFixtureFetch({
     }
 
     if (path.startsWith("/discover/")) {
-      return jsonResponse(200, { results: candidateList(800, 14) });
+      const mediaType = path === "/discover/tv" ? "tv" : "movie";
+      const options = mediaType === "tv"
+        ? { mediaType, genreIds: tvDiscoverGenreIds, overview: tvDiscoverOverview }
+        : { mediaType };
+      return jsonResponse(200, {
+        page: 1,
+        total_results: 14,
+        results: candidateList(800, 14, options),
+      });
     }
 
-    const detailMatch = path.match(/^\/movie\/(\d+)$/);
-    if (detailMatch) return jsonResponse(200, detail(Number(detailMatch[1])));
-
+    const detailMatch = path.match(/^\/(movie|tv)\/(\d+)$/);
+    if (detailMatch) {
+      const mediaType = detailMatch[1];
+      return jsonResponse(200, detail(Number(detailMatch[2]), mediaType === "tv"
+        ? {
+            mediaType,
+            genreIds: tvDiscoverGenreIds,
+            overview: tvDiscoverOverview,
+            keywordNames: tvDiscoverKeywordNames,
+          }
+        : { mediaType }));
+    }
     return jsonResponse(404);
   };
 

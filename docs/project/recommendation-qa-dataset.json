@@ -1766,5 +1766,75 @@
     "priority": "critical",
     "scope": ["fixture"],
     "notes": "Direct and cross-media reasons retain their real seed and genre provenance."
+  },
+  {
+    "id": "REC-QA-101",
+    "title": "Multi-seed common candidates cannot starve a selected type",
+    "input": { "titles": ["Seed Alpha", "Seed Beta", "Seed Gamma"], "filters": [], "contentTypes": ["movie", "drama"] },
+    "expected": { "topN": 12, "minimumSelectedAvailableTypeCount": 4, "maximumGlobalTypeStarvationCount": 0, "maximumSeedRepresentationShortfallCount": 0 },
+    "minimumMatchRatio": 0,
+    "priority": "critical",
+    "scope": ["fixture"],
+    "notes": "Common movie candidates cannot consume all primary slots before global drama coverage is reserved."
+  },
+  {
+    "id": "REC-QA-102",
+    "title": "Three-seed and three-type global coverage",
+    "input": { "titles": ["Seed Alpha", "Seed Beta", "Seed Gamma"], "filters": [], "contentTypes": ["movie", "drama", "animation"] },
+    "expected": { "topN": 12, "minimumSelectedAvailableTypeCount": 2, "maximumGlobalTypeStarvationCount": 0, "maximumSeedRepresentationShortfallCount": 0 },
+    "minimumMatchRatio": 0,
+    "priority": "critical",
+    "scope": ["fixture"],
+    "notes": "Seed representation and three-type reservation are solved by one global allocator."
+  },
+  {
+    "id": "REC-QA-103",
+    "title": "Seed and type reservation shares one slot",
+    "input": { "titles": ["Seed Alpha", "Seed Beta", "Seed Gamma"], "filters": [], "contentTypes": ["movie", "drama"] },
+    "expected": { "topN": 12, "minimumSelectedAvailableTypeCount": 4, "maximumSeedRepresentationShortfallCount": 0, "maximumReservationDuplicateSlotCount": 0, "maximumDuplicateTmdbIdCount": 0 },
+    "minimumMatchRatio": 0,
+    "priority": "critical",
+    "scope": ["fixture"],
+    "notes": "A candidate satisfying both reservations is selected once and consumes one primary slot."
+  },
+  {
+    "id": "REC-QA-104",
+    "title": "Selected genre preserves transferable seed evidence",
+    "input": { "titles": ["Interstellar"], "filters": ["genre-sf"], "contentTypes": ["movie", "drama"] },
+    "expected": { "topN": 12, "minimumCrossMediaResultCount": 1, "minimumCrossMediaSeedRelationshipPassCount": 1, "maximumCrossMediaSeedRelationshipFailCount": 0, "maximumCrossMediaSeedEvidenceReplacementCount": 0, "maximumTmdbRequestCount": 24, "maximumListRequestCount": 8, "maximumDetailRequestCount": 16 },
+    "minimumMatchRatio": 0,
+    "priority": "critical",
+    "scope": ["fixture"],
+    "notes": "Selected SF and transferable Seed SF are independently preserved and validated."
+  },
+  {
+    "id": "REC-QA-105",
+    "title": "Conflicting selected genre requires both contracts",
+    "input": { "titles": ["Interstellar"], "filters": ["genre-romance"], "contentTypes": ["movie", "drama"] },
+    "expected": { "topN": 1, "minimumCrossMediaSeedRelationshipFailCount": 1, "maximumCrossMediaSeedEvidenceReplacementCount": 0 },
+    "minimumMatchRatio": 0,
+    "priority": "critical",
+    "scope": ["fixture"],
+    "notes": "A Romance TV candidate is rejected when it lacks transferable SF relationship evidence."
+  },
+  {
+    "id": "REC-QA-106",
+    "title": "Skipped cross-media request does not increment request count",
+    "input": { "titles": ["Seed Without Genres"], "filters": [], "contentTypes": ["movie", "drama"] },
+    "expected": { "topN": 12, "maximumCrossMediaRequestIssuedCount": 0, "minimumCrossMediaRequestSkippedCount": 1, "requiredCrossMediaRequestSkipReason": "cross-media-seed-transfer-unavailable", "maximumTmdbRequestCount": 24, "maximumListRequestCount": 8, "maximumDetailRequestCount": 16 },
+    "minimumMatchRatio": 0,
+    "priority": "critical",
+    "scope": ["fixture"],
+    "notes": "No transferable Seed genre means no tmdbGet and no false request-issued diagnostic."
+  },
+  {
+    "id": "REC-QA-107",
+    "title": "Provider and display media diagnostics remain separate",
+    "input": { "titles": [], "filters": [], "contentTypes": ["movie", "drama", "animation"] },
+    "expected": { "topN": 1, "providerMediaDiagnosticsSeparated": true },
+    "minimumMatchRatio": 0,
+    "priority": "critical",
+    "scope": ["fixture"],
+    "notes": "Provider media counts use movie/tv while display content counts use movie/drama/animation."
   }
 ]

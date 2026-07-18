@@ -35,6 +35,137 @@ export function contentTypeCounts(items = []) {
   }, { movie: 0, drama: 0, animation: 0 });
 }
 
+export function providerMediaTypeCounts(items = []) {
+  return items.reduce((counts, item) => {
+    const type = normalizeProviderMediaType(item);
+    if (type === "movie" || type === "tv") counts[type] += 1;
+    return counts;
+  }, { movie: 0, tv: 0 });
+}
+
+function normalizeSeedTitle(value) {
+  return String(value || "").trim().replace(/\s+/g, " ").toLocaleLowerCase();
+}
+
+function seedKeysForItem(item = {}) {
+  return unique([
+    ...(item.reasonSeeds || []),
+    item.reasonSeed,
+    ...(item.seedTitles || []),
+    item.seedTitle,
+  ].map(normalizeSeedTitle));
+}
+
+export function assembleBalancedExactResults({
+  rankedItems = [],
+  seedTitles = [],
+  contentTypes = [],
+  limit = 12,
+} = {}) {
+  const boundedLimit = Math.max(0, Number(limit || 0));
+  const ranked = rankedItems.slice();
+  const rankByItem = new Map(ranked.map((item, index) => [item, index]));
+  const requestedTypes = normalizeRequestedTypes(contentTypes);
+  const availableByType = contentTypeCounts(ranked);
+  const typeCoverage = typeCoverageState(availableByType, requestedTypes, { finalLimit: boundedLimit });
+  const normalizedSeeds = unique(seedTitles.map(normalizeSeedTitle));
+  const availableSeedKeys = normalizedSeeds.filter((seed) => ranked.some((item) => seedKeysForItem(item).includes(seed)));
+  const selected = [];
+  const selectedSet = new Set();
+  const representedSeeds = new Set();
+  const selectedByType = { movie: 0, drama: 0, animation: 0 };
+
+  const add = (item) => {
+    if (!item || selectedSet.has(item) || selected.length >= boundedLimit) return false;
+    selected.push(item);
+    selectedSet.add(item);
+    const type = normalizeDisplayContentType(item);
+    if (TYPE_ORDER.includes(type)) selectedByType[type] += 1;
+    seedKeysForItem(item).forEach((seed) => {
+      if (availableSeedKeys.includes(seed)) representedSeeds.add(seed);
+    });
+    return true;
+  };
+
+  const bestCandidate = (predicate, score) => {
+    let best = null;
+    let bestScore = Number.NEGATIVE_INFINITY;
+    for (const item of ranked) {
+      if (selectedSet.has(item) || !predicate(item)) continue;
+      const candidateScore = score(item);
+      if (candidateScore > bestScore) {
+        best = item;
+        bestScore = candidateScore;
+      }
+    }
+    return best;
+  };
+
+  // Type coverage is the hard reservation. Within each bucket, prefer a card
+  // that also represents as-yet-uncovered seeds so one slot can satisfy both.
+  const typesByScarcity = [...requestedTypes].sort((left, right) => (
+    Number(availableByType[left] || 0) - Number(availableByType[right] || 0) ||
+    requestedTypes.indexOf(left) - requestedTypes.indexOf(right)
+  ));
+  for (const type of typesByScarcity) {
+    const target = Math.min(
+      Number(typeCoverage.targets[type] || 0),
+      Number(availableByType[type] || 0),
+      boundedLimit,
+    );
+    while (selectedByType[type] < target && selected.length < boundedLimit) {
+      const item = bestCandidate(
+        (candidate) => normalizeDisplayContentType(candidate) === type,
+        (candidate) => {
+          const uncoveredSeeds = seedKeysForItem(candidate)
+            .filter((seed) => availableSeedKeys.includes(seed) && !representedSeeds.has(seed))
+            .length;
+          return uncoveredSeeds * (ranked.length + 1) - Number(rankByItem.get(candidate) || 0);
+        },
+      );
+      if (!add(item)) break;
+    }
+  }
+
+  // Seed representation is best-effort after hard type coverage. Common
+  // candidates can cover several seeds, but can no longer consume all slots
+  // before the requested content types have been reserved.
+  while (selected.length < boundedLimit) {
+    const uncovered = availableSeedKeys.filter((seed) => !representedSeeds.has(seed));
+    if (!uncovered.length) break;
+    const item = bestCandidate(
+      (candidate) => seedKeysForItem(candidate).some((seed) => uncovered.includes(seed)),
+      (candidate) => {
+        const coverage = seedKeysForItem(candidate).filter((seed) => uncovered.includes(seed)).length;
+        return coverage * (ranked.length + 1) - Number(rankByItem.get(candidate) || 0);
+      },
+    );
+    if (!add(item)) break;
+  }
+
+  for (const item of ranked) {
+    if (selected.length >= boundedLimit) break;
+    add(item);
+  }
+
+  selected.sort((left, right) => Number(rankByItem.get(left) || 0) - Number(rankByItem.get(right) || 0));
+  const selectedCounts = contentTypeCounts(selected);
+  const selectedSeedKeys = new Set(selected.flatMap(seedKeysForItem));
+  return {
+    selected,
+    diagnostics: {
+      availableExactByType: availableByType,
+      selectedExactByType: selectedCounts,
+      seedAvailability: Object.fromEntries(normalizedSeeds.map((seed) => [
+        seed,
+        ranked.filter((item) => seedKeysForItem(item).includes(seed)).length,
+      ])),
+      representedSeeds: availableSeedKeys.filter((seed) => selectedSeedKeys.has(seed)),
+      seedRepresentationShortfall: availableSeedKeys.filter((seed) => !selectedSeedKeys.has(seed)),
+    },
+  };
+}
+
 export function typeCoverageState(countsByType = {}, contentTypes = [], { finalLimit = 12 } = {}) {
   const types = normalizeRequestedTypes(contentTypes);
   const minimum = minimumTypeCoverage(types);
@@ -116,9 +247,25 @@ function roundRobinGroups(groups = [], limit = Number.POSITIVE_INFINITY) {
   return result;
 }
 
+function sourceDiverseOrder(groups = [], rankByItem = new Map()) {
+  const heads = groups
+    .map((group) => group[0])
+    .filter(Boolean)
+    .sort((left, right) => Number(rankByItem.get(left) || 0) - Number(rankByItem.get(right) || 0));
+  const selected = new Set(heads);
+  const remaining = groups
+    .flat()
+    .filter((item) => !selected.has(item))
+    .sort((left, right) => Number(rankByItem.get(left) || 0) - Number(rankByItem.get(right) || 0));
+  return [...heads, ...remaining];
+}
+
 function semanticFamiliesForItem(item = {}, filters = []) {
   const ids = new Set((item.providerGenreIds || item.genreIds || item.genre_ids || []).map(Number));
-  return unique([...selectedTaxonomyFilters(filters), ...(item.crossMediaSeedGenreValues || [])].map((value) => {
+  return unique([
+    ...selectedTaxonomyFilters(filters),
+    ...(item.crossMediaSeedTransferValues || item.crossMediaSeedGenreValues || []),
+  ].map((value) => {
     const contract = genreContractFor(value);
     if (!contract) return "";
     const mediaType = normalizeProviderMediaType(item) || "movie";
@@ -158,6 +305,7 @@ export function planDetailAllocation(
 ) {
   const requestedTypes = normalizeRequestedTypes(contentTypes);
   const types = requestedTypes.length ? requestedTypes : TYPE_ORDER;
+  const rankByItem = new Map(orderedCandidates.map((item, index) => [item, index]));
   const sourceBuckets = new Map();
   for (const item of orderedCandidates) {
     const key = detailSourceKey(item, filters);
@@ -172,7 +320,7 @@ export function planDetailAllocation(
     byType.get(type).push(group);
   }
   const orderedByType = new Map(
-    [...byType].map(([type, groups]) => [type, roundRobinGroups(groups)]),
+    [...byType].map(([type, groups]) => [type, sourceDiverseOrder(groups, rankByItem)]),
   );
   const selected = roundRobinGroups(
     types.map((type) => orderedByType.get(type) || []),

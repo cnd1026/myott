@@ -13,6 +13,7 @@ import {
   normalizeProviderMediaType,
 } from "../filters/hardFilterContract.js";
 import {
+  assembleBalancedExactResults,
   contentTypeCounts,
   reserveTypeCoverage,
   typeCoverageState,
@@ -460,6 +461,9 @@ function diagnosticCandidate(item = {}) {
     contentType: item.contentType || item.type,
     resultTier: item.resultTier,
     candidateSource: item.candidateSource,
+    crossMediaSeedTransferValues: item.crossMediaSeedTransferValues || item.crossMediaSeedGenreValues || [],
+    crossMediaSelectedGenreValues: item.crossMediaSelectedGenreValues || [],
+    crossMediaRelationshipStatus: item.crossMediaRelationshipStatus || "not-applicable",
     fallbackStage: item.fallbackStage,
     franchiseKey: item.franchiseKey || "",
     finalScore: item.scoreDetail?.finalScore ?? null,
@@ -517,7 +521,13 @@ export function finalizeCandidatePool(
   const scored = classified.map((item) => scoreCandidate(item, preferences)).sort(compareCandidates);
   const relaxedEligible = country ? scored.filter((item) => item.resultTier === "country-relaxed") : [];
   const exactDedupe = dedupeCandidates(scored.filter((item) => item.resultTier === "exact"));
-  const exactResults = balanceSeedSources(exactDedupe.kept, seedTitles, contentTypes, limit);
+  const exactAssembly = assembleBalancedExactResults({
+    rankedItems: exactDedupe.kept,
+    seedTitles,
+    contentTypes,
+    limit,
+  });
+  const exactResults = exactAssembly.selected;
   const sameCountryDedupe = dedupeCandidates(scored.filter((item) => item.resultTier === "same-country-relaxed"));
   const sameCountryEligible = dedupeAgainst(sameCountryDedupe.kept, exactResults);
   const remainingSlots = Math.max(0, limit - exactResults.length);
@@ -585,6 +595,9 @@ export function finalizeCandidatePool(
       finalCount: primaryResults.length,
       availableExactByType,
       selectedExactByType,
+      seedAvailability: exactAssembly.diagnostics.seedAvailability,
+      representedSeeds: exactAssembly.diagnostics.representedSeeds,
+      seedRepresentationShortfall: exactAssembly.diagnostics.seedRepresentationShortfall,
       requestedTypeCoverage,
       typeCoverageShortfall: selectedTypeCoverage.shortfall,
       typeCoverageScarcity: exactTypeCoverage.shortfall,

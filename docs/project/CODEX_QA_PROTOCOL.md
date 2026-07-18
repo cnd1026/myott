@@ -1,6 +1,6 @@
 # Codex QA Protocol
 
-Version: 1.1.0
+Version: 1.1.1
 
 Last Updated: 2026-07-18
 
@@ -137,12 +137,14 @@ Codex는 Prompt에 적힌 Happy Path만 확인하고 종료하지 않습니다. 
 
 1. `providerTotalResultsByTask`, `fetchedPagesByTask`, stage/source별 raw candidate를 기록합니다.
 2. Detail 전후 exact/semantic 수와 Detail 선택·skip 이유를 기록합니다.
-3. 복수 타입은 raw, available exact, selected exact를 타입별로 비교합니다.
-4. 선택 타입의 exact pool이 있는데 최종 0개이면 MAJOR입니다.
-5. Cross-media Seed 후보는 Seed identity와 transferable genre evidence를 모두 가져야 합니다.
-6. SF/Fantasy처럼 같은 Provider ID를 공유하는 specialized filter는 두 결과군의 overlap과 고유 결과를 함께 검사합니다.
-7. 낮은 점수 중복이 높은 점수 후보를 제거하지 않는지 확인합니다.
-8. 결과 수를 위해 Country, Content Type, OTT, Runtime 또는 semantic 기준을 숨겨서 완화하지 않습니다.
+3. 복수 타입은 raw, available exact, selected exact를 표시 Content Type과 Provider media type으로 각각 비교합니다.
+4. Multi-seed 결과는 Seed 대표성과 전역 타입 coverage를 통합해서 검사합니다. Common Candidate 또는 Seed별 round-robin이 한 축의 예약을 우회하면 실패입니다.
+5. 선택 타입의 exact pool이 있는데 최종 0개이면 MAJOR입니다.
+6. Cross-media Seed 후보는 Seed transferable evidence와 selected preference evidence를 별도 필드로 유지하고 두 계약을 모두 통과해야 합니다.
+7. transferable Seed evidence를 만들 수 없어 요청을 생략한 경우 실제 Provider request count가 증가하지 않는지 확인합니다.
+8. SF/Fantasy처럼 같은 Provider ID를 공유하는 specialized filter는 두 결과군의 overlap과 고유 결과를 함께 검사합니다.
+9. 낮은 점수 중복이 높은 점수 후보를 제거하지 않는지 확인합니다.
+10. 결과 수를 위해 Country, Content Type, OTT, Runtime 또는 semantic 기준을 숨겨서 완화하지 않습니다.
 
 Fixed Fixture는 QA 기대값을 읽어 후보를 생성하지 않습니다. Provider response와 candidate metadata를 고정하고 Product classification, scoring, dedupe, type reservation 함수를 실제로 실행합니다. Live QA는 같은 Product Provider 경로를 사용하며 Fixture PASS로 대체하지 않습니다.
 
@@ -371,6 +373,8 @@ Test 전과 Commit 전 Diff를 읽고 다음을 확인합니다.
 ## 18. Final Commit Rule
 
 Browser QA와 핵심 Smoke는 최종 Commit을 대상으로 다시 실행합니다. Commit 전 Browser 결과만으로 최종 Browser PASS를 선언하지 않습니다.
+
+Task가 Full CDP를 요구하면 최종 Commit의 실제 UI 조건, Network request/response, Console, API 오류와 화면 결과를 동일 Session에서 다시 수집합니다. Pre-commit CDP 결과나 Live Runner 결과를 Final Commit Full CDP PASS로 재사용하지 않습니다. Full CDP를 사용할 수 없으면 Browser Layer는 `BLOCKED`, Overall Task는 최대 `PARTIAL`입니다.
 
 Task 완료 보고에는 Unit, Deterministic, Live, Browser, Founder 상태를 분리하고, 실행하지 못한 Layer를 명시합니다.
 

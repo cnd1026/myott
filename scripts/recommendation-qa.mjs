@@ -1,6 +1,9 @@
 import { readFile } from "node:fs/promises";
 
-import { recommendSeedsTmdb } from "../lib/tmdb.js";
+import {
+  evaluateCrossMediaSeedRelationship,
+  recommendSeedsTmdb,
+} from "../lib/tmdb.js";
 import { clearTmdbRequestCache } from "../src/lib/providers/tmdb/requestContext.js";
 import {
   createFixtureFetch,
@@ -16,7 +19,11 @@ import {
 } from "../src/lib/recommendation/genres/genreContract.js";
 import { evaluateRecommendationCase } from "../src/lib/recommendation/qa/evaluateRecommendationCase.js";
 import { D1_RECALL_FIXTURES } from "../src/lib/recommendation/qa/recallFixtures.js";
-import { planDetailAllocation } from "../src/lib/recommendation/recall/recallPlanner.js";
+import {
+  contentTypeCounts,
+  planDetailAllocation,
+  providerMediaTypeCounts,
+} from "../src/lib/recommendation/recall/recallPlanner.js";
 import {
   GENRE_TAXONOMY_FIXTURES,
   taxonomyFixturesForCase,
@@ -164,7 +171,7 @@ const taxonomyCaseIds = new Set([
   ...Array.from({ length: 12 }, (_, index) => `REC-QA-${String(index + 49).padStart(3, "0")}`),
 ]);
 const correctnessCaseIds = new Set(Array.from({ length: 20 }, (_, index) => `REC-QA-${String(index + 61).padStart(3, "0")}`));
-const recallCaseIds = new Set(Array.from({ length: 19 }, (_, index) => `REC-QA-${String(index + 82).padStart(3, "0")}`));
+const recallCaseIds = new Set(Array.from({ length: 26 }, (_, index) => `REC-QA-${String(index + 82).padStart(3, "0")}`));
 
 function finalizeRecallCase(testCase, candidates, overrides = {}) {
   const filters = testCase.input?.filters || [];
@@ -181,7 +188,7 @@ function finalizeRecallCase(testCase, candidates, overrides = {}) {
   };
 }
 
-function runRecallFixtureCase(testCase) {
+async function runRecallFixtureCase(testCase) {
   const id = Number(testCase.id.slice(-3));
   const fixture = D1_RECALL_FIXTURES;
 
@@ -326,13 +333,134 @@ function runRecallFixtureCase(testCase) {
     };
   }
 
+  if (id === 101) {
+    const seedTitles = ["Seed Alpha", "Seed Beta", "Seed Gamma"];
+    const commonMovies = fixture.movieExactCandidates.map((item) => ({
+      ...item,
+      reasonSeed: "",
+      reasonSeeds: seedTitles,
+      seedTitles,
+      seedCount: seedTitles.length,
+    }));
+    const dramas = fixture.tvExactCandidates.slice(0, 6).map((item) => ({
+      ...item,
+      reasonSeed: "Seed Alpha",
+      reasonSeeds: ["Seed Alpha"],
+      seedTitle: "Seed Alpha",
+      seedTitles: ["Seed Alpha"],
+      seedCount: 1,
+    }));
+    return finalizeRecallCase(testCase, [...commonMovies, ...dramas]);
+  }
+
+  if (id === 102) {
+    const candidates = [
+      ...fixture.movieExactCandidates.slice(0, 4).map((item) => ({ ...item, reasonSeed: "Seed Alpha", reasonSeeds: ["Seed Alpha"] })),
+      ...fixture.tvExactCandidates.slice(0, 4).map((item) => ({ ...item, reasonSeed: "Seed Beta", reasonSeeds: ["Seed Beta"] })),
+      ...fixture.animationExactCandidates.map((item) => ({ ...item, reasonSeed: "Seed Gamma", reasonSeeds: ["Seed Gamma"] })),
+    ];
+    return finalizeRecallCase(testCase, candidates);
+  }
+
+  if (id === 103) {
+    const shared = {
+      ...fixture.tvExactCandidates[0],
+      reasonSeed: "",
+      reasonSeeds: ["Seed Alpha", "Seed Beta", "Seed Gamma"],
+      seedTitles: ["Seed Alpha", "Seed Beta", "Seed Gamma"],
+      seedCount: 3,
+    };
+    const payload = finalizeRecallCase(testCase, [
+      shared,
+      ...fixture.movieExactCandidates.slice(0, 8),
+      ...fixture.tvExactCandidates.slice(1, 5),
+    ]);
+    const keys = payload.results.map((item) => (item.mediaType || item.type) + ":" + item.tmdbId);
+    return {
+      ...payload,
+      diagnostics: {
+        ...payload.diagnostics,
+        reservationDuplicateSlotCount: keys.length - new Set(keys).size,
+      },
+    };
+  }
+
+  if (id === 104) {
+    clearTmdbRequestCache();
+    const providerFixture = createFixtureFetch();
+    const contextFactory = createRecommendationContextFactory(providerFixture);
+    return recommendSeedsTmdb({
+      seeds: [{
+        inputTitle: "Interstellar",
+        tmdbId: 201,
+        mediaType: "movie",
+        resolvedTitle: "Interstellar",
+        originalTitle: "Interstellar",
+        genreIds: [878, 18],
+      }],
+      filters: ["genre-sf"],
+      contentTypes: ["movie", "drama"],
+      requestContextFactory: contextFactory.factory,
+    });
+  }
+
+  if (id === 105) {
+    const relationship = evaluateCrossMediaSeedRelationship({
+      ...fixture.sfOnly,
+      crossMediaSeedTransferValues: ["genre-sf"],
+      crossMediaSelectedGenreValues: ["genre-romance"],
+    });
+    return {
+      results: [{ ...fixture.movieExactCandidates[0], title: "Direct seed-safe result" }],
+      diagnostics: {
+        ...diagnostics,
+        crossMediaSeedRelationshipPassCount: Number(relationship.passed),
+        crossMediaSeedRelationshipFailCount: Number(!relationship.passed),
+      },
+    };
+  }
+
+  if (id === 106) {
+    clearTmdbRequestCache();
+    const providerFixture = createFixtureFetch();
+    const contextFactory = createRecommendationContextFactory(providerFixture);
+    return recommendSeedsTmdb({
+      seeds: [{
+        inputTitle: "Seed Without Genres",
+        tmdbId: 999,
+        mediaType: "movie",
+        resolvedTitle: "Seed Without Genres",
+        originalTitle: "Seed Without Genres",
+        genreIds: [],
+      }],
+      contentTypes: ["movie", "drama"],
+      requestContextFactory: contextFactory.factory,
+    });
+  }
+
+  if (id === 107) {
+    const raw = [
+      fixture.movieExactCandidates[0],
+      fixture.tvExactCandidates[0],
+      fixture.animationExactCandidates[0],
+      fixture.animationExactCandidates[2],
+    ];
+    return {
+      results: [fixture.movieExactCandidates[0]],
+      diagnostics: {
+        ...diagnostics,
+        rawCandidatesByContentType: contentTypeCounts(raw),
+        rawCandidatesByProviderMediaType: providerMediaTypeCounts(raw),
+      },
+    };
+  }
   throw new Error(`Unhandled recall fixture case: ${testCase.id}`);
 }
 const reports = [];
 
 for (const testCase of dataset) {
   if (recallCaseIds.has(testCase.id)) {
-    const payload = runRecallFixtureCase(testCase);
+    const payload = await runRecallFixtureCase(testCase);
     reports.push(evaluateRecommendationCase(testCase, payload.results, { diagnostics: payload.diagnostics }));
     continue;
   }

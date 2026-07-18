@@ -139,3 +139,10 @@ Recommendation Architecture v2.7은 전체 24회, List 8회, Detail 16회와 Sha
 TV `10765`는 Provider Combined evidence만으로 `genre-sf`와 `genre-fantasy` 양쪽의 specialized exact가 되지 않습니다. 두 필터는 각각의 semantic evidence를 요구하며 combined 선택인 `genre-sf-fantasy`는 기존 Provider Combined 계약을 유지합니다.
 
 Provider 후보 자체가 부족한 `provider-scarcity`와 page/detail/early-stop 때문에 후보를 놓친 `retrieval-recall-failure`를 diagnostics에서 분리합니다. 제공되지 않은 수치는 0으로 위장하지 않습니다. 기존 API `results` Shape는 유지되지만 후보 수집과 타입 분포가 달라지는 Behavioral Breaking Change이며 저장 데이터 migration은 없습니다.
+## DL-024 Multi-seed Seed 대표성과 타입 Coverage를 하나의 Final Allocator로 보장
+
+Multi-seed의 Common Candidate 우선 배치와 Seed별 round-robin을 타입 reservation과 순차 적용하면 앞 단계가 12개 슬롯을 소비해 뒤 단계의 전역 Content Type coverage를 무효화할 수 있습니다. Recommendation Architecture v2.7.1부터 global ranked exact pool을 identity/title dedupe한 뒤 Seed availability와 type availability를 함께 계산하고, 하나의 allocator가 두 예약을 동시에 충족합니다. 한 후보가 Seed와 타입을 함께 대표하면 슬롯은 한 번만 사용하며, 실제 exact pool이 없는 타입 후보는 만들지 않습니다.
+
+Cross-media query에서 사용자 선택 장르는 검색 범위를 좁힐 수 있지만 Seed 관계의 증거를 대체할 수 없습니다. `crossMediaSeedTransferValues`와 `crossMediaSelectedGenreValues`를 별도 보존하고 Detail 후 두 계약을 모두 통과한 후보만 exact pool에 남깁니다. transferable Seed evidence가 없으면 Provider 요청을 시작하지 않고 skip reason을 기록합니다.
+
+Diagnostics는 표시 Content Type `movie/drama/animation`과 Provider media type `movie/tv`를 구분하며, 실제 `tmdbGet`을 실행한 경우에만 cross-media issued count를 증가시킵니다. 기존 API `results` Shape, Hard Filter와 24/8/16 요청 예산은 유지하므로 v2.7.1의 추가 API Shape Breaking Change는 없습니다.

@@ -137,3 +137,106 @@ test("overall deadline returns successful seed candidates without starting later
   assert.equal(fixture.calls.some((call) => call.path.endsWith("/similar")), false);
   assert.equal(fixture.calls.some((call) => call.path.startsWith("/discover/")), false);
 });
+
+test("missing transferable seed evidence skips cross-media discovery without incrementing requests", async () => {
+  const fixture = createFixtureFetch();
+  const context = createRecommendationContextFactory(fixture);
+  const payload = await recommendSeedsTmdb({
+    seeds: [{
+      inputTitle: "Seed Without Genres",
+      tmdbId: 999,
+      mediaType: "movie",
+      resolvedTitle: "Seed Without Genres",
+      originalTitle: "Seed Without Genres",
+      genreIds: [],
+    }],
+    contentTypes: ["movie", "drama"],
+    requestContextFactory: context.factory,
+  });
+
+  assert.equal(fixture.calls.some((call) => call.path.startsWith("/discover/")), false);
+  assert.equal(payload.diagnostics.crossMediaRequestIssuedCount, 0);
+  assert.ok(payload.diagnostics.crossMediaRequestSkippedCount >= 1);
+  assert.ok(payload.diagnostics.crossMediaRequestSkipReasons["cross-media-seed-transfer-unavailable"] >= 1);
+  assert.equal(payload.diagnostics.crossMediaSupplementRequestCount, 0);
+  assert.equal(payload.diagnostics.requestsUsed, fixture.calls.length);
+});
+
+test("movie seed cross-media supplement contributes drama without starving movie coverage", async () => {
+  const fixture = createFixtureFetch();
+  const context = createRecommendationContextFactory(fixture);
+  const payload = await recommendSeedsTmdb({
+    seeds: [{
+      inputTitle: "Interstellar",
+      tmdbId: 201,
+      mediaType: "movie",
+      resolvedTitle: "Interstellar",
+      originalTitle: "Interstellar",
+      genreIds: [878, 18],
+    }],
+    contentTypes: ["movie", "drama"],
+    requestContextFactory: context.factory,
+  });
+
+  const movieCount = payload.results.filter((item) => item.displayContentType === "movie").length;
+  const dramaCount = payload.results.filter((item) => item.displayContentType === "drama").length;
+  assert.ok(movieCount >= 3);
+  assert.ok(dramaCount >= 3);
+  assert.ok(payload.diagnostics.crossMediaRequestIssuedCount >= 1);
+  assert.ok(payload.diagnostics.crossMediaSeedRelationshipPassCount >= dramaCount);
+  assert.equal(payload.diagnostics.crossMediaSeedRelationshipFailCount, 0);
+  assert.ok(payload.diagnostics.rawCandidatesByProviderMediaType.movie > 0);
+  assert.ok(payload.diagnostics.rawCandidatesByProviderMediaType.tv > 0);
+  assert.ok(payload.diagnostics.requestsUsed <= 24);
+});
+
+test("selected SF remains separate from transferable SF evidence", async () => {
+  const fixture = createFixtureFetch();
+  const context = createRecommendationContextFactory(fixture);
+  const payload = await recommendSeedsTmdb({
+    seeds: [{
+      inputTitle: "Interstellar",
+      tmdbId: 201,
+      mediaType: "movie",
+      resolvedTitle: "Interstellar",
+      originalTitle: "Interstellar",
+      genreIds: [878, 18],
+    }],
+    filters: ["genre-sf"],
+    contentTypes: ["movie", "drama"],
+    requestContextFactory: context.factory,
+  });
+
+  const crossMedia = payload.results.filter((item) => item.candidateSource === "tmdb-cross-media-discover:tv");
+  assert.ok(crossMedia.length > 0);
+  assert.ok(crossMedia.every((item) => item.crossMediaSeedTransferValues.includes("genre-sf")));
+  assert.ok(crossMedia.every((item) => item.crossMediaSelectedGenreValues.includes("genre-sf")));
+  assert.ok(crossMedia.every((item) => item.crossMediaRelationshipStatus === "passed"));
+});
+
+test("selected romance cannot admit TV candidates that fail transferable seed evidence", async () => {
+  const fixture = createFixtureFetch({
+    tvDiscoverGenreIds: [18],
+    tvDiscoverKeywordNames: ["love", "romantic relationship"],
+    tvDiscoverOverview: "A romantic relationship changes two lives.",
+  });
+  const context = createRecommendationContextFactory(fixture);
+  const payload = await recommendSeedsTmdb({
+    seeds: [{
+      inputTitle: "Interstellar",
+      tmdbId: 201,
+      mediaType: "movie",
+      resolvedTitle: "Interstellar",
+      originalTitle: "Interstellar",
+      genreIds: [878, 18],
+    }],
+    filters: ["genre-romance"],
+    contentTypes: ["movie", "drama"],
+    requestContextFactory: context.factory,
+  });
+
+  assert.equal(payload.results.some((item) => item.displayContentType === "drama"), false);
+  assert.ok(payload.diagnostics.crossMediaSeedRelationshipFailCount > 0);
+  assert.equal(payload.diagnostics.crossMediaSeedRelationshipPassCount, 0);
+  assert.ok(payload.diagnostics.seedRelationshipExclusions > 0);
+});

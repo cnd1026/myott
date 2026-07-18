@@ -1,6 +1,19 @@
 # Changelog
 
 프로젝트의 주요 변경 사항을 날짜별로 기록합니다.
+## 2026-07-18 - MYOTT-S09-006A2D1A
+
+### Multi-Seed Coverage And Seed Integrity
+
+- Multi-seed exact result assembly가 Seed 대표성과 전역 Content Type coverage를 하나의 allocator에서 함께 예약하도록 변경했습니다.
+- Common Candidate 또는 앞쪽 Seed group이 12개 슬롯을 소비해 선택 타입을 제거하지 못하며, 없는 타입 후보는 생성하지 않습니다.
+- Cross-media Seed transferable evidence와 selected genre evidence를 분리하고 두 계약을 모두 통과한 후보만 유지합니다.
+- transferable Seed evidence가 없으면 Provider 요청을 생략하고 실제 요청 count를 증가시키지 않습니다.
+- 표시 Content Type과 Provider media type diagnostics를 분리하고 relationship pass/fail 및 skip reason을 추가했습니다.
+- Recommendation Unit 103개, Deterministic Dataset 107개와 고정 multi-seed/cross-media fixture로 회귀 계약을 확장했습니다.
+- Detail Source별 최소 기회 후 전역 semantic 우선순위로 재배분해 정확 후보 회수율을 높였으며 전체 Live Cold/Warm 66/66이 통과했습니다.
+- Recommendation Architecture v2.7.1과 CODEX QA Protocol v1.1.1을 적용했으며 API `results` Shape와 24/8/16 예산은 유지합니다.
+
 ## 2026-07-18 - MYOTT-S09-006A2D1
 
 ### Recall Breadth And Type Balance

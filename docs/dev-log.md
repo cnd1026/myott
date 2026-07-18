@@ -2,6 +2,34 @@
 
 개발 과정에서의 작업 내용, 결정, 아쉬운 점, 다음 개선 사항을 날짜별로 기록합니다.
 
+## 2026-07-18 - MYOTT-S09-006A2D1A
+
+### Root Cause
+
+- Base: `main` / `e9196b5e634b6a4c1066c044edbe74f4951eaab7`, Founder Preflight `READY`.
+- Multi-seed exact pool은 Common Candidate와 Seed별 source balance를 먼저 적용한 뒤 type reservation을 수행해 앞 단계가 슬롯을 채우면 전역 타입 coverage를 복구할 수 없었습니다.
+- Cross-media query에서 `selectedGenreValues`가 있으면 transferable Seed genre를 대체해, 사용자가 고른 장르만 맞고 Seed와 무관한 후보가 통과할 수 있었습니다.
+- supplement skip과 실제 `tmdbGet` 실행을 같은 성공 카운터로 취급할 수 있었고, 표시 Content Type을 `rawCandidatesByMediaType`로 기록해 Provider `movie/tv` 진단과 의미가 섞였습니다.
+
+### Implementation
+
+- Global ranked exact pool에서 identity/title dedupe 후 Seed representation과 Content Type coverage를 하나의 allocator로 예약합니다. Common Candidate도 같은 예약 규칙을 따르며 한 후보가 두 목적을 충족하면 슬롯을 한 번만 사용합니다.
+- Cross-media 후보는 `crossMediaSeedTransferValues`, `crossMediaSelectedGenreValues`, `crossMediaRelationshipStatus`를 별도로 유지하고 Detail 후 Seed 관계와 selected genre 계약을 모두 검증합니다.
+- transferable Seed evidence가 없으면 Discover를 시작하지 않고 `requestIssued: false`와 skip reason을 반환합니다. 실제 요청을 시작한 경우에만 issued count를 증가시킵니다.
+- `rawCandidatesByContentType`과 `rawCandidatesByProviderMediaType`을 분리하고 legacy 필드는 deprecated로 유지했습니다.
+- Detail Source별 최소 기회를 보장한 뒤 전역 semantic 우선순위로 남은 슬롯을 재배분해 낮은 가치 Source 균등 배분이 정확 후보를 밀어내지 않게 했습니다.
+
+### Validation
+
+- Recommendation Unit: 103/103 PASS.
+- Deterministic Recommendation QA: 107/107 PASS.
+- D1A Product Live Cold/Warm: 각각 5/5 PASS. Cold 최대 aggregate request 24, Warm 선택 Case 최대 request 0과 cache hit 110.
+- 전체 Live Cold/Warm: 각각 66/66 PASS. Cold 최대 aggregate request 24, Warm 최대 request 5와 cache hit 1,253.
+- 3 Seed + Movie/Drama/Animation Live fixture에서 available exact는 Movie 39 / Drama 7 / Animation 21, final은 7 / 3 / 2였습니다.
+- UK Politics와 US Horror는 7개에서 8개로 회복됐으며 각 요청 수는 19회로 유지했습니다.
+- Founder production build와 두 번째 `founder:check`는 PASS했습니다. 첫 `founder:check`는 원인 메시지 없이 validation Exit 1이었으나 Preview 복구에 성공했고, 분리 build PASS 후 전체 재실행에서 재현되지 않았습니다.
+- Final Commit Full CDP는 Commit 후 별도 실행합니다.
+
 ## 2026-07-18 - MYOTT-S09-006A2D1 Baseline
 
 ### Recall / Cross-media Reproduction

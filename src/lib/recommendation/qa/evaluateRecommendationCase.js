@@ -669,12 +669,39 @@ export function evaluateRecommendationCase(testCase, recommendationResults = [],
     selectedExactByType,
     availableExactByType,
     typeCoverageShortfallCount: Object.values(diagnostics.typeCoverageShortfall || {}).reduce((sum, value) => sum + Number(value || 0), 0),
+    globalTypeStarvationCount: availableRequestedTypes.filter((type) => Number(selectedExactByType[type] || 0) === 0).length,
+    seedRepresentationShortfallCount: Array.isArray(diagnostics.seedRepresentationShortfall)
+      ? diagnostics.seedRepresentationShortfall.length
+      : Number(diagnostics.seedRepresentationShortfallCount || 0),
+    reservationDuplicateSlotCount: Number(diagnostics.reservationDuplicateSlotCount || 0),
     crossMediaResultCount: crossMediaResults.length,
     crossMediaSeedRelatedRatio: ratio(
-      countBy(crossMediaResults, (result) => (
-        Boolean(result.reasonSeed || result.seedTitle) && (result.crossMediaSeedGenreValues || []).length > 0
-      )),
+      countBy(crossMediaResults, (result) => {
+        const transferValues = result.crossMediaSeedTransferValues || result.crossMediaSeedGenreValues || [];
+        return Boolean(result.reasonSeed || result.seedTitle) &&
+          transferValues.length > 0 &&
+          result.crossMediaRelationshipStatus !== "failed";
+      }),
       crossMediaResults.length,
+    ),
+    crossMediaSeedRelationshipPassCount: Number.isFinite(diagnostics.crossMediaSeedRelationshipPassCount)
+      ? Number(diagnostics.crossMediaSeedRelationshipPassCount)
+      : countBy(crossMediaResults, (result) => result.crossMediaRelationshipStatus === "passed"),
+    crossMediaSeedRelationshipFailCount: Number(diagnostics.crossMediaSeedRelationshipFailCount || 0),
+    crossMediaSeedEvidenceReplacementCount: countBy(crossMediaResults, (result) => (
+      (result.crossMediaSelectedGenreValues || []).length > 0 &&
+      !(result.crossMediaSeedTransferValues || result.crossMediaSeedGenreValues || []).length
+    )),
+    crossMediaRequestIssuedCount: Number(diagnostics.crossMediaRequestIssuedCount || 0),
+    crossMediaRequestSkippedCount: Number(diagnostics.crossMediaRequestSkippedCount || 0),
+    crossMediaRequestSkipReasons: diagnostics.crossMediaRequestSkipReasons || {},
+    rawCandidatesByContentType: diagnostics.rawCandidatesByContentType || {},
+    rawCandidatesByProviderMediaType: diagnostics.rawCandidatesByProviderMediaType || {},
+    providerMediaDiagnosticsSeparated: Boolean(
+      diagnostics.rawCandidatesByContentType &&
+      diagnostics.rawCandidatesByProviderMediaType &&
+      Object.hasOwn(diagnostics.rawCandidatesByContentType, "drama") &&
+      Object.hasOwn(diagnostics.rawCandidatesByProviderMediaType, "tv")
     ),
     falseCandidateFabricationCount: Number(diagnostics.falseCandidateFabricationCount || 0),
     highScoreDuplicateWinner: diagnostics.highScoreDuplicateWinner !== false,
@@ -1081,6 +1108,51 @@ export function evaluateRecommendationCase(testCase, recommendationResults = [],
     metrics.crossMediaSeedRelatedRatio < expected.minimumCrossMediaSeedRelatedRatio
   ) {
     failedReasons.push("cross-media-seed-relationship-missing");
+  }
+  if (metrics.globalTypeStarvationCount > Number(expected.maximumGlobalTypeStarvationCount ?? Infinity)) {
+    failedReasons.push("multi-seed-type-starvation");
+  }
+  if (metrics.seedRepresentationShortfallCount > Number(expected.maximumSeedRepresentationShortfallCount ?? Infinity)) {
+    failedReasons.push("seed-representation-shortfall");
+  }
+  if (metrics.reservationDuplicateSlotCount > Number(expected.maximumReservationDuplicateSlotCount ?? Infinity)) {
+    failedReasons.push("seed-type-reservation-double-counted");
+  }
+  if (
+    Number.isFinite(expected.minimumCrossMediaSeedRelationshipPassCount) &&
+    metrics.crossMediaSeedRelationshipPassCount < expected.minimumCrossMediaSeedRelationshipPassCount
+  ) {
+    failedReasons.push("cross-media-seed-relationship-missing");
+  }
+  if (
+    Number.isFinite(expected.minimumCrossMediaSeedRelationshipFailCount) &&
+    metrics.crossMediaSeedRelationshipFailCount < expected.minimumCrossMediaSeedRelationshipFailCount
+  ) {
+    failedReasons.push("cross-media-seed-relationship-failure-not-detected");
+  }
+  if (metrics.crossMediaSeedRelationshipFailCount > Number(expected.maximumCrossMediaSeedRelationshipFailCount ?? Infinity)) {
+    failedReasons.push("cross-media-seed-relationship-missing");
+  }
+  if (metrics.crossMediaSeedEvidenceReplacementCount > Number(expected.maximumCrossMediaSeedEvidenceReplacementCount ?? Infinity)) {
+    failedReasons.push("selected-genre-replaced-seed-evidence");
+  }
+  if (metrics.crossMediaRequestIssuedCount > Number(expected.maximumCrossMediaRequestIssuedCount ?? Infinity)) {
+    failedReasons.push("false-cross-media-request-count");
+  }
+  if (
+    Number.isFinite(expected.minimumCrossMediaRequestSkippedCount) &&
+    metrics.crossMediaRequestSkippedCount < expected.minimumCrossMediaRequestSkippedCount
+  ) {
+    failedReasons.push("cross-media-request-skip-missing");
+  }
+  if (
+    expected.requiredCrossMediaRequestSkipReason &&
+    !Object.hasOwn(metrics.crossMediaRequestSkipReasons, expected.requiredCrossMediaRequestSkipReason)
+  ) {
+    failedReasons.push("cross-media-request-skip-reason-missing");
+  }
+  if (expected.providerMediaDiagnosticsSeparated === true && !metrics.providerMediaDiagnosticsSeparated) {
+    failedReasons.push("provider-media-diagnostics-mislabeled");
   }
   if (metrics.falseCandidateFabricationCount > Number(expected.maximumFalseCandidateFabricationCount ?? Infinity)) {
     failedReasons.push("missing-type-fabricated");

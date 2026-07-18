@@ -18,9 +18,47 @@ const dataset = JSON.parse(
 const requestedCaseIds = new Set(
   String(process.env.QA_CASES || "").split(",").map((value) => value.trim()).filter(Boolean),
 );
-const liveCases = dataset.filter((testCase) => (
-  testCase.scope?.includes("tmdb") && (!requestedCaseIds.size || requestedCaseIds.has(testCase.id))
-));
+const supplementalLiveCases = [
+  {
+    id: "LIVE-D1A-001",
+    title: "Interstellar Movie and Drama coverage",
+    input: { titles: ["인터스텔라"], filters: [], contentTypes: ["movie", "drama"] },
+    expected: { topN: 12, maximumGlobalTypeStarvationCount: 0, minimumCrossMediaSeedRelatedRatio: 1, maximumTmdbRequestCount: 24, maximumListRequestCount: 8, maximumDetailRequestCount: 16, requestContextCount: 1 },
+    minimumMatchRatio: 0,
+  },
+  {
+    id: "LIVE-D1A-002",
+    title: "Interstellar Movie and Drama with SF",
+    input: { titles: ["인터스텔라"], filters: ["genre-sf"], contentTypes: ["movie", "drama"] },
+    expected: { topN: 12, maximumGlobalTypeStarvationCount: 0, minimumCrossMediaSeedRelatedRatio: 1, maximumCrossMediaSeedEvidenceReplacementCount: 0, maximumTmdbRequestCount: 24, maximumListRequestCount: 8, maximumDetailRequestCount: 16, requestContextCount: 1 },
+    minimumMatchRatio: 0,
+  },
+  {
+    id: "LIVE-D1A-003",
+    title: "Interstellar Movie and Drama with Romance",
+    input: { titles: ["인터스텔라"], filters: ["genre-romance"], contentTypes: ["movie", "drama"] },
+    expected: { topN: 12, maximumGlobalTypeStarvationCount: 0, maximumCrossMediaSeedEvidenceReplacementCount: 0, maximumTmdbRequestCount: 24, maximumListRequestCount: 8, maximumDetailRequestCount: 16, requestContextCount: 1 },
+    minimumMatchRatio: 0,
+  },
+  {
+    id: "LIVE-D1A-004",
+    title: "Three movie seeds Movie and Drama coverage",
+    input: { titles: ["인터스텔라", "라라랜드", "마션"], filters: [], contentTypes: ["movie", "drama"] },
+    expected: { topN: 12, maximumGlobalTypeStarvationCount: 0, maximumSeedRepresentationShortfallCount: 0, maximumTmdbRequestCount: 24, maximumListRequestCount: 8, maximumDetailRequestCount: 16, requestContextCount: 1 },
+    minimumMatchRatio: 0,
+  },
+  {
+    id: "LIVE-D1A-005",
+    title: "Three seeds Movie Drama and Animation coverage",
+    input: { titles: ["인터스텔라", "라라랜드", "너의 이름은"], filters: [], contentTypes: ["movie", "drama", "animation"] },
+    expected: { topN: 12, maximumGlobalTypeStarvationCount: 0, maximumSeedRepresentationShortfallCount: 0, maximumTmdbRequestCount: 24, maximumListRequestCount: 8, maximumDetailRequestCount: 16, requestContextCount: 1 },
+    minimumMatchRatio: 0,
+  },
+];
+const liveCases = [
+  ...dataset.filter((testCase) => testCase.scope?.includes("tmdb")),
+  ...supplementalLiveCases,
+].filter((testCase) => !requestedCaseIds.size || requestedCaseIds.has(testCase.id));
 const output = [];
 let hasFailure = false;
 
@@ -100,6 +138,9 @@ for (const testCase of liveCases) {
               : "narrative",
       franchiseKey: item.franchiseKey || "",
       candidateSource: item.candidateSource || "",
+      crossMediaSeedTransferValues: item.crossMediaSeedTransferValues || item.crossMediaSeedGenreValues || [],
+      crossMediaSelectedGenreValues: item.crossMediaSelectedGenreValues || [],
+      crossMediaRelationshipStatus: item.crossMediaRelationshipStatus || "not-applicable",
       crossMediaSeedGenreValues: item.crossMediaSeedGenreValues || [],
       reasonSeed: item.reasonSeed || "",
       seedTitle: item.seedTitle || "",
@@ -120,6 +161,14 @@ for (const testCase of liveCases) {
     elapsedMs: caseOutput.diagnostics.elapsedMs,
     processedSeedCount: caseOutput.diagnostics.processedSeedCount,
     deferredSeedCount: caseOutput.diagnostics.deferredSeedCount,
+    crossMediaRequestIssuedCount: caseOutput.diagnostics.crossMediaRequestIssuedCount,
+    crossMediaRequestSkippedCount: caseOutput.diagnostics.crossMediaRequestSkippedCount,
+    crossMediaSeedRelationshipPassCount: caseOutput.diagnostics.crossMediaSeedRelationshipPassCount,
+    crossMediaSeedRelationshipFailCount: caseOutput.diagnostics.crossMediaSeedRelationshipFailCount,
+    rawCandidatesByContentType: caseOutput.diagnostics.rawCandidatesByContentType,
+    rawCandidatesByProviderMediaType: caseOutput.diagnostics.rawCandidatesByProviderMediaType,
+    availableExactByType: caseOutput.diagnostics.availableExactByType,
+    selectedExactByType: caseOutput.diagnostics.selectedExactByType,
   };
   const budgetFailure = Number(requestSummary.aggregateRequestsUsed ?? requestSummary.requestsUsed ?? 0) > 24 ||
     Number(requestSummary.listRequestsUsed || 0) > 8 ||
