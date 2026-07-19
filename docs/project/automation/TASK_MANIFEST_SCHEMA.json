@@ -1,0 +1,231 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://myott.local/schemas/task-manifest.schema.json",
+  "title": "MyOTT Task Manifest",
+  "description": "Machine-readable task, governance, QA, and Git preparation contract.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "task",
+    "repository",
+    "contracts",
+    "goals",
+    "requiredAgents",
+    "acceptanceCriteria",
+    "doNotChange",
+    "outOfScope",
+    "hqGate",
+    "pmLabGate",
+    "founderReview",
+    "git"
+  ],
+  "properties": {
+    "schemaVersion": {
+      "type": "string",
+      "pattern": "^[0-9]+\\.[0-9]+$"
+    },
+    "task": { "$ref": "#/$defs/task" },
+    "repository": { "$ref": "#/$defs/repository" },
+    "contracts": { "$ref": "#/$defs/contracts" },
+    "changeProfile": { "$ref": "#/$defs/changeProfile" },
+    "goals": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "$ref": "#/$defs/goal" }
+    },
+    "requiredAgents": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "$ref": "#/$defs/requiredAgent" }
+    },
+    "acceptanceCriteria": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "$ref": "#/$defs/acceptanceCriterion" }
+    },
+    "doNotChange": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 }
+    },
+    "outOfScope": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 }
+    },
+    "hqGate": { "$ref": "#/$defs/gate" },
+    "pmLabGate": { "$ref": "#/$defs/gate" },
+    "founderReview": { "$ref": "#/$defs/gate" },
+    "git": { "$ref": "#/$defs/git" }
+  },
+  "$defs": {
+    "task": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "name", "sprint", "owner"],
+      "properties": {
+        "id": { "type": "string", "minLength": 1 },
+        "name": { "type": "string", "minLength": 1 },
+        "sprint": { "type": "string", "minLength": 1 },
+        "owner": { "type": "string", "minLength": 1 }
+      }
+    },
+    "repository": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "baseBranch", "baseCommit"],
+      "properties": {
+        "name": { "type": "string", "minLength": 1 },
+        "baseBranch": { "type": "string", "minLength": 1 },
+        "baseCommit": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{40}$"
+        }
+      }
+    },
+    "contracts": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["architectureVersion", "qaProtocolVersion"],
+      "properties": {
+        "architectureVersion": { "type": "string", "minLength": 1 },
+        "qaProtocolVersion": { "type": "string", "minLength": 1 }
+      }
+    },
+    "changeProfile": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "production",
+        "architecture",
+        "contracts",
+        "dependencies",
+        "security",
+        "provider",
+        "database",
+        "auth",
+        "migration"
+      ],
+      "properties": {
+        "production": { "type": "boolean" },
+        "architecture": { "type": "boolean" },
+        "contracts": { "type": "boolean" },
+        "dependencies": { "type": "boolean" },
+        "security": { "type": "boolean" },
+        "provider": { "type": "boolean" },
+        "database": { "type": "boolean" },
+        "auth": { "type": "boolean" },
+        "migration": { "type": "boolean" }
+      }
+    },
+    "goal": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "statement"],
+      "properties": {
+        "id": { "type": "string", "minLength": 1 },
+        "statement": { "type": "string", "minLength": 1 }
+      }
+    },
+    "requiredAgent": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["role", "required", "wave"],
+      "properties": {
+        "role": { "$ref": "#/$defs/role" },
+        "required": { "type": "boolean" },
+        "wave": { "$ref": "#/$defs/wave" }
+      }
+    },
+    "acceptanceCriterion": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "statement", "evidenceRequired", "qaLayer"],
+      "properties": {
+        "id": { "type": "string", "minLength": 1 },
+        "statement": { "type": "string", "minLength": 1 },
+        "evidenceRequired": { "type": "boolean" },
+        "qaLayer": { "$ref": "#/$defs/qaLayer" }
+      }
+    },
+    "gate": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["required", "status", "beforeWave", "evidence", "decision"],
+      "properties": {
+        "required": { "type": "boolean" },
+        "status": { "$ref": "#/$defs/gateStatus" },
+        "beforeWave": { "$ref": "#/$defs/gateWave" },
+        "evidence": {
+          "type": "array",
+          "items": { "type": "string", "minLength": 1 }
+        },
+        "decision": { "type": "string" }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": { "required": { "const": false } },
+            "required": ["required"]
+          },
+          "then": {
+            "properties": { "status": { "const": "NOT_REQUIRED" } }
+          }
+        },
+        {
+          "if": {
+            "properties": { "required": { "const": true } },
+            "required": ["required"]
+          },
+          "then": {
+            "properties": { "status": { "not": { "const": "NOT_REQUIRED" } } }
+          }
+        }
+      ]
+    },
+    "git": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["commitAllowed", "pushAllowed", "recommendedCommit", "excludedFiles"],
+      "properties": {
+        "commitAllowed": { "type": "boolean" },
+        "pushAllowed": { "type": "boolean" },
+        "recommendedCommit": { "type": "string" },
+        "excludedFiles": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": { "type": "string", "minLength": 1 }
+        }
+      }
+    },
+    "role": {
+      "type": "string",
+      "enum": [
+        "CONTEXT_AGENT",
+        "ARCHITECTURE_AGENT",
+        "UI_AGENT",
+        "TEST_AGENT",
+        "QA_AGENT",
+        "PERFORMANCE_AGENT",
+        "DOCS_AGENT",
+        "IMPLEMENTATION_LEAD",
+        "FINAL_INTEGRATOR"
+      ]
+    },
+    "wave": {
+      "type": "string",
+      "enum": ["analysis", "implementation", "validation", "integration"]
+    },
+    "gateWave": {
+      "type": "string",
+      "enum": ["analysis", "implementation", "validation", "integration", "completion"]
+    },
+    "qaLayer": {
+      "type": "string",
+      "enum": ["static", "unit", "fixture", "live", "browser", "founder"]
+    },
+    "gateStatus": {
+      "type": "string",
+      "enum": ["PENDING", "APPROVED", "REJECTED", "BLOCKED", "NOT_REQUIRED"]
+    }
+  }
+}

@@ -1,0 +1,42 @@
+{
+  "registryVersion": "1.0",
+  "checksumMethod": "SHA-256 of the exact UTF-8 bytes of each referenced public snapshot; this registry is excluded from every checksum",
+  "contracts": [
+    {
+      "contractName": "Task Manifest Schema",
+      "path": "docs/project/automation/TASK_MANIFEST_SCHEMA.json",
+      "publicContractVersion": "1.0",
+      "exportedFromApsVersion": "0.1-candidate",
+      "exportDate": "2026-07-19",
+      "schemaChecksum": "a7afd0507c0eb885ab2a44a7c5893812d5327bc153580197ceefa4b466fdaf22",
+      "privateDetailExcluded": true
+    },
+    {
+      "contractName": "Agent Handoff Schema",
+      "path": "docs/project/automation/AGENT_HANDOFF_SCHEMA.json",
+      "publicContractVersion": "1.0",
+      "exportedFromApsVersion": "0.1-candidate",
+      "exportDate": "2026-07-19",
+      "schemaChecksum": "e1380628607e69f54fe9268ac940ca22bc4044f59c86894531f538dca4bf9694",
+      "privateDetailExcluded": true
+    },
+    {
+      "contractName": "Task Manifest Template",
+      "path": "docs/project/automation/TASK_MANIFEST_TEMPLATE.yaml",
+      "publicContractVersion": "1.0",
+      "exportedFromApsVersion": "0.1-candidate",
+      "exportDate": "2026-07-19",
+      "schemaChecksum": "7d06f5518587d6c04370b086a87d1bdf37815ee8dfe03428c9ba7afbd657bd12",
+      "privateDetailExcluded": true
+    },
+    {
+      "contractName": "Final Report Contract",
+      "path": "docs/project/automation/FINAL_REPORT_TEMPLATE.md",
+      "publicContractVersion": "1.0",
+      "exportedFromApsVersion": "0.1-candidate",
+      "exportDate": "2026-07-19",
+      "schemaChecksum": "7e289110733a0fd0e510e694eac04cebd877bc5bf14bed0bf249c43b09f3abdd",
+      "privateDetailExcluded": true
+    }
+  ]
+}

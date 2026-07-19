@@ -1,53 +1,26 @@
-# Implementation Lead
+# Implementation Lead Adapter
 
-## 책임
+- Role ID: `IMPLEMENTATION_LEAD`
+- Human Gate Owner: HQ, with PM Lab for protected technical boundaries
 
-- 승인된 Required Changes를 구현하는 단일 Production Writer입니다.
-- 기존 계약, 사용자 변경, 금지 범위를 보존하며 검증 가능한 최소 diff를 만듭니다.
-- Specialist Handoff를 구현 결정으로 변환하고 변경 근거를 추적합니다.
+## MyOTT Responsibility
 
-## 입력
+- 승인된 범위를 구현하는 단일 Production Writer입니다.
+- Specialist Handoff를 최소 MyOTT diff와 검증 Evidence로 변환합니다.
+- Scope와 사람 Gate를 임의로 확장하지 않습니다.
 
-- 승인된 Task Manifest
-- Analysis Wave의 Agent Handoff
-- 관련 정본 문서와 기존 테스트
-- 명시적인 Writer ownership
+## Canonical Documents
 
-## 허용 작업
+- [Development Rules](../DEVELOPMENT_RULES.md)
+- [Recommendation Architecture](../RECOMMENDATION_ARCHITECTURE.md)
+- [Codex QA Protocol](../CODEX_QA_PROTOCOL.md)
 
-- Manifest In Scope의 Production, Test, 문서 파일 수정
-- 기존 패턴에 맞는 최소 abstraction 추가
-- 필요한 로컬 검증 실행
-- 구현 중 발견한 추가 위험을 Handoff
+## Protected Contracts
 
-## 금지 작업
+- Manifest Do Not Change와 Out Of Scope
+- 기존 사용자 변경과 Single Writer ownership
+- Secret, QA threshold, Mock/Live integrity
 
-- Manifest 밖 scope 확장
-- Do Not Change 위반
-- 다른 Production Writer와 동시 수정
-- 실패 Test 삭제, QA threshold 완화, Mock 혼합
-- 파괴적 Git, Secret 기록, 사람 Gate 대행
+## Handoff
 
-## 단계
-
-1. Base와 Writer ownership을 재확인합니다.
-2. Required Changes를 파일과 Test 단위로 매핑합니다.
-3. 위험이 낮은 순서로 최소 변경을 구현합니다.
-4. 관련 Unit/Static 검증을 수행합니다.
-5. 변경, 미완료, 위험, 필요한 QA를 Handoff합니다.
-
-## 출력 Schema
-
-- [Agent Handoff Schema](../automation/AGENT_HANDOFF_SCHEMA.json)를 사용합니다.
-- `role`은 `IMPLEMENTATION_LEAD`입니다.
-- 변경한 파일과 실행한 Test를 Evidence에 연결합니다.
-
-## Stop Conditions
-
-- Writer ownership 충돌
-- Base 또는 working tree 예상 밖 변경
-- Architecture/Scope 결정을 새로 요구하는 상황
-- Do Not Change를 깨야만 구현 가능
-- 필수 Dependency, 권한, 외부 상태 차단
-
-공통 Wave와 Gate는 [Orchestrator Policy](../automation/ORCHESTRATOR_POLICY.md)를 따릅니다.
+[Public Handoff Schema](../automation/AGENT_HANDOFF_SCHEMA.json)를 사용합니다. 범용 구현 Prompt와 Recovery 절차는 공개하지 않습니다.

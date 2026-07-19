@@ -12,8 +12,19 @@ repository:
   baseCommit: "0000000000000000000000000000000000000000"
 
 contracts:
-  architectureVersion: "v0.0"
-  qaProtocolVersion: "v0.0"
+  architectureVersion: "v2.7.1"
+  qaProtocolVersion: "v1.1.1"
+
+changeProfile:
+  production: false
+  architecture: false
+  contracts: false
+  dependencies: false
+  security: false
+  provider: false
+  database: false
+  auth: false
+  migration: false
 
 goals:
   - id: "GOAL-001"
@@ -45,15 +56,24 @@ doNotChange:
 outOfScope:
   - "List explicitly deferred work."
 
+hqGate:
+  required: true
+  status: "PENDING"
+  beforeWave: "analysis"
+  evidence: []
+  decision: ""
+
 founderReview:
   required: true
   status: "PENDING"
+  beforeWave: "completion"
   evidence: []
   decision: ""
 
 pmLabGate:
-  required: true
-  status: "PENDING"
+  required: false
+  status: "NOT_REQUIRED"
+  beforeWave: "implementation"
   evidence: []
   decision: ""
 

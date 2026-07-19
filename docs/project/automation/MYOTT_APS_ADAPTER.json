@@ -1,0 +1,50 @@
+{
+  "schemaVersion": "1.0",
+  "projectId": "myott",
+  "contracts": {
+    "taskManifestSchema": "docs/project/automation/TASK_MANIFEST_SCHEMA.json",
+    "agentHandoffSchema": "docs/project/automation/AGENT_HANDOFF_SCHEMA.json",
+    "taskManifestTemplate": "docs/project/automation/TASK_MANIFEST_TEMPLATE.yaml",
+    "finalReportTemplate": "docs/project/automation/FINAL_REPORT_TEMPLATE.md",
+    "publicContractExports": "docs/project/automation/PUBLIC_CONTRACT_EXPORTS.json"
+  },
+  "canonicalDocuments": {
+    "architecture": "docs/project/RECOMMENDATION_ARCHITECTURE.md",
+    "qaProtocol": "docs/project/CODEX_QA_PROTOCOL.md",
+    "developmentRules": "docs/project/DEVELOPMENT_RULES.md",
+    "decisionLog": "docs/project/DECISION_LOG.md",
+    "taskHistory": "docs/project/TASK_HISTORY.md",
+    "roadmap": "docs/project/ROADMAP.md",
+    "founderPreview": "docs/project/FOUNDER_PREVIEW_OPERATIONS.md"
+  },
+  "canonicalVersions": {
+    "architectureVersion": {
+      "path": "docs/project/RECOMMENDATION_ARCHITECTURE.md",
+      "pattern": "^Architecture Version:\\s*(\\S+)\\s*$"
+    },
+    "qaProtocolVersion": {
+      "path": "docs/project/CODEX_QA_PROTOCOL.md",
+      "pattern": "^Version:\\s*(\\S+)\\s*$"
+    }
+  },
+  "protectedContracts": [
+    "Recommendation request budget",
+    "Country, content type, OTT, and runtime hard constraints",
+    "Submitted preference snapshot",
+    "Provider data-source integrity",
+    "Related content identity",
+    "Founder Preview process ownership"
+  ],
+  "gateOwners": {
+    "task": "HQ",
+    "platform": "PM_LAB",
+    "product": "FOUNDER"
+  },
+  "artifacts": {
+    "runRoot": ".agent-runs"
+  },
+  "allowedLocalFiles": [
+    "docs/project/QA_CHECKLIST.md",
+    "docs/project/QA_CHECKLIST.pdf"
+  ]
+}

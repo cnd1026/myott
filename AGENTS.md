@@ -7,18 +7,25 @@
 
 - 적용 범위는 이 Repository 전체입니다.
 - 모든 작업은 승인된 Task Manifest를 기준으로 시작합니다.
-- Agent는 자신의 역할 문서와 공통 Orchestrator Policy를 함께 따릅니다.
+- Agent는 자신의 공개 역할 Adapter와 MyOTT APS Governance를 함께 따릅니다.
 - 명시적인 현재 Task와 이 문서가 충돌하면 작업을 중단하고 결정권자에게 보고합니다.
 
 ## 2. Source Of Truth Priority
 
 충돌 시 다음 순서로 판단합니다.
 
-1. 현재 승인된 Task Manifest와 Founder 또는 PM Lab의 명시적 결정
-2. 도메인 정본 문서
+1. 현재 승인된 Task Manifest와 HQ의 Task/Wave 결정
+2. PM Lab의 Architecture Gate와 도메인 정본 문서
 3. 기록된 Architecture Decision과 Development Rules
 4. Sprint Context, Roadmap, Task History
 5. Template, Prompt Guide, 보조 체크리스트
+
+역할 경계:
+
+- Founder는 제품 방향, 사용자 경험, 추천 품질, 최종 제품 승인을 소유합니다.
+- HQ는 CPM, Task intake, Sprint 순서, Manifest 완성도, Agent/Wave 배치를 소유합니다.
+- PM Lab은 CTO 역할로 Architecture, API/Data Contract, Dependency, Security, Provider, DB, Auth, Migration Gate를 소유합니다.
+- Codex는 승인 범위의 구현, 기술 검증, Evidence 생성을 소유합니다.
 
 도메인 정본:
 
@@ -35,7 +42,8 @@
 
 - Task 시작 전에 [Task Manifest Template](docs/project/automation/TASK_MANIFEST_TEMPLATE.yaml)을 채웁니다.
 - 역할별 Agent는 [Agent Handoff Schema](docs/project/automation/AGENT_HANDOFF_SCHEMA.json)에 맞는 결과를 냅니다.
-- Wave와 Gate는 [Orchestrator Policy](docs/project/automation/ORCHESTRATOR_POLICY.md)를 따릅니다.
+- Wave와 Gate는 [MyOTT APS Governance](docs/project/automation/MYOTT_APS_GOVERNANCE.md)를 따릅니다.
+- Product 연결 정보는 [MyOTT APS Adapter](docs/project/automation/MYOTT_APS_ADAPTER.json)를 사용합니다.
 - 통합 결과는 [Final Report Template](docs/project/automation/FINAL_REPORT_TEMPLATE.md)으로 정리합니다.
 - 임시 Agent 실행 산출물은 `.agent-runs/`에 두며 Git에 포함하지 않습니다.
 
@@ -46,7 +54,7 @@ Manifest가 없거나 Base Commit, 금지 범위, Gate가 불명확하면 구현
 - 작업 전 branch, HEAD, `origin/main`, working tree를 확인합니다.
 - 기존 변경은 사용자 작업으로 간주하며 임의로 되돌리지 않습니다.
 - Task의 In Scope만 수정하고 인접 리팩터링은 별도 제안으로 남깁니다.
-- 정본 계약을 바꾸는 변경은 Architecture Agent와 사람 Gate를 거칩니다.
+- 정본 계약을 바꾸는 변경은 Architecture Agent 검토와 PM Lab Gate를 거칩니다.
 - 새 Dependency, Provider, DB, 인증, 환경변수 변경은 명시적 승인 없이는 금지합니다.
 - Secret, API Key, Bearer Token, 인증 Header를 문서나 Evidence에 기록하지 않습니다.
 - Production 결과와 Fixture, Mock 결과를 혼합하지 않습니다.

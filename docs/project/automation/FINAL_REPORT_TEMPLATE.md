@@ -40,6 +40,13 @@
 | --- | --- | --- | --- | --- | --- |
 | None |  |  |  |  |  |
 
+## HQ Gate
+
+- Required:
+- Status: `PENDING / APPROVED / REJECTED / BLOCKED`
+- Decision:
+- Evidence:
+
 ## PM Lab Gate
 
 - Required:

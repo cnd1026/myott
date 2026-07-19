@@ -97,7 +97,7 @@
       },
       "then": {
         "properties": {
-          "evidence": { "minItems": 1 }
+          "evidence": { "type": "array", "minItems": 1 }
         }
       }
     }
@@ -150,7 +150,7 @@
     "conflict": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["id", "summary", "documents"],
+      "required": ["id", "summary", "documents", "resolved"],
       "properties": {
         "id": { "type": "string", "minLength": 1 },
         "summary": { "type": "string", "minLength": 1 },
@@ -159,7 +159,9 @@
           "minItems": 2,
           "uniqueItems": true,
           "items": { "type": "string", "minLength": 1 }
-        }
+        },
+        "resolved": { "type": "boolean" },
+        "resolution": { "type": "string" }
       }
     },
     "testRequirement": {
