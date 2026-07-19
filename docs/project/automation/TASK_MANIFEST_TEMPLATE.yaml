@@ -1,0 +1,66 @@
+schemaVersion: "1.0"
+
+task:
+  id: "MYOTT-S00-T000"
+  name: "Replace with task name"
+  sprint: "Sprint 0"
+  owner: "HQ"
+
+repository:
+  name: "cnd1026/myott"
+  baseBranch: "main"
+  baseCommit: "0000000000000000000000000000000000000000"
+
+contracts:
+  architectureVersion: "v0.0"
+  qaProtocolVersion: "v0.0"
+
+goals:
+  - id: "GOAL-001"
+    statement: "Describe one measurable outcome."
+
+requiredAgents:
+  - role: "CONTEXT_AGENT"
+    required: true
+    wave: "analysis"
+  - role: "IMPLEMENTATION_LEAD"
+    required: true
+    wave: "implementation"
+  - role: "QA_AGENT"
+    required: true
+    wave: "validation"
+  - role: "FINAL_INTEGRATOR"
+    required: true
+    wave: "integration"
+
+acceptanceCriteria:
+  - id: "AC-001"
+    statement: "Describe an observable pass condition."
+    evidenceRequired: true
+    qaLayer: "static"
+
+doNotChange:
+  - "List protected contracts and files."
+
+outOfScope:
+  - "List explicitly deferred work."
+
+founderReview:
+  required: true
+  status: "PENDING"
+  evidence: []
+  decision: ""
+
+pmLabGate:
+  required: true
+  status: "PENDING"
+  evidence: []
+  decision: ""
+
+git:
+  commitAllowed: false
+  pushAllowed: false
+  recommendedCommit: "type(scope): describe change"
+  excludedFiles:
+    - "docs/project/QA_CHECKLIST.md"
+    - "docs/project/QA_CHECKLIST.pdf"

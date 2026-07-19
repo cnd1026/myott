@@ -1,0 +1,214 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://myott.local/schemas/agent-handoff.schema.json",
+  "title": "MyOTT Agent Handoff",
+  "description": "Evidence-based handoff contract for MyOTT role agents.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "role",
+    "taskId",
+    "baseCommit",
+    "status",
+    "findings",
+    "requiredChanges",
+    "recommendedChanges",
+    "risks",
+    "conflicts",
+    "testsRequired",
+    "decisionNeeded",
+    "evidence",
+    "filesReviewed"
+  ],
+  "properties": {
+    "role": {
+      "type": "string",
+      "enum": [
+        "ARCHITECTURE_AGENT",
+        "UI_AGENT",
+        "TEST_AGENT",
+        "QA_AGENT",
+        "PERFORMANCE_AGENT",
+        "DOCS_AGENT",
+        "CONTEXT_AGENT",
+        "IMPLEMENTATION_LEAD",
+        "FINAL_INTEGRATOR"
+      ]
+    },
+    "taskId": {
+      "type": "string",
+      "minLength": 1
+    },
+    "baseCommit": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{40}$"
+    },
+    "status": {
+      "type": "string",
+      "enum": ["PASS", "CONCERNS", "FAIL", "BLOCKED"]
+    },
+    "findings": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/finding" }
+    },
+    "requiredChanges": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/change" }
+    },
+    "recommendedChanges": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/change" }
+    },
+    "risks": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/risk" }
+    },
+    "conflicts": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/conflict" }
+    },
+    "testsRequired": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/testRequirement" }
+    },
+    "decisionNeeded": {
+      "$ref": "#/$defs/decision"
+    },
+    "evidence": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/evidence" }
+    },
+    "filesReviewed": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "status": { "const": "PASS" }
+        },
+        "required": ["status"]
+      },
+      "then": {
+        "properties": {
+          "evidence": { "minItems": 1 }
+        }
+      }
+    }
+  ],
+  "$defs": {
+    "severity": {
+      "type": "string",
+      "enum": ["CRITICAL", "MAJOR", "MINOR", "INFO"]
+    },
+    "finding": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "severity", "summary", "evidenceRefs"],
+      "properties": {
+        "id": { "type": "string", "minLength": 1 },
+        "severity": { "$ref": "#/$defs/severity" },
+        "summary": { "type": "string", "minLength": 1 },
+        "evidenceRefs": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": { "type": "string", "minLength": 1 }
+        }
+      }
+    },
+    "change": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "summary", "files"],
+      "properties": {
+        "id": { "type": "string", "minLength": 1 },
+        "summary": { "type": "string", "minLength": 1 },
+        "files": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": { "type": "string", "minLength": 1 }
+        }
+      }
+    },
+    "risk": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "severity", "summary", "mitigation"],
+      "properties": {
+        "id": { "type": "string", "minLength": 1 },
+        "severity": { "$ref": "#/$defs/severity" },
+        "summary": { "type": "string", "minLength": 1 },
+        "mitigation": { "type": "string" }
+      }
+    },
+    "conflict": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "summary", "documents"],
+      "properties": {
+        "id": { "type": "string", "minLength": 1 },
+        "summary": { "type": "string", "minLength": 1 },
+        "documents": {
+          "type": "array",
+          "minItems": 2,
+          "uniqueItems": true,
+          "items": { "type": "string", "minLength": 1 }
+        }
+      }
+    },
+    "testRequirement": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "layer", "command", "expected"],
+      "properties": {
+        "id": { "type": "string", "minLength": 1 },
+        "layer": {
+          "type": "string",
+          "enum": ["static", "unit", "fixture", "live", "browser", "founder"]
+        },
+        "command": { "type": "string" },
+        "expected": { "type": "string", "minLength": 1 }
+      }
+    },
+    "decision": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["required", "owner", "question", "options"],
+      "properties": {
+        "required": { "type": "boolean" },
+        "owner": {
+          "type": "string",
+          "enum": ["FOUNDER", "HQ", "PM_LAB", "CODEX", "NONE"]
+        },
+        "question": { "type": "string" },
+        "options": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": { "type": "string", "minLength": 1 }
+        }
+      }
+    },
+    "evidence": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "type", "summary", "location", "command", "result"],
+      "properties": {
+        "id": { "type": "string", "minLength": 1 },
+        "type": {
+          "type": "string",
+          "enum": ["file", "diff", "command", "test", "api", "browser", "manual"]
+        },
+        "summary": { "type": "string", "minLength": 1 },
+        "location": { "type": "string" },
+        "command": { "type": "string" },
+        "result": { "type": "string", "minLength": 1 }
+      }
+    }
+  }
+}
