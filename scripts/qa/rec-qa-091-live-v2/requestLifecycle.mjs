@@ -1,0 +1,260 @@
+import { AsyncLocalStorage } from "node:async_hooks";
+
+const REQUEST_CLASSES = new Set(["list", "detail"]);
+const TERMINAL_STATUSES = new Set(["COMPLETED", "FAILED"]);
+
+function clone(value) {
+  return JSON.parse(JSON.stringify(value));
+}
+
+function assertRequestClass(value) {
+  if (!REQUEST_CLASSES.has(value)) throw new TypeError("REQUEST_CLASS_INVALID");
+}
+
+export class RequestLifecycleReducer {
+  #requests = new Map();
+  #events = [];
+  #nextRequest = 0;
+
+  #emit(type, fields) {
+    const event = { eventId: `${fields.runId}:lifecycle:${this.#nextRequest++}`, type, sequence: this.#events.length, ...fields };
+    this.#events.push(event);
+    return event;
+  }
+
+  startRequest({ requestId, runId, runMode, requestClass, page, providerItemId, safeEndpointIdentity, cacheRelation = "UNKNOWN", retryIndex = 0 }) {
+    if (typeof requestId !== "string" || !requestId || this.#requests.has(requestId)) {
+      throw new TypeError("REQUEST_START_DUPLICATE_OR_INVALID");
+    }
+    assertRequestClass(requestClass);
+    if (typeof runId !== "string" || !runId || typeof runMode !== "string" || !runMode ||
+      typeof safeEndpointIdentity !== "string" || !safeEndpointIdentity || !Number.isSafeInteger(retryIndex)) {
+      throw new TypeError("REQUEST_START_FIELDS_INVALID");
+    }
+    if (requestClass === "list" && !Number.isSafeInteger(page)) throw new TypeError("LIST_START_PAGE_REQUIRED");
+    if (requestClass === "detail" && !Number.isSafeInteger(providerItemId)) throw new TypeError("DETAIL_START_PROVIDER_ID_REQUIRED");
+    const state = {
+      requestId, runId, runMode, requestClass,
+      page: page ?? null,
+      providerItemId: providerItemId ?? null,
+      safeEndpointIdentity,
+      cacheRelation,
+      retryIndex,
+      phase: "STARTED",
+      attemptIds: new Set(),
+      terminalAttemptIds: new Set(),
+      attemptObserved: false,
+      cacheObserved: false,
+      terminal: null,
+    };
+    this.#requests.set(requestId, state);
+    this.#emit("provider-request-start", {
+      requestId, requestClass, runId, runMode,
+      ...(requestClass === "list" ? { page } : { providerItemId }),
+      safeEndpointIdentity, cacheRelation, retryIndex,
+    });
+    return requestId;
+  }
+
+  recordAttemptStart({ requestId, attemptId }) {
+    const state = this.#requests.get(requestId);
+    if (!state) throw new TypeError("UNKNOWN_REQUEST_ID");
+    if (state.phase !== "STARTED" && state.phase !== "ATTEMPTING") throw new TypeError("ATTEMPT_AFTER_TERMINAL");
+    if (typeof attemptId !== "string" || !attemptId || state.attemptIds.has(attemptId)) {
+      throw new TypeError("ATTEMPT_START_DUPLICATE_OR_INVALID");
+    }
+    state.attemptIds.add(attemptId);
+    state.attemptObserved = true;
+    state.phase = "ATTEMPTING";
+    return true;
+  }
+
+  recordAttemptTerminal({ requestId, attemptId }) {
+    const state = this.#requests.get(requestId);
+    if (!state) throw new TypeError("UNKNOWN_REQUEST_ID");
+    if (!state.attemptIds.has(attemptId) || state.terminalAttemptIds.has(attemptId)) {
+      throw new TypeError("ATTEMPT_TERMINAL_PAIR_INVALID");
+    }
+    state.terminalAttemptIds.add(attemptId);
+    return true;
+  }
+
+  markCacheAttempt(requestId) {
+    const state = this.#requests.get(requestId);
+    if (!state) throw new TypeError("UNKNOWN_REQUEST_ID");
+    if (state.phase !== "STARTED" || state.attemptIds.size !== 0) throw new TypeError("CACHE_ATTEMPT_AFTER_OUTBOUND");
+    state.attemptObserved = true;
+    state.cacheObserved = true;
+    state.cacheRelation = "HIT";
+    state.phase = "CACHE_HIT";
+    this.#emit("provider-request-cache-hit", {
+      requestId: state.requestId,
+      requestClass: state.requestClass,
+      runId: state.runId,
+      runMode: state.runMode,
+      ...(state.requestClass === "list" ? { page: state.page } : { providerItemId: state.providerItemId }),
+      safeEndpointIdentity: state.safeEndpointIdentity,
+      cacheRelation: "HIT",
+      outboundAttemptIds: [],
+    });
+    return true;
+  }
+
+  markPreOutboundFailure(requestId) {
+    const state = this.#requests.get(requestId);
+    if (!state) throw new TypeError("UNKNOWN_REQUEST_ID");
+    if (state.phase !== "STARTED") throw new TypeError("PRE_OUTBOUND_FAILURE_INVALID");
+    state.attemptObserved = true;
+    state.phase = "PRE_OUTBOUND_FAILURE";
+    return true;
+  }
+
+  #finish(requestId, statusClass, errorCode = "") {
+    const state = this.#requests.get(requestId);
+    if (!state) throw new TypeError("UNKNOWN_REQUEST_ID");
+    if (state.terminal || !TERMINAL_STATUSES.has(statusClass)) throw new TypeError("REQUEST_TERMINAL_DUPLICATE_OR_INVALID");
+    if (!state.attemptObserved) throw new TypeError("REQUEST_TERMINAL_WITHOUT_ATTEMPT");
+    if (state.attemptIds.size !== state.terminalAttemptIds.size) {
+      throw new TypeError("REQUEST_TERMINAL_WITH_OPEN_ATTEMPT");
+    }
+    state.phase = statusClass;
+    state.terminal = statusClass;
+    const start = this.#events.find((event) => event.requestId === requestId && event.type === "provider-request-start");
+    this.#emit(statusClass === "COMPLETED" ? "provider-request-complete" : "provider-request-failed", {
+      requestId,
+      requestClass: state.requestClass,
+      runId: state.runId,
+      runMode: state.runMode,
+      ...(state.requestClass === "list" ? { page: state.page } : { providerItemId: state.providerItemId }),
+      safeEndpointIdentity: state.safeEndpointIdentity,
+      cacheRelation: state.cacheRelation,
+      outboundAttemptIds: [...state.attemptIds],
+      startedSequence: start?.sequence ?? null,
+      ...(errorCode ? { errorCode } : {}),
+    });
+    return true;
+  }
+
+  completeRequest(requestId) {
+    return this.#finish(requestId, "COMPLETED");
+  }
+
+  failRequest(requestId, errorCode = "REQUEST_FAILED") {
+    return this.#finish(requestId, "FAILED", errorCode);
+  }
+
+  getState(requestId) {
+    const state = this.#requests.get(requestId);
+    if (!state) throw new TypeError("UNKNOWN_REQUEST_ID");
+    return {
+      requestId: state.requestId,
+      requestClass: state.requestClass,
+      phase: state.phase,
+      terminal: state.terminal,
+      attemptCount: state.attemptIds.size,
+      terminalAttemptCount: state.terminalAttemptIds.size,
+      cacheRelation: state.cacheRelation,
+    };
+  }
+
+  events() {
+    return this.#events.map(clone);
+  }
+
+  logicalRequestLedger() {
+    const starts = new Map();
+    const terminals = new Map();
+    const cacheHits = new Map();
+    for (const event of this.#events) {
+      if (event.type === "provider-request-start") starts.set(event.requestId, event);
+      if (["provider-request-complete", "provider-request-failed"].includes(event.type)) terminals.set(event.requestId, event);
+      if (event.type === "provider-request-cache-hit") cacheHits.set(event.requestId, event);
+    }
+    return [...starts.values()].map((start) => {
+      const terminal = terminals.get(start.requestId);
+      const state = this.#requests.get(start.requestId);
+      return {
+        logicalRequestId: start.requestId,
+        runId: start.runId,
+        runMode: start.runMode,
+        requestClass: start.requestClass,
+        ...(start.requestClass === "list" ? { page: start.page } : { providerItemId: start.providerItemId }),
+        safeEndpointIdentity: start.safeEndpointIdentity,
+        startedSequence: start.sequence,
+        completedSequence: terminal?.sequence ?? null,
+        finalStatusClass: terminal?.type === "provider-request-complete" ? "COMPLETED" : terminal ? "FAILED" : "OPEN",
+        cacheRelation: cacheHits.has(start.requestId) ? "HIT" : start.cacheRelation,
+        redirectCount: 0,
+        outboundAttemptIds: [...(state?.attemptIds || [])],
+        retryIndex: start.retryIndex,
+        attemptCount: state?.attemptIds.size ?? 0,
+      };
+    });
+  }
+}
+
+export function createRequestLifecycleContext({ reducer, baseContext, controller, runId, runMode }) {
+  if (!(reducer instanceof RequestLifecycleReducer)) throw new TypeError("LIFECYCLE_REDUCER_REQUIRED");
+  if (!baseContext || typeof baseContext.get !== "function") throw new TypeError("BASE_REQUEST_CONTEXT_REQUIRED");
+  if (!controller || typeof controller.fetch !== "function") throw new TypeError("OUTBOUND_CONTROLLER_REQUIRED");
+  const storage = new AsyncLocalStorage();
+  let nextRequest = 0;
+
+  function endpointIdentity(path, kind) {
+    const parts = String(path).split("/").filter(Boolean);
+    if (kind === "detail" && parts[0] === "tv" && /^\d+$/.test(parts[1] || "")) return `/tv/${parts[1]}`;
+    if (parts[0] === "discover" && parts[1]) return `/discover/${parts[1]}`;
+    return kind === "detail" ? "/tmdb/detail" : "/tmdb/list";
+  }
+
+  function requestMeta(path, kind) {
+    const parts = String(path).split("/").filter(Boolean);
+    const mediaId = /^\d+$/.test(parts[1] || "") ? Number(parts[1]) : null;
+    return {
+      requestId: `${runId}:logical:${nextRequest++}`,
+      runId,
+      runMode,
+      requestClass: kind === "detail" ? "detail" : "list",
+      page: kind === "list" ? 1 : undefined,
+      providerItemId: kind === "detail" ? mediaId : undefined,
+      safeEndpointIdentity: endpointIdentity(path, kind),
+      cacheRelation: runMode === "cold" ? "MISS" : "UNKNOWN",
+      retryIndex: 0,
+    };
+  }
+
+  async function execute(meta, operation) {
+    reducer.startRequest(meta);
+    return storage.run({ requestId: meta.requestId, runId, runMode }, async () => {
+      try {
+        const value = await operation();
+        const state = reducer.getState(meta.requestId);
+        if (state.attemptCount === 0) reducer.markCacheAttempt(meta.requestId);
+        reducer.completeRequest(meta.requestId);
+        return value;
+      } catch (error) {
+        const state = reducer.getState(meta.requestId);
+        if (state.attemptCount === 0 && state.phase === "STARTED") reducer.markPreOutboundFailure(meta.requestId);
+        reducer.failRequest(meta.requestId, error?.code || error?.message || "REQUEST_FAILED");
+        throw error;
+      }
+    });
+  }
+
+  const requestContext = {
+    get(path, params = {}, options = {}) {
+      const meta = requestMeta(path, options.kind || (String(path).match(/^\/tv\/\d+$/) ? "detail" : "list"));
+      return execute(meta, () => baseContext.get(path, params, options));
+    },
+    hasBudget: (...args) => baseContext.hasBudget(...args),
+    hasTimeRemaining: (...args) => baseContext.hasTimeRemaining(...args),
+    remainingDeadlineMs: (...args) => baseContext.remainingDeadlineMs(...args),
+    setEarlyStop: (...args) => baseContext.setEarlyStop(...args),
+    setSeedDiagnostics: (...args) => baseContext.setSeedDiagnostics(...args),
+    diagnostics: (...args) => baseContext.diagnostics(...args),
+    assertObservabilitySession: (...args) => baseContext.assertObservabilitySession(...args),
+    limits: baseContext.limits,
+  };
+
+  return { requestContext, getCurrentRequest: () => storage.getStore(), reducer };
+}
