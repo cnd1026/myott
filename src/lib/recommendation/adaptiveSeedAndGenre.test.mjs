@@ -1,8 +1,14 @@
 import test, { beforeEach } from "node:test";
 import assert from "node:assert/strict";
 
-import { recommendSeedsTmdb } from "../../../lib/tmdb.js";
-import { clearTmdbRequestCache } from "../providers/tmdb/requestContext.js";
+import {
+  diagnoseTmdbCandidateUniverse,
+  recommendSeedsTmdb,
+} from "../../../lib/tmdb.js";
+import {
+  clearTmdbRequestCache,
+  createTmdbRequestContext,
+} from "../providers/tmdb/requestContext.js";
 import {
   createFixtureFetch,
   createRecommendationContextFactory,
@@ -19,8 +25,86 @@ import {
   buildSeedRequestPayload,
   resolveEmptyStateMessage,
 } from "./seeds/seedRequest.js";
+import {
+  createTmdbObservabilitySession,
+  finalizeTmdbObservabilitySession,
+} from "./qa/tmdbObservability.js";
 
 beforeEach(() => clearTmdbRequestCache());
+
+function diagnosticUniverse() {
+  return Array.from({ length: 51 }, (_, index) => {
+    const id = 30_001 + index;
+    const mediaType = index < 2 ? "tv" : "movie";
+    return {
+      id,
+      media_type: mediaType,
+      ...(mediaType === "tv"
+        ? {
+            name: `Diagnostic Candidate ${id}`,
+            original_name: `Diagnostic Candidate ${id}`,
+            first_air_date: "2020-01-01",
+          }
+        : {
+            title: `Diagnostic Candidate ${id}`,
+            original_title: `Diagnostic Candidate ${id}`,
+            release_date: "2020-01-01",
+          }),
+      genre_ids: [27],
+      origin_country: ["KR"],
+      popularity: 1_000 - index,
+      vote_average: 8,
+      vote_count: 1_000 - index,
+    };
+  });
+}
+
+function tmdbFixtureResponse(status, payload = {}) {
+  return {
+    ok: status >= 200 && status < 300,
+    status,
+    headers: { get: () => null },
+    async json() {
+      return payload;
+    },
+  };
+}
+
+function diagnosticDetailFetch(calls) {
+  return async (rawUrl) => {
+    const url = new URL(rawUrl);
+    const match = url.pathname.match(/\/(movie|tv)\/(\d+)$/);
+    assert.ok(match, `unexpected diagnostic detail path: ${url.pathname}`);
+    const [, mediaType, rawId] = match;
+    const id = Number(rawId);
+    calls.push({ mediaType, id });
+    return tmdbFixtureResponse(200, {
+      id,
+      ...(mediaType === "tv"
+        ? {
+            name: `Diagnostic Candidate ${id}`,
+            original_name: `Diagnostic Candidate ${id}`,
+            first_air_date: "2020-01-01",
+            episode_run_time: [45],
+          }
+        : {
+            title: `Diagnostic Candidate ${id}`,
+            original_title: `Diagnostic Candidate ${id}`,
+            release_date: "2020-01-01",
+            runtime: 100,
+          }),
+      genres: [{ id: 27, name: "Horror" }],
+      origin_country: ["KR"],
+      production_countries: [{ iso_3166_1: "KR" }],
+      popularity: 500,
+      vote_average: 8,
+      vote_count: 500,
+      keywords: { keywords: [{ name: "ghost" }] },
+      credits: { cast: [], crew: [] },
+      "watch/providers": { results: {} },
+    });
+  };
+}
 
 test("shared genre contract keeps movie and TV SF semantics distinct", () => {
   assert.deepEqual(genreIdsForFilters(["genre-sf"], "movie"), [878]);
@@ -179,4 +263,158 @@ test("seed coverage and empty states explain the actual state", () => {
     }),
     "입력한 작품을 찾지 못했습니다. 작품 제목을 확인하거나 자동완성에서 작품을 선택해 주세요.",
   );
+});
+
+test("normal Product output and request defaults remain unchanged", async () => {
+  const fixture = createFixtureFetch();
+  const context = createRecommendationContextFactory(fixture);
+  const payload = await recommendSeedsTmdb({
+    seeds: [{
+      inputTitle: "home alone",
+      tmdbId: 201,
+      mediaType: "movie",
+      resolvedTitle: "나 홀로 집에",
+      originalTitle: "Home Alone",
+    }],
+    contentTypes: ["movie"],
+    requestContextFactory: context.factory,
+  });
+  assert.deepEqual(payload.results.map((item) => item.tmdbId), [
+    20110,
+    9000,
+    20101,
+    20111,
+    20102,
+    20112,
+    20103,
+    20113,
+    20104,
+    20105,
+    20106,
+    20107,
+  ]);
+  assert.equal(payload.diagnostics.detailRequestBudget, 16);
+  assert.equal(payload.diagnostics.requestBudget, 24);
+  assert.equal(payload.diagnostics.listRequestBudget, 8);
+  assert.equal(payload.diagnostics.detailRequestsUsed, 14);
+  assert.deepEqual(payload.results.map((item) => item.title), [
+    "Work-20110",
+    "Work-9000",
+    "Work-20101",
+    "Work-20111",
+    "Work-20102",
+    "Work-20112",
+    "Work-20103",
+    "Work-20113",
+    "Work-20104",
+    "Work-20105",
+    "Work-20106",
+    "Work-20107",
+  ]);
+});
+
+test("diagnostic entry requires the exact opaque session and bound request context before network", async () => {
+  let fetchCount = 0;
+  const validSession = createTmdbObservabilitySession();
+  const otherSession = createTmdbObservabilitySession();
+  const requestContext = createTmdbRequestContext({
+    observer: validSession,
+    diagnosticLimits: { total: 51, list: 0, detail: 51, concurrency: 4 },
+    diagnosticRetry: 0,
+    fetchImpl: async () => {
+      fetchCount += 1;
+      return tmdbFixtureResponse(200);
+    },
+  });
+  await assert.rejects(
+    diagnoseTmdbCandidateUniverse({
+      session: {},
+      candidates: diagnosticUniverse(),
+      contentTypes: ["movie"],
+      requestContext,
+    }),
+    /valid opaque/,
+  );
+  await assert.rejects(
+    diagnoseTmdbCandidateUniverse({
+      session: otherSession,
+      candidates: diagnosticUniverse(),
+      contentTypes: ["movie"],
+      requestContext,
+    }),
+    /not bound/,
+  );
+  await assert.rejects(
+    diagnoseTmdbCandidateUniverse({
+      session: validSession,
+      candidates: diagnosticUniverse(),
+      contentTypes: ["movie"],
+      requestContext,
+      query: "qa=1",
+    }),
+    /Unknown diagnostic TMDB input field/,
+  );
+  assert.equal(fetchCount, 0);
+});
+
+test("diagnostic exhaustive mode observes all 51 terminal outcomes without changing Product 16-detail decisions", async () => {
+  const session = createTmdbObservabilitySession();
+  const detailCalls = [];
+  const requestContext = createTmdbRequestContext({
+    observer: session,
+    diagnosticLimits: { total: 51, list: 0, detail: 51, concurrency: 4 },
+    diagnosticRetry: 0,
+    fetchImpl: diagnosticDetailFetch(detailCalls),
+  });
+  const result = await diagnoseTmdbCandidateUniverse({
+    session,
+    candidates: diagnosticUniverse(),
+    filters: ["country-kr", "genre-horror"],
+    contentTypes: ["movie"],
+    requestContext,
+  });
+  const events = JSON.parse(finalizeTmdbObservabilitySession(session)).events;
+  const byType = (type) => events.filter((event) => event.type === type);
+  const preliminaryRemovals = byType("preliminary-decision")
+    .filter((event) => event.exclusionReason !== "retained");
+  const productSelected = byType("detail-budget")
+    .filter((event) => event.budgetDecision === "product-selected-diagnostic-evaluated");
+  const productSkipped = byType("detail-budget")
+    .filter((event) => event.budgetDecision === "product-skipped-diagnostic-evaluated");
+  const requestResults = byType("detail-request-result");
+  const finalEligibility = byType("final-eligibility");
+  const observedIds = new Set(finalEligibility.map((event) => event.tmdbId));
+
+  assert.equal(result.candidateCount, 51);
+  assert.equal(result.preliminaryRemovalCount, 2);
+  assert.equal(result.productDetailLimit, 16);
+  assert.equal(result.diagnosticDetailLimit, 51);
+  assert.equal(result.detailEligibleCount, 49);
+  assert.equal(result.detailSelectedCount, 49);
+  assert.equal(detailCalls.length, 49);
+  assert.equal(requestContext.diagnostics().detailRequestsUsed, 49);
+  assert.equal(requestContext.diagnostics().retryCount, 0);
+
+  assert.equal(byType("retrieval-row").length, 51);
+  assert.equal(byType("preliminary-decision").length, 51);
+  assert.equal(preliminaryRemovals.length, 2);
+  assert.equal(byType("duplicate-decision").length, 49);
+  assert.equal(byType("detail-order").length, 49);
+  assert.equal(byType("detail-budget").length, 49);
+  assert.equal(productSelected.length, 16);
+  assert.equal(productSkipped.length, 33);
+  assert.equal(requestResults.length, 49);
+  assert.equal(byType("normalized-evaluation").length, 49);
+  assert.equal(finalEligibility.length, 51);
+  assert.equal(observedIds.size, 51);
+  assert.equal(diagnosticUniverse().filter((item) => !observedIds.has(item.id)).length, 0);
+  assert.deepEqual(
+    productSelected.map((event) => event.tmdbId),
+    requestResults.slice(0, 16).map((event) => event.tmdbId),
+  );
+  assert.equal(
+    byType("exclusion-decision").length,
+    finalEligibility.filter((event) => !event.finalEligibility).length,
+  );
+  assert.ok(events.length <= 512);
 });

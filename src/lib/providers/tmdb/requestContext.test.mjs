@@ -8,6 +8,10 @@ import {
   clearTmdbRequestCache,
   createTmdbRequestContext,
 } from "./requestContext.js";
+import {
+  createTmdbObservabilitySession,
+  finalizeTmdbObservabilitySession,
+} from "../../recommendation/qa/tmdbObservability.js";
 
 function response(status, payload = {}, headers = {}) {
   return {
@@ -21,6 +25,178 @@ function response(status, payload = {}, headers = {}) {
 }
 
 beforeEach(() => clearTmdbRequestCache());
+
+function observedEvents(session) {
+  return JSON.parse(finalizeTmdbObservabilitySession(session)).events;
+}
+
+test("observer disabled emits no event", async () => {
+  const session = createTmdbObservabilitySession();
+  const context = createTmdbRequestContext({
+    fetchImpl: async () => response(200, { ok: true }),
+  });
+  await context.get("/movie/1", {}, { kind: "detail" });
+  assert.deepEqual(observedEvents(session), []);
+});
+
+test("observer emits safe cache-hit and network-success request results", async () => {
+  const networkSession = createTmdbObservabilitySession();
+  const first = createTmdbRequestContext({
+    observer: networkSession,
+    fetchImpl: async () => response(200, { id: 10 }),
+  });
+  await first.get("/movie/10", {}, { kind: "detail" });
+  const [networkEvent] = observedEvents(networkSession);
+  assert.equal(networkEvent.endpointPath, "/movie/10");
+  assert.equal(networkEvent.httpStatus, 200);
+  assert.equal(networkEvent.requestSource, "network");
+  assert.equal(networkEvent.terminalResult, "success");
+  assert.equal(networkEvent.retryCount, 0);
+  assert.ok(networkEvent.elapsedMs >= 0);
+
+  const cacheSession = createTmdbObservabilitySession();
+  const second = createTmdbRequestContext({
+    observer: cacheSession,
+    fetchImpl: async () => {
+      throw new Error("cache hit must not reach network");
+    },
+  });
+  await second.get("/movie/10", {}, { kind: "detail" });
+  assert.equal(observedEvents(cacheSession)[0].requestSource, "cache");
+  assert.equal(observedEvents(cacheSession)[0].terminalResult, "cache-hit");
+});
+
+test("observer records safe 404, 429, and 5xx results without unsafe error serialization", async () => {
+  const notFoundSession = createTmdbObservabilitySession();
+  const notFound = createTmdbRequestContext({
+    observer: notFoundSession,
+    fetchImpl: async () => response(404),
+  });
+  await assert.rejects(notFound.get("/movie/404", {}, { kind: "detail" }));
+  assert.deepEqual(
+    observedEvents(notFoundSession).map(({ httpStatus, terminalResult, retryCount }) => ({
+      httpStatus,
+      terminalResult,
+      retryCount,
+    })),
+    [{ httpStatus: 404, terminalResult: "http-error", retryCount: 0 }],
+  );
+
+  for (const status of [429, 503]) {
+    clearTmdbRequestCache();
+    let calls = 0;
+    const session = createTmdbObservabilitySession();
+    const context = createTmdbRequestContext({
+      observer: session,
+      fetchImpl: async () => (++calls === 1 ? response(status) : response(200, { ok: true })),
+      sleep: async () => {},
+      random: () => 0,
+    });
+    await context.get(`/movie/${status}`, {}, { kind: "detail" });
+    assert.deepEqual(
+      observedEvents(session).map(({ httpStatus, terminalResult, retryCount }) => ({
+        httpStatus,
+        terminalResult,
+        retryCount,
+      })),
+      [
+        { httpStatus: status, terminalResult: "retryable-http-error", retryCount: 0 },
+        { httpStatus: 200, terminalResult: "success", retryCount: 1 },
+      ],
+    );
+  }
+});
+
+test("diagnostic retry 0 emits one terminal 5xx result", async () => {
+  let fetchCount = 0;
+  const session = createTmdbObservabilitySession();
+  const context = createTmdbRequestContext({
+    observer: session,
+    diagnosticLimits: { total: 4, list: 4, detail: 4, concurrency: 1 },
+    diagnosticRetry: 0,
+    fetchImpl: async () => {
+      fetchCount += 1;
+      return response(503);
+    },
+  });
+  await assert.rejects(context.get("/movie/503", {}, { kind: "detail" }));
+  assert.equal(fetchCount, 1);
+  assert.equal(context.diagnostics().retryCount, 0);
+  assert.equal(observedEvents(session).length, 1);
+});
+
+test("observer output excludes full URL, query, headers, and credentials", async () => {
+  const session = createTmdbObservabilitySession();
+  const context = createTmdbRequestContext({
+    apiKey: "diagnostic-secret-key",
+    bearer: "diagnostic-secret-bearer",
+    observer: session,
+    fetchImpl: async () => response(200, { ok: true }),
+  });
+  await context.get("/discover/movie", { page: 1 });
+  const serialized = finalizeTmdbObservabilitySession(session);
+  assert.equal(serialized.includes("https://"), false);
+  assert.equal(serialized.includes("?"), false);
+  assert.equal(serialized.includes("Authorization"), false);
+  assert.equal(serialized.includes("api_key"), false);
+  assert.equal(serialized.includes("diagnostic-secret"), false);
+});
+
+test("invalid observer session fails before cache or network", async () => {
+  let fetchCount = 0;
+  const fetchImpl = async () => {
+    fetchCount += 1;
+    return response(200, { id: 77 });
+  };
+  const warm = createTmdbRequestContext({ fetchImpl });
+  await warm.get("/movie/77", {}, { kind: "detail" });
+  assert.equal(fetchCount, 1);
+  const finalizedSession = createTmdbObservabilitySession();
+  const finalizedContext = createTmdbRequestContext({
+    observer: finalizedSession,
+    fetchImpl,
+  });
+  finalizeTmdbObservabilitySession(finalizedSession);
+  await assert.rejects(
+    finalizedContext.get("/movie/77", {}, { kind: "detail" }),
+    /finalized TMDB observability session/,
+  );
+  assert.equal(finalizedContext.diagnostics().cacheHits, 0);
+  assert.throws(
+    () => createTmdbRequestContext({ observer: {}, fetchImpl }),
+    /valid opaque/,
+  );
+  assert.throws(
+    () => createTmdbRequestContext({
+      diagnosticLimits: { total: 1, detail: 1 },
+      diagnosticRetry: 0,
+      fetchImpl,
+    }),
+    /requires an opaque observability session/,
+  );
+  assert.equal(fetchCount, 1);
+});
+
+test("observer request-result event ordering is deterministic", async () => {
+  const session = createTmdbObservabilitySession();
+  const context = createTmdbRequestContext({
+    observer: session,
+    fetchImpl: async (rawUrl) => {
+      if (new URL(rawUrl).pathname.endsWith("/movie/1")) {
+        await new Promise((resolve) => setTimeout(resolve, 10));
+      }
+      return response(200, { ok: true });
+    },
+  });
+  await Promise.all([
+    context.get("/movie/1", {}, { kind: "detail" }),
+    context.get("/movie/2", {}, { kind: "detail" }),
+  ]);
+  assert.deepEqual(
+    observedEvents(session).map((event) => [event.sequence, event.endpointPath]),
+    [[0, "/movie/1"], [1, "/movie/2"]],
+  );
+});
 
 test("concurrent identical requests share one in-flight promise", async () => {
   let fetchCount = 0;

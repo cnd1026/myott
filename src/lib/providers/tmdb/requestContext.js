@@ -1,3 +1,8 @@
+import {
+  assertTmdbObservabilitySession,
+  emitTmdbObservabilityEvent,
+} from "../../recommendation/qa/tmdbObservability.js";
+
 const DEFAULT_BASE_URL = "https://api.themoviedb.org/3";
 
 export const TMDB_REQUEST_LIMITS = Object.freeze({
@@ -102,6 +107,35 @@ function shouldRetry(error) {
 
 const defaultSleep = (delay) => new Promise((resolve) => setTimeout(resolve, delay));
 
+function requestObservationFields(path, kind, {
+  requestSource,
+  httpStatus,
+  terminalResult,
+  elapsedMs,
+  retryCount,
+}) {
+  const pathParts = String(path || "").split("/").filter(Boolean);
+  const directMediaType = ["movie", "tv"].includes(pathParts[0]) ? pathParts[0] : "";
+  const collectionMediaType = ["discover", "search", "genre"].includes(pathParts[0]) &&
+    ["movie", "tv"].includes(pathParts[1])
+    ? pathParts[1]
+    : "";
+  const tmdbId = directMediaType && /^\d+$/.test(pathParts[1] || "")
+    ? Number(pathParts[1])
+    : undefined;
+  return {
+    endpointPath: path,
+    requestKind: kind,
+    providerMediaType: directMediaType || collectionMediaType || undefined,
+    tmdbId,
+    requestSource,
+    httpStatus,
+    terminalResult,
+    elapsedMs,
+    retryCount,
+  };
+}
+
 export function createTmdbRequestContext({
   apiKey = "",
   bearer = "",
@@ -116,16 +150,33 @@ export function createTmdbRequestContext({
   fetchTimeoutMs = TMDB_TIME_LIMITS.fetchTimeoutMs,
   recommendationDeadlineMs = TMDB_TIME_LIMITS.recommendationDeadlineMs,
   maximumRetryAfterMs = TMDB_TIME_LIMITS.maximumRetryAfterMs,
+  observer,
+  diagnosticLimits,
+  diagnosticRetry,
 } = {}) {
-  const requestLimits = { ...TMDB_REQUEST_LIMITS, ...limits };
+  if (observer !== undefined) assertTmdbObservabilitySession(observer);
+  const diagnosticPolicyRequested = diagnosticLimits !== undefined || diagnosticRetry !== undefined;
+  if (diagnosticPolicyRequested && observer === undefined) {
+    throw new TypeError("Diagnostic TMDB request policy requires an opaque observability session.");
+  }
+  const requestLimits = diagnosticPolicyRequested
+    ? {
+        ...TMDB_REQUEST_LIMITS,
+        ...diagnosticLimits,
+        retries: diagnosticRetry ?? 0,
+      }
+    : { ...TMDB_REQUEST_LIMITS, ...limits };
   const startedAt = now();
   const deadlineAt = startedAt + Math.max(0, recommendationDeadlineMs);
   const inFlight = new Map();
   const requestedKeys = new Set();
   const detailRequestKeys = new Set();
   const waiters = [];
+  const completedObservationOperations = new Map();
   let activeRequests = 0;
   let earlyStopReason = "";
+  let nextObservationOperation = 0;
+  let nextObservationToEmit = 0;
   const seedDiagnostics = {
     requestedSeeds: [],
     normalizedSeeds: [],
@@ -150,6 +201,31 @@ export function createTmdbRequestContext({
     maxConcurrentObserved: 0,
     perSeedRequestCounts: {},
   };
+
+  function beginObservationOperation() {
+    if (observer === undefined) return null;
+    const operation = nextObservationOperation;
+    nextObservationOperation += 1;
+    return operation;
+  }
+
+  function collectRequestResult(events, path, kind, result) {
+    if (observer === undefined) return;
+    events.push(requestObservationFields(path, kind, result));
+  }
+
+  function completeObservationOperation(operation, events) {
+    if (observer === undefined || operation === null) return;
+    completedObservationOperations.set(operation, events);
+    while (completedObservationOperations.has(nextObservationToEmit)) {
+      const completedEvents = completedObservationOperations.get(nextObservationToEmit);
+      completedObservationOperations.delete(nextObservationToEmit);
+      for (const fields of completedEvents) {
+        emitTmdbObservabilityEvent(observer, "detail-request-result", fields);
+      }
+      nextObservationToEmit += 1;
+    }
+  }
 
   function remainingDeadlineMs() {
     return Math.max(0, deadlineAt - now());
@@ -203,7 +279,7 @@ export function createTmdbRequestContext({
     waiters.shift()?.();
   }
 
-  async function fetchOnce(path, params, kind, requestKey, seedKey) {
+  async function fetchOnce(path, params, kind, requestKey, seedKey, retryCount, observationEvents) {
     const searchParams = normalizedSearchParams(params, language);
     if (apiKey) searchParams.set("api_key", apiKey);
     const headers = { accept: "application/json" };
@@ -213,10 +289,13 @@ export function createTmdbRequestContext({
     let timeoutId;
     let timedOut = false;
     let deadlineBound = false;
+    let resultEmitted = false;
+    let attemptStartedAt = now();
     try {
       if (!hasTimeRemaining()) throw new TmdbDeadlineError();
       reserveRequest(kind, requestKey, seedKey);
       const remainingMs = remainingDeadlineMs();
+      attemptStartedAt = now();
       const controller = new AbortController();
       const effectiveTimeoutMs = Math.max(1, Math.min(fetchTimeoutMs, remainingMs));
       deadlineBound = remainingMs <= fetchTimeoutMs;
@@ -232,18 +311,62 @@ export function createTmdbRequestContext({
       if (!response.ok) {
         state.failedRequestCount += 1;
         if (response.status === 429) state.rateLimitedCount += 1;
+        collectRequestResult(observationEvents, path, kind, {
+          requestSource: "network",
+          httpStatus: response.status,
+          terminalResult: RETRYABLE_STATUSES.has(response.status) ? "retryable-http-error" : "http-error",
+          elapsedMs: Math.max(0, now() - attemptStartedAt),
+          retryCount,
+        });
+        resultEmitted = true;
         throw new TmdbHttpError(response.status, retryAfterMs(response, now));
       }
-      return response.json();
+      const payload = await response.json();
+      collectRequestResult(observationEvents, path, kind, {
+        requestSource: "network",
+        httpStatus: response.status,
+        terminalResult: "success",
+        elapsedMs: Math.max(0, now() - attemptStartedAt),
+        retryCount,
+      });
+      resultEmitted = true;
+      return payload;
     } catch (error) {
       if (!(error instanceof TmdbHttpError)) state.failedRequestCount += 1;
       if (timedOut) {
         if (deadlineBound || remainingDeadlineMs() <= 0) {
           state.deadlineExceeded = true;
           if (!earlyStopReason) earlyStopReason = "recommendation-deadline-exceeded";
+          if (!resultEmitted) {
+            collectRequestResult(observationEvents, path, kind, {
+              requestSource: "network",
+              httpStatus: 0,
+              terminalResult: "deadline-exceeded",
+              elapsedMs: Math.max(0, now() - attemptStartedAt),
+              retryCount,
+            });
+          }
           throw new TmdbDeadlineError();
         }
+        if (!resultEmitted) {
+          collectRequestResult(observationEvents, path, kind, {
+            requestSource: "network",
+            httpStatus: 0,
+            terminalResult: "fetch-timeout",
+            elapsedMs: Math.max(0, now() - attemptStartedAt),
+            retryCount,
+          });
+        }
         throw new TmdbFetchTimeoutError();
+      }
+      if (!resultEmitted) {
+        collectRequestResult(observationEvents, path, kind, {
+          requestSource: "network",
+          httpStatus: Number.isFinite(error?.status) ? error.status : 0,
+          terminalResult: error instanceof TmdbDeadlineError ? "deadline-exceeded" : "network-error",
+          elapsedMs: Math.max(0, now() - attemptStartedAt),
+          retryCount,
+        });
       }
       throw error;
     } finally {
@@ -252,36 +375,49 @@ export function createTmdbRequestContext({
     }
   }
 
-  async function fetchWithRetry(path, params, kind, requestKey, seedKey) {
+  async function fetchWithRetry(path, params, kind, requestKey, seedKey, observationOperation) {
     let attempt = 0;
-    while (true) {
-      try {
-        return await fetchOnce(path, params, kind, requestKey, seedKey);
-      } catch (error) {
-        if (!shouldRetry(error) || attempt >= requestLimits.retries) throw error;
-        if (!hasBudget(kind)) {
-          state.budgetExhausted = true;
-          throw error;
+    const observationEvents = [];
+    try {
+      while (true) {
+        try {
+          return await fetchOnce(
+            path,
+            params,
+            kind,
+            requestKey,
+            seedKey,
+            attempt,
+            observationEvents,
+          );
+        } catch (error) {
+          if (!shouldRetry(error) || attempt >= requestLimits.retries) throw error;
+          if (!hasBudget(kind)) {
+            state.budgetExhausted = true;
+            throw error;
+          }
+          const exponentialDelay = 150 * 2 ** attempt;
+          const jitter = Math.floor(random() * 100);
+          const requestedDelay = error.retryAfterMs > 0 ? error.retryAfterMs : exponentialDelay + jitter;
+          const remainingMs = remainingDeadlineMs();
+          if (remainingMs <= 0) {
+            state.deadlineExceeded = true;
+            if (!earlyStopReason) earlyStopReason = "recommendation-deadline-exceeded";
+            throw new TmdbDeadlineError();
+          }
+          const delay = Math.min(requestedDelay, maximumRetryAfterMs, remainingMs);
+          if (delay <= 0 || delay >= remainingMs) {
+            state.deadlineExceeded = true;
+            if (!earlyStopReason) earlyStopReason = "recommendation-deadline-exceeded";
+            throw new TmdbDeadlineError();
+          }
+          state.retryCount += 1;
+          attempt += 1;
+          await sleep(delay);
         }
-        const exponentialDelay = 150 * 2 ** attempt;
-        const jitter = Math.floor(random() * 100);
-        const requestedDelay = error.retryAfterMs > 0 ? error.retryAfterMs : exponentialDelay + jitter;
-        const remainingMs = remainingDeadlineMs();
-        if (remainingMs <= 0) {
-          state.deadlineExceeded = true;
-          if (!earlyStopReason) earlyStopReason = "recommendation-deadline-exceeded";
-          throw new TmdbDeadlineError();
-        }
-        const delay = Math.min(requestedDelay, maximumRetryAfterMs, remainingMs);
-        if (delay <= 0 || delay >= remainingMs) {
-          state.deadlineExceeded = true;
-          if (!earlyStopReason) earlyStopReason = "recommendation-deadline-exceeded";
-          throw new TmdbDeadlineError();
-        }
-        state.retryCount += 1;
-        attempt += 1;
-        await sleep(delay);
       }
+    } finally {
+      completeObservationOperation(observationOperation, observationEvents);
     }
   }
 
@@ -290,11 +426,22 @@ export function createTmdbRequestContext({
     params = {},
     { kind = "list", ttlMs = TMDB_CACHE_TTL.list, seedKey = "" } = {},
   ) {
+    if (observer !== undefined) assertTmdbObservabilitySession(observer);
     if (!hasTimeRemaining()) throw new TmdbDeadlineError();
     const requestKey = safeRequestKey(path, params, language, region);
     const cacheEntry = responseCache.get(requestKey);
     if (cacheEntry && cacheEntry.expiresAt > now()) {
       state.cacheHits += 1;
+      const observationOperation = beginObservationOperation();
+      const observationEvents = [];
+      collectRequestResult(observationEvents, path, kind, {
+        requestSource: "cache",
+        httpStatus: 200,
+        terminalResult: "cache-hit",
+        elapsedMs: 0,
+        retryCount: 0,
+      });
+      completeObservationOperation(observationOperation, observationEvents);
       return cacheEntry.value;
     }
     if (cacheEntry) responseCache.delete(requestKey);
@@ -304,7 +451,8 @@ export function createTmdbRequestContext({
       return inFlight.get(requestKey);
     }
 
-    const requestPromise = fetchWithRetry(path, params, kind, requestKey, seedKey)
+    const observationOperation = beginObservationOperation();
+    const requestPromise = fetchWithRetry(path, params, kind, requestKey, seedKey, observationOperation)
       .then((value) => {
         pruneCache(now());
         responseCache.set(requestKey, { value, expiresAt: now() + ttlMs });
@@ -381,6 +529,14 @@ export function createTmdbRequestContext({
     };
   }
 
+  function assertObservabilitySession(session) {
+    assertTmdbObservabilitySession(session);
+    if (observer === undefined || observer !== session) {
+      throw new TypeError("TMDB request context is not bound to the supplied observability session.");
+    }
+    return true;
+  }
+
   return {
     get,
     hasBudget,
@@ -389,6 +545,7 @@ export function createTmdbRequestContext({
     setEarlyStop,
     setSeedDiagnostics,
     diagnostics,
+    assertObservabilitySession,
     limits: requestLimits,
   };
 }

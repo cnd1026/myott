@@ -486,6 +486,7 @@ export function finalizeCandidatePool(
     seedTitles = [],
     seedGenreIds = [],
     diversity = {},
+    observability = null,
   } = {},
 ) {
   const country = selectedCountryCode(filters);
@@ -519,6 +520,9 @@ export function finalizeCandidatePool(
     diversity,
   };
   const scored = classified.map((item) => scoreCandidate(item, preferences)).sort(compareCandidates);
+  if (observability) {
+    observability.rankedItems = scored;
+  }
   const relaxedEligible = country ? scored.filter((item) => item.resultTier === "country-relaxed") : [];
   const exactDedupe = dedupeCandidates(scored.filter((item) => item.resultTier === "exact"));
   const exactAssembly = assembleBalancedExactResults({
@@ -582,6 +586,15 @@ export function finalizeCandidatePool(
   const genreExclusions = allExclusions.filter((item) => item.genreMatched === false).length;
   const countryExclusions = allExclusions.filter((item) => item.countryValidation === "mismatch").length;
   const hardFilterExclusions = allExclusions.filter((item) => item.pass === false).length;
+
+  if (observability) {
+    observability.exactDedupeKept = exactDedupe.kept;
+    observability.exactResults = exactResults;
+    observability.sameCountryDedupeKept = sameCountryDedupe.kept;
+    observability.sameCountryResults = sameCountryResults;
+    observability.relaxedDedupeKept = relaxedDedupe.kept;
+    observability.allExclusions = allExclusions;
+  }
 
   return {
     results: primaryResults,
