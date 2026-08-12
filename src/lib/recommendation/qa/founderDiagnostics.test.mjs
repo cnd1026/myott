@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { readFile } from "node:fs/promises";
 import test from "node:test";
 
 import {
@@ -6,6 +7,105 @@ import {
   founderDiagnosticsSecretExposureCount,
   sanitizeFounderDiagnostics,
 } from "./founderDiagnostics.js";
+import {
+  TMDB_OBSERVABILITY_INTEGRITY_CODE,
+  TMDB_OBSERVABILITY_LIMITS,
+  TMDB_OBSERVABILITY_STAGES,
+  TmdbObservabilityIntegrityError,
+  createTmdbObservabilitySession,
+  emitTmdbObservabilityEvent,
+  finalizeTmdbObservabilitySession,
+  tmdbObservabilitySessionMetadata,
+  validateTmdbObservabilityEvidence,
+} from "./tmdbObservability.js";
+
+const optionsRouteUrl = new URL("../../../../app/api/recommend/options/route.js", import.meta.url);
+let optionsRouteImportSequence = 0;
+
+async function importOptionsRoute(stubs) {
+  globalThis.__REC_QA_091_ACTIVE_ROUTE_STUBS__ = {
+    ...stubs,
+    sanitizeFounderDiagnostics,
+    TMDB_OBSERVABILITY_INTEGRITY_CODE,
+  };
+  const source = (await readFile(optionsRouteUrl, "utf8"))
+    .replace(
+      'import { getActiveProvider, getFallbackProvider, isTmdbProviderEnabled } from "../../../../src/lib/providers/registry";',
+      "const { getActiveProvider, getFallbackProvider, isTmdbProviderEnabled } = globalThis.__REC_QA_091_ACTIVE_ROUTE_STUBS__;",
+    )
+    .replace(
+      'import { sanitizeFounderDiagnostics } from "../../../../src/lib/recommendation/qa/founderDiagnostics.js";',
+      "const { sanitizeFounderDiagnostics } = globalThis.__REC_QA_091_ACTIVE_ROUTE_STUBS__;",
+    )
+    .replace(
+      'import { TMDB_OBSERVABILITY_INTEGRITY_CODE } from "../../../../src/lib/recommendation/qa/tmdbObservability.js";',
+      "const { TMDB_OBSERVABILITY_INTEGRITY_CODE } = globalThis.__REC_QA_091_ACTIVE_ROUTE_STUBS__;",
+    );
+  optionsRouteImportSequence += 1;
+  return import(`data:text/javascript;base64,${Buffer.from(source).toString("base64")}#active-route-${optionsRouteImportSequence}`);
+}
+
+async function withNodeEnvironment(nodeEnv, operation) {
+  const previousNodeEnv = process.env.NODE_ENV;
+  process.env.NODE_ENV = nodeEnv;
+  try {
+    return await operation();
+  } finally {
+    delete globalThis.__REC_QA_091_ACTIVE_ROUTE_STUBS__;
+    if (previousNodeEnv === undefined) delete process.env.NODE_ENV;
+    else process.env.NODE_ENV = previousNodeEnv;
+  }
+}
+
+function routeRequest(query) {
+  return { nextUrl: new URL(`http://local.test/api/recommend/options?${query}`) };
+}
+
+function emitValidLedger(session) {
+  emitTmdbObservabilityEvent(session, "request-start", {
+    requestId: "request-1",
+    requestKind: "list",
+    endpointClass: "discover-tv",
+    retryIndex: 0,
+  });
+  emitTmdbObservabilityEvent(session, "request-complete", {
+    requestId: "request-1",
+    requestKind: "list",
+    endpointClass: "discover-tv",
+    retryIndex: 0,
+    statusClass: "success",
+  });
+  for (const stage of TMDB_OBSERVABILITY_STAGES) {
+    emitTmdbObservabilityEvent(session, "stage-summary", {
+      stage,
+      inputCount: 1,
+      outputCount: 1,
+      excludedCount: 0,
+    });
+  }
+  emitTmdbObservabilityEvent(session, "candidate-decision", {
+    candidateId: "tmdb:tv:10",
+    stage: "final-selection",
+    decision: "selected",
+    reason: "selected",
+    rank: 1,
+  });
+  emitTmdbObservabilityEvent(session, "run-summary", {
+    requestBudget: 24,
+    listRequestBudget: 8,
+    detailRequestBudget: 16,
+    concurrencyLimit: 4,
+    retryLimit: 2,
+    fetchTimeoutMs: 8_000,
+    recommendationDeadlineMs: 15_000,
+    requestsUsed: 1,
+    listRequestsUsed: 1,
+    detailRequestsUsed: 0,
+    cacheHits: 0,
+    retryCount: 0,
+    deadlineExceeded: false,
+  });
+}
 
 test("Founder diagnostics redact credential-like fields", () => {
   const sanitized = sanitizeFounderDiagnostics({
@@ -24,4 +124,261 @@ test("candidate diagnostics attach by provider media type and content id", () =>
     { candidates: [{ providerMediaType: "tv", tmdbId: 10, genreMatchMode: "semantic-specialized" }] },
   );
   assert.equal(result.qaDiagnostics.genreMatchMode, "semantic-specialized");
+});
+
+test("active-base observability session is opaque and finalization is deterministic", () => {
+  const session = createTmdbObservabilitySession();
+  assert.deepEqual(JSON.parse(JSON.stringify(session)), {});
+  assert.match(tmdbObservabilitySessionMetadata(session).sessionId, /^tmdb-qa-/);
+  assert.throws(
+    () => createTmdbObservabilitySession({ runId: "caller-controlled" }),
+    (error) => error instanceof TmdbObservabilityIntegrityError && error.stage === "session-creation",
+  );
+
+  emitValidLedger(session);
+  const first = finalizeTmdbObservabilitySession(session);
+  const second = finalizeTmdbObservabilitySession(session);
+  assert.strictEqual(first, second);
+  assert.deepEqual(validateTmdbObservabilityEvidence(first), first);
+  assert.equal(first.summary.requestAttemptCount, 1);
+  assert.equal(first.summary.requestCompleteCount, 1);
+  assert.equal(first.summary.stageCount, TMDB_OBSERVABILITY_STAGES.length);
+  assert.equal(Object.isFrozen(first), true);
+});
+
+test("observability rejects unknown fields, elapsedMs, secrets, URLs, queries, and local paths", () => {
+  const unknownFields = [
+    { field: "elapsedMs", value: 1 },
+    { field: "authorization", value: "configured" },
+  ];
+  for (const unsafe of unknownFields) {
+    const session = createTmdbObservabilitySession();
+    const fields = {
+      stage: "retrieval",
+      inputCount: 1,
+      outputCount: 1,
+      excludedCount: 0,
+      [unsafe.field]: unsafe.value,
+    };
+    assert.throws(
+      () => emitTmdbObservabilityEvent(session, "stage-summary", fields),
+      (error) => error?.code === TMDB_OBSERVABILITY_INTEGRITY_CODE && error?.stage === "event-emission",
+    );
+  }
+  for (const unsafeReason of [
+    "Bearer do-not-display",
+    "https://api.themoviedb.org/3/tv/10?api_key=secret",
+    "C:\\Users\\private\\artifact",
+  ]) {
+    const session = createTmdbObservabilitySession();
+    assert.throws(
+      () => emitTmdbObservabilityEvent(session, "candidate-decision", {
+        candidateId: "tmdb:tv:10",
+        stage: "final-selection",
+        decision: "excluded",
+        reason: unsafeReason,
+        rank: null,
+      }),
+      (error) => error?.code === TMDB_OBSERVABILITY_INTEGRITY_CODE && error?.stage === "event-emission",
+    );
+  }
+});
+
+test("observability enforces the 512-event and 2 MiB ceilings", () => {
+  const session = createTmdbObservabilitySession();
+  for (let index = 1; index <= TMDB_OBSERVABILITY_LIMITS.maximumEventCount; index += 1) {
+    emitTmdbObservabilityEvent(session, "request-cache-hit", {
+      requestId: `request-${index}`,
+      requestKind: "detail",
+      endpointClass: "tv-detail",
+    });
+  }
+  assert.equal(tmdbObservabilitySessionMetadata(session).eventCount, 512);
+  assert.throws(
+    () => emitTmdbObservabilityEvent(session, "request-cache-hit", {
+      requestId: "request-513",
+      requestKind: "detail",
+      endpointClass: "tv-detail",
+    }),
+    (error) => error?.code === TMDB_OBSERVABILITY_INTEGRITY_CODE,
+  );
+
+  const oversized = `{"padding":"${"a".repeat(TMDB_OBSERVABILITY_LIMITS.maximumPayloadBytes)}"}`;
+  assert.throws(
+    () => validateTmdbObservabilityEvidence(oversized),
+    (error) => error?.code === TMDB_OBSERVABILITY_INTEGRITY_CODE && error?.stage === "payload-validation",
+  );
+  const circular = {};
+  circular.self = circular;
+  assert.throws(
+    () => validateTmdbObservabilityEvidence(circular),
+    (error) => error?.code === TMDB_OBSERVABILITY_INTEGRITY_CODE && error?.stage === "payload-validation",
+  );
+});
+
+test("ledger validation rejects an open request and never accepts self-declared summaries", () => {
+  const session = createTmdbObservabilitySession();
+  emitTmdbObservabilityEvent(session, "request-start", {
+    requestId: "request-1",
+    requestKind: "detail",
+    endpointClass: "tv-detail",
+    retryIndex: 0,
+  });
+  for (const stage of TMDB_OBSERVABILITY_STAGES) {
+    emitTmdbObservabilityEvent(session, "stage-summary", {
+      stage,
+      inputCount: 0,
+      outputCount: 0,
+      excludedCount: 0,
+    });
+  }
+  emitTmdbObservabilityEvent(session, "run-summary", {
+    requestBudget: 24,
+    listRequestBudget: 8,
+    detailRequestBudget: 16,
+    concurrencyLimit: 4,
+    retryLimit: 2,
+    fetchTimeoutMs: 8_000,
+    recommendationDeadlineMs: 15_000,
+    requestsUsed: 1,
+    listRequestsUsed: 0,
+    detailRequestsUsed: 1,
+    cacheHits: 0,
+    retryCount: 0,
+    deadlineExceeded: false,
+  });
+  assert.throws(
+    () => finalizeTmdbObservabilitySession(session),
+    (error) => error?.code === TMDB_OBSERVABILITY_INTEGRITY_CODE && error?.stage === "payload-validation",
+  );
+});
+
+test("options route exposes additive QA diagnostics only for non-production qa=1", async () => {
+  await withNodeEnvironment("test", async () => {
+    let receivedOptions;
+    const activeProvider = {
+      id: "tmdb",
+      name: "TMDB Provider",
+      async getRecommendations(options) {
+        receivedOptions = options;
+        return {
+          results: [],
+          relaxedResults: [],
+          diagnostics: {
+            existingRecommendationDiagnostic: "preserved",
+            currentProductObservability: { schemaVersion: "safe-ledger" },
+          },
+        };
+      },
+    };
+    const { GET } = await importOptionsRoute({
+      getActiveProvider: () => activeProvider,
+      getFallbackProvider: () => ({ id: "mock", name: "Mock Provider" }),
+      isTmdbProviderEnabled: () => true,
+    });
+    const response = await GET(routeRequest("types=drama&qa=1&requestId=caller-visible-id"));
+    const body = await response.json();
+
+    assert.equal(response.status, 200);
+    assert.equal(receivedOptions.qaDiagnostics, true);
+    assert.deepEqual(body.recommendationDebug, { existingRecommendationDiagnostic: "preserved" });
+    assert.deepEqual(body.currentProductObservability, { schemaVersion: "safe-ledger" });
+  });
+
+  await withNodeEnvironment("production", async () => {
+    let receivedOptions;
+    const activeProvider = {
+      id: "tmdb",
+      name: "TMDB Provider",
+      async getRecommendations(options) {
+        receivedOptions = options;
+        return { results: [], diagnostics: { currentProductObservability: { unsafe: true } } };
+      },
+    };
+    const { GET } = await importOptionsRoute({
+      getActiveProvider: () => activeProvider,
+      getFallbackProvider: () => ({ id: "mock", name: "Mock Provider" }),
+      isTmdbProviderEnabled: () => true,
+    });
+    const body = await (await GET(routeRequest("types=drama&qa=1"))).json();
+    assert.equal(receivedOptions.qaDiagnostics, false);
+    assert.equal(Object.hasOwn(body, "recommendationDebug"), false);
+    assert.equal(Object.hasOwn(body, "currentProductObservability"), false);
+  });
+});
+
+test("options route returns a safe integrity 500 without invoking fallback", async () => {
+  await withNodeEnvironment("test", async () => {
+    let fallbackCalls = 0;
+    const activeProvider = {
+      id: "tmdb",
+      name: "TMDB Provider",
+      async getRecommendations() {
+        throw new TmdbObservabilityIntegrityError("event-emission");
+      },
+    };
+    const fallbackProvider = {
+      id: "mock",
+      name: "Mock Provider",
+      async getRecommendations() {
+        fallbackCalls += 1;
+        return { results: [{ id: "must-not-appear" }] };
+      },
+    };
+    const { GET } = await importOptionsRoute({
+      getActiveProvider: () => activeProvider,
+      getFallbackProvider: () => fallbackProvider,
+      isTmdbProviderEnabled: () => true,
+    });
+    const response = await GET(routeRequest("types=drama&qa=1&requestId=safe-request"));
+    const body = await response.json();
+
+    assert.equal(response.status, 500);
+    assert.deepEqual(body, {
+      source: "tmdb",
+      dataSource: "qa-observability-error",
+      requestId: "safe-request",
+      error: { code: TMDB_OBSERVABILITY_INTEGRITY_CODE, stage: "event-emission" },
+    });
+    assert.equal(fallbackCalls, 0);
+    assert.equal(Object.hasOwn(body, "results"), false);
+    assert.equal(Object.hasOwn(body, "relaxedResults"), false);
+    assert.equal(JSON.stringify(body).includes("integrity validation failed"), false);
+  });
+});
+
+test("options route preserves ordinary QA-off Product fallback", async () => {
+  await withNodeEnvironment("test", async () => {
+    const activeProvider = {
+      id: "tmdb",
+      name: "TMDB Provider",
+      async getRecommendations() {
+        throw new Error("ordinary Product failure");
+      },
+    };
+    const fallbackProvider = {
+      id: "mock",
+      name: "Mock Provider",
+      async getRecommendations() {
+        return { results: [{ id: "mock-result" }], relaxedResults: [] };
+      },
+    };
+    const { GET } = await importOptionsRoute({
+      getActiveProvider: () => activeProvider,
+      getFallbackProvider: () => fallbackProvider,
+      isTmdbProviderEnabled: () => true,
+    });
+    const body = await (await GET(routeRequest("types=drama&requestId=safe-request"))).json();
+    assert.equal(body.fallbackUsed, true);
+    assert.equal(body.results[0].id, "mock-result");
+    assert.equal(Object.hasOwn(body, "recommendationDebug"), false);
+    assert.equal(Object.hasOwn(body, "currentProductObservability"), false);
+  });
+});
+
+test("active-base observability source has no persistence, transport, or live capability", async () => {
+  const source = await readFile(new URL("./tmdbObservability.js", import.meta.url), "utf8");
+  assert.equal(/node:fs|writeFile|appendFile|rename|copyFile|createWriteStream/.test(source), false);
+  assert.equal(/\bfetch\s*\(|https?\.request|net\.connect|tls\.connect/.test(source), false);
+  assert.equal(/TMDB_API_KEY|TMDB_BEARER_TOKEN/.test(source), false);
 });

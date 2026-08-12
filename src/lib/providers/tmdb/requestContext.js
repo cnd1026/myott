@@ -1,3 +1,8 @@
+import {
+  assertTmdbObservabilitySession,
+  emitTmdbObservabilityEvent,
+} from "../../recommendation/qa/tmdbObservability.js";
+
 const DEFAULT_BASE_URL = "https://api.themoviedb.org/3";
 
 export const TMDB_REQUEST_LIMITS = Object.freeze({
@@ -102,6 +107,28 @@ function shouldRetry(error) {
 
 const defaultSleep = (delay) => new Promise((resolve) => setTimeout(resolve, delay));
 
+function safeEndpointClass(path) {
+  const parts = String(path || "").split("/").filter(Boolean);
+  if (parts[0] === "discover" && ["movie", "tv"].includes(parts[1])) return `discover-${parts[1]}`;
+  if (parts[0] === "genre" && ["movie", "tv"].includes(parts[1])) return `genre-${parts[1]}`;
+  if (parts[0] === "search" && parts[1] === "multi") return "search-multi";
+  if (["movie", "tv"].includes(parts[0]) && /^\d+$/.test(parts[1] || "")) {
+    if (["recommendations", "similar"].includes(parts[2])) return `${parts[0]}-${parts[2]}`;
+    if (parts.length === 2) return `${parts[0]}-detail`;
+  }
+  return "unknown-safe-endpoint";
+}
+
+function requestFailureStatus(error, timedOut, deadlineBound) {
+  if (timedOut) return deadlineBound ? "deadline-exceeded" : "fetch-timeout";
+  if (error instanceof TmdbDeadlineError) return "deadline-exceeded";
+  if (error instanceof TmdbHttpError) {
+    return RETRYABLE_STATUSES.has(error.status) ? "retryable-http-error" : "http-error";
+  }
+  if (error instanceof SyntaxError) return "payload-error";
+  return "transport-error";
+}
+
 export function createTmdbRequestContext({
   apiKey = "",
   bearer = "",
@@ -116,7 +143,9 @@ export function createTmdbRequestContext({
   fetchTimeoutMs = TMDB_TIME_LIMITS.fetchTimeoutMs,
   recommendationDeadlineMs = TMDB_TIME_LIMITS.recommendationDeadlineMs,
   maximumRetryAfterMs = TMDB_TIME_LIMITS.maximumRetryAfterMs,
+  observer,
 } = {}) {
+  if (observer !== undefined) assertTmdbObservabilitySession(observer);
   const requestLimits = { ...TMDB_REQUEST_LIMITS, ...limits };
   const startedAt = now();
   const deadlineAt = startedAt + Math.max(0, recommendationDeadlineMs);
@@ -126,6 +155,7 @@ export function createTmdbRequestContext({
   const waiters = [];
   let activeRequests = 0;
   let earlyStopReason = "";
+  let nextObservationRequestId = 1;
   const seedDiagnostics = {
     requestedSeeds: [],
     normalizedSeeds: [],
@@ -150,6 +180,17 @@ export function createTmdbRequestContext({
     maxConcurrentObserved: 0,
     perSeedRequestCounts: {},
   };
+
+  function observationRequestId() {
+    if (observer === undefined) return "";
+    const requestId = `request-${nextObservationRequestId}`;
+    nextObservationRequestId += 1;
+    return requestId;
+  }
+
+  function emitObservation(type, fields) {
+    if (observer !== undefined) emitTmdbObservabilityEvent(observer, type, fields);
+  }
 
   function remainingDeadlineMs() {
     return Math.max(0, deadlineAt - now());
@@ -203,7 +244,7 @@ export function createTmdbRequestContext({
     waiters.shift()?.();
   }
 
-  async function fetchOnce(path, params, kind, requestKey, seedKey) {
+  async function fetchOnce(path, params, kind, requestKey, seedKey, retryIndex) {
     const searchParams = normalizedSearchParams(params, language);
     if (apiKey) searchParams.set("api_key", apiKey);
     const headers = { accept: "application/json" };
@@ -213,10 +254,22 @@ export function createTmdbRequestContext({
     let timeoutId;
     let timedOut = false;
     let deadlineBound = false;
+    let terminalEmitted = false;
+    let requestId = "";
+    const endpointClass = observer === undefined ? "" : safeEndpointClass(path);
     try {
       if (!hasTimeRemaining()) throw new TmdbDeadlineError();
       reserveRequest(kind, requestKey, seedKey);
       const remainingMs = remainingDeadlineMs();
+      requestId = observationRequestId();
+      if (requestId) {
+        emitObservation("request-start", {
+          requestId,
+          requestKind: kind,
+          endpointClass,
+          retryIndex,
+        });
+      }
       const controller = new AbortController();
       const effectiveTimeoutMs = Math.max(1, Math.min(fetchTimeoutMs, remainingMs));
       deadlineBound = remainingMs <= fetchTimeoutMs;
@@ -232,18 +285,84 @@ export function createTmdbRequestContext({
       if (!response.ok) {
         state.failedRequestCount += 1;
         if (response.status === 429) state.rateLimitedCount += 1;
-        throw new TmdbHttpError(response.status, retryAfterMs(response, now));
+        const httpError = new TmdbHttpError(response.status, retryAfterMs(response, now));
+        if (requestId) {
+          emitObservation("request-failed", {
+            requestId,
+            requestKind: kind,
+            endpointClass,
+            retryIndex,
+            statusClass: requestFailureStatus(httpError, false, false),
+          });
+          terminalEmitted = true;
+        }
+        throw httpError;
       }
-      return response.json();
+      const payload = response.json();
+      if (!requestId) return payload;
+      return Promise.resolve(payload).then(
+        (value) => {
+          emitObservation("request-complete", {
+            requestId,
+            requestKind: kind,
+            endpointClass,
+            retryIndex,
+            statusClass: "success",
+          });
+          terminalEmitted = true;
+          return value;
+        },
+        (error) => {
+          emitObservation("request-failed", {
+            requestId,
+            requestKind: kind,
+            endpointClass,
+            retryIndex,
+            statusClass: requestFailureStatus(error, false, deadlineBound),
+          });
+          terminalEmitted = true;
+          throw error;
+        },
+      );
     } catch (error) {
       if (!(error instanceof TmdbHttpError)) state.failedRequestCount += 1;
       if (timedOut) {
         if (deadlineBound || remainingDeadlineMs() <= 0) {
           state.deadlineExceeded = true;
           if (!earlyStopReason) earlyStopReason = "recommendation-deadline-exceeded";
+          if (requestId && !terminalEmitted) {
+            emitObservation("request-failed", {
+              requestId,
+              requestKind: kind,
+              endpointClass,
+              retryIndex,
+              statusClass: "deadline-exceeded",
+            });
+            terminalEmitted = true;
+          }
           throw new TmdbDeadlineError();
         }
+        if (requestId && !terminalEmitted) {
+          emitObservation("request-failed", {
+            requestId,
+            requestKind: kind,
+            endpointClass,
+            retryIndex,
+            statusClass: "fetch-timeout",
+          });
+          terminalEmitted = true;
+        }
         throw new TmdbFetchTimeoutError();
+      }
+      if (requestId && !terminalEmitted) {
+        emitObservation("request-failed", {
+          requestId,
+          requestKind: kind,
+          endpointClass,
+          retryIndex,
+          statusClass: requestFailureStatus(error, false, deadlineBound),
+        });
+        terminalEmitted = true;
       }
       throw error;
     } finally {
@@ -256,7 +375,7 @@ export function createTmdbRequestContext({
     let attempt = 0;
     while (true) {
       try {
-        return await fetchOnce(path, params, kind, requestKey, seedKey);
+        return await fetchOnce(path, params, kind, requestKey, seedKey, attempt);
       } catch (error) {
         if (!shouldRetry(error) || attempt >= requestLimits.retries) throw error;
         if (!hasBudget(kind)) {
@@ -295,12 +414,28 @@ export function createTmdbRequestContext({
     const cacheEntry = responseCache.get(requestKey);
     if (cacheEntry && cacheEntry.expiresAt > now()) {
       state.cacheHits += 1;
+      const requestId = observationRequestId();
+      if (requestId) {
+        emitObservation("request-cache-hit", {
+          requestId,
+          requestKind: kind,
+          endpointClass: safeEndpointClass(path),
+        });
+      }
       return cacheEntry.value;
     }
     if (cacheEntry) responseCache.delete(requestKey);
 
     if (inFlight.has(requestKey)) {
       state.requestDedupHits += 1;
+      const requestId = observationRequestId();
+      if (requestId) {
+        emitObservation("request-dedup-hit", {
+          requestId,
+          requestKind: kind,
+          endpointClass: safeEndpointClass(path),
+        });
+      }
       return inFlight.get(requestKey);
     }
 

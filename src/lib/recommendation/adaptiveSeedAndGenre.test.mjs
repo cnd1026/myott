@@ -1,8 +1,18 @@
 import test, { beforeEach } from "node:test";
 import assert from "node:assert/strict";
 
-import { recommendSeedsTmdb } from "../../../lib/tmdb.js";
-import { clearTmdbRequestCache } from "../providers/tmdb/requestContext.js";
+import {
+  TmdbObservabilityIntegrityError,
+  createRequestContext,
+  discoverTmdb,
+  recommendSeedsTmdb,
+} from "../../../lib/tmdb.js";
+import { tmdbProvider } from "../providers/tmdb/provider.js";
+import {
+  TMDB_REQUEST_LIMITS,
+  TMDB_TIME_LIMITS,
+  clearTmdbRequestCache,
+} from "../providers/tmdb/requestContext.js";
 import {
   createFixtureFetch,
   createRecommendationContextFactory,
@@ -19,8 +29,114 @@ import {
   buildSeedRequestPayload,
   resolveEmptyStateMessage,
 } from "./seeds/seedRequest.js";
+import {
+  TMDB_OBSERVABILITY_LIMITS,
+  TMDB_OBSERVABILITY_STAGES,
+  createTmdbObservabilitySession,
+  validateTmdbObservabilityEvidence,
+} from "./qa/tmdbObservability.js";
 
 beforeEach(() => clearTmdbRequestCache());
+
+function tmdbFixtureResponse(status, payload = {}) {
+  return {
+    ok: status >= 200 && status < 300,
+    status,
+    headers: { get: () => null },
+    async json() {
+      return payload;
+    },
+  };
+}
+
+function currentProductCandidates(count = 72) {
+  return Array.from({ length: count }, (_, index) => {
+    const id = 80_001 + index;
+    return {
+      id,
+      name: `Current Product Candidate ${id}`,
+      original_name: `Current Product Candidate ${id}`,
+      first_air_date: `202${index % 5}-01-01`,
+      genre_ids: [18],
+      origin_country: ["US"],
+      popularity: 1_000 - index,
+      vote_average: 8 - (index % 5) / 10,
+      vote_count: 2_000 - index,
+    };
+  });
+}
+
+function currentProductFixtureFetch(calls) {
+  const candidates = currentProductCandidates();
+  return async (rawUrl) => {
+    const url = new URL(rawUrl);
+    calls.push(url.pathname);
+    if (url.pathname === "/3/discover/tv") {
+      return tmdbFixtureResponse(200, {
+        page: Number(url.searchParams.get("page") || 1),
+        total_results: candidates.length,
+        results: candidates,
+      });
+    }
+    const detailMatch = url.pathname.match(/^\/3\/tv\/(\d+)$/);
+    assert.ok(detailMatch, `unexpected current Product fixture path: ${url.pathname}`);
+    const id = Number(detailMatch[1]);
+    const candidate = candidates.find((item) => item.id === id);
+    assert.ok(candidate, `unknown current Product fixture candidate: ${id}`);
+    return tmdbFixtureResponse(200, {
+      ...candidate,
+      genres: [{ id: 18, name: "Drama" }],
+      episode_run_time: [45],
+      production_countries: [{ iso_3166_1: "US" }],
+      keywords: { results: [] },
+      credits: { cast: [], crew: [] },
+      "watch/providers": { results: {} },
+    });
+  };
+}
+
+async function withCurrentProductRuntime(operation, { nodeEnv = "test", clock } = {}) {
+  const previousFetch = globalThis.fetch;
+  const previousNow = Date.now;
+  const previousNodeEnv = process.env.NODE_ENV;
+  const previousApiKey = process.env.TMDB_API_KEY;
+  const previousBearer = process.env.TMDB_BEARER_TOKEN;
+  const calls = [];
+  clearTmdbRequestCache();
+  globalThis.fetch = currentProductFixtureFetch(calls);
+  if (clock) Date.now = () => clock.calls++ * 10;
+  process.env.NODE_ENV = nodeEnv;
+  process.env.TMDB_API_KEY = "deterministic-fixture-key";
+  delete process.env.TMDB_BEARER_TOKEN;
+  try {
+    return { calls, payload: await operation() };
+  } finally {
+    clearTmdbRequestCache();
+    globalThis.fetch = previousFetch;
+    Date.now = previousNow;
+    if (previousNodeEnv === undefined) delete process.env.NODE_ENV;
+    else process.env.NODE_ENV = previousNodeEnv;
+    if (previousApiKey === undefined) delete process.env.TMDB_API_KEY;
+    else process.env.TMDB_API_KEY = previousApiKey;
+    if (previousBearer === undefined) delete process.env.TMDB_BEARER_TOKEN;
+    else process.env.TMDB_BEARER_TOKEN = previousBearer;
+  }
+}
+
+function currentProductSnapshot(payload) {
+  const { currentProductObservability, ...productDiagnostics } = payload.diagnostics;
+  return {
+    results: payload.results.map((item) => ({
+      tmdbId: item.tmdbId,
+      score: item.scoreDetail?.finalScore ?? null,
+    })),
+    relaxedResults: payload.relaxedResults.map((item) => ({
+      tmdbId: item.tmdbId,
+      score: item.scoreDetail?.finalScore ?? null,
+    })),
+    diagnostics: productDiagnostics,
+  };
+}
 
 test("shared genre contract keeps movie and TV SF semantics distinct", () => {
   assert.deepEqual(genreIdsForFilters(["genre-sf"], "movie"), [878]);
@@ -178,5 +294,141 @@ test("seed coverage and empty states explain the actual state", () => {
       unresolvedSeedCount: 2,
     }),
     "입력한 작품을 찾지 못했습니다. 작품 제목을 확인하거나 자동완성에서 작품을 선택해 주세요.",
+  );
+});
+
+test("active-base QA observability preserves Product output, request sequence, policy, and clock reads", async () => {
+  const baselineClock = { calls: 0 };
+  const observedClock = { calls: 0 };
+  const baseline = await withCurrentProductRuntime(
+    () => discoverTmdb({ contentTypes: ["drama"], limit: 12 }),
+    { clock: baselineClock },
+  );
+  const observed = await withCurrentProductRuntime(
+    () => discoverTmdb({ contentTypes: ["drama"], limit: 12, qaObservability: true }),
+    { clock: observedClock },
+  );
+
+  assert.deepEqual(currentProductSnapshot(observed.payload), currentProductSnapshot(baseline.payload));
+  assert.deepEqual(observed.calls, baseline.calls);
+  assert.equal(observedClock.calls, baselineClock.calls);
+  assert.equal(observed.calls.filter((path) => path === "/3/discover/tv").length, 1);
+  assert.equal(observed.calls.filter((path) => /^\/3\/tv\/\d+$/.test(path)).length, 16);
+  assert.deepEqual({
+    total: observed.payload.diagnostics.requestBudget,
+    list: observed.payload.diagnostics.listRequestBudget,
+    detail: observed.payload.diagnostics.detailRequestBudget,
+    concurrency: observed.payload.diagnostics.concurrencyLimit,
+    retries: TMDB_REQUEST_LIMITS.retries,
+    timeout: observed.payload.diagnostics.maximumFetchTimeoutMs,
+    deadline: observed.payload.diagnostics.recommendationDeadlineMs,
+  }, {
+    total: 24,
+    list: 8,
+    detail: 16,
+    concurrency: 4,
+    retries: 2,
+    timeout: 8_000,
+    deadline: 15_000,
+  });
+  assert.equal(baseline.payload.diagnostics.currentProductObservability, undefined);
+
+  const evidence = validateTmdbObservabilityEvidence(observed.payload.diagnostics.currentProductObservability);
+  assert.ok(evidence.events.length <= TMDB_OBSERVABILITY_LIMITS.maximumEventCount);
+  assert.deepEqual(
+    evidence.events.filter((event) => event.type === "stage-summary").map((event) => event.stage),
+    TMDB_OBSERVABILITY_STAGES,
+  );
+  assert.equal(evidence.events.some((event) => Object.hasOwn(event, "elapsedMs")), false);
+  assert.equal(evidence.summary.requestAttemptCount, observed.payload.diagnostics.requestsUsed);
+  assert.equal(evidence.summary.requestAttemptCount,
+    evidence.summary.requestCompleteCount + evidence.summary.requestFailureCount);
+  assert.equal(/https?:\/\/|api_key|authorization|bearer|\?/.test(JSON.stringify(evidence)), false);
+});
+
+test("QA observability is disabled in production and rejects external context binding before fetch", async () => {
+  const production = await withCurrentProductRuntime(
+    () => discoverTmdb({ contentTypes: ["drama"], limit: 12, qaObservability: true }),
+    { nodeEnv: "production" },
+  );
+  assert.equal(production.payload.diagnostics.currentProductObservability, undefined);
+
+  let fetchCount = 0;
+  const previousFetch = globalThis.fetch;
+  const previousNodeEnv = process.env.NODE_ENV;
+  const previousApiKey = process.env.TMDB_API_KEY;
+  globalThis.fetch = async () => {
+    fetchCount += 1;
+    return tmdbFixtureResponse(200);
+  };
+  process.env.NODE_ENV = "test";
+  process.env.TMDB_API_KEY = "deterministic-fixture-key";
+  try {
+    await assert.rejects(
+      discoverTmdb({
+        contentTypes: ["drama"],
+        qaObservability: true,
+        requestContext: {},
+      }),
+      (error) => error instanceof TmdbObservabilityIntegrityError &&
+        error.code === "TMDB_OBSERVABILITY_INTEGRITY_FAILED" &&
+        error.stage === "context-binding",
+    );
+  } finally {
+    globalThis.fetch = previousFetch;
+    if (previousNodeEnv === undefined) delete process.env.NODE_ENV;
+    else process.env.NODE_ENV = previousNodeEnv;
+    if (previousApiKey === undefined) delete process.env.TMDB_API_KEY;
+    else process.env.TMDB_API_KEY = previousApiKey;
+  }
+  assert.equal(fetchCount, 0);
+});
+
+test("current Product observability identity is internal and caller IDs are not authoritative", async () => {
+  const first = await withCurrentProductRuntime(() => discoverTmdb({
+    contentTypes: ["drama"],
+    limit: 12,
+    qaObservability: true,
+    requestId: "caller-request-id",
+    runId: "caller-run-id",
+  }));
+  const second = await withCurrentProductRuntime(() => discoverTmdb({
+    contentTypes: ["drama"],
+    limit: 12,
+    qaObservability: true,
+    requestId: "caller-request-id",
+    runId: "caller-run-id",
+  }));
+  const firstEvidence = first.payload.diagnostics.currentProductObservability;
+  const secondEvidence = second.payload.diagnostics.currentProductObservability;
+
+  assert.notEqual(firstEvidence.sessionId, secondEvidence.sessionId);
+  assert.equal(JSON.stringify(firstEvidence).includes("caller-request-id"), false);
+  assert.equal(JSON.stringify(firstEvidence).includes("caller-run-id"), false);
+  assert.equal(TMDB_REQUEST_LIMITS.total, 24);
+  assert.equal(TMDB_TIME_LIMITS.recommendationDeadlineMs, 15_000);
+});
+
+test("provider exposes only the QA Boolean and public context creation cannot activate an observer", async () => {
+  let injectedContextCalls = 0;
+  const run = await withCurrentProductRuntime(() => tmdbProvider.getRecommendations({
+    contentTypes: ["drama"],
+    limit: 12,
+    qaDiagnostics: true,
+    observer: { callerControlled: true },
+    adapter: { callerControlled: true },
+    requestContext: {
+      get() {
+        injectedContextCalls += 1;
+      },
+    },
+  }));
+  assert.ok(run.payload.diagnostics.currentProductObservability);
+  assert.equal(injectedContextCalls, 0);
+
+  const session = createTmdbObservabilitySession();
+  assert.throws(
+    () => createRequestContext({ observer: session }),
+    (error) => error?.code === "TMDB_OBSERVABILITY_INTEGRITY_FAILED" && error?.stage === "context-binding",
   );
 });

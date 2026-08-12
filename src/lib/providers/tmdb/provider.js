@@ -81,9 +81,21 @@ export const tmdbProvider = {
     return null;
   },
 
-  async getRecommendations({ query = "", filters = [], contentTypes = [], limit, seedTitles = [] } = {}) {
+  async getRecommendations({
+    query = "",
+    filters = [],
+    contentTypes = [],
+    limit,
+    seedTitles = [],
+    qaDiagnostics = false,
+  } = {}) {
     if (query) return this.search({ query, filters, contentTypes, seedTitles });
-    const payload = await discoverTmdb({ filters, contentTypes, limit });
+    const payload = await discoverTmdb({
+      filters,
+      contentTypes,
+      limit,
+      qaObservability: process.env.NODE_ENV !== "production" && Boolean(qaDiagnostics),
+    });
     return toUnifiedRecommendationPayload(payload);
   },
 

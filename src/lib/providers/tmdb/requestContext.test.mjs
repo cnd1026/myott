@@ -2,12 +2,18 @@ import test, { beforeEach } from "node:test";
 import assert from "node:assert/strict";
 
 import {
+  TMDB_REQUEST_LIMITS,
+  TMDB_TIME_LIMITS,
   TmdbBudgetError,
   TmdbDeadlineError,
   TmdbFetchTimeoutError,
   clearTmdbRequestCache,
   createTmdbRequestContext,
 } from "./requestContext.js";
+import {
+  createTmdbObservabilitySession,
+  tmdbObservabilitySessionMetadata,
+} from "../../recommendation/qa/tmdbObservability.js";
 
 function response(status, payload = {}, headers = {}) {
   return {
@@ -169,6 +175,44 @@ test("concurrent work never exceeds the configured request limit", async () => {
   assert.equal(context.diagnostics().maxConcurrentObserved, 4);
 });
 
+async function runPendingBodySlotCheck({ observer } = {}) {
+  clearTmdbRequestCache();
+  let fetchCount = 0;
+  let resolveFirstBody;
+  const firstBody = new Promise((resolve) => {
+    resolveFirstBody = resolve;
+  });
+  const context = createTmdbRequestContext({
+    observer,
+    limits: { total: 2, list: 2, concurrency: 1 },
+    fetchImpl: async () => {
+      fetchCount += 1;
+      return fetchCount === 1
+        ? { ...response(200), json: () => firstBody }
+        : response(200, { ok: true });
+    },
+  });
+
+  const first = context.get("/discover/movie", { page: 1 });
+  await Promise.resolve();
+  await Promise.resolve();
+  const second = context.get("/discover/movie", { page: 2 });
+  await Promise.resolve();
+  await Promise.resolve();
+  assert.equal(fetchCount, 2);
+  resolveFirstBody({ ok: true });
+  await Promise.all([first, second]);
+  return context.diagnostics();
+}
+
+test("observer preserves main request-slot release while response body parsing is pending", async () => {
+  const baseline = await runPendingBodySlotCheck();
+  const observed = await runPendingBodySlotCheck({ observer: createTmdbObservabilitySession() });
+  assert.equal(baseline.requestsUsed, 2);
+  assert.equal(observed.requestsUsed, baseline.requestsUsed);
+  assert.equal(observed.maxConcurrentObserved, baseline.maxConcurrentObserved);
+});
+
 test("individual fetch timeout aborts a stalled request", async () => {
   const context = createTmdbRequestContext({
     fetchImpl: async (url, { signal }) => new Promise((resolve, reject) => {
@@ -243,4 +287,111 @@ test("request diagnostics report one aggregate context", async () => {
   assert.deepEqual(diagnostics.perSeedRequestCounts, { A: 1 });
   assert.equal(diagnostics.processedSeedCount, 1);
   assert.equal(diagnostics.deferredSeedCount, 1);
+});
+
+async function runStrictDeadlineBoundary({ observer } = {}) {
+  clearTmdbRequestCache();
+  let fetchCount = 0;
+  let nowCallCount = 0;
+  const context = createTmdbRequestContext({
+    observer,
+    now: () => nowCallCount++ * 130,
+    fetchImpl: async () => {
+      fetchCount += 1;
+      return response(200, { ok: true });
+    },
+  });
+  for (let id = 1; id <= 16; id += 1) {
+    await context.get(`/tv/${id}`, {}, { kind: "detail" });
+  }
+  const callsBeforeDiagnostics = nowCallCount;
+  const diagnostics = context.diagnostics();
+  return { callsBeforeDiagnostics, diagnostics, fetchCount };
+}
+
+test("active-base observer preserves the exact main 15-second detail boundary and policy clock count", async () => {
+  const baseline = await runStrictDeadlineBoundary();
+  const session = createTmdbObservabilitySession();
+  const observed = await runStrictDeadlineBoundary({ observer: session });
+
+  assert.equal(baseline.fetchCount, 16);
+  assert.equal(observed.fetchCount, 16);
+  assert.equal(baseline.diagnostics.detailRequestsUsed, 16);
+  assert.equal(observed.diagnostics.detailRequestsUsed, 16);
+  assert.equal(baseline.diagnostics.deadlineExceeded, false);
+  assert.equal(observed.diagnostics.deadlineExceeded, false);
+  assert.equal(observed.callsBeforeDiagnostics, baseline.callsBeforeDiagnostics);
+  assert.equal(tmdbObservabilitySessionMetadata(session).eventCount, 32);
+});
+
+test("observer binding rejects non-opaque values before request or policy-clock activity", () => {
+  let fetchCount = 0;
+  let nowCallCount = 0;
+  assert.throws(
+    () => createTmdbRequestContext({
+      observer: { callerControlled: true },
+      now: () => {
+        nowCallCount += 1;
+        return 0;
+      },
+      fetchImpl: async () => {
+        fetchCount += 1;
+        return response(200);
+      },
+    }),
+    (error) => error?.code === "TMDB_OBSERVABILITY_INTEGRITY_FAILED" && error?.stage === "context-binding",
+  );
+  assert.equal(fetchCount, 0);
+  assert.equal(nowCallCount, 0);
+});
+
+async function runObservedRetry({ observer } = {}) {
+  clearTmdbRequestCache();
+  let fetchCount = 0;
+  let nowCallCount = 0;
+  const context = createTmdbRequestContext({
+    observer,
+    now: () => {
+      nowCallCount += 1;
+      return 0;
+    },
+    fetchImpl: async () => {
+      fetchCount += 1;
+      return fetchCount < 3
+        ? response(429, {}, { "retry-after": "0.01" })
+        : response(200, { ok: true });
+    },
+    sleep: async () => {},
+    random: () => 0,
+  });
+  await context.get("/discover/tv", { page: 1 });
+  const callsBeforeDiagnostics = nowCallCount;
+  return { callsBeforeDiagnostics, diagnostics: context.diagnostics(), fetchCount };
+}
+
+test("observer preserves retry decisions and adds no policy-clock reads", async () => {
+  const baseline = await runObservedRetry();
+  const session = createTmdbObservabilitySession();
+  const observed = await runObservedRetry({ observer: session });
+  assert.equal(baseline.fetchCount, 3);
+  assert.equal(observed.fetchCount, 3);
+  assert.equal(baseline.diagnostics.retryCount, 2);
+  assert.equal(observed.diagnostics.retryCount, 2);
+  assert.equal(observed.callsBeforeDiagnostics, baseline.callsBeforeDiagnostics);
+  assert.equal(tmdbObservabilitySessionMetadata(session).eventCount, 6);
+});
+
+test("active-base request policy constants remain exact", () => {
+  assert.deepEqual(TMDB_REQUEST_LIMITS, {
+    total: 24,
+    list: 8,
+    detail: 16,
+    concurrency: 4,
+    retries: 2,
+  });
+  assert.deepEqual(TMDB_TIME_LIMITS, {
+    fetchTimeoutMs: 8_000,
+    recommendationDeadlineMs: 15_000,
+    maximumRetryAfterMs: 5_000,
+  });
 });
