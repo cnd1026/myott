@@ -1,28 +1,48 @@
 # Project Status
 
-이 문서는 MyOTT의 현재 진행 상태를 빠르게 확인하기 위한 상태판입니다.
+이 문서는 MyOTT의 현재 진행 상태를 빠르게 확인하기 위한 public-safe 상태판입니다.
 
 ## Current Sprint
 
-Sprint 8
+Sprint 9 — Recommendation Engine Foundation
 
 ## Current Task
 
-MYOTT-S08-T01 TMDB 실제 검색 결과 연결
+Recommendation observability evidence closure and independent review.
 
-## Current Branch
+Product correction, Network diagnostic, Live QA, main merge, release는 별도 승인 gate로 유지합니다.
 
-`main`
+## Current Public Main
+
+`main @ 2f75ad55244b32a226fd9f3a744417612cecbfb1`
+
+- Commit: `docs: add development status through 2026-08-12`
+- 이 commit은 public-safe documentation maintenance only입니다.
+- Product/source/test 동작을 변경하지 않습니다.
+
+## REC-QA-091 Product Code Baseline
+
+`f38b746416a13c3b2bbcac4396fee08b7c1160ea`
+
+현재 public main의 docs-only child가 생겼더라도 Sprint 9 recommendation QA의 historical Product code baseline 의미는 유지됩니다.
+
+## Current QA Checkpoint
+
+Branch:
+
+`qa/rec-qa-091-active-base-observability-v1`
+
+Committed checkpoint:
+
+`6952481d7b3bcab432e2c80f3405c69cd0fde0ce`
+
+- current-product observability checkpoint를 전용 QA branch에 보존했습니다.
+- main에는 merge하지 않았습니다.
+- Candidate-lineage observability 검증은 이 checkpoint 위에서 별도 QA/evidence gate를 통해 진행 중입니다.
 
 ## Current Version
 
 `0.1.0`
-
-## Last Commit
-
-MYOTT-S08-T01 시작 시점 기준:
-
-`6390938 refactor(ui): polish recommendation trust experience`
 
 ## Repository
 
@@ -30,26 +50,27 @@ MYOTT-S08-T01 시작 시점 기준:
 
 ## Current App State
 
-- Next.js 기반 앱입니다.
-- 메인 추천 흐름은 한 페이지에서 동작합니다.
-- Quick Pick Layer와 추천 상세 Layer가 구현되어 있습니다.
-- 추천 결과는 작품 입력이 있으면 Provider 검색 결과를 우선 사용하고, 실패하거나 결과가 부족하면 기존 Mock 기반 추천으로 fallback합니다.
-- TMDB 검색 API route와 상태 API route가 있습니다.
-- Provider Architecture는 Mock Provider와 TMDB Provider Adapter가 Registry에 연결된 상태입니다.
-- `/api/search`는 Provider Registry를 통해 active provider를 선택합니다.
-- TMDB API key가 있으면 TMDB Provider를 사용하고, key가 없거나 TMDB 검색이 실패하면 Mock Provider 결과로 fallback합니다.
-- 메인 추천 UI는 동적 작품 입력창과 전체/옵션 초기화 UX를 포함합니다.
-- 개발 환경에서는 Provider Status Indicator로 현재 data source와 fallback 여부를 확인할 수 있습니다.
-- Sprint 6에서는 추천 결과를 더 빠른 결정을 돕는 Decision Card 형태로 개선합니다.
-- 메인 화면 최상단에는 입력 없이 볼 수 있는 Hero Recommendation 3개가 표시됩니다.
-- Hero Recommendation 문구와 CTA는 입력으로 자연스럽게 이어지도록 다듬어진 상태입니다.
-- MVP Readiness Polish로 Hero, 입력, 결과 영역의 문구와 카드 균형을 최종 점검하는 단계입니다.
-- Decision Experience Final Polish에서 카드 클릭 가능성, 상세 Layer 정보 계층, Reset/Dynamic Input 흐름을 최종 점검합니다.
-- Sprint 7에서는 상세 Layer에서 추천을 믿을 수 있는 보조 단서인 Trust Signal UI를 준비합니다.
-- Sprint 8에서는 Sprint 7의 Decision/Trust UX를 유지한 채 TMDB 실제 검색 결과를 Recommendation Card와 Detail Layer에 연결합니다.
+- Next.js 기반 추천 웹앱입니다.
+- Provider Registry를 통해 TMDB와 Mock fallback 경로를 분리합니다.
+- Sprint 9에서는 Recommendation Architecture, hard-filter integrity, recall breadth, cross-media balance, deterministic QA 및 current-product observability를 강화했습니다.
+- 현재 QA 작업은 추천 정책을 추측으로 수정하지 않고, 실제 Product 동작을 설명할 수 있는 evidence 품질과 재현성을 먼저 확보하는 방향입니다.
+- Public-safe 진행 기록은 저장소 루트의 `DEVELOPMENT_STATUS.md`에서 확인할 수 있습니다.
+
+## Current QA / Release State
+
+- Founder Product QA: `FAIL / BLOCKED`
+- Current causal stage: `NOT PROVEN`
+- Product contract conflict: `NOT PROVEN`
+- Network diagnostic: `NOT AUTHORIZED`
+- Historical Harness / Live path: `CLOSED`
+- Main merge: `NOT AUTHORIZED`
+- Release: `NOT AUTHORIZED`
+
+이 상태는 Product 결함이 해결됐다는 의미가 아닙니다. Independent evidence가 닫히기 전에는 release-ready 상태로 승격하지 않습니다.
 
 ## Current Documentation State
 
+- `DEVELOPMENT_STATUS.md`: 공개 코드 업데이트 사이의 public-safe 개발 진행 기록
 - `CHANGELOG.md`: 주요 변경 기록
 - `docs/dev-log.md`: 개발일지
 - `docs/service-architecture.md`: 서비스 기능 로드맵
@@ -63,53 +84,19 @@ MYOTT-S08-T01 시작 시점 기준:
 
 ## Next Milestone
 
-TMDB 실제 검색 결과가 기존 Recommendation Flow와 동일한 UX로 표시되는지 검증합니다.
+- Candidate-lineage observability의 source-unchanged Build Evidence integrity를 닫습니다.
+- Independent Review를 완료합니다.
+- 그 이후에만 Founder Commit/Push 또는 Network diagnostic gate를 별도로 엽니다.
 
-## Immediate Next Tasks
+## Public Maintenance Policy
 
-- TMDB key 환경에서 실제 검색 결과 Founder Review
-- TMDB 실패/키 없음 환경에서 Mock fallback 확인
-- 실제 데이터의 장르, 러닝타임, 평점, OTT 정보가 Decision Card/Detail Layer에서 어색하지 않은지 확인
-- v1.0 최소 추천 경험과 DB 연동 시점 정리
+의미 있는 개발이 계속되지만 QA/security/release gate 때문에 public Product commit이 늦어질 때는 public-safe 상태 문서, documentation commit, issue 또는 review artifact를 사용할 수 있습니다.
+
+Empty commit이나 인위적인 activity 생성은 사용하지 않습니다.
 
 ## Risk Notes
 
-- README 실행 명령은 현재 저장소 루트 기준 `pnpm install`, `pnpm dev`로 정리되어 있습니다.
-- TMDB Provider Adapter는 기존 `lib/tmdb.js`를 감싸는 형태이며, `lib/tmdb.js` 자체를 제거하지는 않았습니다.
-- 현재 환경에는 TMDB key가 없을 수 있으므로 TMDB 성공 경로는 Founder 환경에서 추가 확인이 필요합니다.
-- MYOTT-S08-T01은 Decision Card/Detail Layer UI를 변경하지 않고 Provider 검색 결과를 기존 카드 데이터 형태로 연결하는 작업입니다.
-- DB 설계는 문서 단계이며 SQL, Supabase 연결, 마이그레이션은 아직 없습니다.
-- APS 핵심 운영 문서는 MyOTT public repository에서 제거되었고, Nd_core가 Source of Truth입니다.
-- MyOTT public repository에는 APS 존재와 브랜드 참조만 유지합니다.
-- Git history rewrite, force push, filter-repo는 이번 Task에서 사용하지 않습니다.
-
-## Sprint 5 Retrospective
-
-### What went well
-
-- Provider Architecture, Mock Provider, TMDB Provider Adapter, fallback 흐름을 Sprint 안에서 연결했습니다.
-- UI를 크게 흔들지 않고 Provider Foundation을 검증 가능한 구조로 만들었습니다.
-- Dynamic Title Input과 Reset UX까지 정리해 Sprint 6의 추천 경험 개선에 필요한 기본 조작 흐름을 확보했습니다.
-
-### Lessons Learned
-
-- Provider 교체 가능성은 코드 구조만으로 충분하지 않고, 개발자가 현재 data source를 즉시 확인할 수 있어야 합니다.
-- Mock Provider는 외부 API key가 없는 환경에서도 Local Verification을 이어가기 위한 필수 안전망입니다.
-- 메인 추천 UX와 검색 Provider API는 아직 완전히 같은 흐름이 아니므로 Sprint 6에서 연결 기준을 신중히 정해야 합니다.
-
-### Technical Debt
-
-- TMDB 성공 경로는 유효한 key가 있는 Founder 환경에서 추가 검증이 필요합니다.
-- Provider 선택 정책은 아직 환경변수로 강제 선택할 수 없습니다.
-- 메인 추천 결과는 더미 추천 UX이며 Provider 검색 결과와 직접 통합되어 있지 않습니다.
-
-### Parking Lot
-
-- Provider 강제 선택 환경변수
-- Provider별 latency/error badge
-- 추천 결과와 Provider 검색 결과 통합
-- TMDB detail/recommendation endpoint 확장
-
-### Next Sprint
-
-Sprint 6 Recommendation Experience
+- 공개 `main`의 최신 commit은 docs-only maintenance이며 현재 Candidate-Lineage QA branch를 rebase하거나 무효화하지 않습니다.
+- TMDB credential과 private diagnostic evidence는 public repository에 기록하지 않습니다.
+- Candidate-Lineage / observability 작업은 Product 동작 변경과 분리된 QA-only evidence path입니다.
+- Network/Live/Release는 각각 별도 gate가 필요합니다.
