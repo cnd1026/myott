@@ -4,7 +4,15 @@ SceneSense / MovieMind DNA는 좋아했던 영화, 드라마, 애니를 바탕�
 
 ## 🚀 Current Sprint
 
-### Sprint 8
+### Sprint 9
+
+- [x] Recommendation Architecture / QA Foundation
+- [x] Country / Hard Filter / Recall / Cross-media recommendation foundation
+- [x] Active-base current-product observability checkpoint preserved on a dedicated QA branch
+- [ ] Candidate-lineage observability evidence closure and independent review
+- [ ] Founder Product QA / subsequent release gates
+
+### Sprint 8 Completed
 
 - [x] MYOTT-S08-T01 Task 8-1 TMDB 실제 검색 결과 연결
 - [x] MYOTT-S08-T01B Task 8-1b TMDB 검색 결과 프론트 바인딩 보정
@@ -49,9 +57,10 @@ SceneSense / MovieMind DNA는 좋아했던 영화, 드라마, 애니를 바탕�
 
 ## Current Goal
 
-- Real Data Integration
-- 현재 Recommendation Flow를 유지한 TMDB 실제 검색 결과 연결
-- 다음 작업: Founder 환경에서 실제 콘텐츠 결과와 Mock fallback 비교 검증
+- Sprint 9 Recommendation Engine Foundation을 현재 Product 동작을 보존한 채 검증 가능한 상태로 마무리
+- Candidate-lineage observability의 build/evidence integrity와 independent review를 완료
+- Founder Product QA와 Network/Release 권한은 별도 gate로 유지
+- 공개 코드 업데이트 사이에도 실제 개발 진행은 [DEVELOPMENT_STATUS.md](DEVELOPMENT_STATUS.md)에 public-safe 범위로 기록
 
 ## Project Memory System
 
@@ -59,6 +68,7 @@ Built with APS.
 
 MyOTT is developed using APS, an internal AI Project System. Core APS documentation is maintained in the private company Platform repository. This public repository keeps only the product context needed to understand and continue MyOTT development.
 
+- [DEVELOPMENT_STATUS.md](DEVELOPMENT_STATUS.md): 공개 코드 업데이트 사이의 public-safe 개발 진행 기록
 - [APS_PUBLIC_NOTICE.md](docs/project/APS_PUBLIC_NOTICE.md): MyOTT와 APS의 공개 저장소 참조 범위 안내
 - [PROJECT_CONTEXT.md](docs/project/PROJECT_CONTEXT.md): 프로젝트 전체 맥락과 다음 목표
 - [PROJECT_STATUS.md](docs/project/PROJECT_STATUS.md): 현재 Sprint, Task, Branch, Version, Last Commit
