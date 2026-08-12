@@ -4,13 +4,12 @@ SceneSense / MovieMind DNA는 좋아했던 영화, 드라마, 애니를 바탕�
 
 ## 🚀 Current Sprint
 
-### Sprint 9
+### Sprint 9 — Recommendation Engine Foundation
 
-- [x] Recommendation Architecture / QA Foundation
-- [x] Country / Hard Filter / Recall / Cross-media recommendation foundation
-- [x] Active-base current-product observability checkpoint preserved on a dedicated QA branch
-- [ ] Candidate-lineage observability evidence closure and independent review
-- [ ] Founder Product QA / subsequent release gates
+- [x] Recommendation architecture and quality foundation
+- [x] Country / genre / content-type filtering improvements
+- [x] Recall, ranking and cross-media recommendation improvements
+- [ ] Regression and reliability validation in progress
 
 ### Sprint 8 Completed
 
@@ -57,16 +56,16 @@ SceneSense / MovieMind DNA는 좋아했던 영화, 드라마, 애니를 바탕�
 
 ## Current Goal
 
-- Sprint 9 Recommendation Engine Foundation을 현재 Product 동작을 보존한 채 검증 가능한 상태로 마무리
-- Candidate-lineage observability의 build/evidence integrity와 independent review를 완료
-- Founder Product QA와 Network/Release 권한은 별도 gate로 유지
-- 공개 코드 업데이트 사이에도 실제 개발 진행은 [DEVELOPMENT_STATUS.md](DEVELOPMENT_STATUS.md)에 public-safe 범위로 기록
+- Improve recommendation consistency and quality
+- Strengthen deterministic QA and regression safety
+- Keep public progress visible while validation continues
+- Detailed public-safe activity log: [DEVELOPMENT_STATUS.md](DEVELOPMENT_STATUS.md)
 
 ## Project Memory System
 
 Built with APS.
 
-MyOTT is developed using APS, an internal AI Project System. Core APS documentation is maintained in the private company Platform repository. This public repository keeps only the product context needed to understand and continue MyOTT development.
+MyOTT is developed using APS, an internal AI Project System. Core APS documentation is maintained privately. This public repository keeps only the product context needed to understand and continue MyOTT development.
 
 - [DEVELOPMENT_STATUS.md](DEVELOPMENT_STATUS.md): 공개 코드 업데이트 사이의 public-safe 개발 진행 기록
 - [APS_PUBLIC_NOTICE.md](docs/project/APS_PUBLIC_NOTICE.md): MyOTT와 APS의 공개 저장소 참조 범위 안내
