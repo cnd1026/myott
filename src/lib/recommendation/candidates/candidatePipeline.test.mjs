@@ -61,6 +61,73 @@ test("same-country genre relaxation never exceeds twenty percent", () => {
   assert.equal(pipeline.diagnostics.primaryRelaxedRatio, 0.2);
 });
 
+test("bounded observability trace mirrors ranking, dedupe, path, and hard-filter decisions without changing Product output", () => {
+  const candidates = [
+    candidate({ tmdbId: 101, title: "Exact A", originalTitle: "Exact A", popularity: 90 }),
+    candidate({ tmdbId: 102, title: "Shared Title", originalTitle: "Shared Alpha", popularity: 80 }),
+    candidate({ tmdbId: 103, title: "Shared Title", originalTitle: "Shared Beta", popularity: 10 }),
+    candidate({ tmdbId: 104, title: "Country Relaxed", originalTitle: "Country Relaxed", countryCodes: ["US"] }),
+    candidate({
+      tmdbId: 101,
+      title: "TV Namespace",
+      originalTitle: "TV Namespace",
+      type: "drama",
+      mediaType: "tv",
+      genreIds: [10759],
+    }),
+  ];
+  const options = { filters: ["country-kr", "genre-action"], contentTypes: ["movie"], limit: 12 };
+  const baseline = finalizeCandidatePool(candidates, options);
+  const observed = finalizeCandidatePool(candidates, { ...options, collectObservabilityTrace: true });
+  const { observabilityTrace, ...observedProduct } = observed;
+
+  assert.deepEqual(observedProduct, baseline);
+  assert.equal(observabilityTrace.length, candidates.length);
+  assert.ok(observabilityTrace.some((item) => item.candidateId === "tmdb:movie:101"));
+  assert.ok(observabilityTrace.some((item) => item.candidateId === "tmdb:tv:101"));
+  assert.deepEqual(
+    observabilityTrace.filter((item) => item.rankingInputOrdinal !== null)
+      .map((item) => item.rankingInputOrdinal),
+    [1, 2, 3, 4],
+  );
+  assert.equal(observabilityTrace.find((item) => item.candidateId === "tmdb:movie:103").dedupeDecision,
+    "duplicate-display-title");
+  assert.equal(observabilityTrace.find((item) => item.candidateId === "tmdb:movie:104").finalPath, "relaxed");
+  assert.deepEqual(
+    observabilityTrace.find((item) => item.candidateId === "tmdb:tv:101"),
+    {
+      candidateId: "tmdb:tv:101",
+      hardFilterDecision: "fail",
+      rankingInputOrdinal: null,
+      dedupeDecision: "not-reached",
+      resultTier: "same-country-relaxed",
+      finalPath: "none",
+      finalDecision: "not-selected",
+      reason: "content-type-mismatch",
+      rank: null,
+    },
+  );
+});
+
+test("candidate lineage is capped at 72 stable safe identities", () => {
+  const candidates = Array.from({ length: 73 }, (_, index) => candidate({
+    tmdbId: 20_000 + index,
+    title: `Bounded ${index}`,
+    originalTitle: `Bounded ${index}`,
+  }));
+  const pipeline = finalizeCandidatePool(candidates, {
+    filters: ["country-kr", "genre-action"],
+    contentTypes: ["movie"],
+    collectObservabilityTrace: true,
+  });
+
+  assert.equal(pipeline.observabilityTrace.length, 72);
+  assert.equal(new Set(pipeline.observabilityTrace.map((item) => item.candidateId)).size, 72);
+  assert.ok(pipeline.observabilityTrace.every((item) => (
+    /^tmdb:(?:movie|tv):[1-9]\d*$/.test(item.candidateId) && Buffer.byteLength(item.candidateId, "ascii") <= 27
+  )));
+});
+
 test("animation plus SF requires both animation and SF metadata", () => {
   const pipeline = finalizeCandidatePool(
     [

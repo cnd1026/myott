@@ -8,6 +8,7 @@ import {
   sanitizeFounderDiagnostics,
 } from "./founderDiagnostics.js";
 import {
+  TMDB_OBSERVABILITY_ACCEPTED_WORST_CASE,
   TMDB_OBSERVABILITY_INTEGRITY_CODE,
   TMDB_OBSERVABILITY_LIMITS,
   TMDB_OBSERVABILITY_STAGES,
@@ -61,7 +62,30 @@ function routeRequest(query) {
   return { nextUrl: new URL(`http://local.test/api/recommend/options?${query}`) };
 }
 
-function emitValidLedger(session) {
+function validLineageFields(overrides = {}) {
+  return {
+    candidateId: "tmdb:tv:10",
+    arrivalStage: "exact-popularity-page-1",
+    preDetailSemantic: "pass",
+    preDetailCountry: "pass",
+    preDetailContentType: "pass",
+    detailState: "selected-enriched",
+    postDetailSemantic: "pass",
+    postDetailCountry: "pass",
+    postDetailContentType: "pass",
+    hardFilterDecision: "pass",
+    rankingInputOrdinal: 1,
+    dedupeDecision: "kept",
+    resultTier: "exact",
+    finalPath: "primary",
+    finalDecision: "selected",
+    reason: "selected",
+    rank: 1,
+    ...overrides,
+  };
+}
+
+function emitValidLedger(session, { skipLineage = false, duplicateLineage = false, decisionOverride = {} } = {}) {
   emitTmdbObservabilityEvent(session, "request-start", {
     requestId: "request-1",
     requestKind: "list",
@@ -75,6 +99,17 @@ function emitValidLedger(session) {
     retryIndex: 0,
     statusClass: "success",
   });
+  emitTmdbObservabilityEvent(session, "candidate-pool-summary", {
+    recallStageCount: 1,
+    sourceResultCount: 1,
+    normalizationCount: 1,
+    arrivalCount: 1,
+    stageCapExcludedCount: 0,
+    distinctCount: 1,
+    duplicateCount: 0,
+    boundedCount: 1,
+    poolExcludedCount: 0,
+  });
   for (const stage of TMDB_OBSERVABILITY_STAGES) {
     emitTmdbObservabilityEvent(session, "stage-summary", {
       stage,
@@ -83,12 +118,15 @@ function emitValidLedger(session) {
       excludedCount: 0,
     });
   }
+  if (!skipLineage) emitTmdbObservabilityEvent(session, "candidate-lineage", validLineageFields());
+  if (duplicateLineage) emitTmdbObservabilityEvent(session, "candidate-lineage", validLineageFields());
   emitTmdbObservabilityEvent(session, "candidate-decision", {
     candidateId: "tmdb:tv:10",
     stage: "final-selection",
     decision: "selected",
     reason: "selected",
     rank: 1,
+    ...decisionOverride,
   });
   emitTmdbObservabilityEvent(session, "run-summary", {
     requestBudget: 24,
@@ -102,6 +140,101 @@ function emitValidLedger(session) {
     listRequestsUsed: 1,
     detailRequestsUsed: 0,
     cacheHits: 0,
+    retryCount: 0,
+    deadlineExceeded: false,
+  });
+}
+
+function emitMaximumAcceptedLedger(session, { extraCacheHit = false } = {}) {
+  for (let request = 1; request <= 24; request += 1) {
+    const requestKind = request <= 8 ? "list" : "detail";
+    const endpointClass = requestKind === "list" ? "discover-tv" : "tv-detail";
+    emitTmdbObservabilityEvent(session, "request-start", {
+      requestId: `request-${request}`,
+      requestKind,
+      endpointClass,
+      retryIndex: 0,
+    });
+    emitTmdbObservabilityEvent(session, "request-complete", {
+      requestId: `request-${request}`,
+      requestKind,
+      endpointClass,
+      retryIndex: 0,
+      statusClass: "success",
+    });
+  }
+  for (let hit = 25; hit <= 63 + Number(extraCacheHit); hit += 1) {
+    emitTmdbObservabilityEvent(session, "request-cache-hit", {
+      requestId: `request-${hit}`,
+      requestKind: "detail",
+      endpointClass: "tv-detail",
+    });
+  }
+  emitTmdbObservabilityEvent(session, "candidate-pool-summary", {
+    recallStageCount: 5,
+    sourceResultCount: 72,
+    normalizationCount: 72,
+    arrivalCount: 72,
+    stageCapExcludedCount: 0,
+    distinctCount: 72,
+    duplicateCount: 0,
+    boundedCount: 72,
+    poolExcludedCount: 0,
+  });
+  for (const stage of TMDB_OBSERVABILITY_STAGES) {
+    emitTmdbObservabilityEvent(session, "stage-summary", {
+      stage,
+      inputCount: 72,
+      outputCount: 72,
+      excludedCount: 0,
+    });
+  }
+  for (let candidate = 1; candidate <= 72; candidate += 1) {
+    const finalPath = candidate <= 12 ? "primary" : candidate <= 24 ? "relaxed" : "none";
+    const finalDecision = finalPath === "none" ? "not-selected" : "selected";
+    const resultTier = finalPath === "relaxed" ? "country-relaxed" : "exact";
+    emitTmdbObservabilityEvent(session, "candidate-lineage", {
+      candidateId: `tmdb:tv:${candidate}`,
+      arrivalStage: "exact-popularity-page-1",
+      preDetailSemantic: "pass",
+      preDetailCountry: "pass",
+      preDetailContentType: "pass",
+      detailState: candidate <= 16 ? "selected-enriched" : "not-selected",
+      postDetailSemantic: "pass",
+      postDetailCountry: "pass",
+      postDetailContentType: "pass",
+      hardFilterDecision: "pass",
+      rankingInputOrdinal: candidate,
+      dedupeDecision: "kept",
+      resultTier,
+      finalPath,
+      finalDecision,
+      reason: finalDecision === "selected" ? "selected" : "primary-limit-not-selected",
+      rank: finalPath === "primary" ? candidate : finalPath === "relaxed" ? candidate - 12 : null,
+    });
+  }
+  for (let candidate = 1; candidate <= 72; candidate += 1) {
+    const selected = candidate <= 24;
+    emitTmdbObservabilityEvent(session, "candidate-decision", {
+      candidateId: `tmdb:tv:${candidate}`,
+      stage: "final-selection",
+      decision: selected ? "selected" : "excluded",
+      reason: selected ? "selected" : "primary-limit-not-selected",
+      rank: candidate <= 12 ? candidate : candidate <= 24 ? candidate - 12 : null,
+    });
+  }
+  emitTmdbObservabilityEvent(session, "run-summary", {
+    requestBudget: 24,
+    listRequestBudget: 8,
+    detailRequestBudget: 16,
+    concurrencyLimit: 4,
+    retryLimit: 2,
+    fetchTimeoutMs: 8_000,
+    recommendationDeadlineMs: 15_000,
+    requestsUsed: 24,
+    listRequestsUsed: 8,
+    detailRequestsUsed: 16,
+    cacheHits: 39 + Number(extraCacheHit),
     retryCount: 0,
     deadlineExceeded: false,
   });
@@ -140,9 +273,12 @@ test("active-base observability session is opaque and finalization is determinis
   const second = finalizeTmdbObservabilitySession(session);
   assert.strictEqual(first, second);
   assert.deepEqual(validateTmdbObservabilityEvidence(first), first);
+  assert.equal(first.schemaVersion, "myott.current-product-observability.v2");
   assert.equal(first.summary.requestAttemptCount, 1);
   assert.equal(first.summary.requestCompleteCount, 1);
   assert.equal(first.summary.stageCount, TMDB_OBSERVABILITY_STAGES.length);
+  assert.equal(first.summary.candidatePoolSummaryCount, 1);
+  assert.equal(first.summary.candidateLineageCount, 1);
   assert.equal(Object.isFrozen(first), true);
 });
 
@@ -214,6 +350,70 @@ test("observability enforces the 512-event and 2 MiB ceilings", () => {
     () => validateTmdbObservabilityEvidence(circular),
     (error) => error?.code === TMDB_OBSERVABILITY_INTEGRITY_CODE && error?.stage === "payload-validation",
   );
+
+  const maximumAcceptedSession = createTmdbObservabilitySession();
+  emitMaximumAcceptedLedger(maximumAcceptedSession);
+  const maximumAccepted = finalizeTmdbObservabilitySession(maximumAcceptedSession);
+  const serializedBytes = new TextEncoder().encode(JSON.stringify(maximumAccepted)).byteLength;
+  assert.equal(maximumAccepted.summary.eventCount, TMDB_OBSERVABILITY_ACCEPTED_WORST_CASE.eventCount);
+  assert.ok(serializedBytes <= TMDB_OBSERVABILITY_ACCEPTED_WORST_CASE.payloadBytes);
+  assert.ok(serializedBytes <= TMDB_OBSERVABILITY_LIMITS.maximumPayloadBytes);
+
+  const overAcceptedSession = createTmdbObservabilitySession();
+  emitMaximumAcceptedLedger(overAcceptedSession, { extraCacheHit: true });
+  assert.throws(
+    () => finalizeTmdbObservabilitySession(overAcceptedSession),
+    (error) => error?.code === TMDB_OBSERVABILITY_INTEGRITY_CODE && error?.stage === "payload-validation",
+  );
+});
+
+test("v2 lineage rejects unsafe identity, unknown enum, broken conservation, missing lineage, and final mismatch", () => {
+  for (const fields of [
+    validLineageFields({ candidateId: "tmdb:tv:01" }),
+    validLineageFields({ candidateId: "tmdb:movie:9007199254740992" }),
+    validLineageFields({ detailState: "caller-invented-state" }),
+  ]) {
+    const session = createTmdbObservabilitySession();
+    assert.throws(
+      () => emitTmdbObservabilityEvent(session, "candidate-lineage", fields),
+      (error) => error?.code === TMDB_OBSERVABILITY_INTEGRITY_CODE && error?.stage === "event-emission",
+    );
+  }
+
+  const brokenPool = createTmdbObservabilitySession();
+  assert.throws(
+    () => emitTmdbObservabilityEvent(brokenPool, "candidate-pool-summary", {
+      recallStageCount: 1,
+      sourceResultCount: 2,
+      normalizationCount: 2,
+      arrivalCount: 1,
+      stageCapExcludedCount: 0,
+      distinctCount: 1,
+      duplicateCount: 0,
+      boundedCount: 1,
+      poolExcludedCount: 0,
+    }),
+    (error) => error?.code === TMDB_OBSERVABILITY_INTEGRITY_CODE && error?.stage === "event-emission",
+  );
+
+  for (const options of [
+    { skipLineage: true },
+    { duplicateLineage: true },
+    {
+      decisionOverride: {
+        decision: "excluded",
+        reason: "primary-limit-not-selected",
+        rank: null,
+      },
+    },
+  ]) {
+    const session = createTmdbObservabilitySession();
+    emitValidLedger(session, options);
+    assert.throws(
+      () => finalizeTmdbObservabilitySession(session),
+      (error) => error?.code === TMDB_OBSERVABILITY_INTEGRITY_CODE && error?.stage === "payload-validation",
+    );
+  }
 });
 
 test("ledger validation rejects an open request and never accepts self-declared summaries", () => {

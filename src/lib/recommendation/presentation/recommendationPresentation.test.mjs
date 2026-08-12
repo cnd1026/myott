@@ -47,6 +47,29 @@ test("primary presentation removes duplicate TMDB content and duplicate Korean t
   assert.equal(results.filter((item) => item.title === "닥터 후").length, 1);
 });
 
+test("twelve unique primary lineage identities preserve client cardinality and order", () => {
+  const productResults = Array.from({ length: 12 }, (_, index) => ({
+    providerId: "tmdb",
+    mediaType: "tv",
+    tmdbId: 50_001 + index,
+    title: `Primary ${index + 1}`,
+    year: 2020 + (index % 5),
+  }));
+  const primaryLineage = productResults.map((item, index) => ({
+    candidateId: `tmdb:${item.mediaType}:${item.tmdbId}`,
+    finalPath: "primary",
+    finalDecision: "selected",
+    rank: index + 1,
+  }));
+  const presented = dedupePrimaryDisplayTitles(productResults);
+
+  assert.equal(presented.length, 12);
+  assert.deepEqual(
+    presented.map((item) => `tmdb:${item.mediaType}:${item.tmdbId}`),
+    primaryLineage.map((item) => item.candidateId),
+  );
+});
+
 test("content type presentation keeps movie, drama, and animation provider paths separate", () => {
   assert.equal(contentTypeMatchesSelection({ mediaType: "tv", genreIds: [10759] }, ["drama"]), true);
   assert.equal(contentTypeMatchesSelection({ mediaType: "movie", genreIds: [28] }, ["drama"]), false);

@@ -30,6 +30,7 @@ import {
   resolveEmptyStateMessage,
 } from "./seeds/seedRequest.js";
 import {
+  TMDB_OBSERVABILITY_ACCEPTED_WORST_CASE,
   TMDB_OBSERVABILITY_LIMITS,
   TMDB_OBSERVABILITY_STAGES,
   createTmdbObservabilitySession,
@@ -49,16 +50,22 @@ function tmdbFixtureResponse(status, payload = {}) {
   };
 }
 
-function currentProductCandidates(count = 72) {
+function currentProductCandidates(count = 72, { horrorPassCount = null } = {}) {
   return Array.from({ length: count }, (_, index) => {
     const id = 80_001 + index;
+    const horrorFixture = Number.isSafeInteger(horrorPassCount);
+    const horrorPass = horrorFixture && index < horrorPassCount;
+    const title = horrorFixture
+      ? `Candidate${id} Current Product`
+      : `Current Product Candidate ${id}`;
     return {
       id,
-      name: `Current Product Candidate ${id}`,
-      original_name: `Current Product Candidate ${id}`,
+      name: title,
+      original_name: title,
       first_air_date: `202${index % 5}-01-01`,
-      genre_ids: [18],
+      genre_ids: horrorFixture ? [9648] : [18],
       origin_country: ["US"],
+      overview: horrorPass ? "A horror haunting with an occult ghost." : "A quiet mystery drama.",
       popularity: 1_000 - index,
       vote_average: 8 - (index % 5) / 10,
       vote_count: 2_000 - index,
@@ -66,8 +73,8 @@ function currentProductCandidates(count = 72) {
   });
 }
 
-function currentProductFixtureFetch(calls) {
-  const candidates = currentProductCandidates();
+function currentProductFixtureFetch(calls, fixtureOptions = {}) {
+  const candidates = currentProductCandidates(fixtureOptions.count || 72, fixtureOptions);
   return async (rawUrl) => {
     const url = new URL(rawUrl);
     calls.push(url.pathname);
@@ -85,17 +92,19 @@ function currentProductFixtureFetch(calls) {
     assert.ok(candidate, `unknown current Product fixture candidate: ${id}`);
     return tmdbFixtureResponse(200, {
       ...candidate,
-      genres: [{ id: 18, name: "Drama" }],
+      genres: candidate.genre_ids.map((id) => ({ id, name: id === 9648 ? "Mystery" : "Drama" })),
       episode_run_time: [45],
       production_countries: [{ iso_3166_1: "US" }],
-      keywords: { results: [] },
+      keywords: {
+        results: candidate.overview.startsWith("A horror") ? [{ id: candidate.id, name: "horror" }] : [],
+      },
       credits: { cast: [], crew: [] },
       "watch/providers": { results: {} },
     });
   };
 }
 
-async function withCurrentProductRuntime(operation, { nodeEnv = "test", clock } = {}) {
+async function withCurrentProductRuntime(operation, { nodeEnv = "test", clock, fixtureOptions } = {}) {
   const previousFetch = globalThis.fetch;
   const previousNow = Date.now;
   const previousNodeEnv = process.env.NODE_ENV;
@@ -103,8 +112,15 @@ async function withCurrentProductRuntime(operation, { nodeEnv = "test", clock } 
   const previousBearer = process.env.TMDB_BEARER_TOKEN;
   const calls = [];
   clearTmdbRequestCache();
-  globalThis.fetch = currentProductFixtureFetch(calls);
-  if (clock) Date.now = () => clock.calls++ * 10;
+  globalThis.fetch = currentProductFixtureFetch(calls, fixtureOptions);
+  if (clock) {
+    Date.now = () => {
+      const value = Math.min(clock.calls * Number(clock.stepMs || 10), Number(clock.maximumMs ?? Infinity));
+      clock.calls += 1;
+      clock.maximumObserved = Math.max(Number(clock.maximumObserved || 0), value);
+      return value;
+    };
+  }
   process.env.NODE_ENV = nodeEnv;
   process.env.TMDB_API_KEY = "deterministic-fixture-key";
   delete process.env.TMDB_BEARER_TOKEN;
@@ -335,6 +351,8 @@ test("active-base QA observability preserves Product output, request sequence, p
 
   const evidence = validateTmdbObservabilityEvidence(observed.payload.diagnostics.currentProductObservability);
   assert.ok(evidence.events.length <= TMDB_OBSERVABILITY_LIMITS.maximumEventCount);
+  assert.ok(evidence.events.length <= TMDB_OBSERVABILITY_ACCEPTED_WORST_CASE.eventCount);
+  assert.equal(evidence.schemaVersion, "myott.current-product-observability.v2");
   assert.deepEqual(
     evidence.events.filter((event) => event.type === "stage-summary").map((event) => event.stage),
     TMDB_OBSERVABILITY_STAGES,
@@ -343,7 +361,81 @@ test("active-base QA observability preserves Product output, request sequence, p
   assert.equal(evidence.summary.requestAttemptCount, observed.payload.diagnostics.requestsUsed);
   assert.equal(evidence.summary.requestAttemptCount,
     evidence.summary.requestCompleteCount + evidence.summary.requestFailureCount);
+  assert.equal(evidence.summary.candidatePoolSummaryCount, 1);
+  assert.equal(evidence.summary.candidateLineageCount, 72);
+  assert.equal(evidence.summary.selectedCandidateCount + evidence.summary.excludedCandidateCount, 72);
+  assert.equal(new Set(
+    evidence.events.filter((event) => event.type === "candidate-lineage").map((event) => event.candidateId),
+  ).size, 72);
   assert.equal(/https?:\/\/|api_key|authorization|bearer|\?/.test(JSON.stringify(evidence)), false);
+});
+
+test("lineage reconstructs the earliest below-eight Horror transition from finalized evidence only", async () => {
+  const run = await withCurrentProductRuntime(
+    () => discoverTmdb({
+      filters: ["country-us", "genre-horror"],
+      contentTypes: ["drama"],
+      limit: 12,
+      qaObservability: true,
+    }),
+    { fixtureOptions: { count: 12, horrorPassCount: 7 } },
+  );
+  const evidence = validateTmdbObservabilityEvidence(run.payload.diagnostics.currentProductObservability);
+  const pool = evidence.events.find((event) => event.type === "candidate-pool-summary");
+  const lineage = evidence.events.filter((event) => event.type === "candidate-lineage");
+  const transitions = [
+    { stage: "bounded-candidate-arrival", count: pool.boundedCount },
+    { stage: "pre-detail-semantic", count: lineage.filter((item) => item.preDetailSemantic === "pass").length },
+    {
+      stage: "pre-detail-country",
+      count: lineage.filter((item) => item.preDetailSemantic === "pass" && item.preDetailCountry === "pass").length,
+    },
+    {
+      stage: "pre-detail-content",
+      count: lineage.filter((item) => item.preDetailSemantic === "pass" && item.preDetailCountry === "pass" &&
+        item.preDetailContentType === "pass").length,
+    },
+    {
+      stage: "hard-filter",
+      count: lineage.filter((item) => item.preDetailSemantic === "pass" && item.hardFilterDecision === "pass").length,
+    },
+    { stage: "primary-final-selection", count: lineage.filter((item) => item.finalPath === "primary").length },
+  ];
+  const earliestBelowEight = transitions.find((transition) => transition.count < 8);
+  const primaryIds = lineage
+    .filter((item) => item.finalPath === "primary" && item.finalDecision === "selected")
+    .sort((left, right) => left.rank - right.rank)
+    .map((item) => item.candidateId);
+  const resultIds = run.payload.results.map((item) => `tmdb:${item.mediaType}:${item.tmdbId}`);
+
+  assert.deepEqual(earliestBelowEight, { stage: "pre-detail-semantic", count: 7 });
+  assert.equal(pool.recallStageCount, 3);
+  assert.equal(pool.arrivalCount, pool.distinctCount + pool.duplicateCount);
+  assert.equal(pool.distinctCount, pool.boundedCount + pool.poolExcludedCount);
+  assert.equal(lineage.length, 12);
+  assert.equal(run.payload.results.length, 7);
+  assert.deepEqual(primaryIds, resultIds);
+  assert.equal(lineage.filter((item) => item.preDetailSemantic === "fail").length, 5);
+  assert.equal(lineage.filter((item) => item.detailState === "selected-enriched").length, 12);
+});
+
+test("QA lineage adds no Product-policy clock read across an advancing 15-second window", async () => {
+  const baselineClock = { calls: 0, stepMs: 1_000, maximumMs: 14_999 };
+  const observedClock = { calls: 0, stepMs: 1_000, maximumMs: 14_999 };
+  const baseline = await withCurrentProductRuntime(
+    () => discoverTmdb({ contentTypes: ["drama"], limit: 12 }),
+    { clock: baselineClock },
+  );
+  const observed = await withCurrentProductRuntime(
+    () => discoverTmdb({ contentTypes: ["drama"], limit: 12, qaObservability: true }),
+    { clock: observedClock },
+  );
+
+  assert.deepEqual(currentProductSnapshot(observed.payload), currentProductSnapshot(baseline.payload));
+  assert.deepEqual(observed.calls, baseline.calls);
+  assert.equal(observedClock.calls, baselineClock.calls);
+  assert.equal(observedClock.maximumObserved, 14_999);
+  assert.equal(baselineClock.maximumObserved, 14_999);
 });
 
 test("QA observability is disabled in production and rejects external context binding before fetch", async () => {
