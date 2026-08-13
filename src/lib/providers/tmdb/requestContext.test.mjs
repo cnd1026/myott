@@ -11,7 +11,10 @@ import {
   createTmdbRequestContext,
 } from "./requestContext.js";
 import {
+  TMDB_OBSERVABILITY_STAGES,
   createTmdbObservabilitySession,
+  emitTmdbObservabilityEvent,
+  finalizeTmdbObservabilitySession,
   tmdbObservabilitySessionMetadata,
 } from "../../recommendation/qa/tmdbObservability.js";
 
@@ -24,6 +27,78 @@ function response(status, payload = {}, headers = {}) {
       return payload;
     },
   };
+}
+
+function finalizeRequestOnlySession(session, diagnostics) {
+  emitTmdbObservabilityEvent(session, "candidate-pool-summary", {
+    recallStageCount: 0,
+    sourceResultCount: 0,
+    normalizationCount: 0,
+    arrivalCount: 0,
+    stageCapExcludedCount: 0,
+    distinctCount: 0,
+    duplicateCount: 0,
+    boundedCount: 0,
+    poolExcludedCount: 0,
+  });
+  for (const stage of TMDB_OBSERVABILITY_STAGES) {
+    emitTmdbObservabilityEvent(session, "stage-summary", {
+      stage,
+      inputCount: 0,
+      outputCount: 0,
+      excludedCount: 0,
+    });
+  }
+  emitTmdbObservabilityEvent(session, "run-summary", {
+    requestBudget: 24,
+    listRequestBudget: 8,
+    detailRequestBudget: 16,
+    concurrencyLimit: 4,
+    retryLimit: 2,
+    fetchTimeoutMs: 8_000,
+    recommendationDeadlineMs: 15_000,
+    requestsUsed: diagnostics.requestsUsed,
+    listRequestsUsed: diagnostics.listRequestsUsed,
+    detailRequestsUsed: diagnostics.detailRequestsUsed,
+    cacheHits: diagnostics.cacheHits,
+    retryCount: diagnostics.retryCount,
+    deadlineExceeded: diagnostics.deadlineExceeded,
+  });
+  return finalizeTmdbObservabilitySession(session);
+}
+
+function errorWithCode(code, ErrorType = Error) {
+  const error = new ErrorType("sensitive native message must not be emitted");
+  Object.defineProperty(error, "code", { value: code, configurable: true, enumerable: true });
+  return error;
+}
+
+async function captureObservedFailure(error, { afterResponse = false } = {}) {
+  clearTmdbRequestCache();
+  const session = createTmdbObservabilitySession();
+  let fetchCount = 0;
+  const context = createTmdbRequestContext({
+    observer: session,
+    limits: { retries: 0 },
+    fetchImpl: async () => {
+      fetchCount += 1;
+      if (!afterResponse) throw error;
+      return { ...response(200), json: () => { throw error; } };
+    },
+  });
+  const noRejection = Symbol("no-rejection");
+  let rejection = noRejection;
+  try {
+    await context.get("/discover/tv", { page: 1 });
+  } catch (caught) {
+    rejection = caught;
+  }
+  assert.notStrictEqual(rejection, noRejection);
+  assert.strictEqual(rejection, error);
+  const evidence = finalizeRequestOnlySession(session, context.diagnostics());
+  const failure = evidence.events.find((event) => event.type === "request-failed");
+  assert.ok(failure);
+  return { evidence, failure, fetchCount };
 }
 
 beforeEach(() => clearTmdbRequestCache());
@@ -214,7 +289,9 @@ test("observer preserves main request-slot release while response body parsing i
 });
 
 test("individual fetch timeout aborts a stalled request", async () => {
+  const session = createTmdbObservabilitySession();
   const context = createTmdbRequestContext({
+    observer: session,
     fetchImpl: async (url, { signal }) => new Promise((resolve, reject) => {
       signal.addEventListener("abort", () => reject(Object.assign(new Error("aborted"), { name: "AbortError" })));
     }),
@@ -227,8 +304,14 @@ test("individual fetch timeout aborts a stalled request", async () => {
     context.get("/search/multi", { query: "stalled" }),
     (error) => error instanceof TmdbFetchTimeoutError,
   );
-  assert.equal(context.diagnostics().requestsUsed, 1);
-  assert.equal(context.diagnostics().deadlineExceeded, false);
+  const diagnostics = context.diagnostics();
+  assert.equal(diagnostics.requestsUsed, 1);
+  assert.equal(diagnostics.deadlineExceeded, false);
+  const evidence = finalizeRequestOnlySession(session, diagnostics);
+  const failure = evidence.events.find((event) => event.type === "request-failed");
+  assert.equal(failure.statusClass, "fetch-timeout");
+  assert.equal(Object.hasOwn(failure, "responseReached"), false);
+  assert.equal(Object.hasOwn(failure, "transportFailureCategory"), false);
 });
 
 test("Retry-After waits are capped at five seconds", async () => {
@@ -377,6 +460,262 @@ test("observer preserves retry decisions and adds no policy-clock reads", async 
   assert.equal(observed.fetchCount, 3);
   assert.equal(baseline.diagnostics.retryCount, 2);
   assert.equal(observed.diagnostics.retryCount, 2);
+  assert.equal(observed.callsBeforeDiagnostics, baseline.callsBeforeDiagnostics);
+  assert.equal(tmdbObservabilitySessionMetadata(session).eventCount, 6);
+});
+
+test("transport failure observability records the exact pre-response and post-response boundary", async () => {
+  const preResponse = await captureObservedFailure(errorWithCode("ENOTFOUND"));
+  assert.equal(preResponse.fetchCount, 1);
+  assert.equal(preResponse.failure.statusClass, "transport-error");
+  assert.equal(preResponse.failure.responseReached, false);
+  assert.equal(preResponse.failure.transportFailureCategory, "dns-resolution");
+
+  const postResponse = await captureObservedFailure(errorWithCode("ECONNRESET", TypeError), {
+    afterResponse: true,
+  });
+  assert.equal(postResponse.fetchCount, 1);
+  assert.equal(postResponse.failure.statusClass, "transport-error");
+  assert.equal(postResponse.failure.responseReached, true);
+  assert.equal(postResponse.failure.transportFailureCategory, "connection-reset");
+});
+
+test("transport failure normalizer applies every approved non-TLS native mapping", async () => {
+  const mappings = [
+    ["EAI_AGAIN", "dns-resolution"],
+    ["ENOTFOUND", "dns-resolution"],
+    ["ECONNREFUSED", "connection-refused"],
+    ["ECONNRESET", "connection-reset"],
+    ["ENETUNREACH", "network-unreachable"],
+    ["EHOSTUNREACH", "host-unreachable"],
+    ["ETIMEDOUT", "socket-timeout"],
+    ["UND_ERR_CONNECT_TIMEOUT", "socket-timeout"],
+    ["UND_ERR_HEADERS_TIMEOUT", "socket-timeout"],
+    ["UND_ERR_BODY_TIMEOUT", "socket-timeout"],
+    ["ABORT_ERR", "abort"],
+  ];
+  for (const [code, expectedCategory] of mappings) {
+    const { failure } = await captureObservedFailure(errorWithCode(code));
+    assert.equal(failure.transportFailureCategory, expectedCategory, code);
+    assert.equal(failure.responseReached, false, code);
+  }
+
+  const abortError = new Error("safe internal abort identity");
+  Object.defineProperty(abortError, "name", { value: "AbortError", configurable: true });
+  const { failure } = await captureObservedFailure(abortError);
+  assert.equal(failure.transportFailureCategory, "abort");
+});
+
+test("transport failure normalizer applies the exact approved TLS code allowlist", async () => {
+  const tlsCodes = [
+    "CERT_HAS_EXPIRED",
+    "CERT_NOT_YET_VALID",
+    "DEPTH_ZERO_SELF_SIGNED_CERT",
+    "SELF_SIGNED_CERT_IN_CHAIN",
+    "UNABLE_TO_GET_ISSUER_CERT",
+    "UNABLE_TO_GET_ISSUER_CERT_LOCALLY",
+    "UNABLE_TO_VERIFY_LEAF_SIGNATURE",
+    "CERT_SIGNATURE_FAILURE",
+    "CERT_CHAIN_TOO_LONG",
+    "CERT_REVOKED",
+    "INVALID_CA",
+    "PATH_LENGTH_EXCEEDED",
+    "INVALID_PURPOSE",
+    "CERT_UNTRUSTED",
+    "CERT_REJECTED",
+    "HOSTNAME_MISMATCH",
+    "ERR_TLS_CERT_ALTNAME_INVALID",
+  ];
+  for (const code of tlsCodes) {
+    const { failure } = await captureObservedFailure(errorWithCode(code));
+    assert.equal(failure.transportFailureCategory, "tls-certificate", code);
+  }
+});
+
+test("transport failure normalizer inspects only one safe TypeError cause", async () => {
+  const cause = errorWithCode("ENOTFOUND");
+  const wrapper = new TypeError("fetch failed");
+  Object.defineProperty(wrapper, "cause", { value: cause, configurable: true });
+  const direct = await captureObservedFailure(wrapper);
+  assert.equal(direct.failure.transportFailureCategory, "dns-resolution");
+
+  const postResponse = await captureObservedFailure(wrapper, { afterResponse: true });
+  assert.equal(postResponse.failure.responseReached, true);
+  assert.equal(postResponse.failure.transportFailureCategory, "other-transport-error");
+
+  let deepCauseReads = 0;
+  const directUnknownCause = new Error("direct unknown cause");
+  Object.defineProperty(directUnknownCause, "cause", {
+    configurable: true,
+    get() {
+      deepCauseReads += 1;
+      return errorWithCode("ENOTFOUND");
+    },
+  });
+  const deepWrapper = new TypeError("fetch failed");
+  Object.defineProperty(deepWrapper, "cause", { value: directUnknownCause, configurable: true });
+  const deep = await captureObservedFailure(deepWrapper);
+  assert.equal(deep.failure.transportFailureCategory, "other-transport-error");
+  assert.equal(deepCauseReads, 0);
+
+  const unsupportedWrapper = new Error("not an exact TypeError wrapper");
+  Object.defineProperty(unsupportedWrapper, "cause", { value: cause, configurable: true });
+  const unsupported = await captureObservedFailure(unsupportedWrapper);
+  assert.equal(unsupported.failure.transportFailureCategory, "other-transport-error");
+});
+
+test("transport failure normalizer never invokes code, name, cause, or AggregateError accessors", async () => {
+  let codeReads = 0;
+  const accessorCode = new TypeError("accessor code");
+  Object.defineProperty(accessorCode, "code", {
+    configurable: true,
+    get() {
+      codeReads += 1;
+      return "ENOTFOUND";
+    },
+  });
+  const codeResult = await captureObservedFailure(accessorCode);
+  assert.equal(codeResult.failure.transportFailureCategory, "other-transport-error");
+  assert.equal(codeReads, 0);
+
+  let causeReads = 0;
+  const accessorCause = new TypeError("accessor cause");
+  Object.defineProperty(accessorCause, "cause", {
+    configurable: true,
+    get() {
+      causeReads += 1;
+      return errorWithCode("ENOTFOUND");
+    },
+  });
+  const causeResult = await captureObservedFailure(accessorCause);
+  assert.equal(causeResult.failure.transportFailureCategory, "other-transport-error");
+  assert.equal(causeReads, 0);
+
+  let nameReads = 0;
+  const accessorNameCause = new Error("accessor name");
+  Object.defineProperty(accessorNameCause, "name", {
+    configurable: true,
+    get() {
+      nameReads += 1;
+      return "AbortError";
+    },
+  });
+  const nameWrapper = new TypeError("fetch failed");
+  Object.defineProperty(nameWrapper, "cause", { value: accessorNameCause, configurable: true });
+  const nameResult = await captureObservedFailure(nameWrapper);
+  assert.equal(nameResult.failure.transportFailureCategory, "other-transport-error");
+  assert.equal(nameReads, 0);
+
+  let aggregateReads = 0;
+  const aggregate = new AggregateError([], "aggregate failure");
+  Object.defineProperty(aggregate, "errors", {
+    configurable: true,
+    get() {
+      aggregateReads += 1;
+      return [errorWithCode("ENOTFOUND")];
+    },
+  });
+  const aggregateResult = await captureObservedFailure(aggregate);
+  assert.equal(aggregateResult.failure.transportFailureCategory, "other-transport-error");
+  assert.equal(aggregateReads, 0);
+});
+
+test("transport failure normalizer safely collapses unknown and non-Error throws", async () => {
+  class CustomError extends Error {}
+  const descriptorTrapFailure = new Proxy(new TypeError("fetch failed"), {
+    getOwnPropertyDescriptor() {
+      throw new Error("descriptor trap must not escape normalization");
+    },
+  });
+  const invalidCodes = [
+    errorWithCode("UNKNOWN_NATIVE_CODE"),
+    errorWithCode("é"),
+    errorWithCode("A".repeat(65)),
+    errorWithCode(123),
+    new CustomError("custom error"),
+    "string throw",
+    42,
+    null,
+    undefined,
+    descriptorTrapFailure,
+  ];
+  for (const thrown of invalidCodes) {
+    const { failure } = await captureObservedFailure(thrown);
+    assert.equal(failure.transportFailureCategory, "other-transport-error");
+  }
+});
+
+test("transport failure evidence contains only the two bounded additive fields", async () => {
+  const error = errorWithCode("ECONNRESET", TypeError);
+  error.url = "https://example.invalid/path?api_key=credential-marker";
+  error.authorization = "Bearer credential-marker";
+  error.stack = "filesystem-marker";
+  const { evidence, failure } = await captureObservedFailure(error);
+  assert.deepEqual(Object.keys(failure).sort(), [
+    "endpointClass",
+    "requestId",
+    "requestKind",
+    "responseReached",
+    "retryIndex",
+    "sequence",
+    "statusClass",
+    "transportFailureCategory",
+    "type",
+  ]);
+  for (const prohibited of [
+    "ECONNRESET",
+    "sensitive native message",
+    "credential-marker",
+    "filesystem-marker",
+    "https://",
+    "api_key",
+  ]) {
+    assert.equal(JSON.stringify(evidence).includes(prohibited), false, prohibited);
+  }
+  for (const prohibitedField of ["transportPhase", "abortState", "errorClass", "errorCode"]) {
+    assert.equal(Object.hasOwn(failure, prohibitedField), false);
+  }
+});
+
+test("non-transport request failures never receive transport detail fields", async () => {
+  const { failure } = await captureObservedFailure(new SyntaxError("invalid provider payload"), {
+    afterResponse: true,
+  });
+  assert.equal(failure.statusClass, "payload-error");
+  assert.equal(Object.hasOwn(failure, "responseReached"), false);
+  assert.equal(Object.hasOwn(failure, "transportFailureCategory"), false);
+});
+
+async function runObservedTransportRetry({ observer } = {}) {
+  clearTmdbRequestCache();
+  let fetchCount = 0;
+  let nowCallCount = 0;
+  const context = createTmdbRequestContext({
+    observer,
+    now: () => {
+      nowCallCount += 1;
+      return 0;
+    },
+    fetchImpl: async () => {
+      fetchCount += 1;
+      throw errorWithCode("ECONNRESET", TypeError);
+    },
+    sleep: async () => {},
+    random: () => 0,
+  });
+  await assert.rejects(context.get("/discover/tv", { page: 1 }), TypeError);
+  const callsBeforeDiagnostics = nowCallCount;
+  return { callsBeforeDiagnostics, diagnostics: context.diagnostics(), fetchCount };
+}
+
+test("transport observability preserves Product retry, fetch-count, and policy-clock behavior", async () => {
+  const baseline = await runObservedTransportRetry();
+  const session = createTmdbObservabilitySession();
+  const observed = await runObservedTransportRetry({ observer: session });
+  assert.equal(baseline.fetchCount, 3);
+  assert.equal(observed.fetchCount, baseline.fetchCount);
+  assert.equal(baseline.diagnostics.retryCount, 2);
+  assert.equal(observed.diagnostics.retryCount, baseline.diagnostics.retryCount);
   assert.equal(observed.callsBeforeDiagnostics, baseline.callsBeforeDiagnostics);
   assert.equal(tmdbObservabilitySessionMetadata(session).eventCount, 6);
 });

@@ -352,7 +352,7 @@ test("active-base QA observability preserves Product output, request sequence, p
   const evidence = validateTmdbObservabilityEvidence(observed.payload.diagnostics.currentProductObservability);
   assert.ok(evidence.events.length <= TMDB_OBSERVABILITY_LIMITS.maximumEventCount);
   assert.ok(evidence.events.length <= TMDB_OBSERVABILITY_ACCEPTED_WORST_CASE.eventCount);
-  assert.equal(evidence.schemaVersion, "myott.current-product-observability.v2");
+  assert.equal(evidence.schemaVersion, "myott.current-product-observability.v3");
   assert.deepEqual(
     evidence.events.filter((event) => event.type === "stage-summary").map((event) => event.stage),
     TMDB_OBSERVABILITY_STAGES,

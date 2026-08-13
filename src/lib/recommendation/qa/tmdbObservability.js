@@ -10,10 +10,10 @@ export const TMDB_OBSERVABILITY_LIMITS = Object.freeze({
 
 export const TMDB_OBSERVABILITY_ACCEPTED_WORST_CASE = Object.freeze({
   eventCount: 240,
-  payloadBytes: 73_615,
+  payloadBytes: 75_415,
 });
 
-const TMDB_OBSERVABILITY_SCHEMA_VERSION = "myott.current-product-observability.v2";
+const TMDB_OBSERVABILITY_SCHEMA_VERSION = "myott.current-product-observability.v3";
 
 export const TMDB_OBSERVABILITY_STAGES = Object.freeze([
   "retrieval",
@@ -55,6 +55,17 @@ const REQUEST_STATUS_CLASSES = new Set([
   "deadline-exceeded",
   "transport-error",
   "payload-error",
+]);
+const TRANSPORT_FAILURE_CATEGORIES = new Set([
+  "dns-resolution",
+  "connection-refused",
+  "connection-reset",
+  "network-unreachable",
+  "host-unreachable",
+  "tls-certificate",
+  "socket-timeout",
+  "abort",
+  "other-transport-error",
 ]);
 const CANDIDATE_DECISIONS = new Set(["selected", "excluded"]);
 const ARRIVAL_STAGES = new Set([
@@ -106,10 +117,22 @@ const SAFE_CANDIDATE_REASONS = new Set([
   "relaxed-limit-not-selected",
 ]);
 const CANDIDATE_ID_PATTERN = /^tmdb:(?:movie|tv):[1-9]\d*$/;
+const REQUEST_FAILED_FIELDS = new Set([
+  "requestId",
+  "requestKind",
+  "endpointClass",
+  "retryIndex",
+  "statusClass",
+]);
+const TRANSPORT_REQUEST_FAILED_FIELDS = new Set([
+  ...REQUEST_FAILED_FIELDS,
+  "responseReached",
+  "transportFailureCategory",
+]);
 const EVENT_FIELDS = new Map([
   ["request-start", new Set(["requestId", "requestKind", "endpointClass", "retryIndex"])],
   ["request-complete", new Set(["requestId", "requestKind", "endpointClass", "retryIndex", "statusClass"])],
-  ["request-failed", new Set(["requestId", "requestKind", "endpointClass", "retryIndex", "statusClass"])],
+  ["request-failed", REQUEST_FAILED_FIELDS],
   ["request-cache-hit", new Set(["requestId", "requestKind", "endpointClass"])],
   ["request-dedup-hit", new Set(["requestId", "requestKind", "endpointClass"])],
   ["candidate-pool-summary", new Set([
@@ -161,7 +184,7 @@ const EVENT_FIELDS = new Map([
   ])],
 ]);
 const SECRET_FIELD_PATTERN = /(authorization|api.?key|bearer|token|credential|secret|cookie|header|query|url|path|raw|payload|response|errorMessage)/i;
-const SAFE_FIELD_NAME_EXCEPTIONS = new Set(["finalPath"]);
+const SAFE_FIELD_NAME_EXCEPTIONS = new Set(["finalPath", "responseReached"]);
 const UNSAFE_STRING_PATTERN = /(https?:\/\/|bearer\s+|authorization\s*[:=]|api[_-]?key\s*[:=]|token\s*[:=]|cookie\s*[:=]|[a-z]:\\|\/users\/|[?&][^=\s]+=[^\s]*)/i;
 const textEncoder = new TextEncoder();
 const sessions = new WeakMap();
@@ -242,8 +265,11 @@ function normalizeValue(session, field, value) {
 }
 
 function assertExactFields(session, type, fields) {
-  const allowed = EVENT_FIELDS.get(type);
-  if (!allowed || !isPlainObject(fields)) fail(session, "event-emission");
+  if (!isPlainObject(fields)) fail(session, "event-emission");
+  const allowed = type === "request-failed" && fields.statusClass === "transport-error"
+    ? TRANSPORT_REQUEST_FAILED_FIELDS
+    : EVENT_FIELDS.get(type);
+  if (!allowed) fail(session, "event-emission");
   const supplied = Object.keys(fields);
   if (supplied.length !== allowed.size || supplied.some((field) => !allowed.has(field)) ||
       [...allowed].some((field) => !Object.hasOwn(fields, field))) {
@@ -352,6 +378,11 @@ function assertEventSemantics(session, type, fields) {
     fail(session, "event-emission");
   }
   if (["request-complete", "request-failed"].includes(type) && !REQUEST_STATUS_CLASSES.has(fields.statusClass)) {
+    fail(session, "event-emission");
+  }
+  if (type === "request-failed" && fields.statusClass === "transport-error" &&
+      (typeof fields.responseReached !== "boolean" ||
+       !TRANSPORT_FAILURE_CATEGORIES.has(fields.transportFailureCategory))) {
     fail(session, "event-emission");
   }
   if (type === "stage-summary" &&

@@ -145,7 +145,7 @@ function emitValidLedger(session, { skipLineage = false, duplicateLineage = fals
   });
 }
 
-function emitMaximumAcceptedLedger(session, { extraCacheHit = false } = {}) {
+function emitMaximumAcceptedLedger(session, { extraCacheHit = false, transportFailures = false } = {}) {
   for (let request = 1; request <= 24; request += 1) {
     const requestKind = request <= 8 ? "list" : "detail";
     const endpointClass = requestKind === "list" ? "discover-tv" : "tv-detail";
@@ -155,13 +155,25 @@ function emitMaximumAcceptedLedger(session, { extraCacheHit = false } = {}) {
       endpointClass,
       retryIndex: 0,
     });
-    emitTmdbObservabilityEvent(session, "request-complete", {
-      requestId: `request-${request}`,
-      requestKind,
-      endpointClass,
-      retryIndex: 0,
-      statusClass: "success",
-    });
+    if (transportFailures) {
+      emitTmdbObservabilityEvent(session, "request-failed", {
+        requestId: `request-${request}`,
+        requestKind,
+        endpointClass,
+        retryIndex: 0,
+        statusClass: "transport-error",
+        responseReached: false,
+        transportFailureCategory: "other-transport-error",
+      });
+    } else {
+      emitTmdbObservabilityEvent(session, "request-complete", {
+        requestId: `request-${request}`,
+        requestKind,
+        endpointClass,
+        retryIndex: 0,
+        statusClass: "success",
+      });
+    }
   }
   for (let hit = 25; hit <= 63 + Number(extraCacheHit); hit += 1) {
     emitTmdbObservabilityEvent(session, "request-cache-hit", {
@@ -273,7 +285,7 @@ test("active-base observability session is opaque and finalization is determinis
   const second = finalizeTmdbObservabilitySession(session);
   assert.strictEqual(first, second);
   assert.deepEqual(validateTmdbObservabilityEvidence(first), first);
-  assert.equal(first.schemaVersion, "myott.current-product-observability.v2");
+  assert.equal(first.schemaVersion, "myott.current-product-observability.v3");
   assert.equal(first.summary.requestAttemptCount, 1);
   assert.equal(first.summary.requestCompleteCount, 1);
   assert.equal(first.summary.stageCount, TMDB_OBSERVABILITY_STAGES.length);
@@ -352,10 +364,18 @@ test("observability enforces the 512-event and 2 MiB ceilings", () => {
   );
 
   const maximumAcceptedSession = createTmdbObservabilitySession();
-  emitMaximumAcceptedLedger(maximumAcceptedSession);
+  emitMaximumAcceptedLedger(maximumAcceptedSession, { transportFailures: true });
   const maximumAccepted = finalizeTmdbObservabilitySession(maximumAcceptedSession);
   const serializedBytes = new TextEncoder().encode(JSON.stringify(maximumAccepted)).byteLength;
   assert.equal(maximumAccepted.summary.eventCount, TMDB_OBSERVABILITY_ACCEPTED_WORST_CASE.eventCount);
+  assert.equal(maximumAccepted.summary.requestFailureCount, 24);
+  assert.equal(TMDB_OBSERVABILITY_ACCEPTED_WORST_CASE.eventCount, 240);
+  assert.equal(TMDB_OBSERVABILITY_ACCEPTED_WORST_CASE.payloadBytes, 75_415);
+  const maximumAdditiveFragment = new TextEncoder().encode(
+    ',"responseReached":false,"transportFailureCategory":"other-transport-error"',
+  ).byteLength;
+  assert.equal(maximumAdditiveFragment, 75);
+  assert.equal(73_615 + maximumAdditiveFragment * 24, 75_415);
   assert.ok(serializedBytes <= TMDB_OBSERVABILITY_ACCEPTED_WORST_CASE.payloadBytes);
   assert.ok(serializedBytes <= TMDB_OBSERVABILITY_LIMITS.maximumPayloadBytes);
 
@@ -367,7 +387,100 @@ test("observability enforces the 512-event and 2 MiB ceilings", () => {
   );
 });
 
-test("v2 lineage rejects unsafe identity, unknown enum, broken conservation, missing lineage, and final mismatch", () => {
+test("v3 request-failed schema conditionally requires exactly the bounded transport fields", () => {
+  const validSession = createTmdbObservabilitySession();
+  emitTmdbObservabilityEvent(validSession, "request-start", {
+    requestId: "request-1",
+    requestKind: "list",
+    endpointClass: "discover-tv",
+    retryIndex: 0,
+  });
+  emitTmdbObservabilityEvent(validSession, "request-failed", {
+    requestId: "request-1",
+    requestKind: "list",
+    endpointClass: "discover-tv",
+    retryIndex: 0,
+    statusClass: "transport-error",
+    responseReached: false,
+    transportFailureCategory: "dns-resolution",
+  });
+
+  const invalidFields = [
+    {},
+    { responseReached: false },
+    { transportFailureCategory: "dns-resolution" },
+    { responseReached: "false", transportFailureCategory: "dns-resolution" },
+    { responseReached: false, transportFailureCategory: "caller-defined" },
+  ];
+  for (const addition of invalidFields) {
+    const session = createTmdbObservabilitySession();
+    assert.throws(
+      () => emitTmdbObservabilityEvent(session, "request-failed", {
+        requestId: "request-1",
+        requestKind: "list",
+        endpointClass: "discover-tv",
+        retryIndex: 0,
+        statusClass: "transport-error",
+        ...addition,
+      }),
+      (error) => error?.code === TMDB_OBSERVABILITY_INTEGRITY_CODE && error?.stage === "event-emission",
+    );
+  }
+
+  for (const statusClass of [
+    "fetch-timeout",
+    "deadline-exceeded",
+    "retryable-http-error",
+    "http-error",
+    "payload-error",
+  ]) {
+    const session = createTmdbObservabilitySession();
+    assert.throws(
+      () => emitTmdbObservabilityEvent(session, "request-failed", {
+        requestId: "request-1",
+        requestKind: "list",
+        endpointClass: "discover-tv",
+        retryIndex: 0,
+        statusClass,
+        responseReached: false,
+        transportFailureCategory: "other-transport-error",
+      }),
+      (error) => error?.code === TMDB_OBSERVABILITY_INTEGRITY_CODE && error?.stage === "event-emission",
+    );
+  }
+});
+
+test("responseReached is the only exact response-sensitive field exception", () => {
+  for (const field of ["response", "responseBody", "responseText", "responseUrl", "responseReachedExtra"]) {
+    const session = createTmdbObservabilitySession();
+    assert.throws(
+      () => emitTmdbObservabilityEvent(session, "request-failed", {
+        requestId: "request-1",
+        requestKind: "list",
+        endpointClass: "discover-tv",
+        retryIndex: 0,
+        statusClass: "transport-error",
+        responseReached: false,
+        transportFailureCategory: "other-transport-error",
+        [field]: false,
+      }),
+      (error) => error?.code === TMDB_OBSERVABILITY_INTEGRITY_CODE && error?.stage === "event-emission",
+    );
+  }
+});
+
+test("v3 validator does not silently accept pinned historical v2 evidence", () => {
+  const session = createTmdbObservabilitySession();
+  emitValidLedger(session);
+  const evidence = finalizeTmdbObservabilitySession(session);
+  const historicalVersion = { ...evidence, schemaVersion: "myott.current-product-observability.v2" };
+  assert.throws(
+    () => validateTmdbObservabilityEvidence(historicalVersion),
+    (error) => error?.code === TMDB_OBSERVABILITY_INTEGRITY_CODE && error?.stage === "payload-validation",
+  );
+});
+
+test("v3 lineage rejects unsafe identity, unknown enum, broken conservation, missing lineage, and final mismatch", () => {
   for (const fields of [
     validLineageFields({ candidateId: "tmdb:tv:01" }),
     validLineageFields({ candidateId: "tmdb:movie:9007199254740992" }),

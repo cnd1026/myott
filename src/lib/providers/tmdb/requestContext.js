@@ -28,6 +28,37 @@ export const TMDB_CACHE_TTL = Object.freeze({
 const responseCache = new Map();
 const MAX_CACHE_ENTRIES = 500;
 const RETRYABLE_STATUSES = new Set([429, 500, 502, 503, 504]);
+const NO_SAFE_OWN_DATA = Symbol("no-safe-own-data");
+const TRANSPORT_FAILURE_CATEGORY_BY_CODE = Object.freeze({
+  EAI_AGAIN: "dns-resolution",
+  ENOTFOUND: "dns-resolution",
+  ECONNREFUSED: "connection-refused",
+  ECONNRESET: "connection-reset",
+  ENETUNREACH: "network-unreachable",
+  EHOSTUNREACH: "host-unreachable",
+  CERT_HAS_EXPIRED: "tls-certificate",
+  CERT_NOT_YET_VALID: "tls-certificate",
+  DEPTH_ZERO_SELF_SIGNED_CERT: "tls-certificate",
+  SELF_SIGNED_CERT_IN_CHAIN: "tls-certificate",
+  UNABLE_TO_GET_ISSUER_CERT: "tls-certificate",
+  UNABLE_TO_GET_ISSUER_CERT_LOCALLY: "tls-certificate",
+  UNABLE_TO_VERIFY_LEAF_SIGNATURE: "tls-certificate",
+  CERT_SIGNATURE_FAILURE: "tls-certificate",
+  CERT_CHAIN_TOO_LONG: "tls-certificate",
+  CERT_REVOKED: "tls-certificate",
+  INVALID_CA: "tls-certificate",
+  PATH_LENGTH_EXCEEDED: "tls-certificate",
+  INVALID_PURPOSE: "tls-certificate",
+  CERT_UNTRUSTED: "tls-certificate",
+  CERT_REJECTED: "tls-certificate",
+  HOSTNAME_MISMATCH: "tls-certificate",
+  ERR_TLS_CERT_ALTNAME_INVALID: "tls-certificate",
+  ETIMEDOUT: "socket-timeout",
+  UND_ERR_CONNECT_TIMEOUT: "socket-timeout",
+  UND_ERR_HEADERS_TIMEOUT: "socket-timeout",
+  UND_ERR_BODY_TIMEOUT: "socket-timeout",
+  ABORT_ERR: "abort",
+});
 
 export class TmdbBudgetError extends Error {
   constructor(message = "TMDB request budget exhausted.") {
@@ -127,6 +158,76 @@ function requestFailureStatus(error, timedOut, deadlineBound) {
   }
   if (error instanceof SyntaxError) return "payload-error";
   return "transport-error";
+}
+
+function safeOwnDataProperty(value, field) {
+  if (value === null || (typeof value !== "object" && typeof value !== "function")) {
+    return NO_SAFE_OWN_DATA;
+  }
+  try {
+    const descriptor = Object.getOwnPropertyDescriptor(value, field);
+    return descriptor && Object.hasOwn(descriptor, "value") ? descriptor.value : NO_SAFE_OWN_DATA;
+  } catch {
+    return NO_SAFE_OWN_DATA;
+  }
+}
+
+function isInspectableError(value) {
+  try {
+    return value instanceof Error;
+  } catch {
+    return false;
+  }
+}
+
+function isAggregateError(value) {
+  try {
+    return typeof AggregateError === "function" && value instanceof AggregateError;
+  } catch {
+    return false;
+  }
+}
+
+function categoryFromErrorIdentity(error) {
+  const code = safeOwnDataProperty(error, "code");
+  if (typeof code === "string" && /^[\x20-\x7e]{1,64}$/.test(code) &&
+      Object.hasOwn(TRANSPORT_FAILURE_CATEGORY_BY_CODE, code)) {
+    return TRANSPORT_FAILURE_CATEGORY_BY_CODE[code];
+  }
+  return safeOwnDataProperty(error, "name") === "AbortError" ? "abort" : "";
+}
+
+function isExactBuiltInTypeError(value) {
+  try {
+    return Object.getPrototypeOf(value) === TypeError.prototype;
+  } catch {
+    return false;
+  }
+}
+
+function normalizeTransportFailureCategory(error, allowDirectCause) {
+  try {
+    if (!isInspectableError(error) || isAggregateError(error)) return "other-transport-error";
+    const rootCategory = categoryFromErrorIdentity(error);
+    if (rootCategory) return rootCategory;
+    if (!allowDirectCause || !isExactBuiltInTypeError(error)) return "other-transport-error";
+
+    const cause = safeOwnDataProperty(error, "cause");
+    if (cause === NO_SAFE_OWN_DATA || !isInspectableError(cause) || isAggregateError(cause)) {
+      return "other-transport-error";
+    }
+    return categoryFromErrorIdentity(cause) || "other-transport-error";
+  } catch {
+    return "other-transport-error";
+  }
+}
+
+function transportFailureObservation(error, responseReached, statusClass) {
+  if (statusClass !== "transport-error") return {};
+  return {
+    responseReached,
+    transportFailureCategory: normalizeTransportFailureCategory(error, responseReached === false),
+  };
 }
 
 export function createTmdbRequestContext({
@@ -255,6 +356,7 @@ export function createTmdbRequestContext({
     let timedOut = false;
     let deadlineBound = false;
     let terminalEmitted = false;
+    let responseReached = false;
     let requestId = "";
     const endpointClass = observer === undefined ? "" : safeEndpointClass(path);
     try {
@@ -282,6 +384,7 @@ export function createTmdbRequestContext({
         cache: "no-store",
         signal: controller.signal,
       });
+      responseReached = true;
       if (!response.ok) {
         state.failedRequestCount += 1;
         if (response.status === 429) state.rateLimitedCount += 1;
@@ -313,12 +416,14 @@ export function createTmdbRequestContext({
           return value;
         },
         (error) => {
+          const statusClass = requestFailureStatus(error, false, deadlineBound);
           emitObservation("request-failed", {
             requestId,
             requestKind: kind,
             endpointClass,
             retryIndex,
-            statusClass: requestFailureStatus(error, false, deadlineBound),
+            statusClass,
+            ...transportFailureObservation(error, responseReached, statusClass),
           });
           terminalEmitted = true;
           throw error;
@@ -355,12 +460,14 @@ export function createTmdbRequestContext({
         throw new TmdbFetchTimeoutError();
       }
       if (requestId && !terminalEmitted) {
+        const statusClass = requestFailureStatus(error, false, deadlineBound);
         emitObservation("request-failed", {
           requestId,
           requestKind: kind,
           endpointClass,
           retryIndex,
-          statusClass: requestFailureStatus(error, false, deadlineBound),
+          statusClass,
+          ...transportFailureObservation(error, responseReached, statusClass),
         });
         terminalEmitted = true;
       }
