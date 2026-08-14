@@ -66,6 +66,13 @@ MyOTT is under active development. This public log summarizes externally safe mi
 - Preserved existing recommendation behavior and policy while completing this observability validation checkpoint.
 - Kept integration and release behind the normal review gates.
 
+## 2026-08-14
+
+- Refined request-boundary diagnostics to improve failure attribution without changing recommendation behavior.
+- Completed architecture and targeted security review for a minimal QA-only observability extension.
+- Implemented and offline-validated the current candidate, including isolated network-free build verification.
+- Kept product integration and release gated while independent validation continues.
+
 ## Maintenance policy going forward
 
 When meaningful development continues but a public product commit is delayed by QA, security, or release gates, MyOTT will publish a small public-safe maintenance signal when useful. That signal may be a status update, documentation commit, issue, or review artifact. Empty commits and fabricated activity are not part of this policy.
