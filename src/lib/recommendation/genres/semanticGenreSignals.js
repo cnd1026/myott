@@ -9,6 +9,8 @@ const COMBINED_PROVIDER_NAMES = new Set([
   "전쟁·정치",
 ]);
 
+const CONTROL_METADATA_PATTERN = /^(?:genre|country|mood|runtime)-/;
+
 const signal = (
   positive,
   {
@@ -16,6 +18,7 @@ const signal = (
     minimumEvidence = 1,
     controlledPositive = [],
     controlledStrong = [],
+    ambiguous = [],
     minimumControlledEvidence = 0,
     minimumControlledStrongEvidence = 0,
   } = {},
@@ -25,6 +28,7 @@ const signal = (
   minimumEvidence,
   controlledPositive: Object.freeze(controlledPositive),
   controlledStrong: Object.freeze(controlledStrong),
+  ambiguous: Object.freeze(ambiguous),
   minimumControlledEvidence,
   minimumControlledStrongEvidence,
 });
@@ -88,9 +92,14 @@ export const SEMANTIC_GENRE_SIGNALS = Object.freeze({
     "스릴러", "범죄", "살인", "연쇄", "수사", "음모", "생존", "미스터리", "긴장",
   ]),
   "genre-horror": signal([
-    "horror", "ghost", "demon", "haunting", "monster", "occult", "supernatural horror", "slasher", "zombie",
-    "공포", "유령", "악마", "빙의", "괴물", "오컬트", "슬래셔", "좀비",
-  ]),
+    "horror", "ghost", "demon", "haunting", "occult", "supernatural horror", "slasher", "zombie",
+    "공포", "유령", "악마", "빙의", "오컬트", "슬래셔", "좀비",
+  ], {
+    ambiguous: [
+      "monster", "supernatural", "mystery", "crime", "serial killer", "dark", "danger",
+      "괴물", "초자연", "미스터리", "범죄", "연쇄 살인", "어둠", "위험",
+    ],
+  }),
 });
 
 function valueText(value) {
@@ -131,12 +140,15 @@ export function semanticGenreEvidence(item = {}, genreValue) {
       matchedSignals: [],
       controlledSignals: [],
       controlledStrongSignals: [],
+      ambiguousSignals: [],
       negativeSignals: [],
       reasons: [],
     };
   }
 
-  const evidence = semanticEvidenceValues(item);
+  const evidence = semanticEvidenceValues(item).filter((value) => (
+    genreValue !== "genre-horror" || !CONTROL_METADATA_PATTERN.test(value)
+  ));
   const matchedSignals = policy.positive.filter((candidate) =>
     evidence.some((value) => value.includes(candidate)),
   );
@@ -147,6 +159,9 @@ export function semanticGenreEvidence(item = {}, genreValue) {
     evidence.some((value) => value.includes(candidate)),
   );
   const controlledStrongSignals = policy.controlledStrong.filter((candidate) =>
+    evidence.some((value) => value.includes(candidate)),
+  );
+  const ambiguousSignals = policy.ambiguous.filter((candidate) =>
     evidence.some((value) => value.includes(candidate)),
   );
   const evidenceCount = Math.max(0, matchedSignals.length - negativeSignals.length);
@@ -168,6 +183,7 @@ export function semanticGenreEvidence(item = {}, genreValue) {
     matchedSignals: [...new Set(matchedSignals)],
     controlledSignals: [...new Set(controlledSignals)],
     controlledStrongSignals: [...new Set(controlledStrongSignals)],
+    ambiguousSignals: [...new Set(ambiguousSignals)],
     negativeSignals: [...new Set(negativeSignals)],
     reasons: matched
       ? [...new Set(matchedSignals)].map((value) => `${genreValue}:${value}`)

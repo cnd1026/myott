@@ -29,20 +29,12 @@ export function isSameContent(left = {}, right = {}) {
   return Boolean(a.originalTitleKey && b.originalTitleKey && a.originalTitleKey === b.originalTitleKey);
 }
 
-export function dedupeRelatedItems(items = [], currentItem = null) {
-  const seenProvider = new Set();
-  const seenDisplay = new Set();
-  const seenOriginal = new Set();
+export function dedupeRelatedItems(items = [], currentItem = null, primaryItems = []) {
+  const excludedItems = [currentItem, ...primaryItems].filter(Boolean);
   const results = [];
   for (const item of items) {
-    if (currentItem && isSameContent(item, currentItem)) continue;
-    const identity = canonicalContentIdentity(item);
-    if (identity.providerKey && seenProvider.has(identity.providerKey)) continue;
-    if (identity.displayTitleKey && seenDisplay.has(identity.displayTitleKey)) continue;
-    if (identity.originalTitleKey && seenOriginal.has(identity.originalTitleKey)) continue;
-    if (identity.providerKey) seenProvider.add(identity.providerKey);
-    if (identity.displayTitleKey) seenDisplay.add(identity.displayTitleKey);
-    if (identity.originalTitleKey) seenOriginal.add(identity.originalTitleKey);
+    if (excludedItems.some((excluded) => isSameContent(item, excluded))) continue;
+    if (results.some((selected) => isSameContent(item, selected))) continue;
     results.push(item);
   }
   return results;

@@ -97,6 +97,44 @@ test("plain TV Mystery is not Horror without semantic evidence", () => {
   assert.deepEqual(classifyTaxonomyValues(plain).canonicalGenreValues, ["genre-mystery"]);
 });
 
+test("Horror semantic precision requires independent direct evidence", () => {
+  const mysteryOnly = fixture([9648], ["mystery"]);
+  const crimeOnly = fixture([9648, 80], ["crime", "serial killer", "investigation"]);
+  const ambiguousSupernatural = fixture([9648, 10765], ["monster", "supernatural"], {
+    overview: "A dark mystery unfolds in a fantasy world.",
+  });
+  const clearHorror = fixture([9648], ["horror"]);
+  const supernaturalHorror = fixture([9648], ["demon", "haunting"]);
+  const selectedFilterTag = fixture([9648], [], {
+    tags: ["genre-horror", "country-us"],
+    overview: "A quiet investigation follows an old disappearance.",
+  });
+
+  for (const item of [mysteryOnly, crimeOnly, ambiguousSupernatural, selectedFilterTag]) {
+    const match = candidateGenreMatchDetail(item, ["genre-horror"]);
+    assert.equal(match.genreMatched, false);
+    assert.equal(match.recommendationReason, undefined);
+  }
+  assert.equal(candidateGenreMatchDetail(clearHorror, ["genre-horror"]).genreMatchMode, "semantic-specialized");
+  assert.equal(candidateGenreMatchDetail(supernaturalHorror, ["genre-horror"]).genreMatchMode, "semantic-specialized");
+});
+
+test("Horror recommendation reason is emitted only after corrected semantic proof", () => {
+  const rejected = classifyCandidate(fixture([9648], ["monster", "supernatural"]), {
+    filters: ["genre-horror"],
+    contentTypes: ["drama"],
+  });
+  const accepted = classifyCandidate(fixture([9648], ["ghost", "haunting"]), {
+    filters: ["genre-horror"],
+    contentTypes: ["drama"],
+  });
+
+  assert.equal(rejected.genreMatched, false);
+  assert.equal(rejected.reason, undefined);
+  assert.equal(accepted.genreMatched, true);
+  assert.equal(accepted.reason, "공포와 초자연적 위협 요소를 반영한 추천입니다.");
+});
+
 test("format, audience, and style values never become narrative canonical genres", () => {
   const format = classifyTaxonomyValues(fixture([10763, 10764, 10767, 10766]));
   const audience = classifyTaxonomyValues(fixture([10751, 10762]));
