@@ -72,6 +72,11 @@ const ARRIVAL_STAGES = new Set([
   "exact-popularity-page-1",
   "exact-rating-page-1",
   "exact-breadth-page-2",
+  "exact-breadth-page-3",
+  "exact-breadth-page-4",
+  "exact-breadth-page-5",
+  "exact-breadth-page-6",
+  "exact-breadth-page-7",
   "semantic-thriller-popularity-page-1",
   "same-country-relaxed-popularity-page-1",
 ]);
