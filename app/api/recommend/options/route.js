@@ -73,13 +73,14 @@ function initializeRouteFailureObservation(qaDiagnostics) {
 }
 
 export async function GET(request) {
-  const filters = request.nextUrl.searchParams.get("filters")?.split(",").map((value) => value.trim()).filter(Boolean) || [];
-  const contentTypes = request.nextUrl.searchParams.get("types")?.split(",").map((value) => value.trim()).filter(Boolean) || [];
-  const requestId = request.nextUrl.searchParams.get("requestId")?.trim() || "";
   const qaDiagnostics = process.env.NODE_ENV !== "production" && request.nextUrl.searchParams.get("qa") === "1";
   let routeObserver = initializeRouteFailureObservation(qaDiagnostics);
 
   try {
+    const filters = request.nextUrl.searchParams.get("filters")?.split(",").map((value) => value.trim()).filter(Boolean) || [];
+    const contentTypes = request.nextUrl.searchParams.get("types")?.split(",").map((value) => value.trim()).filter(Boolean) || [];
+    const requestId = request.nextUrl.searchParams.get("requestId")?.trim() || "";
+    routeObserver = advanceRouteFailureObservation(routeObserver, "request-parsing-complete");
     routeObserver = advanceRouteFailureObservation(routeObserver, "route-ready");
     const activeProvider = getActiveProvider();
 

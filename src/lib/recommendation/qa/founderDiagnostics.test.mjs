@@ -74,16 +74,18 @@ function routeRequest(query) {
 
 const routeFailurePhasePaths = Object.freeze({
   "qa-activated": Object.freeze(["qa-activated"]),
-  "route-ready": Object.freeze(["qa-activated", "route-ready"]),
-  "active-provider-entered": Object.freeze(["qa-activated", "route-ready", "active-provider-entered"]),
-  "active-response-started": Object.freeze(["qa-activated", "route-ready", "active-provider-entered", "active-response-started"]),
-  "active-failure-caught": Object.freeze(["qa-activated", "route-ready", "active-provider-entered", "active-failure-caught"]),
-  "fallback-entered": Object.freeze(["qa-activated", "route-ready", "active-provider-entered", "active-failure-caught", "fallback-entered"]),
-  "fallback-response-started": Object.freeze(["qa-activated", "route-ready", "active-provider-entered", "active-failure-caught", "fallback-entered", "fallback-response-started"]),
+  "request-parsing-complete": Object.freeze(["qa-activated", "request-parsing-complete"]),
+  "route-ready": Object.freeze(["qa-activated", "request-parsing-complete", "route-ready"]),
+  "active-provider-entered": Object.freeze(["qa-activated", "request-parsing-complete", "route-ready", "active-provider-entered"]),
+  "active-response-started": Object.freeze(["qa-activated", "request-parsing-complete", "route-ready", "active-provider-entered", "active-response-started"]),
+  "active-failure-caught": Object.freeze(["qa-activated", "request-parsing-complete", "route-ready", "active-provider-entered", "active-failure-caught"]),
+  "fallback-entered": Object.freeze(["qa-activated", "request-parsing-complete", "route-ready", "active-provider-entered", "active-failure-caught", "fallback-entered"]),
+  "fallback-response-started": Object.freeze(["qa-activated", "request-parsing-complete", "route-ready", "active-provider-entered", "active-failure-caught", "fallback-entered", "fallback-response-started"]),
 });
 
 const routeFailurePayloadBytes = Object.freeze({
   "qa-activated": 127,
+  "request-parsing-complete": 139,
   "route-ready": 126,
   "active-provider-entered": 138,
   "active-response-started": 138,
@@ -744,6 +746,7 @@ test("active-base observability source has no persistence, transport, or live ca
 test("route failure observer exposes the exact closed phases and transition graph", async () => {
   assert.deepEqual(ROUTE_FAILURE_HANDLER_PHASES, [
     "qa-activated",
+    "request-parsing-complete",
     "route-ready",
     "active-provider-entered",
     "active-response-started",
@@ -751,7 +754,7 @@ test("route failure observer exposes the exact closed phases and transition grap
     "fallback-entered",
     "fallback-response-started",
   ]);
-  assert.equal(new Set(ROUTE_FAILURE_HANDLER_PHASES).size, 7);
+  assert.equal(new Set(ROUTE_FAILURE_HANDLER_PHASES).size, 8);
 
   for (const phase of ROUTE_FAILURE_HANDLER_PHASES) {
     const observer = createRouteFailureObserver();
@@ -764,6 +767,7 @@ test("route failure observer exposes the exact closed phases and transition grap
   const responseFailurePath = createRouteFailureObserver();
   for (const transition of [
     "qa-activated",
+    "request-parsing-complete",
     "route-ready",
     "active-provider-entered",
     "active-response-started",
@@ -782,8 +786,15 @@ test("route failure observer permanently rejects invalid, backward, and unknown 
   assert.equal(uninitialized.transition("qa-activated"), false);
   assert.equal(uninitialized.terminalResponse(), null);
 
+  const repeated = createRouteFailureObserver();
+  assert.equal(repeated.transition("qa-activated"), true);
+  assert.equal(repeated.transition("qa-activated"), false);
+  assert.equal(repeated.transition("request-parsing-complete"), false);
+  assert.equal(repeated.terminalResponse(), null);
+
   const backward = createRouteFailureObserver();
   assert.equal(backward.transition("qa-activated"), true);
+  assert.equal(backward.transition("request-parsing-complete"), true);
   assert.equal(backward.transition("route-ready"), true);
   assert.equal(backward.transition("qa-activated"), false);
   assert.equal(backward.transition("active-provider-entered"), false);
@@ -821,7 +832,7 @@ test("route failure terminal responses are exact, bounded, and contain no prohib
     const response = observer.terminalResponse();
     const body = await response.text();
     const parsed = JSON.parse(body);
-    const expectedBody = `{"schemaVersion":"myott.route-failure-observability.v1","classification":"route-handler-failure","handlerPhase":"${phase}"}`;
+    const expectedBody = `{"schemaVersion":"myott.route-failure-observability.v2","classification":"route-handler-failure","handlerPhase":"${phase}"}`;
     const byteSize = Buffer.byteLength(body, "utf8");
 
     assert.equal(response.status, 500);
@@ -833,7 +844,7 @@ test("route failure terminal responses are exact, bounded, and contain no prohib
     assert.equal(body.endsWith("\n") || body.endsWith("\r"), false);
     assert.deepEqual(Object.keys(parsed), ["schemaVersion", "classification", "handlerPhase"]);
     assert.deepEqual(parsed, {
-      schemaVersion: "myott.route-failure-observability.v1",
+      schemaVersion: "myott.route-failure-observability.v2",
       classification: "route-handler-failure",
       handlerPhase: phase,
     });
@@ -851,6 +862,286 @@ test("route failure helper has no sink, transport, runtime, or provider-v3 autho
   assert.equal(/process\.|globalThis|TMDB_API_KEY|TMDB_BEARER_TOKEN/.test(source), false);
   assert.equal(/responseReached|transportFailureCategory|Candidate-Lineage|requestId/.test(source), false);
   assert.equal(/JSON\.stringify/.test(source), false);
+});
+
+test("options route activates observability only for the exact non-production qa=1 gate", async () => {
+  const scenarios = [
+    { nodeEnv: "test", qa: "1", expectedCreations: 1 },
+    { nodeEnv: "test", qa: null, expectedCreations: 0 },
+    { nodeEnv: "test", qa: "0", expectedCreations: 0 },
+    { nodeEnv: "test", qa: "01", expectedCreations: 0 },
+    { nodeEnv: "test", qa: "true", expectedCreations: 0 },
+    { nodeEnv: "production", qa: "1", expectedCreations: 0 },
+  ];
+
+  for (const scenario of scenarios) {
+    await withNodeEnvironment(scenario.nodeEnv, async () => {
+      let observerCreations = 0;
+      const activeProvider = {
+        id: "tmdb",
+        name: "TMDB Provider",
+        async getRecommendations() {
+          return { results: [{ id: "product-result" }], relaxedResults: [] };
+        },
+      };
+      const { GET } = await importOptionsRoute({
+        getActiveProvider: () => activeProvider,
+        getFallbackProvider: () => ({ id: "mock", name: "Mock Provider" }),
+        isTmdbProviderEnabled: () => true,
+        createRouteFailureObserver() {
+          observerCreations += 1;
+          return createRouteFailureObserver();
+        },
+      });
+      const query = `types=drama${scenario.qa === null ? "" : `&qa=${scenario.qa}`}`;
+      const body = await (await GET(routeRequest(query))).json();
+
+      assert.equal(observerCreations, scenario.expectedCreations, `${scenario.nodeEnv}:${scenario.qa}`);
+      assert.deepEqual(body.results, [{ id: "product-result" }]);
+      assert.equal(Object.hasOwn(body, "schemaVersion"), false);
+      assert.equal(Object.hasOwn(body, "handlerPhase"), false);
+    });
+  }
+});
+
+test("options route activates after the exact gate and before Product parameter parsing", async () => {
+  await withNodeEnvironment("test", async () => {
+    const order = [];
+    const values = {
+      qa: "1",
+      filters: "genre-horror",
+      types: "drama",
+      requestId: "external-correlation",
+    };
+    const request = {
+      nextUrl: {
+        searchParams: {
+          get(name) {
+            order.push(`lookup:${name}`);
+            return values[name] ?? null;
+          },
+        },
+      },
+    };
+    const activeProvider = {
+      id: "tmdb",
+      name: "TMDB Provider",
+      async getRecommendations() {
+        return { results: [{ id: "product-result" }], relaxedResults: [] };
+      },
+    };
+    const { GET } = await importOptionsRoute({
+      getActiveProvider() {
+        order.push("get-active-provider");
+        return activeProvider;
+      },
+      getFallbackProvider: () => ({ id: "mock", name: "Mock Provider" }),
+      isTmdbProviderEnabled: () => true,
+      createRouteFailureObserver() {
+        order.push("observer:create");
+        const observer = createRouteFailureObserver();
+        return {
+          transition(phase) {
+            order.push(`phase:${phase}`);
+            return observer.transition(phase);
+          },
+          terminalResponse: () => observer.terminalResponse(),
+        };
+      },
+    });
+
+    const body = await (await GET(request)).json();
+    assert.deepEqual(order.slice(0, 9), [
+      "lookup:qa",
+      "observer:create",
+      "phase:qa-activated",
+      "lookup:filters",
+      "lookup:types",
+      "lookup:requestId",
+      "phase:request-parsing-complete",
+      "phase:route-ready",
+      "get-active-provider",
+    ]);
+    assert.deepEqual(body.results, [{ id: "product-result" }]);
+  });
+});
+
+test("a post-gate Product parsing failure emits only the exact qa-activated v2 marker", async () => {
+  await withNodeEnvironment("test", async () => {
+    let activeProviderCalls = 0;
+    const parsingError = new Error("Bearer fake-secret https://unsafe.test/?token=fake C:\\private\\file");
+    const request = {
+      nextUrl: {
+        searchParams: {
+          get(name) {
+            if (name === "qa") return "1";
+            if (name === "filters") throw parsingError;
+            return null;
+          },
+        },
+      },
+    };
+    const { GET } = await importOptionsRoute({
+      getActiveProvider() {
+        activeProviderCalls += 1;
+        return { id: "tmdb", name: "TMDB Provider" };
+      },
+      getFallbackProvider: () => ({ id: "mock", name: "Mock Provider" }),
+      isTmdbProviderEnabled: () => true,
+    });
+
+    const response = await GET(request);
+    const text = await response.text();
+    const body = JSON.parse(text);
+    assert.equal(response.status, 500);
+    assert.equal(response.headers.get("content-type"), "application/json; charset=utf-8");
+    assert.equal(response.headers.get("cache-control"), "no-store");
+    assert.deepEqual(Object.keys(body), ["schemaVersion", "classification", "handlerPhase"]);
+    assert.deepEqual(body, {
+      schemaVersion: "myott.route-failure-observability.v2",
+      classification: "route-handler-failure",
+      handlerPhase: "qa-activated",
+    });
+    assert.equal(activeProviderCalls, 0);
+    for (const token of ["Bearer", "fake-secret", "unsafe.test", "token=fake", "C:\\private\\file"]) {
+      assert.equal(text.includes(token), false, token);
+    }
+  });
+});
+
+test("route-v2 terminal markers contain no Product parameters or native Error data", async () => {
+  await withNodeEnvironment("test", async () => {
+    const injected = [
+      "Bearer fixture-secret",
+      "Authorization: fixture-header",
+      "C:\\fixture\\private.txt",
+      "https://fixture.invalid/private?token=fake",
+      "query-fragment=fake",
+      "X-Fixture-Header: unsafe",
+      "stack-like text",
+    ];
+    const values = {
+      qa: "1",
+      filters: `${injected[0]},${injected[1]}`,
+      types: `${injected[2]},${injected[3]}`,
+      requestId: `${injected[4]} ${injected[5]}`,
+    };
+    const activeError = new Error(injected.join(" | "));
+    activeError.name = "FixtureCredentialError";
+    activeError.cause = { unsafe: injected[6] };
+    activeError.stack = injected[6];
+    const fallbackError = new Error(injected.join(" | "));
+    const request = {
+      nextUrl: {
+        searchParams: {
+          get(name) {
+            return values[name] ?? null;
+          },
+        },
+      },
+    };
+    const { GET } = await importOptionsRoute({
+      getActiveProvider: () => ({
+        id: "tmdb",
+        name: "TMDB Provider",
+        async getRecommendations() {
+          throw activeError;
+        },
+      }),
+      getFallbackProvider: () => ({
+        id: "mock",
+        name: "Mock Provider",
+        async getRecommendations() {
+          throw fallbackError;
+        },
+      }),
+      isTmdbProviderEnabled: () => true,
+    });
+
+    const response = await GET(request);
+    const text = await response.text();
+    assert.deepEqual(JSON.parse(text), {
+      schemaVersion: "myott.route-failure-observability.v2",
+      classification: "route-handler-failure",
+      handlerPhase: "fallback-entered",
+    });
+    for (const token of injected) assert.equal(text.includes(token), false, token);
+    for (const token of [activeError.name, activeError.message, fallbackError.message]) {
+      assert.equal(text.includes(token), false, token);
+    }
+  });
+});
+
+test("observer construction or transition failure cannot replace Product success", async () => {
+  for (const failurePoint of ["construction", "transition"]) {
+    await withNodeEnvironment("test", async () => {
+      let terminalCalls = 0;
+      const activeProvider = {
+        id: "tmdb",
+        name: "TMDB Provider",
+        async getRecommendations() {
+          return { results: [{ id: "preserved-result" }], relaxedResults: [] };
+        },
+      };
+      const { GET } = await importOptionsRoute({
+        getActiveProvider: () => activeProvider,
+        getFallbackProvider: () => ({ id: "mock", name: "Mock Provider" }),
+        isTmdbProviderEnabled: () => true,
+        createRouteFailureObserver() {
+          if (failurePoint === "construction") throw new Error("observer construction failure");
+          return {
+            transition() {
+              throw new Error("observer transition failure");
+            },
+            terminalResponse() {
+              terminalCalls += 1;
+              throw new Error("must not be called");
+            },
+          };
+        },
+      });
+
+      const body = await (await GET(routeRequest("types=drama&qa=1"))).json();
+      assert.deepEqual(body.results, [{ id: "preserved-result" }]);
+      assert.equal(Object.hasOwn(body, "schemaVersion"), false);
+      assert.equal(terminalCalls, 0);
+    });
+  }
+});
+
+test("production parsing failure never exposes route-v2", async () => {
+  await withNodeEnvironment("production", async () => {
+    let qaLookups = 0;
+    let observerCreations = 0;
+    const parsingError = new Error("production parsing failure");
+    const request = {
+      nextUrl: {
+        searchParams: {
+          get(name) {
+            if (name === "qa") {
+              qaLookups += 1;
+              return "1";
+            }
+            if (name === "filters") throw parsingError;
+            return null;
+          },
+        },
+      },
+    };
+    const { GET } = await importOptionsRoute({
+      getActiveProvider: () => ({ id: "tmdb", name: "TMDB Provider" }),
+      getFallbackProvider: () => ({ id: "mock", name: "Mock Provider" }),
+      isTmdbProviderEnabled: () => true,
+      createRouteFailureObserver() {
+        observerCreations += 1;
+        return createRouteFailureObserver();
+      },
+    });
+
+    await assert.rejects(GET(request), (error) => error === parsingError);
+    assert.equal(qaLookups, 0);
+    assert.equal(observerCreations, 0);
+  });
 });
 
 test("options route records only approved phases and leaves successful Product responses unchanged", async () => {
@@ -891,6 +1182,7 @@ test("options route records only approved phases and leaves successful Product r
 
     assert.deepEqual(order, [
       "phase:qa-activated",
+      "phase:request-parsing-complete",
       "phase:route-ready",
       "get-active-provider",
       "phase:active-provider-entered",
@@ -928,7 +1220,7 @@ test("options route records only approved phases and leaves successful Product r
       const query = branch === "empty" ? "qa=1" : "types=drama&qa=1";
       const body = await (await GET(routeRequest(query))).json();
 
-      assert.deepEqual(phases, ["phase:qa-activated", "phase:route-ready"]);
+      assert.deepEqual(phases, ["phase:qa-activated", "phase:request-parsing-complete", "phase:route-ready"]);
       assert.equal(recommendationCalls, branch === "mock" ? 1 : 0);
       assert.equal(Object.hasOwn(body, "schemaVersion"), false);
       assert.equal(Object.hasOwn(body, "classification"), false);
@@ -983,6 +1275,7 @@ test("ordinary active failure preserves fallback eligibility and exact ordering"
 
     assert.deepEqual(order, [
       "phase:qa-activated",
+      "phase:request-parsing-complete",
       "phase:route-ready",
       "get-active-provider",
       "phase:active-provider-entered",
@@ -1045,6 +1338,7 @@ test("active response serialization failure reaches the existing fallback before
 
     assert.deepEqual(order, [
       "phase:qa-activated",
+      "phase:request-parsing-complete",
       "phase:route-ready",
       "phase:active-provider-entered",
       "active-provider-call",
@@ -1108,7 +1402,7 @@ test("fallback provider and fallback serialization failures emit only the bounde
       assert.equal(response.headers.get("content-type"), "application/json; charset=utf-8");
       assert.equal(response.headers.get("cache-control"), "no-store");
       assert.deepEqual(body, {
-        schemaVersion: "myott.route-failure-observability.v1",
+        schemaVersion: "myott.route-failure-observability.v2",
         classification: "route-handler-failure",
         handlerPhase: failurePoint === "provider" ? "fallback-entered" : "fallback-response-started",
       });

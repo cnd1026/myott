@@ -1,5 +1,6 @@
 export const ROUTE_FAILURE_HANDLER_PHASES = Object.freeze([
   "qa-activated",
+  "request-parsing-complete",
   "route-ready",
   "active-provider-entered",
   "active-response-started",
@@ -10,7 +11,8 @@ export const ROUTE_FAILURE_HANDLER_PHASES = Object.freeze([
 
 const ROUTE_FAILURE_TRANSITIONS = Object.freeze({
   "": Object.freeze(["qa-activated"]),
-  "qa-activated": Object.freeze(["route-ready"]),
+  "qa-activated": Object.freeze(["request-parsing-complete"]),
+  "request-parsing-complete": Object.freeze(["route-ready"]),
   "route-ready": Object.freeze(["active-provider-entered"]),
   "active-provider-entered": Object.freeze(["active-response-started", "active-failure-caught"]),
   "active-response-started": Object.freeze(["active-failure-caught"]),
@@ -20,13 +22,14 @@ const ROUTE_FAILURE_TRANSITIONS = Object.freeze({
 });
 
 const ROUTE_FAILURE_BODIES = Object.freeze({
-  "qa-activated": "{\"schemaVersion\":\"myott.route-failure-observability.v1\",\"classification\":\"route-handler-failure\",\"handlerPhase\":\"qa-activated\"}",
-  "route-ready": "{\"schemaVersion\":\"myott.route-failure-observability.v1\",\"classification\":\"route-handler-failure\",\"handlerPhase\":\"route-ready\"}",
-  "active-provider-entered": "{\"schemaVersion\":\"myott.route-failure-observability.v1\",\"classification\":\"route-handler-failure\",\"handlerPhase\":\"active-provider-entered\"}",
-  "active-response-started": "{\"schemaVersion\":\"myott.route-failure-observability.v1\",\"classification\":\"route-handler-failure\",\"handlerPhase\":\"active-response-started\"}",
-  "active-failure-caught": "{\"schemaVersion\":\"myott.route-failure-observability.v1\",\"classification\":\"route-handler-failure\",\"handlerPhase\":\"active-failure-caught\"}",
-  "fallback-entered": "{\"schemaVersion\":\"myott.route-failure-observability.v1\",\"classification\":\"route-handler-failure\",\"handlerPhase\":\"fallback-entered\"}",
-  "fallback-response-started": "{\"schemaVersion\":\"myott.route-failure-observability.v1\",\"classification\":\"route-handler-failure\",\"handlerPhase\":\"fallback-response-started\"}",
+  "qa-activated": "{\"schemaVersion\":\"myott.route-failure-observability.v2\",\"classification\":\"route-handler-failure\",\"handlerPhase\":\"qa-activated\"}",
+  "request-parsing-complete": "{\"schemaVersion\":\"myott.route-failure-observability.v2\",\"classification\":\"route-handler-failure\",\"handlerPhase\":\"request-parsing-complete\"}",
+  "route-ready": "{\"schemaVersion\":\"myott.route-failure-observability.v2\",\"classification\":\"route-handler-failure\",\"handlerPhase\":\"route-ready\"}",
+  "active-provider-entered": "{\"schemaVersion\":\"myott.route-failure-observability.v2\",\"classification\":\"route-handler-failure\",\"handlerPhase\":\"active-provider-entered\"}",
+  "active-response-started": "{\"schemaVersion\":\"myott.route-failure-observability.v2\",\"classification\":\"route-handler-failure\",\"handlerPhase\":\"active-response-started\"}",
+  "active-failure-caught": "{\"schemaVersion\":\"myott.route-failure-observability.v2\",\"classification\":\"route-handler-failure\",\"handlerPhase\":\"active-failure-caught\"}",
+  "fallback-entered": "{\"schemaVersion\":\"myott.route-failure-observability.v2\",\"classification\":\"route-handler-failure\",\"handlerPhase\":\"fallback-entered\"}",
+  "fallback-response-started": "{\"schemaVersion\":\"myott.route-failure-observability.v2\",\"classification\":\"route-handler-failure\",\"handlerPhase\":\"fallback-response-started\"}",
 });
 
 export function createRouteFailureObserver() {
@@ -36,13 +39,18 @@ export function createRouteFailureObserver() {
   return Object.freeze({
     transition(nextPhase) {
       if (!valid) return false;
-      const allowed = ROUTE_FAILURE_TRANSITIONS[phase || ""];
-      if (!allowed?.includes(nextPhase)) {
+      try {
+        const allowed = ROUTE_FAILURE_TRANSITIONS[phase || ""];
+        if (!allowed?.includes(nextPhase)) {
+          valid = false;
+          return false;
+        }
+        phase = nextPhase;
+        return true;
+      } catch {
         valid = false;
         return false;
       }
-      phase = nextPhase;
-      return true;
     },
 
     terminalResponse() {
