@@ -155,6 +155,22 @@ function Get-FounderPropertyValue {
   return $property.Value
 }
 
+function ConvertTo-FounderUtcDateTime {
+  param(
+    [Parameter(Mandatory = $true)]
+    $Value
+  )
+
+  if ($Value -is [datetime]) {
+    return ([datetime]$Value).ToUniversalTime()
+  }
+  return [datetime]::Parse(
+    [string]$Value,
+    [System.Globalization.CultureInfo]::InvariantCulture,
+    [System.Globalization.DateTimeStyles]::RoundtripKind
+  ).ToUniversalTime()
+}
+
 function Test-FounderPortCanBeAllocated {
   param(
     [Parameter(Mandatory = $true)]
@@ -231,6 +247,354 @@ function Get-FounderGitInfo {
   }
 
   return [pscustomobject]$result
+}
+
+function Get-FounderGitRepositoryIdentity {
+  param(
+    [Parameter(Mandatory = $true)]
+    [string]$RepositoryPath
+  )
+
+  $normalizedRepositoryPath = Normalize-FounderRepositoryPath -Path $RepositoryPath
+  try {
+    $safeDirectoryArgument = "safe.directory=$normalizedRepositoryPath"
+    $topLevel = (& git -c $safeDirectoryArgument -C $normalizedRepositoryPath rev-parse --path-format=absolute --show-toplevel 2>$null | Select-Object -First 1).Trim()
+    $commonDirectory = (& git -c $safeDirectoryArgument -C $normalizedRepositoryPath rev-parse --path-format=absolute --git-common-dir 2>$null | Select-Object -First 1).Trim()
+    $remote = (& git -c $safeDirectoryArgument -C $normalizedRepositoryPath config --get remote.origin.url 2>$null | Select-Object -First 1).Trim()
+  } catch {
+    return $null
+  }
+
+  if ([string]::IsNullOrWhiteSpace($topLevel) -or
+    [string]::IsNullOrWhiteSpace($commonDirectory) -or
+    [string]::IsNullOrWhiteSpace($remote)) {
+    return $null
+  }
+
+  return [pscustomobject]@{
+    RepositoryPath = Normalize-FounderRepositoryPath -Path $topLevel
+    CommonDirectory = Normalize-FounderRepositoryPath -Path $commonDirectory
+    Remote = $remote.TrimEnd('/')
+  }
+}
+
+function Test-FounderGitRepositoryIdentityEqual {
+  param(
+    $Left,
+    $Right
+  )
+
+  if ($null -eq $Left -or $null -eq $Right) {
+    return $false
+  }
+
+  return (Test-FounderRepositoryPathEqual -Left $Left.CommonDirectory -Right $Right.CommonDirectory) -and
+    [string]::Equals([string]$Left.Remote, [string]$Right.Remote, [System.StringComparison]::OrdinalIgnoreCase)
+}
+
+function Get-FounderPrimaryWorktreePath {
+  param(
+    [Parameter(Mandatory = $true)]
+    $RepositoryIdentity
+  )
+
+  $commonDirectory = Normalize-FounderRepositoryPath -Path $RepositoryIdentity.CommonDirectory
+  if ((Split-Path -Leaf $commonDirectory) -ne '.git') {
+    return $null
+  }
+
+  $candidate = Normalize-FounderRepositoryPath -Path (Split-Path -Parent $commonDirectory)
+  $candidateIdentity = Get-FounderGitRepositoryIdentity -RepositoryPath $candidate
+  if (-not (Test-FounderGitRepositoryIdentityEqual -Left $RepositoryIdentity -Right $candidateIdentity)) {
+    return $null
+  }
+  return $candidate
+}
+
+function Get-FounderPackageContract {
+  param(
+    [Parameter(Mandatory = $true)]
+    [string]$RepositoryPath
+  )
+
+  $packagePath = Join-Path $RepositoryPath 'package.json'
+  if (-not (Test-Path -LiteralPath $packagePath)) {
+    return $null
+  }
+
+  try {
+    $package = Get-Content -LiteralPath $packagePath -Raw | ConvertFrom-Json
+  } catch {
+    return $null
+  }
+
+  return [pscustomobject]@{
+    Next = [string](Get-FounderPropertyValue -Object $package.dependencies -Name 'next' -DefaultValue '')
+    React = [string](Get-FounderPropertyValue -Object $package.dependencies -Name 'react' -DefaultValue '')
+    ReactDom = [string](Get-FounderPropertyValue -Object $package.dependencies -Name 'react-dom' -DefaultValue '')
+  }
+}
+
+function Get-FounderInstalledRuntime {
+  param(
+    [Parameter(Mandatory = $true)]
+    [string]$RepositoryPath
+  )
+
+  $dependencyRoot = Join-Path $RepositoryPath 'node_modules'
+  $nextCliPath = Join-Path $dependencyRoot 'next\dist\bin\next'
+  $versions = [ordered]@{}
+  foreach ($packageName in @('next', 'react', 'react-dom')) {
+    $manifestPath = Join-Path $dependencyRoot "$packageName\package.json"
+    if (-not (Test-Path -LiteralPath $manifestPath)) {
+      return $null
+    }
+    try {
+      $manifest = Get-Content -LiteralPath $manifestPath -Raw | ConvertFrom-Json
+      $versions[$packageName] = [string]$manifest.version
+    } catch {
+      return $null
+    }
+  }
+
+  if (-not (Test-Path -LiteralPath $nextCliPath)) {
+    return $null
+  }
+
+  return [pscustomobject]@{
+    DependencyRoot = $dependencyRoot
+    NextCliPath = $nextCliPath
+    NextVersion = $versions.next
+    ReactVersion = $versions.react
+    ReactDomVersion = $versions.'react-dom'
+  }
+}
+
+function ConvertFrom-FounderStableSemVer {
+  param(
+    [AllowNull()]
+    [string]$Version
+  )
+
+  if ([string]::IsNullOrWhiteSpace($Version)) {
+    return $null
+  }
+
+  $match = [System.Text.RegularExpressions.Regex]::Match(
+    $Version,
+    '^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$'
+  )
+  if (-not $match.Success) {
+    return $null
+  }
+
+  $major = 0
+  $minor = 0
+  $patch = 0
+  if (-not [int]::TryParse($match.Groups[1].Value, [ref]$major) -or
+    -not [int]::TryParse($match.Groups[2].Value, [ref]$minor) -or
+    -not [int]::TryParse($match.Groups[3].Value, [ref]$patch)) {
+    return $null
+  }
+
+  return [pscustomobject]@{ Major = $major; Minor = $minor; Patch = $patch }
+}
+
+function Compare-FounderSemanticVersion {
+  param(
+    [Parameter(Mandatory = $true)]
+    $Left,
+    [Parameter(Mandatory = $true)]
+    $Right
+  )
+
+  foreach ($propertyName in @('Major', 'Minor', 'Patch')) {
+    $leftValue = [int]$Left.$propertyName
+    $rightValue = [int]$Right.$propertyName
+    if ($leftValue -lt $rightValue) { return -1 }
+    if ($leftValue -gt $rightValue) { return 1 }
+  }
+  return 0
+}
+
+function Test-FounderSemanticVersionSatisfiesRange {
+  param(
+    [AllowNull()]
+    [string]$Range,
+    [AllowNull()]
+    [string]$InstalledVersion
+  )
+
+  if ([string]::IsNullOrWhiteSpace($Range) -or -not $Range.StartsWith('^')) {
+    return $false
+  }
+
+  $minimum = ConvertFrom-FounderStableSemVer -Version $Range.Substring(1)
+  $installed = ConvertFrom-FounderStableSemVer -Version $InstalledVersion
+  if ($null -eq $minimum -or $null -eq $installed) {
+    return $false
+  }
+  if ((Compare-FounderSemanticVersion -Left $installed -Right $minimum) -lt 0) {
+    return $false
+  }
+
+  if ($minimum.Major -gt 0) {
+    if ($minimum.Major -eq [int]::MaxValue) { return $false }
+    $upper = [pscustomobject]@{ Major = $minimum.Major + 1; Minor = 0; Patch = 0 }
+  } elseif ($minimum.Minor -gt 0) {
+    if ($minimum.Minor -eq [int]::MaxValue) { return $false }
+    $upper = [pscustomobject]@{ Major = 0; Minor = $minimum.Minor + 1; Patch = 0 }
+  } else {
+    if ($minimum.Patch -eq [int]::MaxValue) { return $false }
+    $upper = [pscustomobject]@{ Major = 0; Minor = 0; Patch = $minimum.Patch + 1 }
+  }
+
+  return (Compare-FounderSemanticVersion -Left $installed -Right $upper) -lt 0
+}
+
+function Get-FounderDependencyCompatibility {
+  param(
+    $TargetContract,
+    $SourceContract,
+    $InstalledRuntime
+  )
+
+  $checks = [ordered]@{}
+  $compatible = $null -ne $TargetContract -and $null -ne $SourceContract -and $null -ne $InstalledRuntime
+  foreach ($definition in @(
+      @{ Name = 'Next'; Installed = 'NextVersion' },
+      @{ Name = 'React'; Installed = 'ReactVersion' },
+      @{ Name = 'ReactDom'; Installed = 'ReactDomVersion' }
+    )) {
+    $targetRange = [string](Get-FounderPropertyValue -Object $TargetContract -Name $definition.Name -DefaultValue '')
+    $sourceRange = [string](Get-FounderPropertyValue -Object $SourceContract -Name $definition.Name -DefaultValue '')
+    $installedVersion = [string](Get-FounderPropertyValue -Object $InstalledRuntime -Name $definition.Installed -DefaultValue '')
+    $declarationsMatch = -not [string]::IsNullOrWhiteSpace($targetRange) -and
+      [string]::Equals($targetRange, $sourceRange, [System.StringComparison]::Ordinal)
+    $installedSatisfiesTarget = $declarationsMatch -and
+      (Test-FounderSemanticVersionSatisfiesRange -Range $targetRange -InstalledVersion $installedVersion)
+    $checks[$definition.Name] = [pscustomobject]@{
+      DeclaredRange = $targetRange
+      InstalledVersion = $installedVersion
+      DeclarationsMatch = $declarationsMatch
+      InstalledSatisfiesTarget = $installedSatisfiesTarget
+    }
+    if (-not $installedSatisfiesTarget) {
+      $compatible = $false
+    }
+  }
+
+  return [pscustomobject]@{
+    Compatible = [bool]$compatible
+    Packages = [pscustomobject]$checks
+  }
+}
+
+function Test-FounderDependencyContractCompatible {
+  param(
+    $TargetContract,
+    $SourceContract,
+    $InstalledRuntime
+  )
+
+  return [bool](Get-FounderDependencyCompatibility `
+      -TargetContract $TargetContract `
+      -SourceContract $SourceContract `
+      -InstalledRuntime $InstalledRuntime).Compatible
+}
+
+function Get-FounderEnvironmentSource {
+  param(
+    [Parameter(Mandatory = $true)]
+    [string]$TargetRepositoryPath,
+    [AllowNull()]
+    [string]$PrimaryRepositoryPath,
+    [bool]$SameRepository
+  )
+
+  $targetEnvironmentPath = Join-Path $TargetRepositoryPath '.env.local'
+  if (Test-Path -LiteralPath $targetEnvironmentPath) {
+    return [pscustomobject]@{ Classification = 'TARGET_LOCAL_ENV'; Path = '' }
+  }
+
+  if ($SameRepository -and -not [string]::IsNullOrWhiteSpace($PrimaryRepositoryPath)) {
+    $primaryEnvironmentPath = Join-Path $PrimaryRepositoryPath '.env.local'
+    if (Test-Path -LiteralPath $primaryEnvironmentPath) {
+      return [pscustomobject]@{ Classification = 'SAME_REPOSITORY_PRIMARY_ENV'; Path = $primaryEnvironmentPath }
+    }
+  }
+
+  return [pscustomobject]@{ Classification = 'NO_ENV_FILE'; Path = '' }
+}
+
+function Resolve-FounderRuntime {
+  param(
+    [Parameter(Mandatory = $true)]
+    [string]$RepositoryPath
+  )
+
+  $targetPath = Normalize-FounderRepositoryPath -Path $RepositoryPath
+  $targetIdentity = Get-FounderGitRepositoryIdentity -RepositoryPath $targetPath
+  if ($null -eq $targetIdentity) {
+    throw 'Target Git repository identity could not be resolved.'
+  }
+  $targetContract = Get-FounderPackageContract -RepositoryPath $targetPath
+  if ($null -eq $targetContract) {
+    throw 'Target dependency contract could not be read.'
+  }
+
+  $primaryPath = Get-FounderPrimaryWorktreePath -RepositoryIdentity $targetIdentity
+  $primaryIdentity = if ([string]::IsNullOrWhiteSpace($primaryPath)) { $null } else { Get-FounderGitRepositoryIdentity -RepositoryPath $primaryPath }
+  $sameRepository = Test-FounderGitRepositoryIdentityEqual -Left $targetIdentity -Right $primaryIdentity
+  $dependencySourcePath = $targetPath
+  $dependencyClassification = 'TARGET_LOCAL_DEPENDENCIES'
+  $installedRuntime = Get-FounderInstalledRuntime -RepositoryPath $targetPath
+  $sourceContract = $targetContract
+
+  if ($null -eq $installedRuntime) {
+    if (-not $sameRepository -or (Test-FounderRepositoryPathEqual -Left $targetPath -Right $primaryPath)) {
+      throw 'No compatible target-local or same-repository shared dependency runtime is available.'
+    }
+    $dependencySourcePath = $primaryPath
+    $dependencyClassification = 'SAME_REPOSITORY_SHARED_DEPENDENCIES'
+    $sourceContract = Get-FounderPackageContract -RepositoryPath $dependencySourcePath
+    $installedRuntime = Get-FounderInstalledRuntime -RepositoryPath $dependencySourcePath
+  }
+
+  $dependencyCompatibility = Get-FounderDependencyCompatibility `
+    -TargetContract $targetContract `
+    -SourceContract $sourceContract `
+    -InstalledRuntime $installedRuntime
+  if (-not $dependencyCompatibility.Compatible) {
+    throw 'The dependency source is incompatible with the target next/react/react-dom contract.'
+  }
+
+  $nodeCommand = Get-Command node.exe -ErrorAction SilentlyContinue | Select-Object -First 1
+  if ($null -eq $nodeCommand) {
+    $nodeCommand = Get-Command node -ErrorAction SilentlyContinue | Select-Object -First 1
+  }
+  if ($null -eq $nodeCommand) {
+    throw 'Node executable could not be resolved.'
+  }
+
+  $environmentSource = Get-FounderEnvironmentSource `
+    -TargetRepositoryPath $targetPath `
+    -PrimaryRepositoryPath $primaryPath `
+    -SameRepository $sameRepository
+
+  return [pscustomobject]@{
+    NodeExecutable = [string]$nodeCommand.Source
+    NextCliPath = $installedRuntime.NextCliPath
+    DependencyRoot = $installedRuntime.DependencyRoot
+    DependencySourceRepository = $dependencySourcePath
+    DependencySourceClassification = $dependencyClassification
+    EnvironmentSourceClassification = $environmentSource.Classification
+    EnvironmentFilePath = $environmentSource.Path
+    NextVersion = $installedRuntime.NextVersion
+    ReactVersion = $installedRuntime.ReactVersion
+    ReactDomVersion = $installedRuntime.ReactDomVersion
+    DependencyCompatibility = $dependencyCompatibility
+  }
 }
 
 function Test-FounderRepositoryPathEqual {
@@ -456,21 +820,292 @@ function Test-FounderCommandLineReferencesRepository {
   return [System.Text.RegularExpressions.Regex]::IsMatch($normalizedCommandLine, $pattern)
 }
 
-function Test-FounderCommandLooksLikeDevServer {
+function ConvertFrom-FounderWindowsCommandLine {
   param(
     [AllowNull()]
     [string]$CommandLine
   )
 
   if ([string]::IsNullOrWhiteSpace($CommandLine)) {
+    return [pscustomobject]@{ Success = $false; Tokens = @() }
+  }
+
+  $tokens = New-Object System.Collections.Generic.List[string]
+  $builder = New-Object System.Text.StringBuilder
+  $inQuotes = $false
+  $tokenStarted = $false
+  for ($index = 0; $index -lt $CommandLine.Length; $index++) {
+    $character = $CommandLine[$index]
+    if ($character -eq '"') {
+      $inQuotes = -not $inQuotes
+      $tokenStarted = $true
+      continue
+    }
+    if ([char]::IsWhiteSpace($character) -and -not $inQuotes) {
+      if ($tokenStarted) {
+        $tokens.Add($builder.ToString())
+        [void]$builder.Clear()
+        $tokenStarted = $false
+      }
+      continue
+    }
+    [void]$builder.Append($character)
+    $tokenStarted = $true
+  }
+
+  if ($inQuotes) {
+    return [pscustomobject]@{ Success = $false; Tokens = @() }
+  }
+  if ($tokenStarted) {
+    $tokens.Add($builder.ToString())
+  }
+  if ($tokens.Count -eq 0 -or @($tokens | Where-Object { [string]::IsNullOrWhiteSpace($_) }).Count -gt 0) {
+    return [pscustomobject]@{ Success = $false; Tokens = @() }
+  }
+
+  return [pscustomobject]@{ Success = $true; Tokens = @($tokens) }
+}
+
+function Test-FounderOfficialNextCliPath {
+  param(
+    [Parameter(Mandatory = $true)]
+    [string]$CandidatePath,
+    [Parameter(Mandatory = $true)]
+    [string]$RepositoryPath
+  )
+
+  try {
+    $candidate = Normalize-FounderRepositoryPath -Path $CandidatePath
+    $targetCli = Normalize-FounderRepositoryPath `
+      -Path (Join-Path $RepositoryPath 'node_modules\next\dist\bin\next')
+    if (Test-FounderRepositoryPathEqual -Left $candidate -Right $targetCli) {
+      return $true
+    }
+
+    $segments = @($candidate.Replace('/', '\').Split('\', [System.StringSplitOptions]::RemoveEmptyEntries))
+    if ($segments.Count -lt 5) {
+      return $false
+    }
+    $requiredSuffix = @('node_modules', 'next', 'dist', 'bin', 'next')
+    for ($offset = 0; $offset -lt $requiredSuffix.Count; $offset++) {
+      $actualSegment = $segments[$segments.Count - $requiredSuffix.Count + $offset]
+      if (-not [string]::Equals($actualSegment, $requiredSuffix[$offset], [System.StringComparison]::OrdinalIgnoreCase)) {
+        return $false
+      }
+    }
+
+    $runtime = Resolve-FounderRuntime -RepositoryPath $RepositoryPath
+    return Test-FounderRepositoryPathEqual -Left $candidate -Right $runtime.NextCliPath
+  } catch {
+    return $false
+  }
+}
+
+function Get-FounderCanonicalNextDevCommand {
+  param(
+    [AllowNull()]
+    [string]$CommandLine,
+    [Parameter(Mandatory = $true)]
+    [string]$RepositoryPath
+  )
+
+  $result = [ordered]@{
+    IsCanonical = $false
+    NodeOptions = @()
+    OfficialNextCli = ''
+    DevSubcommand = ''
+    ApplicationDirectory = ''
+    ApplicationMatchesTarget = $false
+  }
+  $parsed = ConvertFrom-FounderWindowsCommandLine -CommandLine $CommandLine
+  if (-not $parsed.Success -or $parsed.Tokens.Count -lt 4) {
+    return [pscustomobject]$result
+  }
+
+  $executableName = [System.IO.Path]::GetFileName([string]$parsed.Tokens[0])
+  if ($executableName -notin @('node', 'node.exe')) {
+    return [pscustomobject]$result
+  }
+
+  $scriptIndex = 1
+  $nodeOptions = @()
+  $nodeOption = [string]$parsed.Tokens[$scriptIndex]
+  if ($nodeOption -like '--env-file=*') {
+    if ([string]::IsNullOrWhiteSpace($nodeOption.Substring('--env-file='.Length))) {
+      return [pscustomobject]$result
+    }
+    $nodeOptions += $nodeOption
+    $scriptIndex++
+  } elseif ([string]::Equals($nodeOption, '--env-file', [System.StringComparison]::OrdinalIgnoreCase)) {
+    if ($parsed.Tokens.Count -le $scriptIndex + 1 -or
+      [string]::IsNullOrWhiteSpace([string]$parsed.Tokens[$scriptIndex + 1])) {
+      return [pscustomobject]$result
+    }
+    $nodeOptions += @($nodeOption, [string]$parsed.Tokens[$scriptIndex + 1])
+    $scriptIndex += 2
+  }
+  $result.NodeOptions = @($nodeOptions)
+
+  if ($parsed.Tokens.Count -le $scriptIndex + 2) {
+    return [pscustomobject]$result
+  }
+  if (-not [string]::Equals(
+      [string]$parsed.Tokens[$scriptIndex + 1],
+      'dev',
+      [System.StringComparison]::OrdinalIgnoreCase
+    )) {
+    return [pscustomobject]$result
+  }
+  $result.DevSubcommand = 'dev'
+
+  $nextCli = [string]$parsed.Tokens[$scriptIndex]
+  if (-not (Test-FounderOfficialNextCliPath -CandidatePath $nextCli -RepositoryPath $RepositoryPath)) {
+    return [pscustomobject]$result
+  }
+  $result.OfficialNextCli = Normalize-FounderRepositoryPath -Path $nextCli
+
+  $applicationDirectory = [string]$parsed.Tokens[$scriptIndex + 2]
+  if ([string]::IsNullOrWhiteSpace($applicationDirectory) -or $applicationDirectory.StartsWith('-')) {
+    return [pscustomobject]$result
+  }
+  try {
+    $result.ApplicationDirectory = Normalize-FounderRepositoryPath -Path $applicationDirectory
+  } catch {
+    return [pscustomobject]$result
+  }
+  $result.ApplicationMatchesTarget = Test-FounderRepositoryPathEqual `
+    -Left $result.ApplicationDirectory `
+    -Right $RepositoryPath
+
+  $nextOptionIndex = $scriptIndex + 3
+  if ($parsed.Tokens.Count -gt $nextOptionIndex) {
+    if ($parsed.Tokens.Count -ne $nextOptionIndex + 4 -or
+      -not [string]::Equals([string]$parsed.Tokens[$nextOptionIndex], '--hostname', [System.StringComparison]::OrdinalIgnoreCase) -or
+      [string]::IsNullOrWhiteSpace([string]$parsed.Tokens[$nextOptionIndex + 1]) -or
+      -not [string]::Equals([string]$parsed.Tokens[$nextOptionIndex + 2], '--port', [System.StringComparison]::OrdinalIgnoreCase) -or
+      [string]$parsed.Tokens[$nextOptionIndex + 3] -notmatch '^\d+$') {
+      return [pscustomobject]$result
+    }
+  }
+
+  $result.IsCanonical = $true
+  return [pscustomobject]$result
+}
+
+function Test-FounderCommandLooksLikeDevServer {
+  param(
+    [AllowNull()]
+    [string]$CommandLine,
+    [Parameter(Mandatory = $true)]
+    [string]$RepositoryPath
+  )
+
+  $canonicalCommand = Get-FounderCanonicalNextDevCommand `
+    -CommandLine $CommandLine `
+    -RepositoryPath $RepositoryPath
+  return [bool]$canonicalCommand.IsCanonical
+}
+
+function Test-FounderProcessChainRelationship {
+  param(
+    [Parameter(Mandatory = $true)]
+    [AllowEmptyCollection()]
+    [object[]]$Chain,
+    [Parameter(Mandatory = $true)]
+    [int]$ListenerProcessId,
+    [Parameter(Mandatory = $true)]
+    [int]$AncestorProcessId
+  )
+
+  if ($Chain.Count -eq 0 -or [int]$Chain[0].ProcessId -ne $ListenerProcessId) {
     return $false
   }
 
-  $lower = $CommandLine.ToLowerInvariant()
-  return ($lower.Contains('next') -and $lower.Contains(' dev')) -or
-    $lower.Contains('next\dist\server\lib\start-server.js') -or
-    $lower.Contains('next/dist/server/lib/start-server.js') -or
-    ($lower.Contains('pnpm') -and $lower.Contains(' dev'))
+  for ($index = 0; $index -lt $Chain.Count; $index++) {
+    $current = $Chain[$index]
+    if ([int]$current.ProcessId -eq $AncestorProcessId) {
+      return $true
+    }
+    if ($index + 1 -ge $Chain.Count -or
+      [int]$current.ParentProcessId -ne [int]$Chain[$index + 1].ProcessId) {
+      return $false
+    }
+  }
+
+  return $false
+}
+
+function Get-FounderProcessOwnershipFromChain {
+  param(
+    [Parameter(Mandatory = $true)]
+    [AllowEmptyCollection()]
+    [object[]]$Chain,
+    [Parameter(Mandatory = $true)]
+    [int]$ProcessId,
+    [Parameter(Mandatory = $true)]
+    [string]$RepositoryPath
+  )
+
+  if ($Chain.Count -eq 0 -or [int]$Chain[0].ProcessId -ne $ProcessId) {
+    return [pscustomobject]@{
+      Owned = $false
+      Reason = 'process-metadata-unavailable'
+      Process = $null
+      ProvingProcess = $null
+      ProvingProcessId = 0
+      ListenerDescendsFromProvingProcess = $false
+      Chain = @($Chain)
+    }
+  }
+
+  $referencesRepository = $false
+  $looksLikeDevServer = $false
+  $provingProcess = $null
+  foreach ($process in $Chain) {
+    $repositoryTextProof = Test-FounderCommandLineReferencesRepository `
+      -CommandLine $process.CommandLine `
+      -RepositoryPath $RepositoryPath
+    $canonicalCommand = Get-FounderCanonicalNextDevCommand `
+      -CommandLine $process.CommandLine `
+      -RepositoryPath $RepositoryPath
+    $repositoryProof = [bool]$canonicalCommand.ApplicationMatchesTarget
+    $nextProof = [bool]$canonicalCommand.IsCanonical
+    $referencesRepository = $referencesRepository -or $repositoryTextProof
+    $looksLikeDevServer = $looksLikeDevServer -or $nextProof
+    if ($repositoryProof -and $nextProof) {
+      $provingProcess = $process
+      break
+    }
+  }
+
+  $listenerDescends = $null -ne $provingProcess -and
+    (Test-FounderProcessChainRelationship `
+      -Chain $Chain `
+      -ListenerProcessId $ProcessId `
+      -AncestorProcessId ([int]$provingProcess.ProcessId))
+  $owned = $null -ne $provingProcess -and $listenerDescends
+  $reason = 'command-line-does-not-prove-repository-ownership'
+  if ($owned) {
+    $reason = 'single-process-repository-path-and-next-dev-confirmed'
+  } elseif ($null -ne $provingProcess) {
+    $reason = 'listener-ancestry-to-proving-process-unverified'
+  } elseif ($referencesRepository -and $looksLikeDevServer) {
+    $reason = 'split-process-repository-and-next-dev-evidence-rejected'
+  } elseif ($referencesRepository) {
+    $reason = 'repository-path-found-but-dev-server-command-missing'
+  } elseif ($looksLikeDevServer) {
+    $reason = 'dev-server-command-found-without-repository-path'
+  }
+
+  return [pscustomobject]@{
+    Owned = $owned
+    Reason = $reason
+    Process = $Chain[0]
+    ProvingProcess = if ($owned) { $provingProcess } else { $null }
+    ProvingProcessId = if ($owned) { [int]$provingProcess.ProcessId } else { 0 }
+    ListenerDescendsFromProvingProcess = $listenerDescends
+    Chain = @($Chain)
+  }
 }
 
 function Get-FounderProcessOwnership {
@@ -482,42 +1117,10 @@ function Get-FounderProcessOwnership {
   )
 
   $chain = @(Get-FounderProcessAncestors -ProcessId $ProcessId)
-  if ($chain.Count -eq 0) {
-    return [pscustomobject]@{
-      Owned = $false
-      Reason = 'process-metadata-unavailable'
-      Process = $null
-      Chain = @()
-    }
-  }
-
-  $referencesRepository = $false
-  $looksLikeDevServer = $false
-  foreach ($process in $chain) {
-    if (Test-FounderCommandLineReferencesRepository -CommandLine $process.CommandLine -RepositoryPath $RepositoryPath) {
-      $referencesRepository = $true
-    }
-    if (Test-FounderCommandLooksLikeDevServer -CommandLine $process.CommandLine) {
-      $looksLikeDevServer = $true
-    }
-  }
-
-  $owned = $referencesRepository -and $looksLikeDevServer
-  $reason = 'command-line-does-not-prove-repository-ownership'
-  if ($owned) {
-    $reason = 'repository-path-and-dev-server-command-confirmed'
-  } elseif ($referencesRepository) {
-    $reason = 'repository-path-found-but-dev-server-command-missing'
-  } elseif ($looksLikeDevServer) {
-    $reason = 'dev-server-command-found-without-repository-path'
-  }
-
-  return [pscustomobject]@{
-    Owned = $owned
-    Reason = $reason
-    Process = $chain[0]
-    Chain = $chain
-  }
+  return Get-FounderProcessOwnershipFromChain `
+    -Chain $chain `
+    -ProcessId $ProcessId `
+    -RepositoryPath $RepositoryPath
 }
 
 function Test-FounderStateSchema {
@@ -535,6 +1138,7 @@ function Test-FounderStateSchema {
     'requestedHost',
     'requestedPort',
     'launcherPid',
+    'launcherStartedAt',
     'listenerPid',
     'listenerStartedAt',
     'startedAt',
@@ -558,7 +1162,10 @@ function Test-FounderStateProcessIdentity {
     [Parameter(Mandatory = $true)]
     $ProcessMetadata,
     [Parameter(Mandatory = $true)]
-    [string]$RepositoryPath
+    [string]$RepositoryPath,
+    $Ownership = $null,
+    [string]$ExpectedHost = '127.0.0.1',
+    [int]$ExpectedPort = 3000
   )
 
   if (-not (Test-FounderStateSchema -State $State)) {
@@ -571,10 +1178,13 @@ function Test-FounderStateProcessIdentity {
     (Normalize-FounderRepositoryPath -Path $RepositoryPath)) {
     return $false
   }
+  if ([string]$State.requestedHost -ne $ExpectedHost -or [int]$State.requestedPort -ne $ExpectedPort) {
+    return $false
+  }
 
   try {
-    $stateStart = [datetime]::Parse([string]$State.listenerStartedAt).ToUniversalTime()
-    $actualStart = [datetime]::Parse([string]$ProcessMetadata.StartTime).ToUniversalTime()
+    $stateStart = ConvertTo-FounderUtcDateTime -Value $State.listenerStartedAt
+    $actualStart = ConvertTo-FounderUtcDateTime -Value $ProcessMetadata.StartTime
     if ([math]::Abs(($stateStart - $actualStart).TotalSeconds) -gt 2) {
       return $false
     }
@@ -582,10 +1192,56 @@ function Test-FounderStateProcessIdentity {
     return $false
   }
 
-  if (-not (Test-FounderCommandLineReferencesRepository -CommandLine $ProcessMetadata.CommandLine -RepositoryPath $RepositoryPath)) {
+  if ($null -eq $Ownership) {
+    $listenerCommand = Get-FounderCanonicalNextDevCommand `
+      -CommandLine $ProcessMetadata.CommandLine `
+      -RepositoryPath $RepositoryPath
+    $listenerProvesIdentity = $listenerCommand.IsCanonical -and $listenerCommand.ApplicationMatchesTarget
+    if ($listenerProvesIdentity) {
+      $Ownership = Get-FounderProcessOwnershipFromChain `
+        -Chain @($ProcessMetadata) `
+        -ProcessId ([int]$ProcessMetadata.ProcessId) `
+        -RepositoryPath $RepositoryPath
+    } else {
+      $Ownership = Get-FounderProcessOwnership -ProcessId $ProcessMetadata.ProcessId -RepositoryPath $RepositoryPath
+    }
+  }
+  if ($null -eq $Ownership -or @($Ownership.Chain).Count -eq 0) {
     return $false
   }
-  if (-not (Test-FounderCommandLooksLikeDevServer -CommandLine $ProcessMetadata.CommandLine)) {
+  try {
+    $ownershipListenerStart = ConvertTo-FounderUtcDateTime -Value $Ownership.Chain[0].StartTime
+    if ([int]$Ownership.Chain[0].ProcessId -ne [int]$ProcessMetadata.ProcessId -or
+      [math]::Abs(($ownershipListenerStart - $actualStart).TotalSeconds) -gt 2 -or
+      -not [string]::Equals(
+        [string]$Ownership.Chain[0].CommandLine,
+        [string]$ProcessMetadata.CommandLine,
+        [System.StringComparison]::Ordinal
+      )) {
+      return $false
+    }
+  } catch {
+    return $false
+  }
+
+  $verifiedOwnership = Get-FounderProcessOwnershipFromChain `
+    -Chain @($Ownership.Chain) `
+    -ProcessId ([int]$ProcessMetadata.ProcessId) `
+    -RepositoryPath $RepositoryPath
+  if (-not $verifiedOwnership.Owned -or $null -eq $verifiedOwnership.ProvingProcess) {
+    return $false
+  }
+  if ([int]$State.launcherPid -ne [int]$verifiedOwnership.ProvingProcessId) {
+    return $false
+  }
+
+  try {
+    $stateLauncherStart = ConvertTo-FounderUtcDateTime -Value $State.launcherStartedAt
+    $actualLauncherStart = ConvertTo-FounderUtcDateTime -Value $verifiedOwnership.ProvingProcess.StartTime
+    if ([math]::Abs(($stateLauncherStart - $actualLauncherStart).TotalSeconds) -gt 2) {
+      return $false
+    }
+  } catch {
     return $false
   }
 
@@ -823,7 +1479,7 @@ function Resolve-FounderPnpmCommand {
 function Start-FounderBackgroundProcess {
   param(
     [Parameter(Mandatory = $true)]
-    $Pnpm,
+    $Runtime,
     [Parameter(Mandatory = $true)]
     [string]$RepositoryPath,
     [Parameter(Mandatory = $true)]
@@ -836,43 +1492,33 @@ function Start-FounderBackgroundProcess {
     [string]$StderrLogPath
   )
 
-  $nextArguments = @(
-    '--dir',
-    "`"$RepositoryPath`"",
-    'exec',
-    'next',
+  $nextArguments = @()
+  if (-not [string]::IsNullOrWhiteSpace([string]$Runtime.EnvironmentFilePath)) {
+    $nextArguments += "--env-file=`"$($Runtime.EnvironmentFilePath)`""
+  }
+  $nextArguments += @(
+    "`"$($Runtime.NextCliPath)`"",
     'dev',
+    "`"$RepositoryPath`"",
     '--hostname',
     $HostName,
     '--port',
     [string]$Port
   )
-  $extension = [System.IO.Path]::GetExtension([string]$Pnpm.FilePath)
-  if ($extension -ieq '.cmd' -or $extension -ieq '.bat') {
-    $commandLine = '""{0}" --dir "{1}" exec next dev --hostname {2} --port {3}"' -f
-      $Pnpm.FilePath,
-      $RepositoryPath,
-      $HostName,
-      $Port
+  $originalNodePath = $env:NODE_PATH
+  try {
+    $env:NODE_PATH = $Runtime.DependencyRoot
     return Start-Process `
-      -FilePath $env:ComSpec `
-      -ArgumentList @('/d', '/s', '/c', $commandLine) `
+      -FilePath $Runtime.NodeExecutable `
+      -ArgumentList $nextArguments `
       -WorkingDirectory $RepositoryPath `
       -WindowStyle Hidden `
       -RedirectStandardOutput $StdoutLogPath `
       -RedirectStandardError $StderrLogPath `
       -PassThru
+  } finally {
+    $env:NODE_PATH = $originalNodePath
   }
-
-  $arguments = @($Pnpm.PrefixArguments) + $nextArguments
-  return Start-Process `
-    -FilePath $Pnpm.FilePath `
-    -ArgumentList $arguments `
-    -WorkingDirectory $RepositoryPath `
-    -WindowStyle Hidden `
-    -RedirectStandardOutput $StdoutLogPath `
-    -RedirectStandardError $StderrLogPath `
-    -PassThru
 }
 
 function Invoke-FounderPnpm {
@@ -1155,21 +1801,14 @@ function Get-FounderLauncherFromChain {
     [string]$RepositoryPath
   )
 
-  $candidate = $null
-  foreach ($process in $Chain) {
-    if (-not (Test-FounderCommandLineReferencesRepository -CommandLine $process.CommandLine -RepositoryPath $RepositoryPath)) {
-      continue
-    }
-    $lower = ([string]$process.CommandLine).ToLowerInvariant()
-    if ($lower.Contains('pnpm') -or $lower.Contains('cmd.exe')) {
-      $candidate = $process
-    }
+  if ($Chain.Count -eq 0) {
+    return $null
   }
-
-  if ($null -eq $candidate -and $Chain.Count -gt 0) {
-    $candidate = $Chain[0]
-  }
-  return $candidate
+  $ownership = Get-FounderProcessOwnershipFromChain `
+    -Chain $Chain `
+    -ProcessId ([int]$Chain[0].ProcessId) `
+    -RepositoryPath $RepositoryPath
+  return $ownership.ProvingProcess
 }
 
 function Get-FounderPreviewStatus {
@@ -1209,16 +1848,21 @@ function Get-FounderPreviewStatus {
     $rootError = $http.Error
 
     if ($null -ne $state -and $null -ne $processMetadata) {
-      $stateValid = Test-FounderStateProcessIdentity -State $state -ProcessMetadata $processMetadata -RepositoryPath $Config.RepositoryPath
+      $stateValid = Test-FounderStateProcessIdentity `
+        -State $state `
+        -ProcessMetadata $processMetadata `
+        -RepositoryPath $Config.RepositoryPath `
+        -Ownership $ownership `
+        -ExpectedHost $Config.HostName `
+        -ExpectedPort $Config.FounderPort
       $managed = $stateValid
       if ($managed) {
         $launcherPid = [int](Get-FounderPropertyValue -Object $state -Name 'launcherPid' -DefaultValue 0)
       }
     }
     if (-not $managed -and $null -ne $ownership -and $ownership.Owned) {
-      $launcher = Get-FounderLauncherFromChain -Chain $ownership.Chain -RepositoryPath $Config.RepositoryPath
-      if ($null -ne $launcher) {
-        $launcherPid = [int]$launcher.ProcessId
+      if ($null -ne $ownership.ProvingProcess) {
+        $launcherPid = [int]$ownership.ProvingProcessId
       }
     }
   }
@@ -1294,6 +1938,7 @@ function Get-FounderPreviewStatus {
     CommandLine = if ($null -ne $processMetadata) { $processMetadata.CommandLine } else { '' }
     Owned = $null -ne $ownership -and $ownership.Owned
     OwnershipReason = if ($null -ne $ownership) { $ownership.Reason } else { 'no-listener' }
+    ProvingProcessId = if ($null -ne $ownership) { [int]$ownership.ProvingProcessId } else { 0 }
     Managed = $managed
     StateValid = $stateValid
     BindingValid = $bindingValid
@@ -1360,22 +2005,26 @@ function New-FounderStateFromListener {
     $Ownership,
     [int]$LauncherPid,
     [string]$Command,
-    [switch]$AdoptedExistingServer
+    [switch]$AdoptedExistingServer,
+    $Runtime = $null
   )
 
   $listenerMetadata = Get-FounderProcessMetadata -ProcessId $Listener.OwningProcess
   if ($null -eq $listenerMetadata) {
     throw 'Listener process metadata disappeared before state could be recorded.'
   }
-  if ($LauncherPid -le 0) {
-    $launcher = Get-FounderLauncherFromChain -Chain $Ownership.Chain -RepositoryPath $Config.RepositoryPath
-    if ($null -ne $launcher) {
-      $LauncherPid = [int]$launcher.ProcessId
-    } else {
-      $LauncherPid = [int]$Listener.OwningProcess
-    }
+  $verifiedOwnership = Get-FounderProcessOwnershipFromChain `
+    -Chain @($Ownership.Chain) `
+    -ProcessId ([int]$Listener.OwningProcess) `
+    -RepositoryPath $Config.RepositoryPath
+  if (-not $verifiedOwnership.Owned -or $null -eq $verifiedOwnership.ProvingProcess) {
+    throw 'A single proving launcher and listener ancestry could not be verified.'
   }
-  $launcherMetadata = Get-FounderProcessMetadata -ProcessId $LauncherPid
+  if ($LauncherPid -gt 0 -and $LauncherPid -ne [int]$verifiedOwnership.ProvingProcessId) {
+    throw 'The requested launcher PID does not match the proving launcher.'
+  }
+  $LauncherPid = [int]$verifiedOwnership.ProvingProcessId
+  $launcherMetadata = $verifiedOwnership.ProvingProcess
   $git = Get-FounderGitInfo -RepositoryPath $Config.RepositoryPath
 
   return New-FounderStateRecord `
@@ -1385,6 +2034,7 @@ function New-FounderStateFromListener {
     -LauncherPid $LauncherPid `
     -Command $Command `
     -GitInfo $git `
+    -Runtime $Runtime `
     -AdoptedExistingServer:$AdoptedExistingServer
 }
 
@@ -1401,6 +2051,7 @@ function New-FounderStateRecord {
     [string]$Command,
     [Parameter(Mandatory = $true)]
     $GitInfo,
+    $Runtime = $null,
     [switch]$AdoptedExistingServer
   )
 
@@ -1426,6 +2077,10 @@ function New-FounderStateRecord {
     stdoutLog = $Config.StdoutLogPath
     stderrLog = $Config.StderrLogPath
     nodeOptions = '--use-system-ca'
+    dependencySourceClassification = if ($null -ne $Runtime) { [string]$Runtime.DependencySourceClassification } else { '' }
+    dependencySourceRepository = if ($null -ne $Runtime) { [string]$Runtime.DependencySourceRepository } else { '' }
+    environmentSourceClassification = if ($null -ne $Runtime) { [string]$Runtime.EnvironmentSourceClassification } else { '' }
+    dependencyCompatibility = if ($null -ne $Runtime) { $Runtime.DependencyCompatibility } else { $null }
     migratedFromLegacy = $false
     migratedAt = ''
   }
@@ -1568,14 +2223,23 @@ function Start-FounderPreview {
   Remove-FounderFile -Path $Config.StderrLogPath
   Remove-FounderPreviewState -Config $Config
 
-  $pnpm = Resolve-FounderPnpmCommand
-  $displayCommand = "$($pnpm.DisplayName) --dir `"$($Config.RepositoryPath)`" exec next dev --hostname $($Config.HostName) --port $($Config.FounderPort)"
+  try {
+    $runtime = Resolve-FounderRuntime -RepositoryPath $Config.RepositoryPath
+  } catch {
+    return [pscustomobject]@{
+      Success = $false
+      ExitCode = $Config.ExitCodes.GeneralFailure
+      Status = 'RUNTIME_RESOLUTION_FAILED'
+      Details = $_.Exception.Message
+    }
+  }
+  $displayCommand = "$($runtime.NodeExecutable) `"$($runtime.NextCliPath)`" dev `"$($Config.RepositoryPath)`" --hostname $($Config.HostName) --port $($Config.FounderPort)"
   $originalNodeOptions = $env:NODE_OPTIONS
   $launcher = $null
   try {
     $env:NODE_OPTIONS = Merge-FounderNodeOptions -CurrentValue $originalNodeOptions
     $launcher = Start-FounderBackgroundProcess `
-      -Pnpm $pnpm `
+      -Runtime $runtime `
       -RepositoryPath $Config.RepositoryPath `
       -HostName $Config.HostName `
       -Port $Config.FounderPort `
@@ -1630,7 +2294,13 @@ function Start-FounderPreview {
     return [pscustomobject]@{ Success = $false; ExitCode = $Config.ExitCodes.OwnershipUnknown; Status = 'STARTED_PROCESS_OWNERSHIP_UNPROVEN'; Details = $ownership }
   }
 
-  $state = New-FounderStateFromListener -Config $Config -Listener $listener -Ownership $ownership -LauncherPid $launcher.Id -Command $displayCommand
+  $state = New-FounderStateFromListener `
+    -Config $Config `
+    -Listener $listener `
+    -Ownership $ownership `
+    -LauncherPid ([int]$ownership.ProvingProcessId) `
+    -Command $displayCommand `
+    -Runtime $runtime
   Save-FounderPreviewState -Config $Config -State $state
   $finalStatus = Get-FounderPreviewStatus -Config $Config
   if ($finalStatus.Status -ne 'RUNNING_MANAGED') {
@@ -1773,7 +2443,7 @@ function Cleanup-FounderTemporaryServers {
     }
 
     $rootProcessId = [int]$entry.ProcessId
-    $launcher = Get-FounderLauncherFromChain -Chain $ownership.Chain -RepositoryPath $Config.RepositoryPath
+    $launcher = $ownership.ProvingProcess
     if ($null -ne $launcher) {
       $launcherOwnership = Get-FounderProcessOwnership -ProcessId $launcher.ProcessId -RepositoryPath $Config.RepositoryPath
       if ($launcherOwnership.Owned) {
