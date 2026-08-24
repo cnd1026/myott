@@ -106,6 +106,7 @@ test("semantic-required detail verification cannot be starved by earlier general
     candidateSource: `general-source-${index}`,
     providerGenreIds: [18],
     genreIds: [18],
+    detailEnriched: true,
     semanticEvidenceByGenre: {},
   }));
   const mysteryOnly = {
@@ -129,6 +130,48 @@ test("semantic-required detail verification cannot be starved by earlier general
   assert.equal(allocation.selected.length, 16);
   assert.ok(allocation.selected.includes(mysteryOnly));
   assert.equal(candidateGenreMatchDetail(mysteryOnly, ["genre-horror"]).genreMatched, false);
+});
+
+test("non-9648 TV Horror receives semantic detail eligibility and family membership", () => {
+  const candidate = {
+    tmdbId: 18_001,
+    mediaType: "tv",
+    contentType: "drama",
+    providerGenreIds: [18],
+    genreIds: [18],
+    overview: "A quiet character drama.",
+    candidateSource: "drama-page-1",
+  };
+  const allocation = planDetailAllocation([candidate], {
+    filters: ["genre-horror"],
+    contentTypes: ["drama"],
+    limit: 16,
+  });
+
+  assert.deepEqual(allocation.selected, [candidate]);
+  assert.equal(allocation.diagnostics.detailSelectedCount, 1);
+  assert.deepEqual(allocation.diagnostics.detailSelectedBySemanticFamily, { "genre-horror": 1 });
+  assert.equal(candidateGenreMatchDetail(candidate, ["genre-horror"]).genreMatched, false);
+});
+
+test("provider-independent detail family does not leak to other semantic genres", () => {
+  const candidate = {
+    tmdbId: 18_002,
+    mediaType: "tv",
+    contentType: "drama",
+    providerGenreIds: [18],
+    genreIds: [18],
+    overview: "A space expedition reaches a distant world.",
+    candidateSource: "drama-page-1",
+  };
+  const allocation = planDetailAllocation([candidate], {
+    filters: ["genre-sf"],
+    contentTypes: ["drama"],
+    limit: 16,
+  });
+
+  assert.deepEqual(allocation.diagnostics.detailSelectedBySemanticFamily, {});
+  assert.equal(candidateGenreMatchDetail(candidate, ["genre-sf"]).genreMatched, false);
 });
 
 test("two-type final reservation prevents a twelve-to-zero result", () => {

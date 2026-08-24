@@ -5,6 +5,7 @@ import {
 import {
   candidateGenreMatchDetail,
   genreContractFor,
+  semanticProviderEligibility,
   selectedTaxonomyFilters,
 } from "../genres/genreContract.js";
 
@@ -276,28 +277,25 @@ function semanticFamiliesForItem(item = {}, filters = []) {
       ...policy.providerCombinedIds,
       ...policy.providerAdjacentIds,
     ].some((id) => ids.has(id));
-    return providerEvidence ? contract.specializationGroup || contract.value : "";
+    const eligible = policy.semanticRequired
+      ? semanticProviderEligibility(item, value).eligible
+      : providerEvidence;
+    return eligible
+      ? contract.specializationGroup || contract.value
+      : "";
   }));
 }
 
 function semanticVerificationValuesForItem(item = {}, filters = []) {
   if (item.detailEnriched) return [];
-  const ids = new Set((item.providerGenreIds || item.genreIds || item.genre_ids || []).map(Number));
   return unique([
     ...selectedTaxonomyFilters(filters),
     ...(item.crossMediaSeedTransferValues || item.crossMediaSeedGenreValues || []),
   ].filter((value) => {
     const contract = genreContractFor(value);
     if (!contract) return false;
-    const mediaType = normalizeProviderMediaType(item) || "movie";
-    const policy = contract[mediaType];
-    if (!policy?.semanticRequired) return false;
-    const providerEvidence = [
-      ...policy.providerExactIds,
-      ...policy.providerCombinedIds,
-      ...policy.providerAdjacentIds,
-    ].some((id) => ids.has(id));
-    return providerEvidence && !candidateGenreMatchDetail(item, [value]).genreMatched;
+    return semanticProviderEligibility(item, value).eligible &&
+      !candidateGenreMatchDetail(item, [value]).genreMatched;
   }));
 }
 
