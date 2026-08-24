@@ -108,12 +108,14 @@ function currentProductFixtureFetch(calls, fixtureOptions = {}) {
     ]),
   );
   const candidatesByGenreAndPage = new Map(Object.entries(fixtureOptions.candidatesByGenreAndPage || {}));
+  const candidatesByKeywordAndPage = new Map(Object.entries(fixtureOptions.candidatesByKeywordAndPage || {}));
   const allCandidates = [
     ...new Map(
       [
         ...candidates,
         ...[...additionalHorrorByPage.values()].flat(),
         ...[...candidatesByGenreAndPage.values()].flat(),
+        ...[...candidatesByKeywordAndPage.values()].flat(),
       ]
         .map((candidate) => [candidate.id, candidate]),
     ).values(),
@@ -126,15 +128,20 @@ function currentProductFixtureFetch(calls, fixtureOptions = {}) {
       page: url.searchParams.has("page") ? Number(url.searchParams.get("page")) : null,
       sortBy: url.searchParams.get("sort_by") || "",
       withGenres: url.searchParams.get("with_genres") || "",
+      withKeywords: url.searchParams.get("with_keywords") || "",
+      voteCountGte: url.searchParams.get("vote_count.gte") || "",
       withOriginCountry: url.searchParams.get("with_origin_country") || "",
       withoutGenres: url.searchParams.get("without_genres") || "",
       includeAdult: url.searchParams.get("include_adult") || "",
     });
     if (["/3/discover/tv", "/3/discover/movie"].includes(url.pathname)) {
       const page = Number(url.searchParams.get("page") || 1);
-      const requestKey = `${url.searchParams.get("with_genres") || ""}:${page}`;
-      const pageCandidates = candidatesByGenreAndPage.has(requestKey)
-        ? candidatesByGenreAndPage.get(requestKey)
+      const withGenres = url.searchParams.get("with_genres") || "";
+      const withKeywords = url.searchParams.get("with_keywords") || "";
+      const requestKey = `${withGenres || withKeywords}:${page}`;
+      const candidateMap = withKeywords ? candidatesByKeywordAndPage : candidatesByGenreAndPage;
+      const pageCandidates = candidateMap.has(requestKey)
+        ? candidateMap.get(requestKey)
         : page >= 3
           ? [...(additionalHorrorByPage.get(page) || []), ...candidates]
           : candidates;
@@ -442,6 +449,10 @@ test("Horror TV exact recall adds true semantic candidates within the bounded pa
   const baselineRelaxed = baselineCandidates
     .filter((item) => !candidateGenreMatchDetail(item, ["genre-horror"]).genreMatched);
   const requestLog = [];
+  const keywordExact = currentProductCandidate(80_301, {
+    genreIds: [18],
+    horrorSemantic: true,
+  });
   const run = await withCurrentProductRuntime(
     () => discoverTmdb({
       filters: ["country-us", "genre-horror"],
@@ -453,7 +464,7 @@ test("Horror TV exact recall adds true semantic candidates within the bounded pa
       fixtureOptions: {
         count: 12,
         horrorPassCount: 7,
-        additionalHorrorByPage: { 3: 1 },
+        candidatesByKeywordAndPage: { "12377:1": [keywordExact] },
         requestLog,
       },
     },
@@ -496,14 +507,37 @@ test("Horror TV exact recall adds true semantic candidates within the bounded pa
   assert.equal(new Set(resultFranchises).size, resultFranchises.length);
   assert.equal(lineage.filter((item) => item.detailState === "selected-enriched").length, 13);
   assert.deepEqual(discoverRequests.map((request) => request.withGenres), [
-    "9648", "9648", "9648", "10765", "10765", "80", "80", "18",
+    "9648", "10765", "80", "18", "", "", "", "",
   ]);
-  assert.deepEqual(discoverRequests.map((request) => request.page), [1, 2, 3, 1, 2, 1, 2, 1]);
+  assert.deepEqual(discoverRequests.map((request) => request.withKeywords), [
+    "", "", "", "", "12377", "2626", "161261", "283085",
+  ]);
+  assert.deepEqual(discoverRequests.map((request) => request.page), [1, 1, 1, 1, 1, 1, 1, 1]);
   assert.ok(discoverRequests.every((request) => request.sortBy === "popularity.desc"));
+  assert.ok(discoverRequests.every((request) => request.voteCountGte === "30"));
+  assert.ok(discoverRequests.every((request) => Boolean(request.withGenres) !== Boolean(request.withKeywords)));
   assert.ok(discoverRequests.every((request) => request.withOriginCountry === "US"));
   assert.ok(discoverRequests.every((request) => request.withoutGenres === "16"));
   assert.ok(discoverRequests.every((request) => request.includeAdult === "false"));
-  assert.equal(discoverRequests.filter((request) => request.page > 7).length, 0);
+  assert.equal(requestLog.some((request) => /keyword/.test(request.path)), false);
+  const expectedStageIds = [
+    "genre-mystery-9648-page-1",
+    "genre-sf-fantasy-10765-page-1",
+    "genre-crime-80-page-1",
+    "genre-drama-18-page-1",
+    "keyword-zombie-12377-page-1",
+    "keyword-exorcism-2626-page-1",
+    "keyword-demonic-possession-161261-page-1",
+    "keyword-body-horror-283085-page-1",
+  ];
+  assert.deepEqual(Object.keys(run.payload.diagnostics.rawCandidatesByStage), expectedStageIds);
+  for (const diagnosticField of ["providerTotalResultsByTask", "fetchedPagesByTask"]) {
+    const diagnosticStageIds = [...new Set(
+      Object.keys(run.payload.diagnostics[diagnosticField]).map((taskKey) => taskKey.split(":")[0]),
+    )];
+    assert.deepEqual(diagnosticStageIds, expectedStageIds);
+  }
+  assert.equal(discoverRequests.some((request) => ["10327", "10292", "15043"].includes(request.withKeywords)), false);
   assert.equal(run.payload.diagnostics.listRequestsUsed, 8);
   assert.equal(run.payload.diagnostics.detailRequestsUsed, 13);
   assert.equal(run.payload.diagnostics.requestsUsed, 21);
@@ -513,10 +547,14 @@ test("Horror TV bounded pool preserves unique alternate-source stage opportunity
   const requestLog = [];
   const alternateCandidates = {
     "10765:1": [currentProductCandidate(90_101, { genreIds: [10765] })],
-    "10765:2": [currentProductCandidate(90_102, { genreIds: [10765] })],
     "80:1": [currentProductCandidate(90_201, { genreIds: [80] })],
-    "80:2": [currentProductCandidate(90_202, { genreIds: [80] })],
     "18:1": [currentProductCandidate(90_301, { genreIds: [18] })],
+  };
+  const keywordCandidates = {
+    "12377:1": [currentProductCandidate(90_401)],
+    "2626:1": [currentProductCandidate(90_402)],
+    "161261:1": [currentProductCandidate(90_403)],
+    "283085:1": [currentProductCandidate(90_404)],
   };
   const run = await withCurrentProductRuntime(
     () => discoverTmdb({
@@ -530,6 +568,7 @@ test("Horror TV bounded pool preserves unique alternate-source stage opportunity
         count: 72,
         horrorPassCount: 0,
         candidatesByGenreAndPage: alternateCandidates,
+        candidatesByKeywordAndPage: keywordCandidates,
         requestLog,
       },
     },
@@ -541,14 +580,17 @@ test("Horror TV bounded pool preserves unique alternate-source stage opportunity
 
   assert.equal(pool.boundedCount, 72);
   assert.ok(pool.distinctCount > pool.boundedCount);
+  assert.ok(representedStages.has("exact-rating-page-1"));
+  assert.ok(representedStages.has("exact-breadth-page-2"));
   assert.ok(representedStages.has("exact-breadth-page-3"));
   assert.ok(representedStages.has("exact-breadth-page-4"));
   assert.ok(representedStages.has("exact-breadth-page-5"));
   assert.ok(representedStages.has("exact-breadth-page-6"));
   assert.ok(representedStages.has("exact-breadth-page-7"));
+  assert.ok(lineage.some((item) => item.candidateId === "tmdb:tv:90404" && item.arrivalStage === "exact-breadth-page-7"));
   assert.deepEqual(
-    requestLog.filter((request) => request.path === "/3/discover/tv").map((request) => [request.withGenres, request.page]),
-    [["9648", 1], ["9648", 2], ["9648", 3], ["10765", 1], ["10765", 2], ["80", 1], ["80", 2], ["18", 1]],
+    requestLog.filter((request) => request.path === "/3/discover/tv").map((request) => [request.withGenres, request.withKeywords, request.page]),
+    [["9648", "", 1], ["10765", "", 1], ["80", "", 1], ["18", "", 1], ["", "12377", 1], ["", "2626", 1], ["", "161261", 1], ["", "283085", 1]],
   );
 });
 
@@ -581,7 +623,9 @@ test("Horror TV diversification completes its bounded eight-request plan after r
       fixtureOptions: {
         count: 12,
         horrorPassCount: 7,
-        additionalHorrorByPage: { 3: 8 },
+        candidatesByKeywordAndPage: {
+          "12377:1": currentProductCandidates(8, { horrorPassCount: 8, idOffset: 300 }),
+        },
         requestLog,
       },
     },
@@ -589,9 +633,12 @@ test("Horror TV diversification completes its bounded eight-request plan after r
   const discoverRequests = requestLog.filter((request) => request.path === "/3/discover/tv");
 
   assert.deepEqual(discoverRequests.map((request) => request.withGenres), [
-    "9648", "9648", "9648", "10765", "10765", "80", "80", "18",
+    "9648", "10765", "80", "18", "", "", "", "",
   ]);
-  assert.deepEqual(discoverRequests.map((request) => request.page), [1, 2, 3, 1, 2, 1, 2, 1]);
+  assert.deepEqual(discoverRequests.map((request) => request.withKeywords), [
+    "", "", "", "", "12377", "2626", "161261", "283085",
+  ]);
+  assert.deepEqual(discoverRequests.map((request) => request.page), [1, 1, 1, 1, 1, 1, 1, 1]);
   assert.equal(run.payload.diagnostics.listRequestsUsed, 8);
   assert.ok(run.payload.diagnostics.exactAfterDetail >= 15);
   assert.ok(run.payload.diagnostics.detailRequestsUsed <= 16);
@@ -603,17 +650,27 @@ test("Horror TV retrieval lenses do not replace independent candidate semantic q
   const sfLensDecoy = currentProductCandidate(91_002, { genreIds: [18] });
   const crimeLensDecoy = currentProductCandidate(91_003, { genreIds: [10765] });
   const dramaLensDecoy = currentProductCandidate(91_004, { genreIds: [80] });
-  const alternateQualified = currentProductCandidate(91_005, {
-    genreIds: [9648, 10765],
-    horrorSemantic: true,
+  const keywordWithoutEvidence = currentProductCandidate(91_005, { genreIds: [18] });
+  const keywordWithAmbiguityOnly = currentProductCandidate(91_006, {
+    genreIds: [18],
+    detailKeywords: ["supernatural", "monster", "dark"],
   });
-  const alternateWithoutProviderEvidence = currentProductCandidate(91_006, {
-    genreIds: [80],
-    horrorSemantic: true,
-  });
-  const alternateWithoutSemanticEvidence = currentProductCandidate(91_007, {
-    genreIds: [9648, 18],
-  });
+  const keywordWithZombieEvidence = {
+    ...currentProductCandidate(91_007, {
+      genreIds: [18],
+      detailKeywords: ["zombie"],
+    }),
+    name: "Ashes After Dawn",
+    original_name: "Ashes After Dawn",
+  };
+  const keywordWithDirectEvidence = {
+    ...currentProductCandidate(91_008, {
+      genreIds: [18],
+      horrorSemantic: true,
+    }),
+    name: "The Hollow Chapel",
+    original_name: "The Hollow Chapel",
+  };
   const requestLog = [];
   const run = await withCurrentProductRuntime(
     () => discoverTmdb({
@@ -627,13 +684,15 @@ test("Horror TV retrieval lenses do not replace independent candidate semantic q
         horrorPassCount: 0,
         candidatesByGenreAndPage: {
           "9648:1": [mysteryOnly],
-          "9648:2": [mysteryOnly],
-          "9648:3": [mysteryOnly],
           "10765:1": [sfLensDecoy],
-          "10765:2": [alternateQualified],
           "80:1": [crimeLensDecoy],
-          "80:2": [alternateWithoutProviderEvidence],
-          "18:1": [dramaLensDecoy, alternateWithoutSemanticEvidence],
+          "18:1": [dramaLensDecoy],
+        },
+        candidatesByKeywordAndPage: {
+          "12377:1": [keywordWithoutEvidence],
+          "2626:1": [keywordWithAmbiguityOnly],
+          "161261:1": [keywordWithZombieEvidence],
+          "283085:1": [keywordWithDirectEvidence],
         },
         requestLog,
       },
@@ -645,7 +704,11 @@ test("Horror TV retrieval lenses do not replace independent candidate semantic q
 
   assert.deepEqual(
     requestLog.filter((request) => request.path === "/3/discover/tv").map((request) => request.withGenres),
-    ["9648", "9648", "9648", "10765", "10765", "80", "80", "18"],
+    ["9648", "10765", "80", "18", "", "", "", ""],
+  );
+  assert.deepEqual(
+    requestLog.filter((request) => request.path === "/3/discover/tv").map((request) => request.withKeywords),
+    ["", "", "", "", "12377", "2626", "161261", "283085"],
   );
   assert.deepEqual(diagnosticFor(sfLensDecoy).genreIds, [18]);
   assert.deepEqual(diagnosticFor(crimeLensDecoy).genreIds, [10765]);
@@ -657,16 +720,17 @@ test("Horror TV retrieval lenses do not replace independent candidate semantic q
   assert.equal(candidateGenreMatchDetail({ ...crimeLensDecoy, mediaType: "tv" }, ["genre-horror"]).genreMatched, false);
   assert.equal(candidateGenreMatchDetail({ ...dramaLensDecoy, mediaType: "tv" }, ["genre-horror"]).genreMatched, false);
   assert.equal(candidateGenreMatchDetail({ ...mysteryOnly, mediaType: "tv" }, ["genre-horror"]).genreMatched, false);
-  assert.equal(candidateGenreMatchDetail({ ...alternateQualified, mediaType: "tv" }, ["genre-horror"]).genreMatched, true);
-  assert.equal(candidateGenreMatchDetail({ ...alternateWithoutProviderEvidence, mediaType: "tv" }, ["genre-horror"]).genreMatched, true);
-  assert.equal(diagnosticFor(alternateWithoutProviderEvidence).genreMatchMode, "semantic-specialized");
-  assert.equal(diagnosticFor(alternateWithoutProviderEvidence).exclusionReason, "duplicate-franchise");
-  assert.deepEqual(resultIds, [alternateQualified.id]);
+  assert.equal(diagnosticFor(keywordWithoutEvidence).semanticGenreMatched, false);
+  assert.equal(diagnosticFor(keywordWithAmbiguityOnly).semanticGenreMatched, false);
+  assert.equal(diagnosticFor(keywordWithZombieEvidence).genreMatchMode, "semantic-specialized");
+  assert.equal(diagnosticFor(keywordWithDirectEvidence).genreMatchMode, "semantic-specialized");
+  assert.deepEqual(resultIds, [keywordWithZombieEvidence.id, keywordWithDirectEvidence.id]);
   assert.ok(run.payload.results.every((item) => item.genreMatchMode === "semantic-specialized"));
   assert.ok(run.payload.results.every((item) => (
     item.semanticGenreReasons.some((reason) => reason.startsWith("genre-horror:"))
   )));
-  assert.equal(resultIds.includes(alternateWithoutSemanticEvidence.id), false);
+  assert.equal(resultIds.includes(keywordWithoutEvidence.id), false);
+  assert.equal(resultIds.includes(keywordWithAmbiguityOnly.id), false);
 });
 
 test("Horror TV non-9648 detail enrichment closes the circular gate without weakening ambiguity", async () => {
@@ -710,15 +774,13 @@ test("Horror TV non-9648 detail enrichment closes the circular gate without weak
 });
 
 test("Horror TV qualification is invariant across retrieval lenses for identical candidate evidence", async () => {
-  const lenses = ["9648:1", "10765:1", "80:1", "18:1"];
-  const titles = ["Ash Hollow", "Night Signal", "Red Chapel", "Winter Grave"];
-  const candidates = lenses.map((_, index) => ({
+  const candidates = ["Ash Hollow", "Night Signal"].map((title, index) => ({
     ...currentProductCandidate(93_001 + index, {
       genreIds: [18],
       horrorSemantic: true,
     }),
-    name: titles[index],
-    original_name: titles[index],
+    name: title,
+    original_name: title,
   }));
   const run = await withCurrentProductRuntime(
     () => discoverTmdb({
@@ -730,16 +792,46 @@ test("Horror TV qualification is invariant across retrieval lenses for identical
       fixtureOptions: {
         count: 1,
         horrorPassCount: 0,
-        candidatesByGenreAndPage: Object.fromEntries(
-          lenses.map((lens, index) => [lens, [candidates[index]]]),
-        ),
+        candidatesByGenreAndPage: { "9648:1": [candidates[0]] },
+        candidatesByKeywordAndPage: { "12377:1": [candidates[1]] },
       },
     },
   );
   const resultIds = new Set(run.payload.results.map((item) => item.tmdbId));
 
   candidates.forEach((candidate) => assert.ok(resultIds.has(candidate.id)));
-  assert.ok(run.payload.results.every((item) => item.genreMatchMode === "semantic-specialized"));
+  const compared = candidates.map((candidate) => run.payload.results.find((item) => item.tmdbId === candidate.id));
+  assert.ok(compared.every((item) => item.genreMatchMode === "semantic-specialized"));
+  assert.equal(compared[0].semanticConfidence, compared[1].semanticConfidence);
+  assert.deepEqual(compared[0].semanticGenreReasons, compared[1].semanticGenreReasons);
+});
+
+test("Horror TV cross-family duplicates remain one candidate identity", async () => {
+  const duplicate = currentProductCandidate(93_101, {
+    genreIds: [9648],
+    horrorSemantic: true,
+  });
+  const run = await withCurrentProductRuntime(
+    () => discoverTmdb({
+      filters: ["country-us", "genre-horror"],
+      contentTypes: ["drama"],
+      limit: 12,
+      qaObservability: true,
+    }),
+    {
+      fixtureOptions: {
+        count: 1,
+        candidatesByGenreAndPage: { "9648:1": [duplicate] },
+        candidatesByKeywordAndPage: { "12377:1": [duplicate] },
+      },
+    },
+  );
+  const evidence = validateTmdbObservabilityEvidence(run.payload.diagnostics.currentProductObservability);
+  const lineage = evidence.events.filter((event) => event.type === "candidate-lineage");
+
+  assert.equal(lineage.filter((item) => item.candidateId === `tmdb:tv:${duplicate.id}`).length, 1);
+  assert.equal(run.payload.results.filter((item) => item.tmdbId === duplicate.id).length, 1);
+  assert.ok(evidence.events.find((event) => event.type === "candidate-pool-summary").duplicateCount > 0);
 });
 
 test("Horror TV breadth stages do not expand representative non-target recall plans", async () => {
@@ -773,6 +865,12 @@ test("Horror TV breadth stages do not expand representative non-target recall pl
       endpoint: "/3/discover/movie",
       expected: [["27", 1, "popularity.desc"], ["27", 1, "vote_average.desc"], ["27", 2, "popularity.desc"]],
     },
+    {
+      filters: ["country-us", "genre-comedy"],
+      contentTypes: ["movie"],
+      endpoint: "/3/discover/movie",
+      expected: [["35", 1, "popularity.desc"], ["35", 1, "vote_average.desc"], ["35", 2, "popularity.desc"]],
+    },
   ];
 
   for (const scenario of scenarios) {
@@ -788,6 +886,7 @@ test("Horror TV breadth stages do not expand representative non-target recall pl
       scenario.expected,
     );
     assert.ok(discoverRequests.every((request) => request.path === scenario.endpoint));
+    assert.ok(discoverRequests.every((request) => request.withKeywords === ""));
   }
 });
 
