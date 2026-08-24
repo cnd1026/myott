@@ -480,6 +480,57 @@ test("Horror TV exact recall adds true semantic candidates within the bounded pa
   assert.equal(run.payload.diagnostics.requestsUsed, 21);
 });
 
+test("Horror TV bounded pool preserves unique p5 p6 and p7 stage opportunity", async () => {
+  const requestLog = [];
+  const run = await withCurrentProductRuntime(
+    () => discoverTmdb({
+      filters: ["country-us", "genre-horror"],
+      contentTypes: ["drama"],
+      limit: 12,
+      qaObservability: true,
+    }),
+    {
+      fixtureOptions: {
+        count: 72,
+        horrorPassCount: 0,
+        additionalHorrorByPage: { 3: 1, 4: 1, 5: 1, 6: 1, 7: 1 },
+        requestLog,
+      },
+    },
+  );
+  const evidence = validateTmdbObservabilityEvidence(run.payload.diagnostics.currentProductObservability);
+  const pool = evidence.events.find((event) => event.type === "candidate-pool-summary");
+  const lineage = evidence.events.filter((event) => event.type === "candidate-lineage");
+  const representedStages = new Set(lineage.map((item) => item.arrivalStage));
+
+  assert.equal(pool.boundedCount, 72);
+  assert.ok(pool.distinctCount > pool.boundedCount);
+  assert.ok(representedStages.has("exact-breadth-page-5"));
+  assert.ok(representedStages.has("exact-breadth-page-6"));
+  assert.ok(representedStages.has("exact-breadth-page-7"));
+  assert.deepEqual(
+    requestLog.filter((request) => request.path === "/3/discover/tv").map((request) => request.page),
+    [1, 1, 2, 3, 4, 5, 6, 7],
+  );
+});
+
+test("Horror TV bounded pool does not manufacture representation for duplicate-only late stages", async () => {
+  const run = await withCurrentProductRuntime(
+    () => discoverTmdb({
+      filters: ["country-us", "genre-horror"],
+      contentTypes: ["drama"],
+      limit: 12,
+      qaObservability: true,
+    }),
+    { fixtureOptions: { count: 72, horrorPassCount: 0 } },
+  );
+  const evidence = validateTmdbObservabilityEvidence(run.payload.diagnostics.currentProductObservability);
+  const lineage = evidence.events.filter((event) => event.type === "candidate-lineage");
+
+  assert.equal(lineage.length, 72);
+  assert.equal(lineage.some((item) => item.arrivalStage === "exact-breadth-page-7"), false);
+});
+
 test("Horror TV breadth recall stops when the existing exact target is reached", async () => {
   const requestLog = [];
   const run = await withCurrentProductRuntime(

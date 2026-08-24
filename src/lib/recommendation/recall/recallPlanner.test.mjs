@@ -98,6 +98,39 @@ test("detail allocation returns to global priority after one opportunity per sou
   );
 });
 
+test("semantic-required detail verification cannot be starved by earlier general source groups", () => {
+  const general = Array.from({ length: 16 }, (_, index) => ({
+    ...fixtures.tvExactCandidates[index % fixtures.tvExactCandidates.length],
+    tmdbId: 90_000 + index,
+    title: `General candidate ${index}`,
+    candidateSource: `general-source-${index}`,
+    providerGenreIds: [18],
+    genreIds: [18],
+    semanticEvidenceByGenre: {},
+  }));
+  const mysteryOnly = {
+    ...fixtures.tvExactCandidates[0],
+    tmdbId: 99_648,
+    title: "Late mystery verification candidate",
+    candidateSource: "late-horror-source",
+    providerGenreIds: [9648],
+    genreIds: [9648],
+    overview: "A quiet mystery drama.",
+    keywords: [],
+    semanticEvidenceByGenre: {},
+  };
+
+  const allocation = planDetailAllocation([...general, mysteryOnly], {
+    filters: ["genre-horror"],
+    contentTypes: ["drama"],
+    limit: 16,
+  });
+
+  assert.equal(allocation.selected.length, 16);
+  assert.ok(allocation.selected.includes(mysteryOnly));
+  assert.equal(candidateGenreMatchDetail(mysteryOnly, ["genre-horror"]).genreMatched, false);
+});
+
 test("two-type final reservation prevents a twelve-to-zero result", () => {
   const selected = reserveTypeCoverage(
     [...fixtures.movieExactCandidates, ...fixtures.tvExactCandidates],
