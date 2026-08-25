@@ -8,6 +8,7 @@ import {
   genreMatchStrength,
   genreOptionGroups,
   normalizeTaxonomyValue,
+  semanticProviderEligibility,
 } from "./genreContract.js";
 import { calculateRecommendationScore } from "../scoring/recommendationWeightEngine.js";
 import { classifyCandidate } from "../candidates/candidatePipeline.js";
@@ -95,6 +96,122 @@ test("plain TV Mystery is not Horror without semantic evidence", () => {
   assert.equal(candidateGenreMatchDetail(plain, ["genre-horror"]).genreMatched, false);
   assert.equal(candidateGenreMatchDetail(horror, ["genre-horror"]).genreMatchMode, "semantic-specialized");
   assert.deepEqual(classifyTaxonomyValues(plain).canonicalGenreValues, ["genre-mystery"]);
+});
+
+test("Horror semantic precision requires independent direct evidence", () => {
+  const mysteryOnly = fixture([9648], ["mystery"]);
+  const crimeOnly = fixture([9648, 80], ["crime", "serial killer", "investigation"]);
+  const ambiguousSupernatural = fixture([9648, 10765], ["monster", "supernatural"], {
+    overview: "A dark mystery unfolds in a fantasy world.",
+  });
+  const clearHorror = fixture([9648], ["horror"]);
+  const supernaturalHorror = fixture([9648], ["demon", "haunting"]);
+  const selectedFilterTag = fixture([9648], [], {
+    tags: ["genre-horror", "country-us"],
+    overview: "A quiet investigation follows an old disappearance.",
+  });
+
+  for (const item of [mysteryOnly, crimeOnly, ambiguousSupernatural, selectedFilterTag]) {
+    const match = candidateGenreMatchDetail(item, ["genre-horror"]);
+    assert.equal(match.genreMatched, false);
+    assert.equal(match.recommendationReason, undefined);
+  }
+  assert.equal(candidateGenreMatchDetail(clearHorror, ["genre-horror"]).genreMatchMode, "semantic-specialized");
+  assert.equal(candidateGenreMatchDetail(supernaturalHorror, ["genre-horror"]).genreMatchMode, "semantic-specialized");
+});
+
+test("TV Horror centralizes provider-independent semantic eligibility without changing provider evidence", () => {
+  const horror = genreContractFor("genre-horror");
+  const romance = genreContractFor("genre-romance");
+
+  assert.equal(horror.tv.providerEvidenceRequiredForSemantic, false);
+  assert.equal(horror.tv.semanticRequired, true);
+  assert.deepEqual(horror.tv.providerAdjacentIds, [9648]);
+  assert.equal(romance.tv.providerEvidenceRequiredForSemantic, true);
+  assert.deepEqual(semanticProviderEligibility(fixture([18]), "genre-horror"), {
+    eligible: true,
+    providerEvidence: false,
+    mediaType: "tv",
+    value: "genre-horror",
+  });
+  assert.equal(semanticProviderEligibility(fixture([18]), "genre-romance").eligible, true);
+  assert.equal(semanticProviderEligibility(fixture([80]), "genre-romance").eligible, false);
+});
+
+test("provider-independent TV Horror accepts only strong or multiple direct signals", () => {
+  const positives = [
+    fixture([18], ["horror"]),
+    fixture([10765], ["zombie"]),
+    fixture([80], ["ghost", "demon"]),
+    fixture([10759], ["demon", "occult"]),
+    fixture([18], ["haunting"]),
+  ];
+  const negatives = [
+    fixture([18], ["ghost"]),
+    fixture([10765], ["demon"]),
+    fixture([10765], ["supernatural"]),
+    fixture([80], ["monster"]),
+    fixture([18], ["dark", "mystery", "crime"]),
+  ];
+
+  positives.forEach((item) => {
+    assert.equal(candidateGenreMatchDetail(item, ["genre-horror"]).genreMatchMode, "semantic-specialized");
+  });
+  negatives.forEach((item) => {
+    assert.equal(candidateGenreMatchDetail(item, ["genre-horror"]).genreMatched, false);
+  });
+});
+
+test("9648-supported TV Horror preserves existing semantic behavior", () => {
+  assert.equal(candidateGenreMatchDetail(fixture([9648], ["ghost"]), ["genre-horror"]).genreMatched, true);
+  assert.equal(candidateGenreMatchDetail(fixture([9648]), ["genre-horror"]).genreMatched, false);
+});
+
+test("retrieval and control metadata give zero TV Horror qualification credit", () => {
+  const payload = fixture([18], ["ghost"], { overview: "A quiet family drama." });
+  for (const candidateSource of ["9648", "10765", "80", "18"]) {
+    const match = candidateGenreMatchDetail({
+      ...payload,
+      candidateSource,
+      retrievalGenreId: Number(candidateSource),
+      arrivalStage: "genre-horror-breadth",
+      taskKey: `genre-horror:${candidateSource}`,
+      tags: ["genre-horror", "country-us"],
+    }, ["genre-horror"]);
+    assert.equal(match.genreMatched, false);
+  }
+});
+
+test("provider-independent semantic eligibility remains TV Horror only", () => {
+  const movieHorror = { mediaType: "movie", contentType: "movie", genreIds: [27], keywords: [] };
+  const tvRomance = fixture([18], ["first love"]);
+  const tvRomanceWithoutProvider = fixture([80], ["first love"]);
+  const tvSf = fixture([10765], ["space"]);
+  const tvSfWithoutProvider = fixture([18], ["space"]);
+  const tvThriller = fixture([80], []);
+
+  assert.equal(candidateGenreMatchDetail(movieHorror, ["genre-horror"]).genreMatchMode, "provider-exact");
+  assert.equal(candidateGenreMatchDetail(tvRomance, ["genre-romance"]).genreMatched, true);
+  assert.equal(candidateGenreMatchDetail(tvRomanceWithoutProvider, ["genre-romance"]).genreMatched, false);
+  assert.equal(candidateGenreMatchDetail(tvSf, ["genre-sf"]).genreMatched, true);
+  assert.equal(candidateGenreMatchDetail(tvSfWithoutProvider, ["genre-sf"]).genreMatched, false);
+  assert.equal(candidateGenreMatchDetail(tvThriller, ["genre-thriller"]).genreMatched, true);
+});
+
+test("Horror recommendation reason is emitted only after corrected semantic proof", () => {
+  const rejected = classifyCandidate(fixture([9648], ["monster", "supernatural"]), {
+    filters: ["genre-horror"],
+    contentTypes: ["drama"],
+  });
+  const accepted = classifyCandidate(fixture([9648], ["ghost", "haunting"]), {
+    filters: ["genre-horror"],
+    contentTypes: ["drama"],
+  });
+
+  assert.equal(rejected.genreMatched, false);
+  assert.equal(rejected.reason, undefined);
+  assert.equal(accepted.genreMatched, true);
+  assert.equal(accepted.reason, "공포와 초자연적 위협 요소를 반영한 추천입니다.");
 });
 
 test("format, audience, and style values never become narrative canonical genres", () => {

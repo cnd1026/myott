@@ -3,7 +3,9 @@ import {
   normalizeProviderMediaType,
 } from "../filters/hardFilterContract.js";
 import {
+  candidateGenreMatchDetail,
   genreContractFor,
+  semanticProviderEligibility,
   selectedTaxonomyFilters,
 } from "../genres/genreContract.js";
 
@@ -275,8 +277,40 @@ function semanticFamiliesForItem(item = {}, filters = []) {
       ...policy.providerCombinedIds,
       ...policy.providerAdjacentIds,
     ].some((id) => ids.has(id));
-    return providerEvidence ? contract.specializationGroup || contract.value : "";
+    const eligible = policy.semanticRequired
+      ? semanticProviderEligibility(item, value).eligible
+      : providerEvidence;
+    return eligible
+      ? contract.specializationGroup || contract.value
+      : "";
   }));
+}
+
+function semanticVerificationValuesForItem(item = {}, filters = []) {
+  if (item.detailEnriched) return [];
+  return unique([
+    ...selectedTaxonomyFilters(filters),
+    ...(item.crossMediaSeedTransferValues || item.crossMediaSeedGenreValues || []),
+  ].filter((value) => {
+    const contract = genreContractFor(value);
+    if (!contract) return false;
+    return semanticProviderEligibility(item, value).eligible &&
+      !candidateGenreMatchDetail(item, [value]).genreMatched;
+  }));
+}
+
+function semanticVerificationReservations(items = [], filters = []) {
+  const represented = new Set();
+  const reservations = [];
+  for (const item of items) {
+    const type = normalizeDisplayContentType(item) || "unknown";
+    const values = semanticVerificationValuesForItem(item, filters);
+    const keys = values.map((value) => `${type}:${value}`);
+    if (!keys.some((key) => !represented.has(key))) continue;
+    reservations.push(item);
+    keys.forEach((key) => represented.add(key));
+  }
+  return reservations;
 }
 
 function detailSourceKey(item = {}, filters = []) {
@@ -322,10 +356,38 @@ export function planDetailAllocation(
   const orderedByType = new Map(
     [...byType].map(([type, groups]) => [type, sourceDiverseOrder(groups, rankByItem)]),
   );
+  const boundedLimit = Math.min(Math.max(0, Number(limit || 0)), orderedCandidates.length);
   const selected = roundRobinGroups(
     types.map((type) => orderedByType.get(type) || []),
-    Math.min(Math.max(0, Number(limit || 0)), orderedCandidates.length),
+    boundedLimit,
   );
+  const reserved = new Set();
+  for (const candidate of semanticVerificationReservations(orderedCandidates, filters)) {
+    const existingIndex = selected.indexOf(candidate);
+    if (existingIndex >= 0) {
+      reserved.add(candidate);
+      continue;
+    }
+    if (selected.length < boundedLimit) {
+      selected.push(candidate);
+      reserved.add(candidate);
+      continue;
+    }
+    const candidateType = normalizeDisplayContentType(candidate);
+    let replacementIndex = -1;
+    for (let index = selected.length - 1; index >= 0; index -= 1) {
+      if (reserved.has(selected[index])) continue;
+      if (normalizeDisplayContentType(selected[index]) === candidateType) {
+        replacementIndex = index;
+        break;
+      }
+      if (replacementIndex < 0) replacementIndex = index;
+    }
+    if (replacementIndex >= 0) {
+      selected[replacementIndex] = candidate;
+      reserved.add(candidate);
+    }
+  }
   const selectedSet = new Set(selected);
   const skipped = orderedCandidates.filter((item) => !selectedSet.has(item));
   const selectedFamilies = countBy(

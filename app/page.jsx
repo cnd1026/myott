@@ -1116,7 +1116,7 @@ async function fetchOptionRecommendations(
   };
 }
 
-async function fetchRelatedRecommendations(item, quickPicks, labelByValue, { signal } = {}) {
+async function fetchRelatedRecommendations(item, quickPicks, labelByValue, { signal, primaryItems = [] } = {}) {
   const providerContentId = item.providerContentId || item.tmdbId || "";
   if (!providerContentId) return [];
 
@@ -1139,7 +1139,7 @@ async function fetchRelatedRecommendations(item, quickPicks, labelByValue, { sig
   const payload = await response.json();
   return dedupeRelatedItems((payload.results || [])
     .map((content) => normalizeProviderResult(content, quickPicks, "", labelByValue))
-  , item).slice(0, relatedPickCount);
+  , item, primaryItems).slice(0, relatedPickCount);
 }
 
 function toggleValue(values, value) {
@@ -1501,6 +1501,7 @@ export default function Home() {
       try {
         const nextRelated = await fetchRelatedRecommendations(selectedDetail, submittedFilters, optionLabelByValue, {
           signal: request.signal,
+          primaryItems: results,
         });
         if (!relatedRequestGateRef.current.canCommit(request.sequence)) return;
         setRelatedItems(nextRelated);
@@ -1519,7 +1520,7 @@ export default function Home() {
     return () => {
       relatedRequestGateRef.current.abort();
     };
-  }, [selectedDetail, submittedFilters, optionLabelByValue]);
+  }, [selectedDetail, submittedFilters, optionLabelByValue, results]);
 
   useEffect(() => {
     if (activeSuggestionIndex === null) return undefined;

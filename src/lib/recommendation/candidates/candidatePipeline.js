@@ -274,6 +274,31 @@ function contentKey(item = {}) {
   return `${providerId}:${normalizeContentType(item)}:${normalizeText(item.originalTitle || item.title)}`;
 }
 
+function candidateLineageId(item = {}) {
+  const mediaType = normalizeProviderMediaType(item);
+  const providerContentId = Number(item.tmdbId || item.providerContentId || item.id);
+  if (!["movie", "tv"].includes(mediaType) || !Number.isSafeInteger(providerContentId) || providerContentId < 1) {
+    return "";
+  }
+  return `tmdb:${mediaType}:${providerContentId}`;
+}
+
+function safeHardFilterLineageReason(item = {}) {
+  const reason = String(item.exclusionReason || "");
+  if ([
+    "content-type-mismatch",
+    "ott-region-unavailable",
+    "ott-streaming-tier-unavailable",
+    "ott-provider-unknown",
+    "ott-provider-mismatch",
+    "runtime-unknown",
+    "runtime-mismatch",
+  ].includes(reason)) {
+    return reason;
+  }
+  return "hard-filter-failed";
+}
+
 function displayTitleKey(item = {}) {
   const title = normalizeText(item.title || item.name).replace(/[^\p{L}\p{N}]+/gu, "");
   if (!title || ["제목없음", "unknown"].includes(title)) return "";
@@ -486,6 +511,7 @@ export function finalizeCandidatePool(
     seedTitles = [],
     seedGenreIds = [],
     diversity = {},
+    collectObservabilityTrace = false,
   } = {},
 ) {
   const country = selectedCountryCode(filters);
@@ -493,6 +519,7 @@ export function finalizeCandidatePool(
   const classified = [];
   const boundedCandidates = candidates.slice(0, RAW_CANDIDATE_LIMIT);
   const contextualFranchiseKeys = contextualFranchiseCandidates(boundedCandidates);
+  const observabilityTraceById = collectObservabilityTrace ? new Map() : null;
 
   for (const candidate of boundedCandidates) {
     const item = classifyCandidate(
@@ -501,6 +528,24 @@ export function finalizeCandidatePool(
         : candidate,
       { filters, contentTypes },
     );
+    if (observabilityTraceById) {
+      const candidateId = candidateLineageId(item);
+      observabilityTraceById.set(candidateId, {
+        candidateId,
+        hardFilterDecision: item.pass ? "pass" : "fail",
+        rankingInputOrdinal: null,
+        dedupeDecision: "not-reached",
+        resultTier: item.resultTier,
+        finalPath: "none",
+        finalDecision: "not-selected",
+        reason: item.pass
+          ? item.resultTier === "country-relaxed"
+            ? "relaxed-limit-not-selected"
+            : "primary-limit-not-selected"
+          : safeHardFilterLineageReason(item),
+        rank: null,
+      });
+    }
     if (!item.pass) {
       exclusions.push({ ...item, exclusionReason: item.exclusionReason || "hard-filter-failed" });
       continue;
@@ -518,6 +563,14 @@ export function finalizeCandidatePool(
     genreIds: uniqueNumbers(seedGenreIds),
     diversity,
   };
+  if (observabilityTraceById) {
+    classified.forEach((item, index) => {
+      const trace = observabilityTraceById.get(candidateLineageId(item));
+      if (!trace) return;
+      trace.rankingInputOrdinal = index + 1;
+      trace.dedupeDecision = "kept";
+    });
+  }
   const scored = classified.map((item) => scoreCandidate(item, preferences)).sort(compareCandidates);
   const relaxedEligible = country ? scored.filter((item) => item.resultTier === "country-relaxed") : [];
   const exactDedupe = dedupeCandidates(scored.filter((item) => item.resultTier === "exact"));
@@ -550,6 +603,7 @@ export function finalizeCandidatePool(
     .map((item) => ({ ...item, exclusionReason: item.exclusionReason || "genre-mismatch" }));
   const primaryResults = [...exactResults, ...sameCountryResults];
   const relaxedDedupe = dedupeCandidates(relaxedEligible);
+  const relaxedResults = relaxedDedupe.kept.slice(0, limit);
   const allExclusions = [
     ...exclusions,
     ...exactDedupe.excluded,
@@ -558,6 +612,36 @@ export function finalizeCandidatePool(
     ...unusedSameCountryCandidates,
     ...relaxedDedupe.excluded,
   ];
+  if (observabilityTraceById) {
+    for (const item of allExclusions) {
+      if (!["duplicate-content", "duplicate-display-title", "duplicate-franchise"].includes(item.exclusionReason)) {
+        continue;
+      }
+      const trace = observabilityTraceById.get(candidateLineageId(item));
+      if (!trace) continue;
+      trace.dedupeDecision = item.exclusionReason;
+      trace.finalPath = "none";
+      trace.finalDecision = "not-selected";
+      trace.reason = item.exclusionReason;
+      trace.rank = null;
+    }
+    primaryResults.forEach((item, index) => {
+      const trace = observabilityTraceById.get(candidateLineageId(item));
+      if (!trace) return;
+      trace.finalPath = "primary";
+      trace.finalDecision = "selected";
+      trace.reason = "selected";
+      trace.rank = index + 1;
+    });
+    relaxedResults.forEach((item, index) => {
+      const trace = observabilityTraceById.get(candidateLineageId(item));
+      if (!trace) return;
+      trace.finalPath = "relaxed";
+      trace.finalDecision = "selected";
+      trace.reason = "selected";
+      trace.rank = index + 1;
+    });
+  }
   const exactResultRatio = primaryResults.length ? exactResults.length / primaryResults.length : 0;
   const sameCountryRelaxedRatio = primaryResults.length ? sameCountryResults.length / primaryResults.length : 0;
   const rawCandidateCountByType = boundedCandidates.reduce((counts, item) => {
@@ -585,8 +669,15 @@ export function finalizeCandidatePool(
 
   return {
     results: primaryResults,
-    relaxedResults: relaxedDedupe.kept.slice(0, limit),
+    relaxedResults,
     exclusions: allExclusions,
+    ...(observabilityTraceById
+      ? {
+          observabilityTrace: boundedCandidates.map((item) => ({
+            ...observabilityTraceById.get(candidateLineageId(item)),
+          })),
+        }
+      : {}),
     diagnostics: {
       rawCandidateCount: Math.min(candidates.length, RAW_CANDIDATE_LIMIT),
       rawCandidateCountByType,
@@ -613,7 +704,7 @@ export function finalizeCandidatePool(
       primaryRelaxedRatio: sameCountryRelaxedRatio,
       relaxedCount: Math.min(relaxedDedupe.kept.length, limit),
       candidates: primaryResults.map(diagnosticCandidate),
-      relaxedCandidates: relaxedDedupe.kept.slice(0, limit).map(diagnosticCandidate),
+      relaxedCandidates: relaxedResults.map(diagnosticCandidate),
       exclusions: allExclusions.slice(0, 24).map(diagnosticCandidate),
       exclusionCounts: allExclusions.reduce((counts, item) => {
         const reason = item.exclusionReason || "unknown";

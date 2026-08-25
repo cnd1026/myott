@@ -14,6 +14,7 @@ const typePolicy = ({
   providerCombinedIds = [],
   providerAdjacentIds = [],
   semanticRequired = false,
+  providerEvidenceRequiredForSemantic = true,
   semanticSpecialization = false,
   exactMatchPolicy = "provider-exact",
 } = {}) => Object.freeze({
@@ -21,6 +22,7 @@ const typePolicy = ({
   providerCombinedIds: Object.freeze(providerCombinedIds),
   providerAdjacentIds: Object.freeze(providerAdjacentIds),
   semanticRequired,
+  providerEvidenceRequiredForSemantic,
   semanticSpecialization,
   exactMatchPolicy,
   // Backward-compatible reads while all consumers move to the explicit taxonomy fields.
@@ -108,9 +110,14 @@ export const GENRE_CONTRACT = Object.freeze([
   mainGenre({ value: "genre-comedy", label: "코미디", displayPriority: 7, providerNames: ["Comedy"], aliases: ["comedy", "코미디"], movie: { providerExactIds: [35] }, tv: { providerExactIds: [35] } }),
   mainGenre({
     value: "genre-horror", label: "공포", displayPriority: 8, providerNames: ["Horror"], aliases: ["horror", "공포"],
-    providerLimitation: "TMDB TV has no standalone Horror genre; Mystery 9648 is only a semantic candidate source.",
+    providerLimitation: "TMDB TV has no standalone Horror genre; Mystery 9648 is supporting semantic evidence.",
     movie: { providerExactIds: [27], providerAdjacentIds: [53] },
-    tv: { providerAdjacentIds: [9648], semanticRequired: true, exactMatchPolicy: "semantic-required" },
+    tv: {
+      providerAdjacentIds: [9648],
+      semanticRequired: true,
+      providerEvidenceRequiredForSemantic: false,
+      exactMatchPolicy: "semantic-required",
+    },
   }),
 
   taxonomyOption({ value: "genre-crime", label: "범죄", displayPriority: 20, providerNames: ["Crime"], aliases: ["crime", "범죄"], movie: { providerExactIds: [80], providerAdjacentIds: [53] }, tv: { providerExactIds: [80], providerAdjacentIds: [9648] } }),
@@ -338,6 +345,43 @@ function intersects(ids, candidates) {
   return candidates.some((id) => ids.includes(id));
 }
 
+const TV_HORROR_PROVIDER_INDEPENDENT_STRONG_SIGNALS = Object.freeze([
+  "horror", "supernatural horror", "slasher", "zombie", "haunting", "occult",
+  "공포", "빙의", "오컬트", "슬래셔", "좀비",
+]);
+
+export function semanticProviderEligibility(item = {}, value) {
+  const contract = genreContractFor(value);
+  const mediaType = providerType(item.mediaType || item.contentType || item.type);
+  const policy = contract?.[mediaType];
+  if (!contract || !policy?.semanticRequired) {
+    return { eligible: false, providerEvidence: false, mediaType, value: contract?.value || "" };
+  }
+  const ids = providerGenreIds(item);
+  const providerEvidence = intersects(ids, [
+    ...policy.providerExactIds,
+    ...policy.providerCombinedIds,
+    ...policy.providerAdjacentIds,
+  ]);
+  return {
+    eligible: providerEvidence || policy.providerEvidenceRequiredForSemantic === false,
+    providerEvidence,
+    mediaType,
+    value: contract.value,
+  };
+}
+
+export function semanticEvidenceQualifies(item = {}, value, evidence = semanticGenreEvidence(item, value)) {
+  const eligibility = semanticProviderEligibility(item, value);
+  if (!eligibility.eligible || !evidence.matched) return false;
+  if (eligibility.value !== "genre-horror" || eligibility.mediaType !== "tv" || eligibility.providerEvidence) {
+    return true;
+  }
+  const directSignals = new Set(evidence.matchedSignals || []);
+  return TV_HORROR_PROVIDER_INDEPENDENT_STRONG_SIGNALS.some((signal) => directSignals.has(signal)) ||
+    directSignals.size >= 2;
+}
+
 const SPECIALIZATION_GROUPS = Object.freeze({
   "action-adventure": Object.freeze(["genre-action", "genre-adventure"]),
   "sf-fantasy": Object.freeze(["genre-sf", "genre-fantasy"]),
@@ -368,10 +412,10 @@ export function classifyTaxonomyValues(item = {}) {
     if (entry.category === "style" && exact) styleValues.push(entry.value);
     if (entry.category === "narrative" && exact && !policy.semanticRequired) canonicalGenreValues.push(entry.value);
 
-    if (policy.semanticRequired && !entry.specializationGroup && (exact || combined || intersects(ids, policy.providerAdjacentIds))) {
+    if (policy.semanticRequired && !entry.specializationGroup && semanticProviderEligibility(item, entry.value).eligible) {
       const evidence = semanticGenreEvidence(item, entry.value);
       semanticEvidenceByGenre[entry.value] = evidence;
-      if (evidence.matched) semanticGenreValues.push(entry.value);
+      if (semanticEvidenceQualifies(item, entry.value, evidence)) semanticGenreValues.push(entry.value);
     }
   }
 

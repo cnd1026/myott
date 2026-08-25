@@ -1,8 +1,18 @@
 import test, { beforeEach } from "node:test";
 import assert from "node:assert/strict";
 
-import { recommendSeedsTmdb } from "../../../lib/tmdb.js";
-import { clearTmdbRequestCache } from "../providers/tmdb/requestContext.js";
+import {
+  TmdbObservabilityIntegrityError,
+  createRequestContext,
+  discoverTmdb,
+  recommendSeedsTmdb,
+} from "../../../lib/tmdb.js";
+import { tmdbProvider } from "../providers/tmdb/provider.js";
+import {
+  TMDB_REQUEST_LIMITS,
+  TMDB_TIME_LIMITS,
+  clearTmdbRequestCache,
+} from "../providers/tmdb/requestContext.js";
 import {
   createFixtureFetch,
   createRecommendationContextFactory,
@@ -19,8 +29,201 @@ import {
   buildSeedRequestPayload,
   resolveEmptyStateMessage,
 } from "./seeds/seedRequest.js";
+import {
+  TMDB_OBSERVABILITY_ACCEPTED_WORST_CASE,
+  TMDB_OBSERVABILITY_LIMITS,
+  TMDB_OBSERVABILITY_STAGES,
+  createTmdbObservabilitySession,
+  validateTmdbObservabilityEvidence,
+} from "./qa/tmdbObservability.js";
 
 beforeEach(() => clearTmdbRequestCache());
+
+function tmdbFixtureResponse(status, payload = {}) {
+  return {
+    ok: status >= 200 && status < 300,
+    status,
+    headers: { get: () => null },
+    async json() {
+      return payload;
+    },
+  };
+}
+
+function currentProductCandidates(count = 72, { horrorPassCount = null, idOffset = 0 } = {}) {
+  return Array.from({ length: count }, (_, index) => {
+    const id = 80_001 + idOffset + index;
+    const horrorFixture = Number.isSafeInteger(horrorPassCount);
+    const horrorPass = horrorFixture && index < horrorPassCount;
+    const title = horrorFixture
+      ? `Candidate${id} Current Product`
+      : `Current Product Candidate ${id}`;
+    return {
+      id,
+      name: title,
+      original_name: title,
+      first_air_date: `202${index % 5}-01-01`,
+      genre_ids: horrorFixture ? [9648] : [18],
+      origin_country: ["US"],
+      overview: horrorPass ? "A horror haunting with an occult ghost." : "A quiet mystery drama.",
+      popularity: 1_000 - index,
+      vote_average: 8 - (index % 5) / 10,
+      vote_count: 2_000 - index,
+    };
+  });
+}
+
+function currentProductCandidate(id, {
+  genreIds = [18],
+  horrorSemantic = false,
+  detailKeywords = [],
+  detailOverview = "",
+} = {}) {
+  const title = `Synthetic Candidate ${id}`;
+  return {
+    id,
+    name: title,
+    original_name: title,
+    first_air_date: "2024-01-01",
+    genre_ids: genreIds,
+    origin_country: ["US"],
+    overview: horrorSemantic ? "A horror haunting with an occult ghost." : "A quiet character drama.",
+    detailKeywords,
+    detailOverview,
+    popularity: 500,
+    vote_average: 7.5,
+    vote_count: 500,
+  };
+}
+
+function currentProductFixtureFetch(calls, fixtureOptions = {}) {
+  const candidates = currentProductCandidates(fixtureOptions.count || 72, fixtureOptions);
+  const additionalHorrorByPage = new Map(
+    Object.entries(fixtureOptions.additionalHorrorByPage || {}).map(([page, count]) => [
+      Number(page),
+      currentProductCandidates(Number(count), {
+        horrorPassCount: Number(count),
+        idOffset: Number(page) * 100,
+      }),
+    ]),
+  );
+  const candidatesByGenreAndPage = new Map(Object.entries(fixtureOptions.candidatesByGenreAndPage || {}));
+  const candidatesByKeywordAndPage = new Map(Object.entries(fixtureOptions.candidatesByKeywordAndPage || {}));
+  const allCandidates = [
+    ...new Map(
+      [
+        ...candidates,
+        ...[...additionalHorrorByPage.values()].flat(),
+        ...[...candidatesByGenreAndPage.values()].flat(),
+        ...[...candidatesByKeywordAndPage.values()].flat(),
+      ]
+        .map((candidate) => [candidate.id, candidate]),
+    ).values(),
+  ];
+  return async (rawUrl) => {
+    const url = new URL(rawUrl);
+    calls.push(url.pathname);
+    fixtureOptions.requestLog?.push({
+      path: url.pathname,
+      page: url.searchParams.has("page") ? Number(url.searchParams.get("page")) : null,
+      sortBy: url.searchParams.get("sort_by") || "",
+      withGenres: url.searchParams.get("with_genres") || "",
+      withKeywords: url.searchParams.get("with_keywords") || "",
+      voteCountGte: url.searchParams.get("vote_count.gte") || "",
+      withOriginCountry: url.searchParams.get("with_origin_country") || "",
+      withoutGenres: url.searchParams.get("without_genres") || "",
+      includeAdult: url.searchParams.get("include_adult") || "",
+    });
+    if (["/3/discover/tv", "/3/discover/movie"].includes(url.pathname)) {
+      const page = Number(url.searchParams.get("page") || 1);
+      const withGenres = url.searchParams.get("with_genres") || "";
+      const withKeywords = url.searchParams.get("with_keywords") || "";
+      const requestKey = `${withGenres || withKeywords}:${page}`;
+      const candidateMap = withKeywords ? candidatesByKeywordAndPage : candidatesByGenreAndPage;
+      const pageCandidates = candidateMap.has(requestKey)
+        ? candidateMap.get(requestKey)
+        : page >= 3
+          ? [...(additionalHorrorByPage.get(page) || []), ...candidates]
+          : candidates;
+      return tmdbFixtureResponse(200, {
+        page,
+        total_results: allCandidates.length,
+        results: pageCandidates,
+      });
+    }
+    const detailMatch = url.pathname.match(/^\/3\/(?:tv|movie)\/(\d+)$/);
+    assert.ok(detailMatch, `unexpected current Product fixture path: ${url.pathname}`);
+    const id = Number(detailMatch[1]);
+    const candidate = allCandidates.find((item) => item.id === id);
+    assert.ok(candidate, `unknown current Product fixture candidate: ${id}`);
+    return tmdbFixtureResponse(200, {
+      ...candidate,
+      overview: candidate.detailOverview || candidate.overview,
+      genres: candidate.genre_ids.map((id) => ({ id, name: id === 9648 ? "Mystery" : "Drama" })),
+      episode_run_time: [45],
+      production_countries: [{ iso_3166_1: "US" }],
+      keywords: {
+        results: candidate.detailKeywords?.length
+          ? candidate.detailKeywords.map((name, index) => ({ id: candidate.id * 10 + index, name }))
+          : candidate.overview.startsWith("A horror")
+            ? [{ id: candidate.id, name: "horror" }]
+            : [],
+      },
+      credits: { cast: [], crew: [] },
+      "watch/providers": { results: {} },
+    });
+  };
+}
+
+async function withCurrentProductRuntime(operation, { nodeEnv = "test", clock, fixtureOptions } = {}) {
+  const previousFetch = globalThis.fetch;
+  const previousNow = Date.now;
+  const previousNodeEnv = process.env.NODE_ENV;
+  const previousApiKey = process.env.TMDB_API_KEY;
+  const previousBearer = process.env.TMDB_BEARER_TOKEN;
+  const calls = [];
+  clearTmdbRequestCache();
+  globalThis.fetch = currentProductFixtureFetch(calls, fixtureOptions);
+  if (clock) {
+    Date.now = () => {
+      const value = Math.min(clock.calls * Number(clock.stepMs || 10), Number(clock.maximumMs ?? Infinity));
+      clock.calls += 1;
+      clock.maximumObserved = Math.max(Number(clock.maximumObserved || 0), value);
+      return value;
+    };
+  }
+  process.env.NODE_ENV = nodeEnv;
+  process.env.TMDB_API_KEY = "deterministic-fixture-key";
+  delete process.env.TMDB_BEARER_TOKEN;
+  try {
+    return { calls, payload: await operation() };
+  } finally {
+    clearTmdbRequestCache();
+    globalThis.fetch = previousFetch;
+    Date.now = previousNow;
+    if (previousNodeEnv === undefined) delete process.env.NODE_ENV;
+    else process.env.NODE_ENV = previousNodeEnv;
+    if (previousApiKey === undefined) delete process.env.TMDB_API_KEY;
+    else process.env.TMDB_API_KEY = previousApiKey;
+    if (previousBearer === undefined) delete process.env.TMDB_BEARER_TOKEN;
+    else process.env.TMDB_BEARER_TOKEN = previousBearer;
+  }
+}
+
+function currentProductSnapshot(payload) {
+  const { currentProductObservability, ...productDiagnostics } = payload.diagnostics;
+  return {
+    results: payload.results.map((item) => ({
+      tmdbId: item.tmdbId,
+      score: item.scoreDetail?.finalScore ?? null,
+    })),
+    relaxedResults: payload.relaxedResults.map((item) => ({
+      tmdbId: item.tmdbId,
+      score: item.scoreDetail?.finalScore ?? null,
+    })),
+    diagnostics: productDiagnostics,
+  };
+}
 
 test("shared genre contract keeps movie and TV SF semantics distinct", () => {
   assert.deepEqual(genreIdsForFilters(["genre-sf"], "movie"), [878]);
@@ -178,5 +381,617 @@ test("seed coverage and empty states explain the actual state", () => {
       unresolvedSeedCount: 2,
     }),
     "입력한 작품을 찾지 못했습니다. 작품 제목을 확인하거나 자동완성에서 작품을 선택해 주세요.",
+  );
+});
+
+test("active-base QA observability preserves Product output, request sequence, policy, and clock reads", async () => {
+  const baselineClock = { calls: 0 };
+  const observedClock = { calls: 0 };
+  const baseline = await withCurrentProductRuntime(
+    () => discoverTmdb({ contentTypes: ["drama"], limit: 12 }),
+    { clock: baselineClock },
+  );
+  const observed = await withCurrentProductRuntime(
+    () => discoverTmdb({ contentTypes: ["drama"], limit: 12, qaObservability: true }),
+    { clock: observedClock },
+  );
+
+  assert.deepEqual(currentProductSnapshot(observed.payload), currentProductSnapshot(baseline.payload));
+  assert.deepEqual(observed.calls, baseline.calls);
+  assert.equal(observedClock.calls, baselineClock.calls);
+  assert.equal(observed.calls.filter((path) => path === "/3/discover/tv").length, 1);
+  assert.equal(observed.calls.filter((path) => /^\/3\/tv\/\d+$/.test(path)).length, 16);
+  assert.deepEqual({
+    total: observed.payload.diagnostics.requestBudget,
+    list: observed.payload.diagnostics.listRequestBudget,
+    detail: observed.payload.diagnostics.detailRequestBudget,
+    concurrency: observed.payload.diagnostics.concurrencyLimit,
+    retries: TMDB_REQUEST_LIMITS.retries,
+    timeout: observed.payload.diagnostics.maximumFetchTimeoutMs,
+    deadline: observed.payload.diagnostics.recommendationDeadlineMs,
+  }, {
+    total: 24,
+    list: 8,
+    detail: 16,
+    concurrency: 4,
+    retries: 2,
+    timeout: 8_000,
+    deadline: 15_000,
+  });
+  assert.equal(baseline.payload.diagnostics.currentProductObservability, undefined);
+
+  const evidence = validateTmdbObservabilityEvidence(observed.payload.diagnostics.currentProductObservability);
+  assert.ok(evidence.events.length <= TMDB_OBSERVABILITY_LIMITS.maximumEventCount);
+  assert.ok(evidence.events.length <= TMDB_OBSERVABILITY_ACCEPTED_WORST_CASE.eventCount);
+  assert.equal(evidence.schemaVersion, "myott.current-product-observability.v3");
+  assert.deepEqual(
+    evidence.events.filter((event) => event.type === "stage-summary").map((event) => event.stage),
+    TMDB_OBSERVABILITY_STAGES,
+  );
+  assert.equal(evidence.events.some((event) => Object.hasOwn(event, "elapsedMs")), false);
+  assert.equal(evidence.summary.requestAttemptCount, observed.payload.diagnostics.requestsUsed);
+  assert.equal(evidence.summary.requestAttemptCount,
+    evidence.summary.requestCompleteCount + evidence.summary.requestFailureCount);
+  assert.equal(evidence.summary.candidatePoolSummaryCount, 1);
+  assert.equal(evidence.summary.candidateLineageCount, 72);
+  assert.equal(evidence.summary.selectedCandidateCount + evidence.summary.excludedCandidateCount, 72);
+  assert.equal(new Set(
+    evidence.events.filter((event) => event.type === "candidate-lineage").map((event) => event.candidateId),
+  ).size, 72);
+  assert.equal(/https?:\/\/|api_key|authorization|bearer|\?/.test(JSON.stringify(evidence)), false);
+});
+
+test("Horror TV exact recall adds true semantic candidates within the bounded page plan", async () => {
+  const baselineCandidates = currentProductCandidates(12, { horrorPassCount: 7 })
+    .map((item) => ({ ...item, mediaType: "tv" }));
+  const baselineExact = baselineCandidates
+    .filter((item) => candidateGenreMatchDetail(item, ["genre-horror"]).genreMatched);
+  const baselineRelaxed = baselineCandidates
+    .filter((item) => !candidateGenreMatchDetail(item, ["genre-horror"]).genreMatched);
+  const requestLog = [];
+  const keywordExact = currentProductCandidate(80_301, {
+    genreIds: [18],
+    horrorSemantic: true,
+  });
+  const run = await withCurrentProductRuntime(
+    () => discoverTmdb({
+      filters: ["country-us", "genre-horror"],
+      contentTypes: ["drama"],
+      limit: 12,
+      qaObservability: true,
+    }),
+    {
+      fixtureOptions: {
+        count: 12,
+        horrorPassCount: 7,
+        candidatesByKeywordAndPage: { "12377:1": [keywordExact] },
+        requestLog,
+      },
+    },
+  );
+  const evidence = validateTmdbObservabilityEvidence(run.payload.diagnostics.currentProductObservability);
+  const pool = evidence.events.find((event) => event.type === "candidate-pool-summary");
+  const lineage = evidence.events.filter((event) => event.type === "candidate-lineage");
+  const discoverRequests = requestLog.filter((request) => request.path === "/3/discover/tv");
+  const primaryIds = lineage
+    .filter((item) => item.finalPath === "primary" && item.finalDecision === "selected")
+    .sort((left, right) => left.rank - right.rank)
+    .map((item) => item.candidateId);
+  const resultIds = run.payload.results.map((item) => `tmdb:${item.mediaType}:${item.tmdbId}`);
+  const mysteryOnlyIds = new Set(baselineRelaxed.map((item) => `tmdb:tv:${item.id}`));
+  const resultTitles = run.payload.results.map((item) => item.title.trim().toLowerCase());
+  const resultFranchises = run.payload.results.map((item) => item.franchiseKey).filter(Boolean);
+  const newExact = run.payload.results.find((item) => item.tmdbId === 80_301);
+
+  assert.equal(baselineExact.length, 7);
+  assert.equal(baselineRelaxed.length, 5);
+  assert.equal(pool.recallStageCount, 8);
+  assert.equal(pool.arrivalCount, pool.distinctCount + pool.duplicateCount);
+  assert.equal(pool.distinctCount, pool.boundedCount + pool.poolExcludedCount);
+  assert.equal(pool.boundedCount, 13);
+  assert.equal(lineage.length, 13);
+  assert.equal(lineage.filter((item) => item.preDetailSemantic === "pass").length, 8);
+  assert.equal(lineage.filter((item) => item.preDetailSemantic === "fail").length, 5);
+  assert.equal(run.payload.results.length, 8);
+  assert.deepEqual(primaryIds, resultIds);
+  assert.ok(run.payload.results.length <= 12);
+  assert.ok(newExact);
+  assert.equal(newExact.genreMatchMode, "semantic-specialized");
+  assert.ok(newExact.semanticGenreReasons.some((reason) => reason.startsWith("genre-horror:")));
+  assert.equal(resultIds.some((id) => mysteryOnlyIds.has(id)), false);
+  assert.ok(run.payload.results.every((item) => item.resultTier === "exact"));
+  assert.ok(run.payload.results.every((item) => item.countryCodes.includes("US")));
+  assert.ok(run.payload.results.every((item) => item.mediaType === "tv" && item.type === "drama"));
+  assert.equal(new Set(resultIds).size, resultIds.length);
+  assert.equal(new Set(resultTitles).size, resultTitles.length);
+  assert.equal(new Set(resultFranchises).size, resultFranchises.length);
+  assert.equal(lineage.filter((item) => item.detailState === "selected-enriched").length, 13);
+  assert.deepEqual(discoverRequests.map((request) => request.withGenres), [
+    "9648", "10765", "80", "18", "", "", "", "",
+  ]);
+  assert.deepEqual(discoverRequests.map((request) => request.withKeywords), [
+    "", "", "", "", "12377", "2626", "161261", "283085",
+  ]);
+  assert.deepEqual(discoverRequests.map((request) => request.page), [1, 1, 1, 1, 1, 1, 1, 1]);
+  assert.ok(discoverRequests.every((request) => request.sortBy === "popularity.desc"));
+  assert.ok(discoverRequests.every((request) => request.voteCountGte === "30"));
+  assert.ok(discoverRequests.every((request) => Boolean(request.withGenres) !== Boolean(request.withKeywords)));
+  assert.ok(discoverRequests.every((request) => request.withOriginCountry === "US"));
+  assert.ok(discoverRequests.every((request) => request.withoutGenres === "16"));
+  assert.ok(discoverRequests.every((request) => request.includeAdult === "false"));
+  assert.equal(requestLog.some((request) => /keyword/.test(request.path)), false);
+  const expectedStageIds = [
+    "genre-mystery-9648-page-1",
+    "genre-sf-fantasy-10765-page-1",
+    "genre-crime-80-page-1",
+    "genre-drama-18-page-1",
+    "keyword-zombie-12377-page-1",
+    "keyword-exorcism-2626-page-1",
+    "keyword-demonic-possession-161261-page-1",
+    "keyword-body-horror-283085-page-1",
+  ];
+  assert.deepEqual(Object.keys(run.payload.diagnostics.rawCandidatesByStage), expectedStageIds);
+  for (const diagnosticField of ["providerTotalResultsByTask", "fetchedPagesByTask"]) {
+    const diagnosticStageIds = [...new Set(
+      Object.keys(run.payload.diagnostics[diagnosticField]).map((taskKey) => taskKey.split(":")[0]),
+    )];
+    assert.deepEqual(diagnosticStageIds, expectedStageIds);
+  }
+  assert.equal(discoverRequests.some((request) => ["10327", "10292", "15043"].includes(request.withKeywords)), false);
+  assert.equal(run.payload.diagnostics.listRequestsUsed, 8);
+  assert.equal(run.payload.diagnostics.detailRequestsUsed, 13);
+  assert.equal(run.payload.diagnostics.requestsUsed, 21);
+});
+
+test("Horror TV bounded pool preserves unique alternate-source stage opportunity", async () => {
+  const requestLog = [];
+  const alternateCandidates = {
+    "10765:1": [currentProductCandidate(90_101, { genreIds: [10765] })],
+    "80:1": [currentProductCandidate(90_201, { genreIds: [80] })],
+    "18:1": [currentProductCandidate(90_301, { genreIds: [18] })],
+  };
+  const keywordCandidates = {
+    "12377:1": [currentProductCandidate(90_401)],
+    "2626:1": [currentProductCandidate(90_402)],
+    "161261:1": [currentProductCandidate(90_403)],
+    "283085:1": [currentProductCandidate(90_404)],
+  };
+  const run = await withCurrentProductRuntime(
+    () => discoverTmdb({
+      filters: ["country-us", "genre-horror"],
+      contentTypes: ["drama"],
+      limit: 12,
+      qaObservability: true,
+    }),
+    {
+      fixtureOptions: {
+        count: 72,
+        horrorPassCount: 0,
+        candidatesByGenreAndPage: alternateCandidates,
+        candidatesByKeywordAndPage: keywordCandidates,
+        requestLog,
+      },
+    },
+  );
+  const evidence = validateTmdbObservabilityEvidence(run.payload.diagnostics.currentProductObservability);
+  const pool = evidence.events.find((event) => event.type === "candidate-pool-summary");
+  const lineage = evidence.events.filter((event) => event.type === "candidate-lineage");
+  const representedStages = new Set(lineage.map((item) => item.arrivalStage));
+
+  assert.equal(pool.boundedCount, 72);
+  assert.ok(pool.distinctCount > pool.boundedCount);
+  assert.ok(representedStages.has("exact-rating-page-1"));
+  assert.ok(representedStages.has("exact-breadth-page-2"));
+  assert.ok(representedStages.has("exact-breadth-page-3"));
+  assert.ok(representedStages.has("exact-breadth-page-4"));
+  assert.ok(representedStages.has("exact-breadth-page-5"));
+  assert.ok(representedStages.has("exact-breadth-page-6"));
+  assert.ok(representedStages.has("exact-breadth-page-7"));
+  assert.ok(lineage.some((item) => item.candidateId === "tmdb:tv:90404" && item.arrivalStage === "exact-breadth-page-7"));
+  assert.deepEqual(
+    requestLog.filter((request) => request.path === "/3/discover/tv").map((request) => [request.withGenres, request.withKeywords, request.page]),
+    [["9648", "", 1], ["10765", "", 1], ["80", "", 1], ["18", "", 1], ["", "12377", 1], ["", "2626", 1], ["", "161261", 1], ["", "283085", 1]],
+  );
+});
+
+test("Horror TV bounded pool does not manufacture representation for duplicate-only late stages", async () => {
+  const run = await withCurrentProductRuntime(
+    () => discoverTmdb({
+      filters: ["country-us", "genre-horror"],
+      contentTypes: ["drama"],
+      limit: 12,
+      qaObservability: true,
+    }),
+    { fixtureOptions: { count: 72, horrorPassCount: 0 } },
+  );
+  const evidence = validateTmdbObservabilityEvidence(run.payload.diagnostics.currentProductObservability);
+  const lineage = evidence.events.filter((event) => event.type === "candidate-lineage");
+
+  assert.equal(lineage.length, 72);
+  assert.equal(lineage.some((item) => item.arrivalStage === "exact-breadth-page-7"), false);
+});
+
+test("Horror TV diversification completes its bounded eight-request plan after reaching the exact target", async () => {
+  const requestLog = [];
+  const run = await withCurrentProductRuntime(
+    () => discoverTmdb({
+      filters: ["country-us", "genre-horror"],
+      contentTypes: ["drama"],
+      limit: 12,
+    }),
+    {
+      fixtureOptions: {
+        count: 12,
+        horrorPassCount: 7,
+        candidatesByKeywordAndPage: {
+          "12377:1": currentProductCandidates(8, { horrorPassCount: 8, idOffset: 300 }),
+        },
+        requestLog,
+      },
+    },
+  );
+  const discoverRequests = requestLog.filter((request) => request.path === "/3/discover/tv");
+
+  assert.deepEqual(discoverRequests.map((request) => request.withGenres), [
+    "9648", "10765", "80", "18", "", "", "", "",
+  ]);
+  assert.deepEqual(discoverRequests.map((request) => request.withKeywords), [
+    "", "", "", "", "12377", "2626", "161261", "283085",
+  ]);
+  assert.deepEqual(discoverRequests.map((request) => request.page), [1, 1, 1, 1, 1, 1, 1, 1]);
+  assert.equal(run.payload.diagnostics.listRequestsUsed, 8);
+  assert.ok(run.payload.diagnostics.exactAfterDetail >= 15);
+  assert.ok(run.payload.diagnostics.detailRequestsUsed <= 16);
+  assert.ok(run.payload.diagnostics.requestsUsed <= 24);
+});
+
+test("Horror TV retrieval lenses do not replace independent candidate semantic qualification", async () => {
+  const mysteryOnly = currentProductCandidate(91_001, { genreIds: [9648] });
+  const sfLensDecoy = currentProductCandidate(91_002, { genreIds: [18] });
+  const crimeLensDecoy = currentProductCandidate(91_003, { genreIds: [10765] });
+  const dramaLensDecoy = currentProductCandidate(91_004, { genreIds: [80] });
+  const keywordWithoutEvidence = currentProductCandidate(91_005, { genreIds: [18] });
+  const keywordWithAmbiguityOnly = currentProductCandidate(91_006, {
+    genreIds: [18],
+    detailKeywords: ["supernatural", "monster", "dark"],
+  });
+  const keywordWithZombieEvidence = {
+    ...currentProductCandidate(91_007, {
+      genreIds: [18],
+      detailKeywords: ["zombie"],
+    }),
+    name: "Ashes After Dawn",
+    original_name: "Ashes After Dawn",
+  };
+  const keywordWithDirectEvidence = {
+    ...currentProductCandidate(91_008, {
+      genreIds: [18],
+      horrorSemantic: true,
+    }),
+    name: "The Hollow Chapel",
+    original_name: "The Hollow Chapel",
+  };
+  const requestLog = [];
+  const run = await withCurrentProductRuntime(
+    () => discoverTmdb({
+      filters: ["country-us", "genre-horror"],
+      contentTypes: ["drama"],
+      limit: 12,
+    }),
+    {
+      fixtureOptions: {
+        count: 1,
+        horrorPassCount: 0,
+        candidatesByGenreAndPage: {
+          "9648:1": [mysteryOnly],
+          "10765:1": [sfLensDecoy],
+          "80:1": [crimeLensDecoy],
+          "18:1": [dramaLensDecoy],
+        },
+        candidatesByKeywordAndPage: {
+          "12377:1": [keywordWithoutEvidence],
+          "2626:1": [keywordWithAmbiguityOnly],
+          "161261:1": [keywordWithZombieEvidence],
+          "283085:1": [keywordWithDirectEvidence],
+        },
+        requestLog,
+      },
+    },
+  );
+  const resultIds = run.payload.results.map((item) => item.tmdbId);
+  const diagnostics = [...run.payload.diagnostics.candidates, ...run.payload.diagnostics.exclusions];
+  const diagnosticFor = (candidate) => diagnostics.find((item) => item.tmdbId === candidate.id);
+
+  assert.deepEqual(
+    requestLog.filter((request) => request.path === "/3/discover/tv").map((request) => request.withGenres),
+    ["9648", "10765", "80", "18", "", "", "", ""],
+  );
+  assert.deepEqual(
+    requestLog.filter((request) => request.path === "/3/discover/tv").map((request) => request.withKeywords),
+    ["", "", "", "", "12377", "2626", "161261", "283085"],
+  );
+  assert.deepEqual(diagnosticFor(sfLensDecoy).genreIds, [18]);
+  assert.deepEqual(diagnosticFor(crimeLensDecoy).genreIds, [10765]);
+  assert.deepEqual(diagnosticFor(dramaLensDecoy).genreIds, [80]);
+  assert.equal(diagnosticFor(sfLensDecoy).genreIds.includes(10765), false);
+  assert.equal(diagnosticFor(crimeLensDecoy).genreIds.includes(80), false);
+  assert.equal(diagnosticFor(dramaLensDecoy).genreIds.includes(18), false);
+  assert.equal(candidateGenreMatchDetail({ ...sfLensDecoy, mediaType: "tv" }, ["genre-horror"]).genreMatched, false);
+  assert.equal(candidateGenreMatchDetail({ ...crimeLensDecoy, mediaType: "tv" }, ["genre-horror"]).genreMatched, false);
+  assert.equal(candidateGenreMatchDetail({ ...dramaLensDecoy, mediaType: "tv" }, ["genre-horror"]).genreMatched, false);
+  assert.equal(candidateGenreMatchDetail({ ...mysteryOnly, mediaType: "tv" }, ["genre-horror"]).genreMatched, false);
+  assert.equal(diagnosticFor(keywordWithoutEvidence).semanticGenreMatched, false);
+  assert.equal(diagnosticFor(keywordWithAmbiguityOnly).semanticGenreMatched, false);
+  assert.equal(diagnosticFor(keywordWithZombieEvidence).genreMatchMode, "semantic-specialized");
+  assert.equal(diagnosticFor(keywordWithDirectEvidence).genreMatchMode, "semantic-specialized");
+  assert.deepEqual(resultIds, [keywordWithZombieEvidence.id, keywordWithDirectEvidence.id]);
+  assert.ok(run.payload.results.every((item) => item.genreMatchMode === "semantic-specialized"));
+  assert.ok(run.payload.results.every((item) => (
+    item.semanticGenreReasons.some((reason) => reason.startsWith("genre-horror:"))
+  )));
+  assert.equal(resultIds.includes(keywordWithoutEvidence.id), false);
+  assert.equal(resultIds.includes(keywordWithAmbiguityOnly.id), false);
+});
+
+test("Horror TV non-9648 detail enrichment closes the circular gate without weakening ambiguity", async () => {
+  const detailQualified = currentProductCandidate(92_001, {
+    genreIds: [18],
+    detailKeywords: ["zombie"],
+  });
+  const detailAmbiguous = currentProductCandidate(92_002, {
+    genreIds: [80],
+    detailKeywords: ["supernatural", "monster", "dark"],
+  });
+  const requestLog = [];
+  const run = await withCurrentProductRuntime(
+    () => discoverTmdb({
+      filters: ["country-us", "genre-horror"],
+      contentTypes: ["drama"],
+      limit: 12,
+    }),
+    {
+      fixtureOptions: {
+        count: 1,
+        horrorPassCount: 0,
+        candidatesByGenreAndPage: {
+          "10765:1": [detailQualified],
+          "80:1": [detailAmbiguous],
+        },
+        requestLog,
+      },
+    },
+  );
+  const resultIds = run.payload.results.map((item) => item.tmdbId);
+  const detailPaths = requestLog.filter((request) => /^\/3\/tv\/\d+$/.test(request.path)).map((request) => request.path);
+
+  assert.ok(detailPaths.includes(`/3/tv/${detailQualified.id}`));
+  assert.ok(detailPaths.includes(`/3/tv/${detailAmbiguous.id}`));
+  assert.ok(resultIds.includes(detailQualified.id));
+  assert.equal(resultIds.includes(detailAmbiguous.id), false);
+  assert.equal(run.payload.results.find((item) => item.tmdbId === detailQualified.id)?.genreMatchMode, "semantic-specialized");
+  assert.ok(run.payload.diagnostics.detailRequestsUsed <= 16);
+  assert.ok(run.payload.diagnostics.requestsUsed <= 24);
+});
+
+test("Horror TV qualification is invariant across retrieval lenses for identical candidate evidence", async () => {
+  const candidates = ["Ash Hollow", "Night Signal"].map((title, index) => ({
+    ...currentProductCandidate(93_001 + index, {
+      genreIds: [18],
+      horrorSemantic: true,
+    }),
+    name: title,
+    original_name: title,
+  }));
+  const run = await withCurrentProductRuntime(
+    () => discoverTmdb({
+      filters: ["country-us", "genre-horror"],
+      contentTypes: ["drama"],
+      limit: 12,
+    }),
+    {
+      fixtureOptions: {
+        count: 1,
+        horrorPassCount: 0,
+        candidatesByGenreAndPage: { "9648:1": [candidates[0]] },
+        candidatesByKeywordAndPage: { "12377:1": [candidates[1]] },
+      },
+    },
+  );
+  const resultIds = new Set(run.payload.results.map((item) => item.tmdbId));
+
+  candidates.forEach((candidate) => assert.ok(resultIds.has(candidate.id)));
+  const compared = candidates.map((candidate) => run.payload.results.find((item) => item.tmdbId === candidate.id));
+  assert.ok(compared.every((item) => item.genreMatchMode === "semantic-specialized"));
+  assert.equal(compared[0].semanticConfidence, compared[1].semanticConfidence);
+  assert.deepEqual(compared[0].semanticGenreReasons, compared[1].semanticGenreReasons);
+});
+
+test("Horror TV cross-family duplicates remain one candidate identity", async () => {
+  const duplicate = currentProductCandidate(93_101, {
+    genreIds: [9648],
+    horrorSemantic: true,
+  });
+  const run = await withCurrentProductRuntime(
+    () => discoverTmdb({
+      filters: ["country-us", "genre-horror"],
+      contentTypes: ["drama"],
+      limit: 12,
+      qaObservability: true,
+    }),
+    {
+      fixtureOptions: {
+        count: 1,
+        candidatesByGenreAndPage: { "9648:1": [duplicate] },
+        candidatesByKeywordAndPage: { "12377:1": [duplicate] },
+      },
+    },
+  );
+  const evidence = validateTmdbObservabilityEvidence(run.payload.diagnostics.currentProductObservability);
+  const lineage = evidence.events.filter((event) => event.type === "candidate-lineage");
+
+  assert.equal(lineage.filter((item) => item.candidateId === `tmdb:tv:${duplicate.id}`).length, 1);
+  assert.equal(run.payload.results.filter((item) => item.tmdbId === duplicate.id).length, 1);
+  assert.ok(evidence.events.find((event) => event.type === "candidate-pool-summary").duplicateCount > 0);
+});
+
+test("Horror TV breadth stages do not expand representative non-target recall plans", async () => {
+  const scenarios = [
+    {
+      filters: ["country-us", "genre-romance"],
+      contentTypes: ["drama"],
+      endpoint: "/3/discover/tv",
+      expected: [["18", 1, "popularity.desc"], ["18", 1, "vote_average.desc"], ["18", 2, "popularity.desc"]],
+    },
+    {
+      filters: ["country-us", "genre-sf"],
+      contentTypes: ["drama"],
+      endpoint: "/3/discover/tv",
+      expected: [["10765", 1, "popularity.desc"], ["10765", 1, "vote_average.desc"], ["10765", 2, "popularity.desc"]],
+    },
+    {
+      filters: ["country-us", "genre-thriller"],
+      contentTypes: ["drama"],
+      endpoint: "/3/discover/tv",
+      expected: [
+        ["80", 1, "popularity.desc"], ["9648", 1, "popularity.desc"],
+        ["80", 1, "vote_average.desc"], ["9648", 1, "vote_average.desc"],
+        ["80", 2, "popularity.desc"], ["9648", 2, "popularity.desc"],
+        ["80", 1, "popularity.desc"], ["9648", 1, "popularity.desc"],
+      ],
+    },
+    {
+      filters: ["country-us", "genre-horror"],
+      contentTypes: ["movie"],
+      endpoint: "/3/discover/movie",
+      expected: [["27", 1, "popularity.desc"], ["27", 1, "vote_average.desc"], ["27", 2, "popularity.desc"]],
+    },
+    {
+      filters: ["country-us", "genre-comedy"],
+      contentTypes: ["movie"],
+      endpoint: "/3/discover/movie",
+      expected: [["35", 1, "popularity.desc"], ["35", 1, "vote_average.desc"], ["35", 2, "popularity.desc"]],
+    },
+  ];
+
+  for (const scenario of scenarios) {
+    const requestLog = [];
+    await withCurrentProductRuntime(
+      () => discoverTmdb({ ...scenario, limit: 12 }),
+      { fixtureOptions: { count: 1, requestLog } },
+    );
+    const discoverRequests = requestLog.filter((request) => request.path === scenario.endpoint);
+    assert.equal(discoverRequests.length, scenario.expected.length);
+    assert.deepEqual(
+      discoverRequests.map((request) => [request.withGenres, request.page, request.sortBy]),
+      scenario.expected,
+    );
+    assert.ok(discoverRequests.every((request) => request.path === scenario.endpoint));
+    assert.ok(discoverRequests.every((request) => request.withKeywords === ""));
+  }
+});
+
+test("QA lineage adds no Product-policy clock read across an advancing 15-second window", async () => {
+  const baselineClock = { calls: 0, stepMs: 1_000, maximumMs: 14_999 };
+  const observedClock = { calls: 0, stepMs: 1_000, maximumMs: 14_999 };
+  const baseline = await withCurrentProductRuntime(
+    () => discoverTmdb({ contentTypes: ["drama"], limit: 12 }),
+    { clock: baselineClock },
+  );
+  const observed = await withCurrentProductRuntime(
+    () => discoverTmdb({ contentTypes: ["drama"], limit: 12, qaObservability: true }),
+    { clock: observedClock },
+  );
+
+  assert.deepEqual(currentProductSnapshot(observed.payload), currentProductSnapshot(baseline.payload));
+  assert.deepEqual(observed.calls, baseline.calls);
+  assert.equal(observedClock.calls, baselineClock.calls);
+  assert.equal(observedClock.maximumObserved, 14_999);
+  assert.equal(baselineClock.maximumObserved, 14_999);
+});
+
+test("QA observability is disabled in production and rejects external context binding before fetch", async () => {
+  const production = await withCurrentProductRuntime(
+    () => discoverTmdb({ contentTypes: ["drama"], limit: 12, qaObservability: true }),
+    { nodeEnv: "production" },
+  );
+  assert.equal(production.payload.diagnostics.currentProductObservability, undefined);
+
+  let fetchCount = 0;
+  const previousFetch = globalThis.fetch;
+  const previousNodeEnv = process.env.NODE_ENV;
+  const previousApiKey = process.env.TMDB_API_KEY;
+  globalThis.fetch = async () => {
+    fetchCount += 1;
+    return tmdbFixtureResponse(200);
+  };
+  process.env.NODE_ENV = "test";
+  process.env.TMDB_API_KEY = "deterministic-fixture-key";
+  try {
+    await assert.rejects(
+      discoverTmdb({
+        contentTypes: ["drama"],
+        qaObservability: true,
+        requestContext: {},
+      }),
+      (error) => error instanceof TmdbObservabilityIntegrityError &&
+        error.code === "TMDB_OBSERVABILITY_INTEGRITY_FAILED" &&
+        error.stage === "context-binding",
+    );
+  } finally {
+    globalThis.fetch = previousFetch;
+    if (previousNodeEnv === undefined) delete process.env.NODE_ENV;
+    else process.env.NODE_ENV = previousNodeEnv;
+    if (previousApiKey === undefined) delete process.env.TMDB_API_KEY;
+    else process.env.TMDB_API_KEY = previousApiKey;
+  }
+  assert.equal(fetchCount, 0);
+});
+
+test("current Product observability identity is internal and caller IDs are not authoritative", async () => {
+  const first = await withCurrentProductRuntime(() => discoverTmdb({
+    contentTypes: ["drama"],
+    limit: 12,
+    qaObservability: true,
+    requestId: "caller-request-id",
+    runId: "caller-run-id",
+  }));
+  const second = await withCurrentProductRuntime(() => discoverTmdb({
+    contentTypes: ["drama"],
+    limit: 12,
+    qaObservability: true,
+    requestId: "caller-request-id",
+    runId: "caller-run-id",
+  }));
+  const firstEvidence = first.payload.diagnostics.currentProductObservability;
+  const secondEvidence = second.payload.diagnostics.currentProductObservability;
+
+  assert.notEqual(firstEvidence.sessionId, secondEvidence.sessionId);
+  assert.equal(JSON.stringify(firstEvidence).includes("caller-request-id"), false);
+  assert.equal(JSON.stringify(firstEvidence).includes("caller-run-id"), false);
+  assert.equal(TMDB_REQUEST_LIMITS.total, 24);
+  assert.equal(TMDB_TIME_LIMITS.recommendationDeadlineMs, 15_000);
+});
+
+test("provider exposes only the QA Boolean and public context creation cannot activate an observer", async () => {
+  let injectedContextCalls = 0;
+  const run = await withCurrentProductRuntime(() => tmdbProvider.getRecommendations({
+    contentTypes: ["drama"],
+    limit: 12,
+    qaDiagnostics: true,
+    observer: { callerControlled: true },
+    adapter: { callerControlled: true },
+    requestContext: {
+      get() {
+        injectedContextCalls += 1;
+      },
+    },
+  }));
+  assert.ok(run.payload.diagnostics.currentProductObservability);
+  assert.equal(injectedContextCalls, 0);
+
+  const session = createTmdbObservabilitySession();
+  assert.throws(
+    () => createRequestContext({ observer: session }),
+    (error) => error?.code === "TMDB_OBSERVABILITY_INTEGRITY_FAILED" && error?.stage === "context-binding",
   );
 });

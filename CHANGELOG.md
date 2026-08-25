@@ -1,6 +1,16 @@
 # Changelog
 
 프로젝트의 주요 변경 사항을 날짜별로 기록합니다.
+## 2026-08-21 - Founder Preview Worktree Runtime Support
+
+- Git linked worktree에 독립 `node_modules`가 없어도 같은 Git common repository와 origin, 호환 `next/react/react-dom` 계약이 확인되면 primary worktree의 기존 runtime을 안전하게 재사용합니다.
+- Application source와 Working Directory는 target worktree에 유지하고, target 우선 `.env.local` 및 same-repository primary fallback을 child process에만 적용합니다.
+- 독립 검토의 HIGH split-process ownership finding을 닫기 위해 exact target path와 Next dev evidence를 같은 proving launcher에서 요구하고, State launcher PID/Start Time과 listener ancestry를 함께 검증합니다.
+- 독립 재검토에서 확인된 남은 HIGH를 닫기 위해 `next-helper.js dev` 같은 비정본 명령을 허용하던 substring 판정을 제거하고, Node + 검증된 official Next CLI path + exact `dev` token으로 canonical command evidence를 제한합니다.
+- 최종 독립 재검토에서 확인된 새 HIGH를 닫기 위해 target path가 `--env-file` 등에 존재하는지만 보던 ownership을 제거하고, parsed `next dev` application directory가 exact target repository와 일치하도록 결속합니다.
+- 독립 검토의 MEDIUM runtime-version finding을 닫기 위해 선언 일치뿐 아니라 실제 설치된 `next`, `react`, `react-dom`이 target caret SemVer 범위를 충족하는지 검증하며 미지원 형식은 차단합니다.
+- Junction, dependency install, secret copy, Product/Recommendation 의미 변경과 Network 사용은 없습니다.
+
 ## 2026-07-18 - MYOTT-S09-006A2D1A
 
 ### Multi-Seed Coverage And Seed Integrity

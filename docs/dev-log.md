@@ -2,6 +2,29 @@
 
 개발 과정에서의 작업 내용, 결정, 아쉬운 점, 다음 개선 사항을 날짜별로 기록합니다.
 
+## 2026-08-21 - Founder Preview Worktree Runtime Support
+
+### Problem
+
+- Target worktree source로 Next Root HTTP 200까지 실행할 수 있었지만 dependency executable path가 primary worktree를 가리켜 기존 listener-only identity 검사에서 `RUNNING_MANAGED`가 성립하지 않았습니다.
+- 첫 교정의 독립 재검토에서 `next`와 `dev` substring만 포함한 `next-helper.js dev` 명령도 Next dev evidence로 오인되는 남은 HIGH가 확인됐습니다.
+- 최종 독립 재검토에서 target path가 `--env-file`에만 있어도 다른 app directory를 실행하는 canonical Next command가 ownership을 통과하는 새 HIGH가 확인됐습니다.
+
+### Correction
+
+- Git common-dir와 origin으로 same-repository primary worktree를 유도하고 `next`, `react`, `react-dom` 계약 및 설치 runtime을 검증하는 resolver를 추가했습니다.
+- Node/Next는 target Working Directory와 app path로 실행하며 shared dependency와 primary `.env.local` fallback은 child process 범위에서만 사용합니다.
+- 독립 검토에서 Process A의 target path와 Process B의 Next evidence를 합칠 수 있는 HIGH finding 및 설치 버전 `0.0.1`도 선언 일치만으로 허용한 MEDIUM finding을 확인했습니다.
+- exact target path와 Next dev evidence를 같은 proving launcher에서 요구하고 State launcher PID/Start Time 및 listener ancestry를 결속했습니다. 실제 설치된 세 runtime package는 target caret SemVer 범위를 충족해야 하며 미지원·malformed·prerelease 입력은 fail-closed합니다.
+- Windows command line을 token boundary로 해석하고, 현재 lifecycle이 생성하는 Node + 검증된 target-local/shared official Next CLI + exact `dev` 형식만 허용합니다. Direct Next, pnpm, cmd wrapper 및 Next-like filename은 현재 canonical form으로 허용하지 않습니다.
+- Canonical command에서 Node option, official Next CLI, `dev`, positional application directory와 Next option을 구분하고, application directory가 exact target repository root와 일치할 때만 ownership을 허용합니다. Env-file과 dependency root는 source ownership으로 사용하지 않습니다.
+
+### Validation
+
+- PowerShell parser: 0 errors.
+- Founder Preview selftest: 111/111 PASS. Canonical current/shared/target-local command positive, env-file decoy와 wrong-app-directory matrix, explicit app argument 누락, `next-helper.js dev`, split-process, launcher/listener identity와 ancestry, 실제 설치 버전 및 `0.0.1`/malformed/unsupported SemVer 회귀를 포함합니다.
+- Product source, Product tests, package/lock, dependency install, Product Network 변경 0.
+
 ## 2026-07-18 - MYOTT-S09-006A2D1A
 
 ### Root Cause

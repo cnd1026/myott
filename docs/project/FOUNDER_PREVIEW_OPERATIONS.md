@@ -119,8 +119,25 @@ State 최소 항목:
 - `command`
 - `stdoutLog`
 - `stderrLog`
+- `dependencySourceClassification`
+- `dependencySourceRepository`
+- `environmentSourceClassification`
 
 State의 PID만으로 Process를 신뢰하지 않습니다. PID, Process Start Time, Repository Path, Next Dev Command, Listener를 함께 확인합니다.
+
+### Git Worktree Runtime Support
+
+Founder Preview의 Application Source와 Working Directory는 항상 실행 대상 worktree입니다. 대상 worktree에 유효한 `node_modules`와 Next runtime이 있으면 `TARGET_LOCAL_DEPENDENCIES`를 사용합니다. 없으면 Git `--git-common-dir`에서 primary worktree를 유도하고, target/source의 common Git directory와 origin remote가 같으며 `next`, `react`, `react-dom` 선언이 정확히 일치하고 실제 설치 버전이 target caret SemVer 범위를 충족할 때만 `SAME_REPOSITORY_SHARED_DEPENDENCIES`를 사용합니다. 지원하지 않거나 malformed/prerelease인 범위와 버전은 호환으로 추정하지 않고 차단합니다.
+
+Shared dependency reuse는 source ownership을 primary worktree로 넘기지 않습니다. Launcher는 target worktree를 Next app directory와 Working Directory로 유지하고 `NODE_PATH`를 child process에만 설정합니다. Worktree에 `node_modules` junction, symlink, copy를 만들거나 dependency install을 수행하지 않습니다.
+
+Environment source는 target `.env.local`이 우선입니다. Target에 없고 동일 Git repository의 primary worktree에 `.env.local`이 있을 때만 Node child process의 env-file로 사용합니다. 파일은 복사하지 않고 경로 존재와 classification만 기록하며 secret 값은 State, Log, Console에 출력하지 않습니다.
+
+Shared runtime의 final listener command가 dependency worktree만 가리키더라도 listener의 canonical ancestor chain에서 단일 proving launcher가 exact target repository path와 Next dev command를 같은 Process Command Line으로 함께 증명할 수 있습니다. 여기서 Next dev command는 현재 lifecycle이 생성하는 Node 실행 파일, 검증된 target-local 또는 same-repository shared runtime의 exact `node_modules\next\dist\bin\next` 경로, exact `dev` argument가 token boundary로 일치하는 형식만 뜻합니다. 임의 command text에 `next`와 `dev`가 포함된 것만으로는 증거가 되지 않으며, direct Next executable, pnpm, cmd wrapper 형식은 현재 lifecycle의 canonical form으로 허용하지 않습니다. Malformed 또는 ambiguous command line은 fail-closed합니다.
+
+Application source ownership은 parsed `next dev` positional application-directory argument가 target repository root와 정확히 일치할 때만 성립합니다. `--env-file`, shared dependency root, log path 또는 다른 option value에 target path가 존재하는 것은 application source 증거가 아닙니다. Canonical launcher는 application directory를 명시하며 implicit working directory를 ownership 근거로 사용하지 않습니다.
+
+서로 다른 Process의 path/Next boolean을 합치지 않습니다. Listener는 proving launcher 자신이거나 검증된 descendant여야 하며 State의 launcher/listener PID와 Start Time, target repositoryPath, requested host/port가 모두 일치해야 합니다. 하나라도 불일치하거나 ancestry를 증명할 수 없으면 fail-closed합니다.
 
 기존 `%TEMP%\myott-founder-preview\state.json`은 현재 Repository 경로, Listener PID, Start Time, Process ownership이 모두 유효할 때만 Repository별 경로로 migration합니다. 다른 Repository의 Legacy State는 이동하거나 삭제하지 않습니다. Migration은 반복 실행해도 같은 결과가 나와야 하며, 새 Server가 Repository별 Log로 정상 시작된 뒤에만 현재 Repository의 Legacy Log를 정리합니다.
 
@@ -456,6 +473,7 @@ Start Action이 생성한 MyOTT Process만 정리하며 다른 Port로 이동하
 - Global Named Mutex는 같은 Windows 사용자 환경의 clone/worktree 간 Port 3000 mutation을 방어합니다.
 - 브라우저의 Next.js 재연결은 브라우저/네트워크 상태에 따라 수동 새로고침이 필요할 수 있습니다.
 - Process Command Line 조회 권한이 제한되면 자동 adopt/stop보다 안전한 BLOCKED 상태를 선택합니다.
+- Linked worktree shared runtime은 같은 Git common directory, 같은 origin, 동일 dependency declaration, target SemVer 범위를 충족하는 실제 설치 runtime이 모두 확인될 때만 허용합니다.
 - Production Process Manager, Windows Service, Startup 등록은 범위 밖입니다.
 
 ---
