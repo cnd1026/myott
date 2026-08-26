@@ -73,6 +73,14 @@ MyOTT is under active development. This public log summarizes externally safe mi
 - Implemented and offline-validated the current candidate, including isolated network-free build verification.
 - Kept product integration and release gated while independent validation continues.
 
+## 2026-08-27
+
+- Preserved the exact R3 release baseline after source identity, recommendation tests, deterministic QA, and the local production build passed.
+- Created the `myott` Vercel project with Node.js 24.x, Production environment-variable names only, and Standard Protection active.
+- Stopped the first production checkpoint without promotion after two unintended, non-promoted deployment submissions both completed Next.js compilation but failed the generic/static output-directory contract.
+- Confirmed that no Automation Bypass remained active, no public production smoke was accepted, and no credential or bypass value was written to source or documentation.
+- Returned the Vercel project/framework configuration and bounded release orchestration to HQ for correction disposition before another deployment attempt.
+
 ## Maintenance policy going forward
 
 When meaningful development continues but a public product commit is delayed by QA, security, or release gates, MyOTT will publish a small public-safe maintenance signal when useful. That signal may be a status update, documentation commit, issue, or review artifact. Empty commits and fabricated activity are not part of this policy.

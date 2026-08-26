@@ -2,6 +2,31 @@
 
 개발 과정에서의 작업 내용, 결정, 아쉬운 점, 다음 개선 사항을 날짜별로 기록합니다.
 
+## 2026-08-27 - R3 First Production Safe Stop
+
+### 준비 상태
+
+- R3 release baseline `28b4553f19851df7ce6e5a8296b4e506c456308f`의 116개 source blob, parent/tree, package/lock identity를 다시 확인했습니다.
+- 기존 `pnpm check` 결과를 재사용했습니다. Recommendation 194/194, deterministic QA 107/107, local Next build는 PASS였으며 두 번째 local check는 실행하지 않았습니다.
+- Vercel 프로젝트 `myott`는 Node.js 24.x, Git Integration 없음, Install Command AUTO, Production 환경변수 이름 `TMDB_API_KEY`, `TMDB_LANGUAGE`, `TMDB_REGION`, Standard Protection 활성 상태였습니다.
+
+### 실행 결과
+
+- 보호 우회 교정 오케스트레이션의 인수 전달 결함으로 의도한 Automation Bypass 명령은 실행되지 않았고, 인수 없는 기본 deployment 제출이 두 번 발생했습니다.
+- 두 deployment는 Node.js 24.18.0과 pnpm 10으로 Next.js compilation까지 완료했지만, 프로젝트가 generic/static framework 설정을 유지해 `STATIC_BUILD_NO_OUT_DIR`로 종료됐습니다.
+- 두 deployment 모두 READY가 아니었고 promotion, protected smoke, public smoke는 실행되지 않았습니다.
+
+### 안전 상태
+
+- Automation Bypass 활성 수는 최종 0이며 임시 bypass secret은 생성, 출력, 저장되지 않았습니다.
+- Product/Test/package/lock source 변경은 0이고 credential 값, Vercel token, raw CLI output은 기록하지 않았습니다.
+- production alias 변경, custom domain, DNS, release, deploy promotion은 수행하지 않았습니다.
+
+### 다음 단계
+
+- 현재 분류는 `R3_SAFE_STOP_DEPLOYMENT_ATTEMPT_LIMIT_EXCEEDED`입니다.
+- HQ에서 Vercel Framework Preset/Output Directory 계약과 CLI orchestration 인수 전달을 별도 교정 승인하기 전에는 bypass 생성이나 deployment를 재시도하지 않습니다.
+
 ## 2026-08-21 - Founder Preview Worktree Runtime Support
 
 ### Problem
