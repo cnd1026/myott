@@ -5,6 +5,25 @@ import {
 } from "../../../../src/lib/providers/registry";
 import { sanitizeFounderDiagnostics } from "../../../../src/lib/recommendation/qa/founderDiagnostics.js";
 
+function recommendationUnavailable(cause) {
+  return Response.json({
+    source: "tmdb",
+    dataSource: "unavailable",
+    providerId: "tmdb",
+    tmdbEnabled: isTmdbProviderEnabled(),
+    fallbackUsed: false,
+    error: {
+      code: "RECOMMENDATION_UNAVAILABLE",
+      cause,
+    },
+  }, {
+    status: 503,
+    headers: {
+      "Cache-Control": "no-store",
+    },
+  });
+}
+
 function sourceMetadata(provider, {
   message = "",
   fallbackUsed = false,
@@ -148,6 +167,9 @@ export async function POST(request) {
   }
 
   if (activeProvider.id === "mock") {
+    if (process.env.NODE_ENV === "production") {
+      return recommendationUnavailable("tmdb-not-configured");
+    }
     return Response.json(await recommendWithProvider(activeProvider, input, {
       dataSource: "fallback",
       fallbackUsed: true,
@@ -163,6 +185,9 @@ export async function POST(request) {
       headers: { "Cache-Control": "no-store" },
     });
   } catch (error) {
+    if (process.env.NODE_ENV === "production") {
+      return recommendationUnavailable("tmdb-provider-failure");
+    }
     const fallbackProvider = getFallbackProvider();
     const message = error instanceof Error ? error.message : "TMDB multi-seed recommendation failed.";
     return Response.json(await recommendWithProvider(fallbackProvider, input, {

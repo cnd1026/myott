@@ -3,6 +3,14 @@ import { readFile } from "node:fs/promises";
 import test from "node:test";
 
 import {
+  createRequestContext,
+  discoverTmdb,
+  recommendSeedsTmdb,
+  relatedTmdb,
+} from "../../../../lib/tmdb.js";
+import { clearTmdbRequestCache } from "../../providers/tmdb/requestContext.js";
+
+import {
   attachFounderDiagnostics,
   founderDiagnosticsSecretExposureCount,
   sanitizeFounderDiagnostics,
@@ -25,7 +33,11 @@ import {
 } from "./routeFailureObservability.js";
 
 const optionsRouteUrl = new URL("../../../../app/api/recommend/options/route.js", import.meta.url);
+const seedsRouteUrl = new URL("../../../../app/api/recommend/seeds/route.js", import.meta.url);
+const relatedRouteUrl = new URL("../../../../app/api/related/route.js", import.meta.url);
 let optionsRouteImportSequence = 0;
+let seedsRouteImportSequence = 0;
+let relatedRouteImportSequence = 0;
 
 async function importOptionsRoute(stubs) {
   globalThis.__REC_QA_091_ACTIVE_ROUTE_STUBS__ = {
@@ -56,6 +68,35 @@ async function importOptionsRoute(stubs) {
   return import(`data:text/javascript;base64,${Buffer.from(source).toString("base64")}#active-route-${optionsRouteImportSequence}`);
 }
 
+async function importSeedsRoute(stubs) {
+  globalThis.__REC_QA_091_ACTIVE_ROUTE_STUBS__ = {
+    ...stubs,
+    sanitizeFounderDiagnostics,
+  };
+  const source = (await readFile(seedsRouteUrl, "utf8"))
+    .replace(
+      /import\s*\{\s*getActiveProvider,\s*getFallbackProvider,\s*isTmdbProviderEnabled,\s*\}\s*from "\.\.\/\.\.\/\.\.\/\.\.\/src\/lib\/providers\/registry";/,
+      "const { getActiveProvider, getFallbackProvider, isTmdbProviderEnabled } = globalThis.__REC_QA_091_ACTIVE_ROUTE_STUBS__;",
+    )
+    .replace(
+      'import { sanitizeFounderDiagnostics } from "../../../../src/lib/recommendation/qa/founderDiagnostics.js";',
+      "const { sanitizeFounderDiagnostics } = globalThis.__REC_QA_091_ACTIVE_ROUTE_STUBS__;",
+    );
+  seedsRouteImportSequence += 1;
+  return import(`data:text/javascript;base64,${Buffer.from(source).toString("base64")}#seed-route-${seedsRouteImportSequence}`);
+}
+
+async function importRelatedRoute(stubs) {
+  globalThis.__REC_QA_091_ACTIVE_ROUTE_STUBS__ = { ...stubs };
+  const source = (await readFile(relatedRouteUrl, "utf8"))
+    .replace(
+      'import { getActiveProvider, getFallbackProvider, isTmdbProviderEnabled } from "../../../src/lib/providers/registry";',
+      "const { getActiveProvider, getFallbackProvider, isTmdbProviderEnabled } = globalThis.__REC_QA_091_ACTIVE_ROUTE_STUBS__;",
+    );
+  relatedRouteImportSequence += 1;
+  return import(`data:text/javascript;base64,${Buffer.from(source).toString("base64")}#related-route-${relatedRouteImportSequence}`);
+}
+
 async function withNodeEnvironment(nodeEnv, operation) {
   const previousNodeEnv = process.env.NODE_ENV;
   process.env.NODE_ENV = nodeEnv;
@@ -70,6 +111,185 @@ async function withNodeEnvironment(nodeEnv, operation) {
 
 function routeRequest(query) {
   return { nextUrl: new URL(`http://local.test/api/recommend/options?${query}`) };
+}
+
+async function withOfflineTmdbRuntime(fetchImpl, operation) {
+  const previousApiKey = process.env.TMDB_API_KEY;
+  const previousBearer = process.env.TMDB_BEARER_TOKEN;
+  const previousFetch = globalThis.fetch;
+  process.env.TMDB_API_KEY = "offline-fixture-key";
+  delete process.env.TMDB_BEARER_TOKEN;
+  globalThis.fetch = fetchImpl;
+  clearTmdbRequestCache();
+  try {
+    return await operation();
+  } finally {
+    clearTmdbRequestCache();
+    globalThis.fetch = previousFetch;
+    if (previousApiKey === undefined) delete process.env.TMDB_API_KEY;
+    else process.env.TMDB_API_KEY = previousApiKey;
+    if (previousBearer === undefined) delete process.env.TMDB_BEARER_TOKEN;
+    else process.env.TMDB_BEARER_TOKEN = previousBearer;
+  }
+}
+
+function offlineTmdbContext(fetchImpl, options = {}) {
+  const { limits = {}, ...contextOptions } = options;
+  return createRequestContext({
+    fetchImpl,
+    limits: { retries: 0, ...limits },
+    sleep: async () => {},
+    random: () => 0,
+    fetchTimeoutMs: 100,
+    recommendationDeadlineMs: 10_000,
+    ...contextOptions,
+  });
+}
+
+function captureRuntimeLifecycleReceipts(context) {
+  const receipts = [];
+  const createLifecycleReceipt = context.createLifecycleReceipt.bind(context);
+  context.createLifecycleReceipt = () => {
+    const receipt = createLifecycleReceipt();
+    receipts.push(receipt);
+    return receipt;
+  };
+  return () => receipts.map((receipt) => context.readLifecycleReceipt(receipt));
+}
+
+function retryableRateLimitResponse(onRetryEligibility = () => {}) {
+  return {
+    ok: false,
+    status: 429,
+    headers: {
+      get(name) {
+        if (String(name).toLowerCase() !== "retry-after") return null;
+        onRetryEligibility();
+        return "30";
+      },
+    },
+    async json() {
+      return {};
+    },
+  };
+}
+
+function assertExactPostIssuedRetryStop({ context, fetchCount, snapshots }) {
+  const issued = snapshots.filter((snapshot) => snapshot?.providerParticipation);
+  assert.equal(fetchCount, 1);
+  assert.equal(context.limits.retries, 2);
+  assert.equal(context.diagnostics().rateLimitedCount, 1);
+  assert.equal(context.diagnostics().retryCount, 0);
+  assert.equal(context.diagnostics().deadlineExceeded, true);
+  assert.equal(issued.length, 1);
+  assert.equal(issued[0].accessMode, "fresh");
+  assert.equal(issued[0].issuedAttemptCount, 1);
+  assert.equal(issued[0].ownedIssuedAttemptCount, 1);
+  assert.equal(issued[0].providerParticipation, true);
+  assert.equal(issued[0].accessTerminal, "resource-stop-post-issue");
+}
+
+function tmdbFixtureResponse(payload = { page: 1, total_results: 0, results: [] }) {
+  return new Response(JSON.stringify(payload), {
+    status: 200,
+    headers: { "content-type": "application/json" },
+  });
+}
+
+function tmdbControlledJsonResponse(
+  payload = { page: 1, total_results: 0, results: [] },
+  beforeJson = () => {},
+) {
+  return {
+    ok: true,
+    status: 200,
+    headers: new Headers({ "content-type": "application/json" }),
+    async json() {
+      beforeJson();
+      return payload;
+    },
+  };
+}
+
+function tmdbAsyncJsonFailureResponse(beforeJson = () => {}) {
+  return {
+    ok: true,
+    status: 200,
+    headers: new Headers({ "content-type": "application/json" }),
+    async json() {
+      beforeJson();
+      throw new Error("fixture async JSON rejection");
+    },
+  };
+}
+
+function tmdbFixtureFailure() {
+  const error = new TypeError("sensitive-provider-message https://api.themoviedb.org Authorization Bearer");
+  error.code = "ECONNRESET";
+  return error;
+}
+
+const totalFailureSeed = Object.freeze({
+  inputTitle: "Fixture Seed",
+  tmdbId: 901,
+  mediaType: "movie",
+  resolvedTitle: "Fixture Seed",
+  originalTitle: "Fixture Seed",
+  genreIds: [],
+});
+
+const partialCandidate = Object.freeze({
+  id: 902,
+  media_type: "movie",
+  title: "Fixture Candidate",
+  original_title: "Fixture Candidate",
+  genre_ids: [],
+  origin_country: ["US"],
+  release_date: "2024-01-01",
+  vote_average: 7.5,
+  vote_count: 100,
+  popularity: 10,
+});
+
+function seedRouteRequest(body) {
+  return { json: async () => body };
+}
+
+function relatedRouteRequest(query) {
+  return { nextUrl: new URL(`http://local.test/api/related?${query}`) };
+}
+
+async function assertRecommendationUnavailable(response, { cause, tmdbEnabled }) {
+  const text = await response.text();
+  assert.equal(response.status, 503);
+  assert.equal(response.headers.get("cache-control"), "no-store");
+  assert.deepEqual(JSON.parse(text), {
+    source: "tmdb",
+    dataSource: "unavailable",
+    providerId: "tmdb",
+    tmdbEnabled,
+    fallbackUsed: false,
+    error: {
+      code: "RECOMMENDATION_UNAVAILABLE",
+      cause,
+    },
+  });
+  for (const prohibited of [
+    "results",
+    "relaxedResults",
+    "seedResults",
+    "processedSeeds",
+    "fallbackReason",
+    "mock-result",
+    "sensitive-provider-message",
+    "https://api.themoviedb.org",
+    "Authorization",
+    "TMDB_API_KEY",
+    "Bearer",
+    "stack",
+  ]) {
+    assert.equal(text.includes(prohibited), false, prohibited);
+  }
 }
 
 const routeFailurePhasePaths = Object.freeze({
@@ -733,6 +953,1326 @@ test("options route preserves ordinary QA-off Product fallback", async () => {
     assert.equal(body.results[0].id, "mock-result");
     assert.equal(Object.hasOwn(body, "recommendationDebug"), false);
     assert.equal(Object.hasOwn(body, "currentProductObservability"), false);
+  });
+});
+
+test("F2 discover truthfully rejects total provider failure and preserves empty or partial success", async () => {
+  let transportFailureCount = 0;
+  await withOfflineTmdbRuntime(async () => {
+    transportFailureCount += 1;
+    throw tmdbFixtureFailure();
+  }, async () => {
+    let clock = 0;
+    const fetchImpl = async () => {
+      transportFailureCount += 1;
+      clock = 1_000;
+      throw tmdbFixtureFailure();
+    };
+    const context = offlineTmdbContext(fetchImpl, {
+      limits: { total: 1, list: 1, detail: 0, retries: 2 },
+      now: () => clock,
+      recommendationDeadlineMs: 100,
+    });
+    await assert.rejects(
+      discoverTmdb({ contentTypes: ["movie"], requestContext: context }),
+      /TMDB discover requests failed/,
+    );
+    assert.equal(context.diagnostics().listRequestsUsed, 1);
+    assert.equal(context.diagnostics().budgetExhausted, true);
+    assert.equal(context.diagnostics().deadlineExceeded, true);
+  });
+  assert.ok(transportFailureCount > 0);
+
+  let asyncJsonFailureCount = 0;
+  await withOfflineTmdbRuntime(async () => tmdbAsyncJsonFailureResponse(() => {
+    asyncJsonFailureCount += 1;
+  }), async () => {
+    const context = offlineTmdbContext(async () => tmdbAsyncJsonFailureResponse(() => {
+      asyncJsonFailureCount += 1;
+    }), { limits: { total: 100, list: 100, detail: 0, retries: 0 } });
+    await assert.rejects(
+      discoverTmdb({ contentTypes: ["movie"], requestContext: context }),
+      /TMDB discover requests failed/,
+    );
+    assert.ok(asyncJsonFailureCount > 0);
+  });
+
+  await withOfflineTmdbRuntime(async () => {
+    throw tmdbFixtureFailure();
+  }, async () => {
+    const context = offlineTmdbContext(async () => {
+      throw tmdbFixtureFailure();
+    }, { limits: { total: 100, list: 100, detail: 0, retries: 0 } });
+    await assert.rejects(
+      discoverTmdb({ contentTypes: ["movie"], requestContext: context }),
+      /TMDB discover requests failed/,
+    );
+    assert.ok(context.diagnostics().listRequestsUsed > 0);
+    assert.equal(context.diagnostics().budgetExhausted, false);
+  });
+
+  let structuralFailureCount = 0;
+  await withOfflineTmdbRuntime(async () => {
+    structuralFailureCount += 1;
+    return tmdbFixtureResponse({ page: 1, total_results: 1, results: {} });
+  }, async () => {
+    const context = offlineTmdbContext(async () => {
+      structuralFailureCount += 1;
+      return tmdbFixtureResponse({ page: 1, total_results: 1, results: {} });
+    }, { limits: { total: 100, list: 100, detail: 0, retries: 0 } });
+    await assert.rejects(
+      discoverTmdb({ contentTypes: ["movie"], requestContext: context }),
+      /TMDB discover requests failed/,
+    );
+    assert.ok(structuralFailureCount > 0);
+  });
+
+  await withOfflineTmdbRuntime(async () => tmdbFixtureResponse(), async () => {
+    const context = offlineTmdbContext(async () => tmdbFixtureResponse(), {
+      limits: { total: 100, list: 100, detail: 0, retries: 0 },
+    });
+    const payload = await discoverTmdb({ contentTypes: ["movie"], requestContext: context });
+    assert.equal(payload.source, "tmdb");
+    assert.deepEqual(payload.results, []);
+    assert.ok(context.diagnostics().listRequestsUsed > 0);
+    assert.equal(context.diagnostics().failedRequestCount, 0);
+  });
+
+  await withOfflineTmdbRuntime(async () => tmdbFixtureResponse(), async () => {
+    let listCalls = 0;
+    let successfulProviderOperations = 0;
+    let failedProviderOperations = 0;
+    const fetchImpl = async (url) => {
+      if (new URL(url).pathname.startsWith("/3/discover/")) {
+        listCalls += 1;
+        if (listCalls === 1) {
+          successfulProviderOperations += 1;
+          return tmdbFixtureResponse({ page: 1, total_results: 1, results: [partialCandidate] });
+        }
+      }
+      failedProviderOperations += 1;
+      throw tmdbFixtureFailure();
+    };
+    const context = offlineTmdbContext(fetchImpl, {
+      limits: { total: 100, list: 100, detail: 0, retries: 0 },
+    });
+    const payload = await discoverTmdb({ contentTypes: ["movie"], limit: 1, requestContext: context });
+    assert.equal(payload.source, "tmdb");
+    assert.equal(payload.results.length, 1);
+    assert.equal(successfulProviderOperations, 1);
+    assert.ok(failedProviderOperations > 0);
+    assert.ok(context.diagnostics().failedRequestCount > 0);
+  });
+});
+
+test("F2 multi-seed truthfully rejects total provider failure and preserves unresolved, empty, or partial success", async () => {
+  await withOfflineTmdbRuntime(async () => {
+    throw tmdbFixtureFailure();
+  }, async () => {
+    const context = offlineTmdbContext(async () => {
+      throw tmdbFixtureFailure();
+    }, { limits: { total: 100, list: 100, detail: 0, retries: 0 } });
+    await assert.rejects(
+      recommendSeedsTmdb({ seeds: [totalFailureSeed], contentTypes: ["movie"], requestContext: context }),
+      /multi-seed recommendation requests failed/,
+    );
+  });
+
+  let asyncJsonFailureCount = 0;
+  await withOfflineTmdbRuntime(async () => tmdbAsyncJsonFailureResponse(() => {
+    asyncJsonFailureCount += 1;
+  }), async () => {
+    const context = offlineTmdbContext(async () => tmdbAsyncJsonFailureResponse(() => {
+      asyncJsonFailureCount += 1;
+    }), { limits: { total: 1, list: 1, detail: 0, retries: 0 } });
+    await assert.rejects(
+      recommendSeedsTmdb({ seeds: [totalFailureSeed], contentTypes: ["movie"], requestContext: context }),
+      /multi-seed recommendation requests failed/,
+    );
+    assert.equal(asyncJsonFailureCount, 1);
+  });
+
+  await withOfflineTmdbRuntime(async () => {
+    throw tmdbFixtureFailure();
+  }, async () => {
+    let clock = 0;
+    const fetchImpl = async () => {
+      clock = 1_000;
+      throw tmdbFixtureFailure();
+    };
+    const context = offlineTmdbContext(fetchImpl, {
+      limits: { total: 1, list: 1, detail: 0, retries: 2 },
+      now: () => clock,
+      recommendationDeadlineMs: 100,
+    });
+    await assert.rejects(
+      recommendSeedsTmdb({ seeds: [totalFailureSeed], contentTypes: ["movie"], requestContext: context }),
+      /multi-seed recommendation requests failed/,
+    );
+    assert.equal(context.diagnostics().budgetExhausted, true);
+    assert.equal(context.diagnostics().deadlineExceeded, true);
+  });
+
+  await withOfflineTmdbRuntime(async () => {
+    throw tmdbFixtureFailure();
+  }, async () => {
+    let clock = 0;
+    let actualSearchFailures = 0;
+    let candidateFetchCalls = 0;
+    const fetchImpl = async (url) => {
+      const path = new URL(url).pathname;
+      if (path.endsWith("/search/multi")) {
+        actualSearchFailures += 1;
+        clock = 1_000;
+        throw new Error("fixture search failure");
+      }
+      candidateFetchCalls += 1;
+      return tmdbFixtureResponse();
+    };
+    const context = offlineTmdbContext(fetchImpl, {
+      limits: { total: 100, list: 100, detail: 0, retries: 0 },
+      now: () => clock,
+      recommendationDeadlineMs: 100,
+    });
+    await assert.rejects(
+      recommendSeedsTmdb({
+        titles: ["Unconfirmed Fixture"],
+        seeds: [totalFailureSeed],
+        contentTypes: ["movie"],
+        requestContext: context,
+      }),
+      /multi-seed recommendation requests failed/,
+    );
+    assert.equal(actualSearchFailures, 1);
+    assert.equal(candidateFetchCalls, 0);
+    assert.equal(context.diagnostics().deadlineExceeded, true);
+  });
+
+  await withOfflineTmdbRuntime(async () => tmdbFixtureResponse(), async () => {
+    let clock = 0;
+    let providerCalls = 0;
+    const context = offlineTmdbContext(async () => {
+      providerCalls += 1;
+      return tmdbFixtureResponse();
+    }, {
+      limits: { total: 100, list: 100, detail: 0, retries: 0 },
+      now: () => clock,
+      recommendationDeadlineMs: 100,
+    });
+    clock = 1_000;
+    const deferred = await recommendSeedsTmdb({
+      seeds: [totalFailureSeed],
+      contentTypes: ["movie"],
+      requestContext: context,
+    });
+    assert.equal(deferred.source, "tmdb");
+    assert.deepEqual(deferred.results, []);
+    assert.deepEqual(deferred.deferredSeeds, ["Fixture Seed"]);
+    assert.equal(deferred.diagnostics.deferredSeedCount, 1);
+    assert.equal(providerCalls, 0);
+    assert.equal(context.diagnostics().listRequestsUsed, 0);
+  });
+
+  await withOfflineTmdbRuntime(async () => tmdbFixtureResponse(), async () => {
+    const unresolvedContext = offlineTmdbContext(async () => tmdbFixtureResponse(), {
+      limits: { total: 100, list: 100, detail: 0, retries: 0 },
+    });
+    const unresolved = await recommendSeedsTmdb({
+      titles: ["Unknown Fixture"],
+      contentTypes: ["movie"],
+      requestContext: unresolvedContext,
+    });
+    assert.deepEqual(unresolved.results, []);
+    assert.deepEqual(unresolved.unresolvedSeeds, ["Unknown Fixture"]);
+    assert.ok(unresolvedContext.diagnostics().listRequestsUsed > 0);
+    assert.equal(unresolvedContext.diagnostics().failedRequestCount, 0);
+
+    clearTmdbRequestCache();
+    const emptyContext = offlineTmdbContext(async () => tmdbFixtureResponse(), {
+      limits: { total: 100, list: 100, detail: 0, retries: 0 },
+    });
+    const empty = await recommendSeedsTmdb({
+      seeds: [totalFailureSeed],
+      contentTypes: ["movie"],
+      requestContext: emptyContext,
+    });
+    assert.equal(empty.source, "tmdb");
+    assert.deepEqual(empty.results, []);
+    assert.ok(emptyContext.diagnostics().listRequestsUsed > 0);
+    assert.equal(emptyContext.diagnostics().failedRequestCount, 0);
+  });
+
+  await withOfflineTmdbRuntime(async () => tmdbFixtureResponse(), async () => {
+    let successfulProviderOperations = 0;
+    let failedProviderOperations = 0;
+    const fetchImpl = async (url) => {
+      const path = new URL(url).pathname;
+      if (path.endsWith("/recommendations")) {
+        successfulProviderOperations += 1;
+        return tmdbFixtureResponse({
+          page: 1,
+          total_results: 1,
+          results: [partialCandidate],
+        });
+      }
+      if (/\/3\/movie\/\d+$/.test(path)) return tmdbFixtureResponse(partialCandidate);
+      failedProviderOperations += 1;
+      throw tmdbFixtureFailure();
+    };
+    const context = offlineTmdbContext(fetchImpl, {
+      limits: { total: 100, list: 100, detail: 16, retries: 0 },
+    });
+    const payload = await recommendSeedsTmdb({
+      seeds: [totalFailureSeed],
+      contentTypes: ["movie"],
+      limit: 1,
+      requestContext: context,
+    });
+    assert.equal(payload.source, "tmdb");
+    assert.equal(payload.results.length, 1);
+    assert.equal(successfulProviderOperations, 1);
+    assert.ok(failedProviderOperations > 0);
+  });
+});
+
+test("F2 seed composition treats successful search followed by candidate failure as partial provider success", async () => {
+  let searchCalls = 0;
+  let candidateFailures = 0;
+  await withOfflineTmdbRuntime(async () => {
+    throw new Error("unexpected global fetch");
+  }, async () => {
+    const context = offlineTmdbContext(async (url) => {
+      const path = new URL(url).pathname;
+      if (path.endsWith("/search/multi")) {
+        searchCalls += 1;
+        return tmdbFixtureResponse({
+          page: 1,
+          total_results: 1,
+          results: [partialCandidate],
+        });
+      }
+      candidateFailures += 1;
+      throw tmdbFixtureFailure();
+    }, { limits: { total: 100, list: 100, detail: 0, retries: 0 } });
+
+    const payload = await recommendSeedsTmdb({
+      titles: ["Fixture Candidate"],
+      contentTypes: ["movie"],
+      requestContext: context,
+    });
+    assert.equal(payload.source, "tmdb");
+    assert.deepEqual(payload.results, []);
+    assert.equal(payload.diagnostics.searchRequestSucceededCount, 1);
+    assert.equal(searchCalls, 1);
+    assert.ok(candidateFailures > 0);
+    assert.ok(context.diagnostics().failedRequestCount > 0);
+  });
+});
+
+test("F2 discover surface inherits in-flight success and failure without double physical issue accounting", async () => {
+  await withOfflineTmdbRuntime(async () => {
+    throw new Error("unexpected global fetch");
+  }, async () => {
+    let fetchCount = 0;
+    const context = offlineTmdbContext(async () => {
+      fetchCount += 1;
+      await Promise.resolve();
+      return tmdbFixtureResponse();
+    }, { limits: { total: 100, list: 100, detail: 0, retries: 0 } });
+    const [leader, joiner] = await Promise.all([
+      discoverTmdb({ contentTypes: ["movie"], requestContext: context }),
+      discoverTmdb({ contentTypes: ["movie"], requestContext: context }),
+    ]);
+    assert.deepEqual(leader.results, []);
+    assert.deepEqual(joiner.results, []);
+    assert.ok(context.diagnostics().requestDedupHits > 0);
+    assert.equal(fetchCount, context.diagnostics().listRequestsUsed);
+  });
+
+  clearTmdbRequestCache();
+  await withOfflineTmdbRuntime(async () => {
+    throw new Error("unexpected global fetch");
+  }, async () => {
+    let fetchCount = 0;
+    const context = offlineTmdbContext(async () => {
+      fetchCount += 1;
+      await Promise.resolve();
+      throw tmdbFixtureFailure();
+    }, { limits: { total: 100, list: 100, detail: 0, retries: 0 } });
+    const outcomes = await Promise.allSettled([
+      discoverTmdb({ contentTypes: ["movie"], requestContext: context }),
+      discoverTmdb({ contentTypes: ["movie"], requestContext: context }),
+    ]);
+    assert.deepEqual(outcomes.map(({ status }) => status), ["rejected", "rejected"]);
+    assert.match(outcomes[0].reason.message, /TMDB discover requests failed/);
+    assert.match(outcomes[1].reason.message, /TMDB discover requests failed/);
+    assert.ok(context.diagnostics().requestDedupHits > 0);
+    assert.equal(fetchCount, context.diagnostics().listRequestsUsed);
+  });
+});
+
+test("F2 related truthfully rejects dual failure and preserves every legitimate empty permutation", async () => {
+  const input = { tmdbId: 901, providerMediaType: "movie", contentType: "movie", limit: 12 };
+
+  let recommendationsCalls = 0;
+  let similarCalls = 0;
+  await withOfflineTmdbRuntime(async (url) => {
+    const path = new URL(url).pathname;
+    if (path.endsWith("/recommendations")) recommendationsCalls += 1;
+    if (path.endsWith("/similar")) similarCalls += 1;
+    return tmdbAsyncJsonFailureResponse();
+  }, async () => {
+    await assert.rejects(relatedTmdb(input), /TMDB related requests failed/);
+  });
+  assert.equal(recommendationsCalls, 1);
+  assert.equal(similarCalls, 1);
+
+  const originalDateNow = Date.now;
+  let clock = 0;
+  recommendationsCalls = 0;
+  similarCalls = 0;
+  Date.now = () => clock;
+  try {
+    await withOfflineTmdbRuntime(async (url) => {
+      const path = new URL(url).pathname;
+      if (path.endsWith("/recommendations")) {
+        recommendationsCalls += 1;
+        return tmdbAsyncJsonFailureResponse(() => {
+          clock = 20_000;
+        });
+      }
+      if (path.endsWith("/similar")) similarCalls += 1;
+      return tmdbFixtureResponse();
+    }, async () => {
+      await assert.rejects(relatedTmdb(input), /TMDB related requests failed/);
+    });
+  } finally {
+    Date.now = originalDateNow;
+  }
+  assert.equal(recommendationsCalls, 1);
+  assert.equal(similarCalls, 0);
+
+  recommendationsCalls = 0;
+  similarCalls = 0;
+  await withOfflineTmdbRuntime(async (url) => {
+    const path = new URL(url).pathname;
+    if (path.endsWith("/recommendations")) {
+      recommendationsCalls += 1;
+      return tmdbAsyncJsonFailureResponse();
+    }
+    if (path.endsWith("/similar")) similarCalls += 1;
+    return tmdbFixtureResponse();
+  }, async () => {
+    const payload = await relatedTmdb(input);
+    assert.equal(payload.source, "tmdb");
+    assert.deepEqual(payload.results, []);
+  });
+  assert.equal(recommendationsCalls, 1);
+  assert.equal(similarCalls, 1);
+
+  recommendationsCalls = 0;
+  similarCalls = 0;
+  await withOfflineTmdbRuntime(async (url) => {
+    const path = new URL(url).pathname;
+    if (path.endsWith("/recommendations")) recommendationsCalls += 1;
+    if (path.endsWith("/similar")) {
+      similarCalls += 1;
+      return tmdbAsyncJsonFailureResponse();
+    }
+    return tmdbFixtureResponse();
+  }, async () => {
+    const payload = await relatedTmdb(input);
+    assert.equal(payload.source, "tmdb");
+    assert.deepEqual(payload.results, []);
+  });
+  assert.equal(recommendationsCalls, 1);
+  assert.equal(similarCalls, 1);
+
+  clock = 0;
+  recommendationsCalls = 0;
+  similarCalls = 0;
+  Date.now = () => clock;
+  try {
+    await withOfflineTmdbRuntime(async (url) => {
+      const path = new URL(url).pathname;
+      if (path.endsWith("/recommendations")) {
+        recommendationsCalls += 1;
+        return tmdbControlledJsonResponse(undefined, () => {
+          clock = 20_000;
+        });
+      }
+      if (path.endsWith("/similar")) similarCalls += 1;
+      return tmdbFixtureResponse();
+    }, async () => {
+      const payload = await relatedTmdb(input);
+      assert.equal(payload.source, "tmdb");
+      assert.deepEqual(payload.results, []);
+    });
+  } finally {
+    Date.now = originalDateNow;
+  }
+  assert.equal(recommendationsCalls, 1);
+  assert.equal(similarCalls, 0);
+
+  recommendationsCalls = 0;
+  similarCalls = 0;
+  await withOfflineTmdbRuntime(async (url) => {
+    const path = new URL(url).pathname;
+    if (path.endsWith("/recommendations")) recommendationsCalls += 1;
+    if (path.endsWith("/similar")) similarCalls += 1;
+    return tmdbFixtureResponse();
+  }, async () => {
+    const payload = await relatedTmdb(input);
+    assert.equal(payload.source, "tmdb");
+    assert.deepEqual(payload.results, []);
+  });
+  assert.equal(recommendationsCalls, 1);
+  assert.equal(similarCalls, 1);
+
+  recommendationsCalls = 0;
+  similarCalls = 0;
+  let successfulProviderOperations = 0;
+  let failedProviderOperations = 0;
+  await withOfflineTmdbRuntime(async (url) => {
+    const path = new URL(url).pathname;
+    if (path.endsWith("/recommendations")) {
+      recommendationsCalls += 1;
+      successfulProviderOperations += 1;
+      return tmdbFixtureResponse({ page: 1, total_results: 1, results: [partialCandidate] });
+    }
+    if (path.endsWith("/similar")) {
+      similarCalls += 1;
+      failedProviderOperations += 1;
+      return tmdbAsyncJsonFailureResponse();
+    }
+    if (/\/3\/movie\/\d+$/.test(path)) return tmdbFixtureResponse(partialCandidate);
+    throw new Error(`unexpected fixture endpoint: ${path}`);
+  }, async () => {
+    const payload = await relatedTmdb(input);
+    assert.equal(payload.source, "tmdb");
+    assert.equal(payload.results.length, 1);
+  });
+  assert.equal(recommendationsCalls, 1);
+  assert.equal(similarCalls, 1);
+  assert.equal(successfulProviderOperations, 1);
+  assert.equal(failedProviderOperations, 1);
+});
+
+test("F2 cache-aware discover rejects malformed replay and preserves cached empty or partial success", async () => {
+  await withOfflineTmdbRuntime(async () => {
+    throw new Error("unexpected global fetch");
+  }, async () => {
+    let malformedFetchCalls = 0;
+    const malformedFetch = async () => {
+      malformedFetchCalls += 1;
+      return tmdbFixtureResponse({ page: 1, total_results: 1, results: {} });
+    };
+    const populateContext = offlineTmdbContext(malformedFetch, {
+      limits: { total: 100, list: 100, detail: 0, retries: 0 },
+    });
+    await assert.rejects(
+      discoverTmdb({ contentTypes: ["movie"], requestContext: populateContext }),
+      /TMDB discover requests failed/,
+    );
+    const populatedFetchCalls = malformedFetchCalls;
+    assert.ok(populatedFetchCalls > 0);
+
+    const replayContext = offlineTmdbContext(malformedFetch, {
+      limits: { total: 100, list: 100, detail: 0, retries: 0 },
+    });
+    await assert.rejects(
+      discoverTmdb({ contentTypes: ["movie"], requestContext: replayContext }),
+      /TMDB discover requests failed/,
+    );
+    assert.equal(malformedFetchCalls, populatedFetchCalls);
+    assert.equal(replayContext.diagnostics().listRequestsUsed, 0);
+    assert.ok(replayContext.diagnostics().cacheHits > 0);
+
+    clearTmdbRequestCache();
+    let emptyFetchCalls = 0;
+    const emptyFetch = async () => {
+      emptyFetchCalls += 1;
+      return tmdbFixtureResponse();
+    };
+    const emptyPopulate = await discoverTmdb({
+      contentTypes: ["movie"],
+      requestContext: offlineTmdbContext(emptyFetch, {
+        limits: { total: 100, list: 100, detail: 0, retries: 0 },
+      }),
+    });
+    assert.deepEqual(emptyPopulate.results, []);
+    const populatedEmptyFetchCalls = emptyFetchCalls;
+    const emptyReplayContext = offlineTmdbContext(emptyFetch, {
+      limits: { total: 100, list: 100, detail: 0, retries: 0 },
+    });
+    const emptyReplay = await discoverTmdb({ contentTypes: ["movie"], requestContext: emptyReplayContext });
+    assert.deepEqual(emptyReplay.results, []);
+    assert.equal(emptyFetchCalls, populatedEmptyFetchCalls);
+    assert.equal(emptyReplayContext.diagnostics().listRequestsUsed, 0);
+    assert.ok(emptyReplayContext.diagnostics().cacheHits > 0);
+
+    clearTmdbRequestCache();
+    let partialFetchCalls = 0;
+    let successfulOperations = 0;
+    let failedOperations = 0;
+    const partialFetch = async (url) => {
+      partialFetchCalls += 1;
+      const path = new URL(url).pathname;
+      if (path.endsWith("/discover/movie")) {
+        successfulOperations += 1;
+        return tmdbFixtureResponse({ page: 1, total_results: 1, results: [partialCandidate] });
+      }
+      failedOperations += 1;
+      return tmdbFixtureResponse({ page: 1, total_results: 1, results: {} });
+    };
+    const partialInput = { contentTypes: ["movie", "drama"], limit: 1 };
+    const partialPopulate = await discoverTmdb({
+      ...partialInput,
+      requestContext: offlineTmdbContext(partialFetch, {
+        limits: { total: 100, list: 100, detail: 0, retries: 0 },
+      }),
+    });
+    assert.equal(partialPopulate.results.length, 1);
+    const populatedPartialFetchCalls = partialFetchCalls;
+    const partialReplayContext = offlineTmdbContext(partialFetch, {
+      limits: { total: 100, list: 100, detail: 0, retries: 0 },
+    });
+    const partialReplay = await discoverTmdb({ ...partialInput, requestContext: partialReplayContext });
+    assert.equal(partialReplay.results.length, 1);
+    assert.equal(partialFetchCalls, populatedPartialFetchCalls);
+    assert.ok(successfulOperations > 0);
+    assert.ok(failedOperations > 0);
+    assert.equal(partialReplayContext.diagnostics().listRequestsUsed, 0);
+    assert.ok(partialReplayContext.diagnostics().cacheHits > 0);
+  });
+});
+
+test("F2 cache-aware seeds reject malformed search or candidate replay and preserve cached empty success", async () => {
+  await withOfflineTmdbRuntime(async () => {
+    throw new Error("unexpected global fetch");
+  }, async () => {
+    let searchFetchCalls = 0;
+    const malformedSearchFetch = async (url) => {
+      searchFetchCalls += 1;
+      assert.ok(new URL(url).pathname.endsWith("/search/multi"));
+      return tmdbFixtureResponse({ page: 1, total_results: 1, results: {} });
+    };
+    const malformedSearchInput = { titles: ["Cached Malformed Search"], contentTypes: ["movie"] };
+    await assert.rejects(
+      recommendSeedsTmdb({
+        ...malformedSearchInput,
+        requestContext: offlineTmdbContext(malformedSearchFetch, {
+          limits: { total: 100, list: 100, detail: 0, retries: 0 },
+        }),
+      }),
+      /multi-seed recommendation requests failed/,
+    );
+    const populatedSearchFetchCalls = searchFetchCalls;
+    const searchReplayContext = offlineTmdbContext(malformedSearchFetch, {
+      limits: { total: 100, list: 100, detail: 0, retries: 0 },
+    });
+    await assert.rejects(
+      recommendSeedsTmdb({ ...malformedSearchInput, requestContext: searchReplayContext }),
+      /multi-seed recommendation requests failed/,
+    );
+    assert.equal(searchFetchCalls, populatedSearchFetchCalls);
+    assert.equal(searchReplayContext.diagnostics().listRequestsUsed, 0);
+    assert.ok(searchReplayContext.diagnostics().cacheHits > 0);
+
+    clearTmdbRequestCache();
+    let candidateFetchCalls = 0;
+    const malformedCandidateFetch = async () => {
+      candidateFetchCalls += 1;
+      return tmdbFixtureResponse({ page: 1, total_results: 1, results: {} });
+    };
+    const malformedCandidateInput = { seeds: [totalFailureSeed], contentTypes: ["movie"] };
+    await assert.rejects(
+      recommendSeedsTmdb({
+        ...malformedCandidateInput,
+        requestContext: offlineTmdbContext(malformedCandidateFetch, {
+          limits: { total: 100, list: 100, detail: 0, retries: 0 },
+        }),
+      }),
+      /multi-seed recommendation requests failed/,
+    );
+    const populatedCandidateFetchCalls = candidateFetchCalls;
+    const candidateReplayContext = offlineTmdbContext(malformedCandidateFetch, {
+      limits: { total: 100, list: 100, detail: 0, retries: 0 },
+    });
+    await assert.rejects(
+      recommendSeedsTmdb({ ...malformedCandidateInput, requestContext: candidateReplayContext }),
+      /multi-seed recommendation requests failed/,
+    );
+    assert.equal(candidateFetchCalls, populatedCandidateFetchCalls);
+    assert.equal(candidateReplayContext.diagnostics().listRequestsUsed, 0);
+    assert.ok(candidateReplayContext.diagnostics().cacheHits > 0);
+
+    clearTmdbRequestCache();
+    let emptyFetchCalls = 0;
+    const emptyFetch = async () => {
+      emptyFetchCalls += 1;
+      return tmdbFixtureResponse();
+    };
+    const emptyInput = { seeds: [totalFailureSeed], contentTypes: ["movie"] };
+    const emptyPopulate = await recommendSeedsTmdb({
+      ...emptyInput,
+      requestContext: offlineTmdbContext(emptyFetch, {
+        limits: { total: 100, list: 100, detail: 0, retries: 0 },
+      }),
+    });
+    assert.deepEqual(emptyPopulate.results, []);
+    const populatedEmptyFetchCalls = emptyFetchCalls;
+    const emptyReplayContext = offlineTmdbContext(emptyFetch, {
+      limits: { total: 100, list: 100, detail: 0, retries: 0 },
+    });
+    const emptyReplay = await recommendSeedsTmdb({ ...emptyInput, requestContext: emptyReplayContext });
+    assert.deepEqual(emptyReplay.results, []);
+    assert.equal(emptyFetchCalls, populatedEmptyFetchCalls);
+    assert.equal(emptyReplayContext.diagnostics().listRequestsUsed, 0);
+    assert.ok(emptyReplayContext.diagnostics().cacheHits > 0);
+  });
+});
+
+test("F2 cache-aware related preserves truthful malformed, partial, and empty replay outcomes", async () => {
+  const input = { tmdbId: 901, providerMediaType: "movie", contentType: "movie", limit: 12 };
+  await withOfflineTmdbRuntime(async () => {
+    throw new Error("unexpected global fetch");
+  }, async () => {
+    let malformedFetchCalls = 0;
+    const malformedFetch = async () => {
+      malformedFetchCalls += 1;
+      return tmdbFixtureResponse({ page: 1, total_results: 1, results: {} });
+    };
+    globalThis.fetch = malformedFetch;
+    await assert.rejects(relatedTmdb(input), /TMDB related requests failed/);
+    const populatedMalformedFetchCalls = malformedFetchCalls;
+    await assert.rejects(relatedTmdb(input), /TMDB related requests failed/);
+    assert.equal(malformedFetchCalls, populatedMalformedFetchCalls);
+
+    clearTmdbRequestCache();
+    let partialFetchCalls = 0;
+    const partialFetch = async (url) => {
+      partialFetchCalls += 1;
+      const path = new URL(url).pathname;
+      if (path.endsWith("/recommendations")) {
+        return tmdbFixtureResponse({ page: 1, total_results: 1, results: {} });
+      }
+      if (path.endsWith("/similar")) {
+        return tmdbFixtureResponse({ page: 1, total_results: 1, results: [partialCandidate] });
+      }
+      if (/\/3\/movie\/\d+$/.test(path)) return tmdbFixtureResponse(partialCandidate);
+      throw new Error(`unexpected fixture endpoint: ${path}`);
+    };
+    globalThis.fetch = partialFetch;
+    const partialPopulate = await relatedTmdb(input);
+    assert.equal(partialPopulate.results.length, 1);
+    const populatedPartialFetchCalls = partialFetchCalls;
+    const partialReplay = await relatedTmdb(input);
+    assert.equal(partialReplay.results.length, 1);
+    assert.equal(partialFetchCalls, populatedPartialFetchCalls);
+    assert.equal(partialReplay.diagnostics.listRequestsUsed, 0);
+    assert.ok(partialReplay.diagnostics.cacheHits > 0);
+
+    clearTmdbRequestCache();
+    let emptyFailureCalls = 0;
+    const emptyFailureFetch = async (url) => {
+      const path = new URL(url).pathname;
+      emptyFailureCalls += 1;
+      if (path.endsWith("/recommendations")) return tmdbFixtureResponse();
+      throw tmdbFixtureFailure();
+    };
+    globalThis.fetch = emptyFailureFetch;
+    const emptyFailurePopulate = await relatedTmdb(input);
+    assert.deepEqual(emptyFailurePopulate.results, []);
+    const populatedEmptyFailureCalls = emptyFailureCalls;
+    const emptyFailureReplay = await relatedTmdb(input);
+    assert.deepEqual(emptyFailureReplay.results, []);
+    assert.equal(emptyFailureCalls, populatedEmptyFailureCalls + 3);
+    assert.ok(emptyFailureReplay.diagnostics.cacheHits > 0);
+    assert.equal(emptyFailureReplay.diagnostics.failedRequestCount, 3);
+    assert.equal(emptyFailureReplay.diagnostics.retryCount, 2);
+
+    clearTmdbRequestCache();
+    let emptyFetchCalls = 0;
+    const emptyFetch = async () => {
+      emptyFetchCalls += 1;
+      return tmdbFixtureResponse();
+    };
+    globalThis.fetch = emptyFetch;
+    const emptyPopulate = await relatedTmdb(input);
+    assert.deepEqual(emptyPopulate.results, []);
+    const populatedEmptyFetchCalls = emptyFetchCalls;
+    const emptyReplay = await relatedTmdb(input);
+    assert.deepEqual(emptyReplay.results, []);
+    assert.equal(emptyFetchCalls, populatedEmptyFetchCalls);
+    assert.equal(emptyReplay.diagnostics.listRequestsUsed, 0);
+    assert.equal(emptyReplay.diagnostics.cacheHits, 2);
+  });
+});
+
+test("LIFECYCLE-TEST-001 OPTIONS proves retry eligibility then a pre-second-issue deadline stop reaches production 503", async () => {
+  await withNodeEnvironment("production", async () => {
+    await withOfflineTmdbRuntime(async () => {
+      throw new Error("unexpected global fetch");
+    }, async () => {
+      let clock = 0;
+      let fetchCount = 0;
+      let retryEligibilityCount = 0;
+      let fallbackLookups = 0;
+      let mockCalls = 0;
+      const context = offlineTmdbContext(async () => {
+        fetchCount += 1;
+        return retryableRateLimitResponse(() => {
+          retryEligibilityCount += 1;
+          clock = 2_000;
+        });
+      }, {
+        limits: { total: 100, list: 100, detail: 0, retries: 2 },
+        now: () => clock,
+        recommendationDeadlineMs: 2_000,
+      });
+      const lifecycleSnapshots = captureRuntimeLifecycleReceipts(context);
+      const { GET } = await importOptionsRoute({
+        getActiveProvider: () => ({
+          id: "tmdb",
+          name: "TMDB Provider",
+          getRecommendations: ({ filters, contentTypes, limit }) => discoverTmdb({
+            filters,
+            contentTypes,
+            limit,
+            requestContext: context,
+          }),
+        }),
+        getFallbackProvider() {
+          fallbackLookups += 1;
+          return {
+            id: "mock",
+            name: "Mock Provider",
+            async getRecommendations() {
+              mockCalls += 1;
+              return { results: [{ id: "mock-result" }] };
+            },
+          };
+        },
+        isTmdbProviderEnabled: () => true,
+      });
+
+      const response = await GET(routeRequest("types=movie"));
+      await assertRecommendationUnavailable(response, { cause: "tmdb-provider-failure", tmdbEnabled: true });
+      assert.equal(retryEligibilityCount, 1);
+      assertExactPostIssuedRetryStop({ context, fetchCount, snapshots: lifecycleSnapshots() });
+      assert.equal(fallbackLookups, 0);
+      assert.equal(mockCalls, 0);
+    });
+  });
+});
+
+test("LIFECYCLE-TEST-001 SEEDS proves zero-success total failure and prior-search-success partial control", async () => {
+  await withNodeEnvironment("production", async () => {
+    await withOfflineTmdbRuntime(async () => {
+      throw new Error("unexpected global fetch");
+    }, async () => {
+      let clock = 0;
+      let fetchCount = 0;
+      let retryEligibilityCount = 0;
+      let fallbackLookups = 0;
+      const context = offlineTmdbContext(async () => {
+        fetchCount += 1;
+        return retryableRateLimitResponse(() => {
+          retryEligibilityCount += 1;
+          clock = 2_000;
+        });
+      }, {
+        limits: { total: 100, list: 100, detail: 0, retries: 2 },
+        now: () => clock,
+        recommendationDeadlineMs: 2_000,
+      });
+      const lifecycleSnapshots = captureRuntimeLifecycleReceipts(context);
+      const { POST } = await importSeedsRoute({
+        getActiveProvider: () => ({
+          id: "tmdb",
+          name: "TMDB Provider",
+          getSeedRecommendations: ({ titles, seeds, contentTypes, filters, limit }) => recommendSeedsTmdb({
+            titles,
+            seeds,
+            contentTypes,
+            filters,
+            limit,
+            requestContext: context,
+          }),
+        }),
+        getFallbackProvider() {
+          fallbackLookups += 1;
+          return { id: "mock", name: "Mock Provider" };
+        },
+        isTmdbProviderEnabled: () => true,
+      });
+
+      const response = await POST(seedRouteRequest({
+        titles: [],
+        seeds: [totalFailureSeed],
+        contentTypes: ["movie"],
+        filters: [],
+      }));
+      await assertRecommendationUnavailable(response, { cause: "tmdb-provider-failure", tmdbEnabled: true });
+      assert.equal(retryEligibilityCount, 1);
+      assertExactPostIssuedRetryStop({ context, fetchCount, snapshots: lifecycleSnapshots() });
+      assert.equal(fallbackLookups, 0);
+    });
+  });
+
+  await withOfflineTmdbRuntime(async () => {
+    throw new Error("unexpected global fetch");
+  }, async () => {
+    let clock = 0;
+    let searchSuccessCount = 0;
+    let candidateIssueCount = 0;
+    let retryEligibilityCount = 0;
+    const context = offlineTmdbContext(async (url) => {
+      const path = new URL(url).pathname;
+      if (path.endsWith("/search/multi")) {
+        searchSuccessCount += 1;
+        return tmdbFixtureResponse({ page: 1, total_results: 1, results: [partialCandidate] });
+      }
+      candidateIssueCount += 1;
+      return retryableRateLimitResponse(() => {
+        retryEligibilityCount += 1;
+        clock = 2_000;
+      });
+    }, {
+      limits: { total: 100, list: 100, detail: 0, retries: 2 },
+      now: () => clock,
+      recommendationDeadlineMs: 2_000,
+    });
+    const lifecycleSnapshots = captureRuntimeLifecycleReceipts(context);
+    const payload = await recommendSeedsTmdb({
+      titles: ["Fixture Candidate"],
+      contentTypes: ["movie"],
+      requestContext: context,
+    });
+    const issued = lifecycleSnapshots().filter((snapshot) => snapshot?.providerParticipation);
+
+    assert.equal(payload.source, "tmdb");
+    assert.deepEqual(payload.results, []);
+    assert.equal(payload.diagnostics.searchRequestSucceededCount, 1);
+    assert.equal(searchSuccessCount, 1);
+    assert.equal(candidateIssueCount, 1);
+    assert.equal(retryEligibilityCount, 1);
+    assert.deepEqual(issued.map(({ accessTerminal }) => accessTerminal), [
+      "success",
+      "resource-stop-post-issue",
+    ]);
+    assert.deepEqual(issued.map(({ issuedAttemptCount }) => issuedAttemptCount), [1, 1]);
+    assert.equal(context.diagnostics().rateLimitedCount, 1);
+    assert.equal(context.diagnostics().deadlineExceeded, true);
+  });
+});
+
+test("LIFECYCLE-TEST-001 RELATED proves retry/resource total failure and valid-empty partial control", async () => {
+  const input = { tmdbId: 901, providerMediaType: "movie", contentType: "movie", limit: 12 };
+  const originalDateNow = Date.now;
+  let clock = 0;
+  let retryEligibilityCount = 0;
+  const totalFailurePaths = [];
+  Date.now = () => clock;
+  try {
+    await withOfflineTmdbRuntime(async (url) => {
+      totalFailurePaths.push(new URL(url).pathname);
+      return retryableRateLimitResponse(() => {
+        retryEligibilityCount += 1;
+        clock = 20_000;
+      });
+    }, async () => {
+      await assert.rejects(relatedTmdb(input), /TMDB related requests failed/);
+    });
+  } finally {
+    Date.now = originalDateNow;
+  }
+  assert.equal(retryEligibilityCount, 1);
+  assert.deepEqual(totalFailurePaths, ["/3/movie/901/recommendations"]);
+
+  clock = 0;
+  retryEligibilityCount = 0;
+  const partialPaths = [];
+  Date.now = () => clock;
+  try {
+    await withOfflineTmdbRuntime(async (url) => {
+      const path = new URL(url).pathname;
+      partialPaths.push(path);
+      if (path.endsWith("/recommendations")) return tmdbFixtureResponse();
+      return retryableRateLimitResponse(() => {
+        retryEligibilityCount += 1;
+        clock = 20_000;
+      });
+    }, async () => {
+      const payload = await relatedTmdb(input);
+      assert.equal(payload.source, "tmdb");
+      assert.deepEqual(payload.results, []);
+    });
+  } finally {
+    Date.now = originalDateNow;
+  }
+  assert.equal(retryEligibilityCount, 1);
+  assert.deepEqual(partialPaths, [
+    "/3/movie/901/recommendations",
+    "/3/movie/901/similar",
+  ]);
+});
+
+test("F2 options route blocks production Mock fallback and preserves other environments", async () => {
+  await withNodeEnvironment("production", async () => {
+    let mockCalls = 0;
+    const mockProvider = {
+      id: "mock",
+      name: "Mock Provider",
+      async getRecommendations() {
+        mockCalls += 1;
+        return { results: [{ id: "mock-result" }] };
+      },
+    };
+    const { GET } = await importOptionsRoute({
+      getActiveProvider: () => mockProvider,
+      getFallbackProvider: () => mockProvider,
+      isTmdbProviderEnabled: () => false,
+    });
+    const response = await GET(routeRequest("types=drama"));
+    await assertRecommendationUnavailable(response, { cause: "tmdb-not-configured", tmdbEnabled: false });
+    assert.equal(mockCalls, 0);
+  });
+
+  await withNodeEnvironment("production", async () => {
+    let activeCalls = 0;
+    let fallbackLookups = 0;
+    const { GET } = await importOptionsRoute({
+      getActiveProvider: () => ({
+        id: "tmdb",
+        name: "TMDB Provider",
+        async getRecommendations({ filters, contentTypes, limit }) {
+          activeCalls += 1;
+          const fetchImpl = async () => {
+            throw tmdbFixtureFailure();
+          };
+          return withOfflineTmdbRuntime(fetchImpl, () => discoverTmdb({
+            filters,
+            contentTypes,
+            limit,
+            requestContext: offlineTmdbContext(fetchImpl, {
+              limits: { total: 100, list: 100, detail: 0, retries: 0 },
+            }),
+          }));
+        },
+      }),
+      getFallbackProvider() {
+        fallbackLookups += 1;
+        return { id: "mock", name: "Mock Provider" };
+      },
+      isTmdbProviderEnabled: () => true,
+    });
+    const response = await GET(routeRequest("types=drama"));
+    await assertRecommendationUnavailable(response, { cause: "tmdb-provider-failure", tmdbEnabled: true });
+    assert.equal(activeCalls, 1);
+    assert.equal(fallbackLookups, 0);
+  });
+
+  await withNodeEnvironment("production", async () => {
+    const { GET } = await importOptionsRoute({
+      getActiveProvider: () => ({
+        id: "tmdb",
+        name: "TMDB Provider",
+        async getRecommendations() {
+          return { results: [{ id: "tmdb-result" }], relaxedResults: [] };
+        },
+      }),
+      getFallbackProvider: () => ({ id: "mock", name: "Mock Provider" }),
+      isTmdbProviderEnabled: () => true,
+    });
+    const response = await GET(routeRequest("types=drama"));
+    const body = await response.json();
+    assert.equal(response.status, 200);
+    assert.equal(body.source, "tmdb");
+    assert.deepEqual(body.results, [{ id: "tmdb-result" }]);
+  });
+
+  await withNodeEnvironment("development", async () => {
+    let mockCalls = 0;
+    const mockProvider = {
+      id: "mock",
+      name: "Mock Provider",
+      async getRecommendations() {
+        mockCalls += 1;
+        return { results: [{ id: "mock-result" }], relaxedResults: [] };
+      },
+    };
+    const { GET } = await importOptionsRoute({
+      getActiveProvider: () => mockProvider,
+      getFallbackProvider: () => mockProvider,
+      isTmdbProviderEnabled: () => false,
+    });
+    const body = await (await GET(routeRequest("types=drama"))).json();
+    assert.equal(mockCalls, 1);
+    assert.equal(body.fallbackUsed, true);
+    assert.deepEqual(body.results, [{ id: "mock-result" }]);
+  });
+
+  await withNodeEnvironment("development", async () => {
+    let fallbackCalls = 0;
+    const { GET } = await importOptionsRoute({
+      getActiveProvider: () => ({
+        id: "tmdb",
+        name: "TMDB Provider",
+        async getRecommendations() {
+          throw new Error("development failure");
+        },
+      }),
+      getFallbackProvider: () => ({
+        id: "mock",
+        name: "Mock Provider",
+        async getRecommendations() {
+          fallbackCalls += 1;
+          return { results: [{ id: "mock-result" }], relaxedResults: [] };
+        },
+      }),
+      isTmdbProviderEnabled: () => true,
+    });
+    const body = await (await GET(routeRequest("types=drama"))).json();
+    assert.equal(fallbackCalls, 1);
+    assert.equal(body.fallbackUsed, true);
+  });
+});
+
+test("F2 seeds route blocks production Mock fallback and preserves other environments", async () => {
+  const input = { titles: ["Alien"], seeds: [], contentTypes: ["drama"], filters: [] };
+
+  await withNodeEnvironment("production", async () => {
+    let mockCalls = 0;
+    const mockProvider = {
+      id: "mock",
+      name: "Mock Provider",
+      async getSeedRecommendations() {
+        mockCalls += 1;
+        return { results: [{ id: "mock-result" }] };
+      },
+    };
+    const { POST } = await importSeedsRoute({
+      getActiveProvider: () => mockProvider,
+      getFallbackProvider: () => mockProvider,
+      isTmdbProviderEnabled: () => false,
+    });
+    const response = await POST(seedRouteRequest(input));
+    await assertRecommendationUnavailable(response, { cause: "tmdb-not-configured", tmdbEnabled: false });
+    assert.equal(mockCalls, 0);
+  });
+
+  await withNodeEnvironment("production", async () => {
+    let fallbackLookups = 0;
+    const { POST } = await importSeedsRoute({
+      getActiveProvider: () => ({
+        id: "tmdb",
+        name: "TMDB Provider",
+        async getSeedRecommendations({ titles, seeds, contentTypes, filters, limit }) {
+          const fetchImpl = async () => {
+            throw tmdbFixtureFailure();
+          };
+          return withOfflineTmdbRuntime(fetchImpl, () => recommendSeedsTmdb({
+            titles,
+            seeds,
+            contentTypes,
+            filters,
+            limit,
+            requestContext: offlineTmdbContext(fetchImpl, {
+              limits: { total: 100, list: 100, detail: 0, retries: 0 },
+            }),
+          }));
+        },
+      }),
+      getFallbackProvider() {
+        fallbackLookups += 1;
+        return { id: "mock", name: "Mock Provider" };
+      },
+      isTmdbProviderEnabled: () => true,
+    });
+    const response = await POST(seedRouteRequest(input));
+    await assertRecommendationUnavailable(response, { cause: "tmdb-provider-failure", tmdbEnabled: true });
+    assert.equal(fallbackLookups, 0);
+  });
+
+  await withNodeEnvironment("production", async () => {
+    const { POST } = await importSeedsRoute({
+      getActiveProvider: () => ({
+        id: "tmdb",
+        name: "TMDB Provider",
+        async getSeedRecommendations() {
+          return { results: [{ id: "tmdb-result" }], seedResults: [] };
+        },
+      }),
+      getFallbackProvider: () => ({ id: "mock", name: "Mock Provider" }),
+      isTmdbProviderEnabled: () => true,
+    });
+    const response = await POST(seedRouteRequest(input));
+    const body = await response.json();
+    assert.equal(response.status, 200);
+    assert.equal(body.source, "tmdb");
+    assert.deepEqual(body.results, [{ id: "tmdb-result" }]);
+  });
+
+  await withNodeEnvironment("development", async () => {
+    let mockCalls = 0;
+    const mockProvider = {
+      id: "mock",
+      name: "Mock Provider",
+      async getSeedRecommendations() {
+        mockCalls += 1;
+        return { results: [{ id: "mock-result" }] };
+      },
+    };
+    const { POST } = await importSeedsRoute({
+      getActiveProvider: () => mockProvider,
+      getFallbackProvider: () => mockProvider,
+      isTmdbProviderEnabled: () => false,
+    });
+    const body = await (await POST(seedRouteRequest(input))).json();
+    assert.equal(mockCalls, 1);
+    assert.equal(body.fallbackUsed, true);
+  });
+
+  await withNodeEnvironment("development", async () => {
+    let fallbackCalls = 0;
+    const { POST } = await importSeedsRoute({
+      getActiveProvider: () => ({
+        id: "tmdb",
+        name: "TMDB Provider",
+        async getSeedRecommendations() {
+          throw new Error("development failure");
+        },
+      }),
+      getFallbackProvider: () => ({
+        id: "mock",
+        name: "Mock Provider",
+        async getSeedRecommendations() {
+          fallbackCalls += 1;
+          return { results: [{ id: "mock-result" }] };
+        },
+      }),
+      isTmdbProviderEnabled: () => true,
+    });
+    const body = await (await POST(seedRouteRequest(input))).json();
+    assert.equal(fallbackCalls, 1);
+    assert.equal(body.fallbackUsed, true);
+  });
+});
+
+test("F2 related route blocks production Mock fallback and preserves other environments", async () => {
+  const request = relatedRouteRequest("id=10&type=drama&mediaType=tv&title=Alien");
+
+  await withNodeEnvironment("production", async () => {
+    let mockCalls = 0;
+    const mockProvider = {
+      id: "mock",
+      name: "Mock Provider",
+      async getRelated() {
+        mockCalls += 1;
+        return [{ id: "mock-result" }];
+      },
+    };
+    const { GET } = await importRelatedRoute({
+      getActiveProvider: () => mockProvider,
+      getFallbackProvider: () => mockProvider,
+      isTmdbProviderEnabled: () => false,
+    });
+    const response = await GET(request);
+    await assertRecommendationUnavailable(response, { cause: "tmdb-not-configured", tmdbEnabled: false });
+    assert.equal(mockCalls, 0);
+  });
+
+  await withNodeEnvironment("production", async () => {
+    let fallbackLookups = 0;
+    const { GET } = await importRelatedRoute({
+      getActiveProvider: () => ({
+        id: "tmdb",
+        name: "TMDB Provider",
+        async getRelated(params) {
+          const fetchImpl = async () => {
+            throw tmdbFixtureFailure();
+          };
+          return withOfflineTmdbRuntime(fetchImpl, () => relatedTmdb({
+            ...params,
+            tmdbId: params.providerContentId,
+          }));
+        },
+      }),
+      getFallbackProvider() {
+        fallbackLookups += 1;
+        return { id: "mock", name: "Mock Provider" };
+      },
+      isTmdbProviderEnabled: () => true,
+    });
+    const response = await GET(request);
+    await assertRecommendationUnavailable(response, { cause: "tmdb-provider-failure", tmdbEnabled: true });
+    assert.equal(fallbackLookups, 0);
+  });
+
+  await withNodeEnvironment("production", async () => {
+    const { GET } = await importRelatedRoute({
+      getActiveProvider: () => ({
+        id: "tmdb",
+        name: "TMDB Provider",
+        async getRelated() {
+          return [{ id: "tmdb-result" }];
+        },
+      }),
+      getFallbackProvider: () => ({ id: "mock", name: "Mock Provider" }),
+      isTmdbProviderEnabled: () => true,
+    });
+    const response = await GET(request);
+    const body = await response.json();
+    assert.equal(response.status, 200);
+    assert.equal(body.source, "tmdb");
+    assert.deepEqual(body.results, [{ id: "tmdb-result" }]);
+  });
+
+  await withNodeEnvironment("development", async () => {
+    let mockCalls = 0;
+    const mockProvider = {
+      id: "mock",
+      name: "Mock Provider",
+      async getRelated() {
+        mockCalls += 1;
+        return [{ id: "mock-result" }];
+      },
+    };
+    const { GET } = await importRelatedRoute({
+      getActiveProvider: () => mockProvider,
+      getFallbackProvider: () => mockProvider,
+      isTmdbProviderEnabled: () => false,
+    });
+    const body = await (await GET(request)).json();
+    assert.equal(mockCalls, 1);
+    assert.equal(body.source, "mock");
+  });
+
+  await withNodeEnvironment("development", async () => {
+    let fallbackCalls = 0;
+    const { GET } = await importRelatedRoute({
+      getActiveProvider: () => ({
+        id: "tmdb",
+        name: "TMDB Provider",
+        async getRelated() {
+          throw new Error("development failure");
+        },
+      }),
+      getFallbackProvider: () => ({
+        id: "mock",
+        name: "Mock Provider",
+        async getRelated() {
+          fallbackCalls += 1;
+          return [{ id: "mock-result" }];
+        },
+      }),
+      isTmdbProviderEnabled: () => true,
+    });
+    const body = await (await GET(request)).json();
+    assert.equal(fallbackCalls, 1);
+    assert.equal(body.source, "mock");
   });
 });
 
@@ -1414,10 +2954,9 @@ test("fallback provider and fallback serialization failures emit only the bounde
   }
 });
 
-test("QA-off and production preserve the original escaping fallback failure", async () => {
+test("QA-off development preserves the original escaping fallback failure", async () => {
   for (const scenario of [
     { nodeEnv: "test", query: "types=drama" },
-    { nodeEnv: "production", query: "types=drama&qa=1" },
   ]) {
     await withNodeEnvironment(scenario.nodeEnv, async () => {
       let observerCreations = 0;

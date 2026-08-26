@@ -720,6 +720,232 @@ test("transport observability preserves Product retry, fetch-count, and policy-c
   assert.equal(tmdbObservabilitySessionMetadata(session).eventCount, 6);
 });
 
+test("lifecycle receipt distinguishes pre-issue deferral from the exact physical issue boundary", async () => {
+  let nowCalls = 0;
+  let fetchCount = 0;
+  const deferredContext = createTmdbRequestContext({
+    now: () => nowCalls++ === 0 ? 0 : 101,
+    recommendationDeadlineMs: 100,
+    fetchImpl: async () => {
+      fetchCount += 1;
+      return response(200);
+    },
+  });
+  const deferredReceipt = deferredContext.createLifecycleReceipt();
+  await assert.rejects(
+    deferredContext.get("/discover/movie", { page: 1 }, { lifecycleReceipt: deferredReceipt }),
+    TmdbDeadlineError,
+  );
+  assert.deepEqual(deferredContext.readLifecycleReceipt(deferredReceipt), {
+    accessMode: "none",
+    providerParticipation: false,
+    operationId: 0,
+    issuedAttemptCount: 0,
+    ownedIssuedAttemptCount: 0,
+    accessTerminal: "resource-stop-pre-issue",
+  });
+  assert.equal(fetchCount, 0);
+
+  let releaseFetch;
+  const fetchGate = new Promise((resolve) => {
+    releaseFetch = resolve;
+  });
+  let issuedContext;
+  let issuedReceipt;
+  issuedContext = createTmdbRequestContext({
+    limits: { retries: 0 },
+    fetchImpl: async () => {
+      const issued = issuedContext.readLifecycleReceipt(issuedReceipt);
+      assert.equal(issued.accessTerminal, "issued");
+      assert.equal(issued.providerParticipation, true);
+      assert.equal(issued.issuedAttemptCount, 1);
+      await fetchGate;
+      return response(200, { ok: true });
+    },
+  });
+  issuedReceipt = issuedContext.createLifecycleReceipt();
+  const pending = issuedContext.get(
+    "/discover/tv",
+    { page: 1 },
+    { lifecycleReceipt: issuedReceipt },
+  );
+  await Promise.resolve();
+  releaseFetch();
+  await pending;
+  assert.equal(issuedContext.readLifecycleReceipt(issuedReceipt).accessTerminal, "success");
+});
+
+test("lifecycle receipt preserves issued transport, HTTP, and decode terminals without observability", async () => {
+  const cases = [
+    {
+      name: "sync transport",
+      terminal: "transport-failure",
+      fetchImpl() {
+        throw new Error("sync transport failure");
+      },
+    },
+    {
+      name: "async transport",
+      terminal: "transport-failure",
+      fetchImpl: async () => Promise.reject(new Error("async transport failure")),
+    },
+    {
+      name: "HTTP",
+      terminal: "http-failure",
+      fetchImpl: async () => response(503),
+    },
+    {
+      name: "decode",
+      terminal: "decode-failure",
+      fetchImpl: async () => ({
+        ...response(200),
+        json: async () => Promise.reject(new SyntaxError("decode failure")),
+      }),
+    },
+  ];
+
+  for (const item of cases) {
+    clearTmdbRequestCache();
+    const context = createTmdbRequestContext({ fetchImpl: item.fetchImpl, limits: { retries: 0 } });
+    const receipt = context.createLifecycleReceipt();
+    await assert.rejects(
+      context.get("/discover/movie", { case: item.name }, { lifecycleReceipt: receipt }),
+    );
+    const lifecycle = context.readLifecycleReceipt(receipt);
+    assert.equal(lifecycle.providerParticipation, true, item.name);
+    assert.equal(lifecycle.issuedAttemptCount, 1, item.name);
+    assert.equal(lifecycle.ownedIssuedAttemptCount, 1, item.name);
+    assert.equal(lifecycle.accessTerminal, item.terminal, item.name);
+    assert.deepEqual(Object.keys(lifecycle).sort(), [
+      "accessMode",
+      "accessTerminal",
+      "issuedAttemptCount",
+      "operationId",
+      "ownedIssuedAttemptCount",
+      "providerParticipation",
+    ]);
+  }
+});
+
+test("retry resource termination retains the previously issued attempt lineage", async () => {
+  let fetchCount = 0;
+  const context = createTmdbRequestContext({
+    fetchImpl: async () => {
+      fetchCount += 1;
+      return response(429, {}, { "retry-after": "30" });
+    },
+    recommendationDeadlineMs: 2_000,
+    maximumRetryAfterMs: 5_000,
+  });
+  const receipt = context.createLifecycleReceipt();
+  await assert.rejects(
+    context.get("/discover/movie", { page: 1 }, { lifecycleReceipt: receipt }),
+    TmdbDeadlineError,
+  );
+  assert.equal(fetchCount, 1);
+  assert.deepEqual(context.readLifecycleReceipt(receipt), {
+    accessMode: "fresh",
+    providerParticipation: true,
+    operationId: 1,
+    issuedAttemptCount: 1,
+    ownedIssuedAttemptCount: 1,
+    accessTerminal: "resource-stop-post-issue",
+  });
+});
+
+test("cache receipt records provider participation without a new physical issue", async () => {
+  let fetchCount = 0;
+  const fetchImpl = async () => {
+    fetchCount += 1;
+    return response(200, { results: [] });
+  };
+  const leader = createTmdbRequestContext({ fetchImpl });
+  const firstReceipt = leader.createLifecycleReceipt();
+  await leader.get("/discover/movie", { page: 1 }, { lifecycleReceipt: firstReceipt });
+
+  const cached = createTmdbRequestContext({ fetchImpl });
+  const cachedReceipt = cached.createLifecycleReceipt();
+  assert.deepEqual(
+    await cached.get("/discover/movie", { page: 1 }, { lifecycleReceipt: cachedReceipt }),
+    { results: [] },
+  );
+  const lifecycle = cached.readLifecycleReceipt(cachedReceipt);
+  assert.equal(fetchCount, 1);
+  assert.equal(lifecycle.accessMode, "cache");
+  assert.equal(lifecycle.providerParticipation, true);
+  assert.equal(lifecycle.issuedAttemptCount, 0);
+  assert.equal(lifecycle.ownedIssuedAttemptCount, 0);
+  assert.equal(lifecycle.accessTerminal, "success");
+});
+
+test("dedup leader and joiner inherit success with one physical issue", async () => {
+  let fetchCount = 0;
+  let releaseFetch;
+  const gate = new Promise((resolve) => {
+    releaseFetch = resolve;
+  });
+  const context = createTmdbRequestContext({
+    fetchImpl: async () => {
+      fetchCount += 1;
+      await gate;
+      return response(200, { results: [] });
+    },
+  });
+  const leaderReceipt = context.createLifecycleReceipt();
+  const joinerReceipt = context.createLifecycleReceipt();
+  const leader = context.get("/discover/tv", { page: 1 }, { lifecycleReceipt: leaderReceipt });
+  const joiner = context.get("/discover/tv", { page: 1 }, { lifecycleReceipt: joinerReceipt });
+  releaseFetch();
+  await Promise.all([leader, joiner]);
+
+  const leaderLifecycle = context.readLifecycleReceipt(leaderReceipt);
+  const joinerLifecycle = context.readLifecycleReceipt(joinerReceipt);
+  assert.equal(fetchCount, 1);
+  assert.equal(leaderLifecycle.operationId, joinerLifecycle.operationId);
+  assert.equal(leaderLifecycle.accessMode, "fresh");
+  assert.equal(joinerLifecycle.accessMode, "in-flight");
+  assert.equal(leaderLifecycle.ownedIssuedAttemptCount, 1);
+  assert.equal(joinerLifecycle.ownedIssuedAttemptCount, 0);
+  assert.equal(leaderLifecycle.accessTerminal, "success");
+  assert.equal(joinerLifecycle.accessTerminal, "success");
+  assert.equal(joinerLifecycle.providerParticipation, true);
+});
+
+test("dedup leader and joiner inherit failure with one physical issue", async () => {
+  let fetchCount = 0;
+  let rejectFetch;
+  const gate = new Promise((resolve, reject) => {
+    rejectFetch = reject;
+  });
+  const context = createTmdbRequestContext({
+    fetchImpl: async () => {
+      fetchCount += 1;
+      return gate;
+    },
+    limits: { retries: 0 },
+  });
+  const leaderReceipt = context.createLifecycleReceipt();
+  const joinerReceipt = context.createLifecycleReceipt();
+  const results = Promise.allSettled([
+    context.get("/discover/tv", { page: 1 }, { lifecycleReceipt: leaderReceipt }),
+    context.get("/discover/tv", { page: 1 }, { lifecycleReceipt: joinerReceipt }),
+  ]);
+  rejectFetch(new Error("shared transport failure"));
+  const [leader, joiner] = await results;
+
+  assert.equal(leader.status, "rejected");
+  assert.equal(joiner.status, "rejected");
+  assert.equal(fetchCount, 1);
+  const leaderLifecycle = context.readLifecycleReceipt(leaderReceipt);
+  const joinerLifecycle = context.readLifecycleReceipt(joinerReceipt);
+  assert.equal(leaderLifecycle.operationId, joinerLifecycle.operationId);
+  assert.equal(leaderLifecycle.ownedIssuedAttemptCount, 1);
+  assert.equal(joinerLifecycle.ownedIssuedAttemptCount, 0);
+  assert.equal(leaderLifecycle.accessTerminal, "transport-failure");
+  assert.equal(joinerLifecycle.accessTerminal, "transport-failure");
+  assert.equal(joinerLifecycle.providerParticipation, true);
+});
+
 test("active-base request policy constants remain exact", () => {
   assert.deepEqual(TMDB_REQUEST_LIMITS, {
     total: 24,

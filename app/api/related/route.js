@@ -1,5 +1,24 @@
 import { getActiveProvider, getFallbackProvider, isTmdbProviderEnabled } from "../../../src/lib/providers/registry";
 
+function recommendationUnavailable(cause) {
+  return Response.json({
+    source: "tmdb",
+    dataSource: "unavailable",
+    providerId: "tmdb",
+    tmdbEnabled: isTmdbProviderEnabled(),
+    fallbackUsed: false,
+    error: {
+      code: "RECOMMENDATION_UNAVAILABLE",
+      cause,
+    },
+  }, {
+    status: 503,
+    headers: {
+      "Cache-Control": "no-store",
+    },
+  });
+}
+
 async function relatedWithProvider(provider, params, message) {
   const results = typeof provider.getRelated === "function" ? await provider.getRelated(params) : [];
 
@@ -47,6 +66,9 @@ export async function GET(request) {
   }
 
   if (activeProvider.id === "mock") {
+    if (process.env.NODE_ENV === "production") {
+      return recommendationUnavailable("tmdb-not-configured");
+    }
     return Response.json(await relatedWithProvider(activeProvider, params, "TMDB API key is not configured. Mock related results are used."), {
       headers: {
         "Cache-Control": "no-store",
@@ -61,6 +83,9 @@ export async function GET(request) {
       },
     });
   } catch (error) {
+    if (process.env.NODE_ENV === "production") {
+      return recommendationUnavailable("tmdb-provider-failure");
+    }
     const fallbackProvider = getFallbackProvider();
     const message = error instanceof Error ? error.message : "TMDb related request failed.";
     return Response.json(await relatedWithProvider(fallbackProvider, params, `${message} Mock related results are used.`), {

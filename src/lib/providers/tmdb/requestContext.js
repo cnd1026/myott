@@ -251,12 +251,14 @@ export function createTmdbRequestContext({
   const startedAt = now();
   const deadlineAt = startedAt + Math.max(0, recommendationDeadlineMs);
   const inFlight = new Map();
+  const lifecycleReceipts = new WeakMap();
   const requestedKeys = new Set();
   const detailRequestKeys = new Set();
   const waiters = [];
   let activeRequests = 0;
   let earlyStopReason = "";
   let nextObservationRequestId = 1;
+  let nextLifecycleOperationId = 1;
   const seedDiagnostics = {
     requestedSeeds: [],
     normalizedSeeds: [],
@@ -281,6 +283,76 @@ export function createTmdbRequestContext({
     maxConcurrentObserved: 0,
     perSeedRequestCounts: {},
   };
+
+  function createLifecycleReceipt() {
+    const receipt = Object.freeze(Object.create(null));
+    lifecycleReceipts.set(receipt, {
+      accessMode: "none",
+      providerParticipation: false,
+      operationId: 0,
+      issuedAttemptCount: 0,
+      ownedIssuedAttemptCount: 0,
+      accessTerminal: "not-started",
+    });
+    return receipt;
+  }
+
+  function setLifecycleReceipt(receipt, fields) {
+    const current = lifecycleReceipts.get(receipt);
+    if (!current) return;
+    Object.assign(current, fields);
+  }
+
+  function readLifecycleReceipt(receipt) {
+    const current = lifecycleReceipts.get(receipt);
+    return current ? Object.freeze({ ...current }) : null;
+  }
+
+  function operationTerminal(operation, error) {
+    if (["resource-stop-pre-issue", "resource-stop-post-issue"].includes(operation.accessTerminal)) {
+      return operation.accessTerminal;
+    }
+    if (error instanceof TmdbBudgetError || error instanceof TmdbDeadlineError) {
+      return operation.issuedAttemptCount > 0
+        ? "resource-stop-post-issue"
+        : "resource-stop-pre-issue";
+    }
+    return operation.lastFailureTerminal || (
+      operation.issuedAttemptCount > 0 ? "transport-failure" : "resource-stop-pre-issue"
+    );
+  }
+
+  function syncLifecycleReceipts(operation) {
+    for (const binding of operation.receiptBindings) {
+      setLifecycleReceipt(binding.receipt, {
+        accessMode: binding.accessMode,
+        providerParticipation: operation.issuedAttemptCount > 0,
+        operationId: operation.id,
+        issuedAttemptCount: operation.issuedAttemptCount,
+        ownedIssuedAttemptCount: binding.ownsIssue ? operation.issuedAttemptCount : 0,
+        accessTerminal: operation.accessTerminal,
+      });
+    }
+  }
+
+  function bindLifecycleReceipt(promise, receipt, operation, accessMode, ownsIssue) {
+    if (!lifecycleReceipts.has(receipt)) return promise;
+    operation.receiptBindings.push({ receipt, accessMode, ownsIssue });
+    syncLifecycleReceipts(operation);
+    const finalize = () => {
+      syncLifecycleReceipts(operation);
+    };
+    return promise.then(
+      (value) => {
+        finalize();
+        return value;
+      },
+      (error) => {
+        finalize();
+        throw error;
+      },
+    );
+  }
 
   function observationRequestId() {
     if (observer === undefined) return "";
@@ -345,7 +417,7 @@ export function createTmdbRequestContext({
     waiters.shift()?.();
   }
 
-  async function fetchOnce(path, params, kind, requestKey, seedKey, retryIndex) {
+  async function fetchOnce(path, params, kind, requestKey, seedKey, retryIndex, operation) {
     const searchParams = normalizedSearchParams(params, language);
     if (apiKey) searchParams.set("api_key", apiKey);
     const headers = { accept: "application/json" };
@@ -379,6 +451,10 @@ export function createTmdbRequestContext({
         timedOut = true;
         controller.abort();
       }, effectiveTimeoutMs);
+      operation.issuedAttemptCount += 1;
+      operation.lastFailureTerminal = "";
+      operation.accessTerminal = "issued";
+      syncLifecycleReceipts(operation);
       const response = await fetchImpl(`${baseUrl}${path}?${searchParams.toString()}`, {
         headers,
         cache: "no-store",
@@ -401,31 +477,42 @@ export function createTmdbRequestContext({
         }
         throw httpError;
       }
-      const payload = response.json();
-      if (!requestId) return payload;
+      let payload;
+      try {
+        payload = response.json();
+      } catch (error) {
+        operation.lastFailureTerminal = "decode-failure";
+        throw error;
+      }
       return Promise.resolve(payload).then(
         (value) => {
-          emitObservation("request-complete", {
-            requestId,
-            requestKind: kind,
-            endpointClass,
-            retryIndex,
-            statusClass: "success",
-          });
-          terminalEmitted = true;
+          if (requestId) {
+            emitObservation("request-complete", {
+              requestId,
+              requestKind: kind,
+              endpointClass,
+              retryIndex,
+              statusClass: "success",
+            });
+            terminalEmitted = true;
+          }
           return value;
         },
         (error) => {
-          const statusClass = requestFailureStatus(error, false, deadlineBound);
-          emitObservation("request-failed", {
-            requestId,
-            requestKind: kind,
-            endpointClass,
-            retryIndex,
-            statusClass,
-            ...transportFailureObservation(error, responseReached, statusClass),
-          });
-          terminalEmitted = true;
+          operation.lastFailureTerminal = "decode-failure";
+          state.failedRequestCount += 1;
+          if (requestId) {
+            const statusClass = requestFailureStatus(error, false, deadlineBound);
+            emitObservation("request-failed", {
+              requestId,
+              requestKind: kind,
+              endpointClass,
+              retryIndex,
+              statusClass,
+              ...transportFailureObservation(error, responseReached, statusClass),
+            });
+            terminalEmitted = true;
+          }
           throw error;
         },
       );
@@ -445,6 +532,7 @@ export function createTmdbRequestContext({
             });
             terminalEmitted = true;
           }
+          operation.lastFailureTerminal = "resource-stop-post-issue";
           throw new TmdbDeadlineError();
         }
         if (requestId && !terminalEmitted) {
@@ -457,7 +545,17 @@ export function createTmdbRequestContext({
           });
           terminalEmitted = true;
         }
+        operation.lastFailureTerminal = "transport-failure";
         throw new TmdbFetchTimeoutError();
+      }
+      if (!operation.lastFailureTerminal) {
+        operation.lastFailureTerminal = error instanceof TmdbDeadlineError
+          ? operation.issuedAttemptCount > 0
+            ? "resource-stop-post-issue"
+            : "resource-stop-pre-issue"
+          : error instanceof TmdbHttpError
+            ? "http-failure"
+            : "transport-failure";
       }
       if (requestId && !terminalEmitted) {
         const statusClass = requestFailureStatus(error, false, deadlineBound);
@@ -478,15 +576,18 @@ export function createTmdbRequestContext({
     }
   }
 
-  async function fetchWithRetry(path, params, kind, requestKey, seedKey) {
+  async function fetchWithRetry(path, params, kind, requestKey, seedKey, operation) {
     let attempt = 0;
     while (true) {
       try {
-        return await fetchOnce(path, params, kind, requestKey, seedKey, attempt);
+        return await fetchOnce(path, params, kind, requestKey, seedKey, attempt, operation);
       } catch (error) {
         if (!shouldRetry(error) || attempt >= requestLimits.retries) throw error;
         if (!hasBudget(kind)) {
           state.budgetExhausted = true;
+          operation.accessTerminal = operation.issuedAttemptCount > 0
+            ? "resource-stop-post-issue"
+            : "resource-stop-pre-issue";
           throw error;
         }
         const exponentialDelay = 150 * 2 ** attempt;
@@ -496,12 +597,18 @@ export function createTmdbRequestContext({
         if (remainingMs <= 0) {
           state.deadlineExceeded = true;
           if (!earlyStopReason) earlyStopReason = "recommendation-deadline-exceeded";
+          operation.accessTerminal = operation.issuedAttemptCount > 0
+            ? "resource-stop-post-issue"
+            : "resource-stop-pre-issue";
           throw new TmdbDeadlineError();
         }
         const delay = Math.min(requestedDelay, maximumRetryAfterMs, remainingMs);
         if (delay <= 0 || delay >= remainingMs) {
           state.deadlineExceeded = true;
           if (!earlyStopReason) earlyStopReason = "recommendation-deadline-exceeded";
+          operation.accessTerminal = operation.issuedAttemptCount > 0
+            ? "resource-stop-post-issue"
+            : "resource-stop-pre-issue";
           throw new TmdbDeadlineError();
         }
         state.retryCount += 1;
@@ -514,9 +621,12 @@ export function createTmdbRequestContext({
   async function get(
     path,
     params = {},
-    { kind = "list", ttlMs = TMDB_CACHE_TTL.list, seedKey = "" } = {},
+    { kind = "list", ttlMs = TMDB_CACHE_TTL.list, seedKey = "", lifecycleReceipt } = {},
   ) {
-    if (!hasTimeRemaining()) throw new TmdbDeadlineError();
+    if (!hasTimeRemaining()) {
+      setLifecycleReceipt(lifecycleReceipt, { accessTerminal: "resource-stop-pre-issue" });
+      throw new TmdbDeadlineError();
+    }
     const requestKey = safeRequestKey(path, params, language, region);
     const cacheEntry = responseCache.get(requestKey);
     if (cacheEntry && cacheEntry.expiresAt > now()) {
@@ -529,11 +639,17 @@ export function createTmdbRequestContext({
           endpointClass: safeEndpointClass(path),
         });
       }
+      setLifecycleReceipt(lifecycleReceipt, {
+        accessMode: "cache",
+        providerParticipation: true,
+        accessTerminal: "success",
+      });
       return cacheEntry.value;
     }
     if (cacheEntry) responseCache.delete(requestKey);
 
     if (inFlight.has(requestKey)) {
+      const existing = inFlight.get(requestKey);
       state.requestDedupHits += 1;
       const requestId = observationRequestId();
       if (requestId) {
@@ -543,19 +659,37 @@ export function createTmdbRequestContext({
           endpointClass: safeEndpointClass(path),
         });
       }
-      return inFlight.get(requestKey);
+      return bindLifecycleReceipt(
+        existing.promise,
+        lifecycleReceipt,
+        existing.operation,
+        "in-flight",
+        false,
+      );
     }
 
-    const requestPromise = fetchWithRetry(path, params, kind, requestKey, seedKey)
+    const operation = {
+      id: nextLifecycleOperationId,
+      issuedAttemptCount: 0,
+      lastFailureTerminal: "",
+      accessTerminal: "not-started",
+      receiptBindings: [],
+    };
+    nextLifecycleOperationId += 1;
+    const requestPromise = fetchWithRetry(path, params, kind, requestKey, seedKey, operation)
       .then((value) => {
+        operation.accessTerminal = "success";
         pruneCache(now());
         responseCache.set(requestKey, { value, expiresAt: now() + ttlMs });
         return value;
+      }, (error) => {
+        operation.accessTerminal = operationTerminal(operation, error);
+        throw error;
       })
       .finally(() => inFlight.delete(requestKey));
 
-    inFlight.set(requestKey, requestPromise);
-    return requestPromise;
+    inFlight.set(requestKey, { promise: requestPromise, operation });
+    return bindLifecycleReceipt(requestPromise, lifecycleReceipt, operation, "fresh", true);
   }
 
   function setEarlyStop(reason) {
@@ -624,6 +758,7 @@ export function createTmdbRequestContext({
   }
 
   return {
+    createLifecycleReceipt,
     get,
     hasBudget,
     hasTimeRemaining,
@@ -631,6 +766,7 @@ export function createTmdbRequestContext({
     setEarlyStop,
     setSeedDiagnostics,
     diagnostics,
+    readLifecycleReceipt,
     limits: requestLimits,
   };
 }
