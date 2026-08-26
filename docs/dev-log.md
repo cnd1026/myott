@@ -27,6 +27,24 @@
 - 현재 분류는 `R3_SAFE_STOP_DEPLOYMENT_ATTEMPT_LIMIT_EXCEEDED`입니다.
 - HQ에서 Vercel Framework Preset/Output Directory 계약과 CLI orchestration 인수 전달을 별도 교정 승인하기 전에는 bypass 생성이나 deployment를 재시도하지 않습니다.
 
+## 2026-08-27 - R3 A5 Framework Correction and Final Deploy Retry
+
+### 실행 결과
+
+- Vercel 프로젝트의 Framework Preset을 `Next.js`로 정확히 한 번 교정했고, Output Directory는 `Next.js default`, Node.js는 `24.x`, Install Command는 AUTO, Git Integration은 없음으로 유지했습니다.
+- 임시 Automation Bypass를 정확히 한 번 생성하고 process memory에서만 사용했습니다. Standard Protection은 계속 활성 상태였습니다.
+- release `28b4553f19851df7ce6e5a8296b4e506c456308f`의 116/116 source blob과 이전 Recommendation 194/194, deterministic QA 107/107, local Next build PASS evidence를 재사용했습니다. 두 번째 local check는 실행하지 않았습니다.
+- A5 production deployment는 정확히 한 번 제출됐고 deployment 수는 2에서 3으로 증가했습니다. 새 deployment `dpl_BcDszqF4oY7c9JtE3vbBnSkhPCyT`는 Node.js 24.18.0, pnpm 10 계열, Next.js compilation 및 static generation을 통과해 READY가 됐으며 `STATIC_BUILD_NO_OUT_DIR`는 재발하지 않았습니다.
+- 보호된 deployment에서 `/`, `/api/status`, `/api/recommend/options?types=movie`가 모두 HTTP 200을 반환했습니다. Recommendation은 TMDb provider, `dataSource=tmdb`, fallback 없음, 결과 12개였습니다.
+- 동일 deployment를 production으로 한 번 promote했고 기본 production alias가 같은 deployment ID를 가리키는 것을 확인했습니다.
+
+### 안전 정지
+
+- bypass 없는 public `/`는 HTTP 200이었지만 public `/api/status`는 HTTP 200 응답에서 필수 Product JSON 계약을 제공하지 않아 acceptance를 통과하지 못했습니다.
+- Recommendation을 public alias에서 다시 실행하지 않았고 top-level retry, 추가 deployment, 추가 promotion은 없었습니다.
+- 임시 Automation Bypass는 동일 process에서 폐기됐으며 최종 활성 수는 0입니다. Secret, credential, raw CLI output은 기록하지 않았습니다.
+- 최종 분류는 `R3_SAFE_STOP_PUBLIC_POST_PROMOTION_SMOKE_FAILED`이며, Product/Test/package/lock/main/Continuity 변경 없이 HQ의 production public-smoke disposition으로 반환합니다.
+
 ## 2026-08-21 - Founder Preview Worktree Runtime Support
 
 ### Problem

@@ -80,6 +80,11 @@ MyOTT is under active development. This public log summarizes externally safe mi
 - Stopped the first production checkpoint without promotion after two unintended, non-promoted deployment submissions both completed Next.js compilation but failed the generic/static output-directory contract.
 - Confirmed that no Automation Bypass remained active, no public production smoke was accepted, and no credential or bypass value was written to source or documentation.
 - Returned the Vercel project/framework configuration and bounded release orchestration to HQ for correction disposition before another deployment attempt.
+- Corrected the Vercel Framework Preset from Other to Next.js while retaining framework-default output, Node.js 24.x, automatic install, and no Git integration.
+- Created exactly one additional production-target deployment from release `28b4553f19851df7ce6e5a8296b4e506c456308f`; the deployment reached READY after Next.js compilation and static generation without the prior output-directory failure.
+- Passed the protected deployment checks for the home page, status contract, and TMDb recommendation contract with 12 results and no mock fallback, then promoted that same deployment.
+- Stopped safely after the public production status request returned HTTP 200 without the required Product JSON contract. The temporary Automation Bypass was revoked and its final active count was zero.
+- Kept Product, test, package, lockfile, main, custom-domain, DNS, and Continuity state unchanged pending HQ disposition of the public production smoke boundary.
 
 ## Maintenance policy going forward
 
