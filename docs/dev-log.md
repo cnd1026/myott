@@ -45,6 +45,27 @@
 - 임시 Automation Bypass는 동일 process에서 폐기됐으며 최종 활성 수는 0입니다. Secret, credential, raw CLI output은 기록하지 않았습니다.
 - 최종 분류는 `R3_SAFE_STOP_PUBLIC_POST_PROMOTION_SMOKE_FAILED`이며, Product/Test/package/lock/main/Continuity 변경 없이 HQ의 production public-smoke disposition으로 반환합니다.
 
+## 2026-08-27 - R3 A6 Public Production Closure
+
+### 접근성 교정
+
+- HQ readback 기준 Production artifact는 `dpl_BcDszqF4oY7c9JtE3vbBnSkhPCyT`, READY, production target, deployment count 3으로 유지됐습니다.
+- Product 실패나 redeploy 필요성은 없었고, public 요청을 가로막은 원인은 Vercel Authentication의 `all_except_custom_domains` scope였습니다.
+- Vercel Project의 `ssoProtection.deploymentType`만 `preview`로 정확히 한 번 변경했습니다. Framework `nextjs`, Node.js `24.x`, 자동 build/install/output 설정, 환경변수, Git Integration, alias, deployment는 변경하지 않았습니다.
+
+### 공개 검증
+
+- 일반 비인증 HTTP client에서 redirect 자동 추적을 끄고 production alias의 `/`와 `/api/status`를 각각 한 번만 호출했습니다.
+- `/`는 redirect 없이 HTTP 200과 HTML을 반환했고, `/api/status`는 redirect 없이 HTTP 200, `application/json`, `ok=true`, `tmdbEnabled=true`, `language=ko-KR`, `region=KR`을 반환했습니다.
+- Recommendation은 다시 호출하지 않았고 top-level retry는 0입니다.
+- Runtime log에서 `/api/status` 요청이 기존 production deployment `dpl_BcDszqF4oY7c9JtE3vbBnSkhPCyT`에 도달한 것을 확인했습니다.
+- 최종 readback에서도 production deployment와 alias는 동일했고 deployment count는 3, Automation Bypass 활성 수는 0이었습니다.
+
+### 최종 상태
+
+- Product/Test/package/lock 변경, deployment, redeploy, promotion, main merge, custom domain, DNS, Continuity update는 모두 0입니다.
+- 최종 분류는 `MYOTT_RELEASE_CONTRACT_R3_FIRST_PRODUCTION_EXECUTION_V1_PASS`이며 R3 first-production execution contract를 종료합니다.
+
 ## 2026-08-21 - Founder Preview Worktree Runtime Support
 
 ### Problem

@@ -85,6 +85,10 @@ MyOTT is under active development. This public log summarizes externally safe mi
 - Passed the protected deployment checks for the home page, status contract, and TMDb recommendation contract with 12 results and no mock fallback, then promoted that same deployment.
 - Stopped safely after the public production status request returned HTTP 200 without the required Product JSON contract. The temporary Automation Bypass was revoked and its final active count was zero.
 - Kept Product, test, package, lockfile, main, custom-domain, DNS, and Continuity state unchanged pending HQ disposition of the public production smoke boundary.
+- Corrected Vercel Authentication from all non-custom domains to preview deployments only without redeploying, promoting, or changing the production artifact.
+- Confirmed ordinary unauthenticated access to the production root and status route: both returned HTTP 200 without redirects, and the status route returned the expected TMDb-enabled Korean-region Product JSON.
+- Verified the public status request reached the existing READY production deployment `dpl_BcDszqF4oY7c9JtE3vbBnSkhPCyT`; the deployment count remained three and Automation Bypass remained disabled.
+- Closed the R3 first-production execution contract while leaving main merge, custom-domain/DNS work, release tagging, and deployment changes outside this checkpoint.
 
 ## Maintenance policy going forward
 
