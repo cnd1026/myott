@@ -2,6 +2,27 @@
 
 개발 과정에서의 작업 내용, 결정, 아쉬운 점, 다음 개선 사항을 날짜별로 기록합니다.
 
+## 2026-08-27 - Post-v0.1.0 Founder QA Correction Design
+
+### 확인한 것
+
+- v0.1.0 Founder Manual QA를 완료했고, 출시 태그와 Production은 그대로 보존한 채 후속 교정 설계만 진행했습니다.
+- 현재 추천 경로와 기존 오프라인 테스트를 비교해 콘텐츠 종류 확장이 list/detail 자원 배분과 최종 후보 구성에 관여함을 확인했습니다.
+- Founder가 관찰한 결과 수 감소를 최초로 만든 단계는 기존 보존 증거만으로 특정할 수 없었습니다. 실제 단계별 후보와 제외 수가 없으므로 원인을 추정해 확정하지 않았습니다.
+- 콘텐츠 종류 hard filter, 타입별 초기 요청 예약, detail 슬롯 분배, 최종 타입 배정의 기존 테스트는 모두 통과했습니다.
+
+### 결정한 것
+
+- First Pick의 현재 고정 demo 작품은 다음 구현에서 bounded provider-backed 경로로 교체하고, Provider 실패 시 demo 카드로 대체하지 않습니다.
+- 작품 입력은 사용자가 쓴 문장을 유지하고, 확인된 TMDb 작품 identity를 별도 상태와 UI로 표시합니다. 입력이 의미 있게 바뀌면 이전 확인 상태를 즉시 무효화합니다.
+- Product 문체는 짧고 차분한 OTT 큐레이터 톤을 사용하며, 근거 없는 인기 표현과 개발용 문구를 제거합니다.
+- 모바일은 compact First Pick, 현재 조건 요약, inline 작품 입력, 조건 bottom sheet, 상황별 sticky CTA를 조합한 progressive-disclosure 구조를 다음 구현안으로 사용합니다.
+
+### 남은 게이트
+
+- 타입 확장 원인을 확정하려면 동일 source pin에서 두 사례의 list/detail/candidate/exclusion stage counters가 필요합니다. 새 Product/TMDb 호출은 이번 작업에서 수행하지 않았습니다.
+- Product/Test 구현, 새 endpoint, Network, 배포, main 변경은 모두 다음 HQ 계약과 구현 권한 뒤에만 진행합니다.
+
 ## 2026-08-27 - R3 First Production Safe Stop
 
 ### 준비 상태

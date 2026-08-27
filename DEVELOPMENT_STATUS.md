@@ -89,6 +89,11 @@ MyOTT is under active development. This public log summarizes externally safe mi
 - Confirmed ordinary unauthenticated access to the production root and status route: both returned HTTP 200 without redirects, and the status route returned the expected TMDb-enabled Korean-region Product JSON.
 - Verified the public status request reached the existing READY production deployment `dpl_BcDszqF4oY7c9JtE3vbBnSkhPCyT`; the deployment count remained three and Automation Bypass remained disabled.
 - Closed the R3 first-production execution contract while leaving main merge, custom-domain/DNS work, release tagging, and deployment changes outside this checkpoint.
+- Completed Founder Manual QA for v0.1.0 and opened a bounded post-release correction-design wave without changing the released tag or production deployment.
+- Confirmed from current source and offline tests that content-type expansion participates in retrieval, detail allocation, hard filtering, and final balancing; the preserved evidence does not identify the first stage responsible for the observed result-count reduction, so the cause remains unproven rather than inferred.
+- Classified the initial First Pick cards as static demo content and selected a provider-backed, bounded First Pick contract for the next implementation gate. Production must not silently substitute demo cards when provider data is unavailable.
+- Defined product-design directions for separate confirmed-work identity, a calm OTT-curator voice, and mobile-first progressive disclosure while preserving desktop behavior.
+- Kept Product, test, package, lockfile, network, deployment, release-tag, and main state unchanged. Implementation remains gated by the next HQ contract and authority disposition.
 
 ## Maintenance policy going forward
 
