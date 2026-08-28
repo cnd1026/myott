@@ -95,6 +95,18 @@ MyOTT is under active development. This public log summarizes externally safe mi
 - Defined product-design directions for separate confirmed-work identity, a calm OTT-curator voice, and mobile-first progressive disclosure while preserving desktop behavior.
 - Kept Product, test, package, lockfile, network, deployment, release-tag, and main state unchanged. Implementation remains gated by the next HQ contract and authority disposition.
 
+## 2026-08-28
+
+- Implemented a real-provider-only First Pick route with an independent `5 / 2 / 3` request profile, deterministic selection, bounded caching, and no Production demo or Mock fallback.
+- Added Confirmed Seed state and keyboard behavior that keeps raw input separate from confirmed provider identity and invalidates stale confirmation after edits.
+- Updated the Product voice to a calm OTT-curator style and added mobile-first condition disclosure, a contextual recommendation action, and accessible detail/related presentation.
+- Closed deterministic final-path evidence for all seven movie, drama, and animation filter combinations without changing personalized recommendation policy or its `24 / 8 / 16` budget.
+- Closed IR-001 by releasing failed, non-2xx, network-error, and parse-error First Pick promises while retaining reusable verified success or valid-empty results. Automatic retry remains zero, and the explicit `다시 불러오기` action recovered the deterministic `503 -> 200` path.
+- Closed IR-002 with mobile modal-dialog semantics, visible-heading association, focus entry and containment, Escape/visible-close handling, and opener-focus restoration. The native button acceptance passed independent review; the browser harness limitation was not treated as an accessibility waiver.
+- Independent re-review passed focused checks `63 / 63`, recommendation regression `203 / 203`, deterministic QA `107 / 107`, production build, and `12 / 12` static generation with external Product, TMDB, package, and Production network activity at zero.
+- Confirmed Seed identity, calm OTT-curator voice (`추천 근거`, `선택 기준`), mobile First Pick rail/condition sheet/sticky action, and the seven-combination Content Type hard-filter evidence are closed for this implementation review.
+- Type expansion forensic remains `COMPLETED / INCONCLUSIVE`; pair reproduction remains `NOT EVALUABLE`; type expansion root cause remains `UNRESOLVED`. The Founder observation remains Netflix + SF + movie = 12 versus Netflix + SF + movie + drama = 8, including one drama result.
+
 ## Maintenance policy going forward
 
 When meaningful development continues but a public product commit is delayed by QA, security, or release gates, MyOTT will publish a small public-safe maintenance signal when useful. That signal may be a status update, documentation commit, issue, or review artifact. Empty commits and fabricated activity are not part of this policy.

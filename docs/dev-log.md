@@ -2,6 +2,44 @@
 
 개발 과정에서의 작업 내용, 결정, 아쉬운 점, 다음 개선 사항을 날짜별로 기록합니다.
 
+## 2026-08-28 - Post-v0.1.0 Product UX Correction V1
+
+### 구현한 것
+
+- `GET /api/recommend/first-picks`를 추가하고 TMDb discover/list/detail 계열만 사용하는 최대 3개 First Pick 경로를 구현했습니다. 성공은 `public, s-maxage=300`, 실제 empty는 최대 60초, unavailable/error는 `no-store`이며 Production demo/Mock fallback은 없습니다.
+- First Pick 전용 요청 profile은 `TOTAL 5 / LIST 2 / DETAIL 3 / CONCURRENCY 3 / RETRY 0`입니다. 개인화 추천의 기존 `24 / 8 / 16 / concurrency 4` 계약은 유지했습니다.
+- raw 입력과 확인된 TMDb identity를 분리한 Confirmed Seed 상태를 추가했습니다. 입력 수정 시 stale identity를 즉시 무효화하고, 확인 해제는 raw text를 보존한 채 같은 input으로 focus를 돌립니다.
+- `추천 근거`, `선택 기준`, `비슷한 작품` 중심의 차분한 OTT 큐레이터 문체와 모바일 조건 bottom sheet, 현재 조건 요약, contextual sticky CTA, 모바일 detail/related 가로 흐름을 적용했습니다.
+
+### 검증한 것
+
+- Independent Re-Review는 `MYOTT_POST_V0_1_0_PRODUCT_UX_CORRECTION_V1_INDEPENDENT_RE_REVIEW = PASS`로 종료됐습니다. focused test `63 / 63`, recommendation unit `203 / 203`, deterministic recommendation QA `107 / 107`, production build, static generation `12 / 12`가 모두 PASS였습니다.
+- IR-001은 failed/non-2xx/network/parse First Pick promise를 해제하고 verified success 또는 valid empty만 재사용하도록 교정해 CLOSED했습니다. 자동 retry는 0이며 `다시 불러오기` 명시적 동작으로 deterministic `503 -> 200`, 3-card 회복을 확인했습니다.
+- IR-002는 모바일 조건 sheet에 `role=dialog`, `aria-modal=true`, visible heading 연계, dialog 내부 초기 focus, Tab/Shift+Tab containment, Escape/visible close, opener focus 복귀를 적용해 CLOSED했습니다. Browser harness의 native key synthesis 한계는 별도로 기록했고, native button semantic A-F acceptance는 독립 재검토에서 PASS했으며 접근성 waiver로 취급하지 않았습니다.
+- 대표 모바일 evidence에서 First Pick horizontal rail, compact condition summary/modal sheet, contextual sticky CTA, page overflow 0을 확인했습니다.
+- canonical Next CLI를 사용한 production build가 compile, type/lint, page data, 12/12 static generation, trace/finalization까지 exit 0으로 완료됐습니다.
+- 최종 검토 중 Product/TMDB/Production 외부 Network와 package Network는 모두 0이었습니다. 과거의 contained package-network 시도도 download 0, package/lock mutation 0으로 보존됐습니다.
+
+### 닫힌 제품 계약
+
+- First Pick은 TMDb real-provider 전용이며 Production static/demo fallback과 Mock fallback은 0, 최대 3개입니다. 전용 context는 `TOTAL 5 / LIST 2 / DETAIL 3 / CONCURRENCY 3 / RETRY 0`입니다.
+- Server cache는 real success `s-maxage=300`, valid empty 최대 60초, provider failure `no-store`입니다.
+- Confirmed Seed는 raw input과 confirmed identity를 분리하며 edit는 stale identity를 무효화하고 `x`는 raw text를 보존합니다.
+- Product voice는 `CALM OTT CURATOR`이며 `추천 근거`, `선택 기준` 표현을 유지합니다.
+- 7개 Content Type 조합의 deterministic final Product-path hard-filter evidence는 `PASS / CLOSED`이며 Product semantic 수정으로 해석하지 않습니다.
+
+### 보존한 상태
+
+- `TYPE EXPANSION FORENSIC = COMPLETED / INCONCLUSIVE`
+- `PAIR REPRODUCTION = NOT EVALUABLE`
+- `TYPE EXPANSION ROOT CAUSE = UNRESOLVED`
+- Founder 관측은 Netflix + SF + movie = 12, Netflix + SF + movie + drama = 8이며 그중 drama는 1개입니다.
+- Track A recall/ranking/semantic/filter/dedupe 계약과 Product/TMDB Network 0을 유지했습니다. package/lock 변경, commit, push, main 변경은 없습니다.
+
+### 다음 게이트
+
+- Product/Test와 living-doc closure를 전용 branch에 보존한 뒤 HQ의 main integration 및 release authority disposition으로 반환합니다. Track A 원인 규명이나 새 Product Network 실행은 자동 진행하지 않습니다.
+
 ## 2026-08-27 - Post-v0.1.0 Founder QA Correction Design
 
 ### 확인한 것
