@@ -2,6 +2,22 @@
 
 개발 과정에서의 작업 내용, 결정, 아쉬운 점, 다음 개선 사항을 날짜별로 기록합니다.
 
+## 2026-08-28 - Post-v0.1.0 Product UX Production Release V1
+
+### Production release
+
+- source `fa7a4f5734d0169bf8722533a9562c2542bebd6e`의 validated Production entity `dpl_FJKZZEcjaVwNXLFAhVB1eLcUeY6T`를 정확히 복원했습니다. `myott-ndstudio.vercel.app`과 `myott-tau.vercel.app`은 모두 해당 READY production deployment를 가리킵니다.
+- FJK의 control-plane lineage는 `action=promote`, `originalDeploymentId=dpl_HSyFHBcBGGF1ojABjiYBAP22u6U8`로 보존했습니다. 이 기록은 deployment ID가 promote 과정에서 보존됐다고 주장하거나 문서화되지 않은 rebuild 동작을 추정하지 않습니다.
+- Production smoke는 A8/A8.1 cache-semantics correction 이후 `3 / 3 PASS`로 확정했습니다. `/`와 `/api/status`가 PASS했고, First Pick은 real TMDb, `source=tmdb`, `providerId=tmdb`, `fallbackUsed=false`, results `3`으로 PASS했습니다.
+- First Pick의 exact Product source cache directive는 `public, s-maxage=300`입니다. client-visible `Cache-Control: public`은 Vercel cache normalization의 예상 결과로 판정했으며, 내부 live budget counter는 `NOT OBSERVABLE`로 유지했습니다.
+
+### Preserved release history
+
+- A7 실행 당시 cache classification은 `FAILED AT EXECUTION TIME`으로 보존했고, prior known-good `dpl_BcDszqF4oY7c9JtE3vbBnSkhPCyT`로의 rollback도 `EXECUTED / PASS`로 보존했습니다. A8/A8.1이 false negative를 교정한 뒤 exact validated FJK deployment를 복원했으며 deployment count는 5로 유지됐습니다.
+- A5 procedure는 `FAILED / PRESERVED`입니다. A6 fresh authoritative security state는 Automation Bypass `0`, URL/Shareable Bypass `0`, Security Cleanup Objective `PASS / AUTHORITATIVE FINAL STATE`입니다.
+- `dpl_BcDszqF4oY7c9JtE3vbBnSkhPCyT`는 known-good rollback baseline으로 남기고, `v0.1.0`은 `28b4553f19851df7ce6e5a8296b4e506c456308f`에서 이동하지 않았습니다.
+- Track A는 `TYPE EXPANSION FORENSIC = COMPLETED / INCONCLUSIVE`, `PAIR REPRODUCTION = NOT EVALUABLE`, `TYPE EXPANSION ROOT CAUSE = UNRESOLVED`입니다. Founder 관측 `12 -> 8`, drama `1`은 `OPEN`으로 유지합니다.
+
 ## 2026-08-28 - Post-v0.1.0 Product UX Correction V1
 
 ### 구현한 것

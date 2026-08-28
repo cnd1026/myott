@@ -106,6 +106,11 @@ MyOTT is under active development. This public log summarizes externally safe mi
 - Independent re-review passed focused checks `63 / 63`, recommendation regression `203 / 203`, deterministic QA `107 / 107`, production build, and `12 / 12` static generation with external Product, TMDB, package, and Production network activity at zero.
 - Confirmed Seed identity, calm OTT-curator voice (`추천 근거`, `선택 기준`), mobile First Pick rail/condition sheet/sticky action, and the seven-combination Content Type hard-filter evidence are closed for this implementation review.
 - Type expansion forensic remains `COMPLETED / INCONCLUSIVE`; pair reproduction remains `NOT EVALUABLE`; type expansion root cause remains `UNRESOLVED`. The Founder observation remains Netflix + SF + movie = 12 versus Netflix + SF + movie + drama = 8, including one drama result.
+- Released source `fa7a4f5734d0169bf8722533a9562c2542bebd6e` to Production as deployment `dpl_FJKZZEcjaVwNXLFAhVB1eLcUeY6T`, with `myott-ndstudio.vercel.app` and `myott-tau.vercel.app` both restored to that READY production entity. Its recorded lineage identifies original staged deployment `dpl_HSyFHBcBGGF1ojABjiYBAP22u6U8` without asserting undocumented Vercel build mechanics.
+- Accepted the preserved Production smoke as `3 / 3 PASS`: the application shell and status contract passed, and First Pick returned three real TMDb identities without fallback. The exact Product source directive is `public, s-maxage=300`; the client-visible `Cache-Control: public` is accepted as expected Vercel cache normalization.
+- Preserved the original A7 cache result as failed at execution time and the successful rollback to known-good deployment `dpl_BcDszqF4oY7c9JtE3vbBnSkhPCyT`. A8/A8.1 corrected the cache-semantics classification and restored the exact validated `dpl_FJKZZEcjaVwNXLFAhVB1eLcUeY6T` deployment without a sixth deployment.
+- Preserved A5 as `FAILED / PRESERVED`. The A6 authoritative security state remained Automation Bypass `0`, URL/Shareable Bypass `0`, and Security Cleanup Objective `PASS`.
+- Kept `dpl_BcDszqF4oY7c9JtE3vbBnSkhPCyT` as the known-good rollback baseline and left release tag `v0.1.0` fixed at `28b4553f19851df7ce6e5a8296b4e506c456308f`.
 
 ## Maintenance policy going forward
 
