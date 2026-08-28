@@ -1,10 +1,15 @@
 import {
   discoverTmdb,
+  firstPicksTmdb,
   hasTmdbKey,
   recommendSeedsTmdb,
   relatedTmdb,
   searchTmdb,
 } from "../../../../lib/tmdb.js";
+import {
+  normalizeDisplayContentType,
+  normalizeProviderMediaType,
+} from "../../recommendation/filters/hardFilterContract.js";
 
 function typeLabel(contentType) {
   if (contentType === "movie") return "영화";
@@ -53,6 +58,51 @@ function toUnifiedRecommendationPayload(payload = {}) {
   };
 }
 
+export function toFirstPickContentModel(item = {}) {
+  const providerContentId = String(item.tmdbId || item.providerContentId || "").trim();
+  const providerMediaType = normalizeProviderMediaType(item);
+  const displayContentType = normalizeDisplayContentType(item);
+  const title = String(item.title || "").trim();
+  if (!providerContentId || !title || !["movie", "tv"].includes(providerMediaType) ||
+      !["movie", "drama", "animation"].includes(displayContentType)) {
+    return null;
+  }
+
+  const genres = (Array.isArray(item.genres) ? item.genres : [])
+    .map((genre) => String(genre || "").trim())
+    .filter((genre) => genre && genre !== "기타");
+  const platforms = (Array.isArray(item.actualStreamingProviders) ? item.actualStreamingProviders : [])
+    .map((platform) => String(platform || "").trim())
+    .filter(Boolean);
+  const runtime = Number(item.runtime);
+  const rating = Number(item.rating);
+
+  return {
+    id: `tmdb-${providerMediaType}-${providerContentId}`,
+    providerId: "tmdb",
+    providerContentId,
+    tmdbId: Number(providerContentId),
+    providerMediaType,
+    displayContentType,
+    contentType: displayContentType,
+    type: displayContentType,
+    title,
+    originalTitle: String(item.originalTitle || "").trim(),
+    year: Number(item.year) || 0,
+    poster: typeof item.poster === "string" ? item.poster : "",
+    backdrop: typeof item.backdrop === "string" ? item.backdrop : "",
+    genres,
+    genre: genres.join(", "),
+    runtime: Number.isFinite(runtime) && runtime > 0 ? runtime : 0,
+    rating: Number.isFinite(rating) && rating > 0 ? rating : 0,
+    platforms,
+    ott: platforms,
+    synopsis: String(item.synopsis || "").trim(),
+    providerGenreIds: Array.isArray(item.providerGenreIds) ? item.providerGenreIds : [],
+    source: "tmdb",
+  };
+}
+
 export const tmdbProvider = {
   id: "tmdb",
   name: "TMDB Provider",
@@ -97,6 +147,14 @@ export const tmdbProvider = {
       qaObservability: process.env.NODE_ENV !== "production" && Boolean(qaDiagnostics),
     });
     return toUnifiedRecommendationPayload(payload);
+  },
+
+  async getFirstPicks() {
+    const payload = await firstPicksTmdb();
+    return {
+      results: (payload.results || []).map(toFirstPickContentModel).filter(Boolean).slice(0, 3),
+      diagnostics: payload.diagnostics || {},
+    };
   },
 
   async getSeedRecommendations({ titles = [], seeds = [], filters = [], contentTypes = [], limit } = {}) {

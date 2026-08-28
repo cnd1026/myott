@@ -10,6 +10,7 @@ function confirmedSeedFromSuggestion(inputTitle, suggestion = {}) {
     tmdbId,
     mediaType,
     contentType: suggestion.type || (mediaType === "tv" ? "drama" : "movie"),
+    year: Number(suggestion.year) || 0,
     resolvedTitle: suggestion.resolvedTitle || suggestion.title || inputTitle,
     originalTitle: suggestion.originalTitle || suggestion.title || inputTitle,
   };

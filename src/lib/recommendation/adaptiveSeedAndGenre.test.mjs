@@ -1,18 +1,24 @@
 import test, { beforeEach } from "node:test";
 import assert from "node:assert/strict";
+import { readFile } from "node:fs/promises";
+import vm from "node:vm";
 
 import {
   TmdbObservabilityIntegrityError,
   createRequestContext,
   discoverTmdb,
+  firstPicksTmdb,
   recommendSeedsTmdb,
 } from "../../../lib/tmdb.js";
-import { tmdbProvider } from "../providers/tmdb/provider.js";
+import { tmdbProvider, toFirstPickContentModel } from "../providers/tmdb/provider.js";
 import {
+  FIRST_PICK_TMDB_REQUEST_LIMITS,
   TMDB_REQUEST_LIMITS,
   TMDB_TIME_LIMITS,
   clearTmdbRequestCache,
 } from "../providers/tmdb/requestContext.js";
+import { createFirstPicksResponse } from "../../../app/api/recommend/first-picks/route.js";
+import { finalizeCandidatePool } from "./candidates/candidatePipeline.js";
 import {
   createFixtureFetch,
   createRecommendationContextFactory,
@@ -29,6 +35,18 @@ import {
   buildSeedRequestPayload,
   resolveEmptyStateMessage,
 } from "./seeds/seedRequest.js";
+import {
+  CONFIRMED_SEED_STATE,
+  closeSeedSuggestions,
+  confirmSeedRow,
+  createSeedRow,
+  editSeedRow,
+  nextHighlightedSuggestion,
+  normalizeSeedRows,
+  removeSeedConfirmation,
+  seedRowsToPreferenceState,
+  showSeedSuggestions,
+} from "./seeds/confirmedSeedState.js";
 import {
   TMDB_OBSERVABILITY_ACCEPTED_WORST_CASE,
   TMDB_OBSERVABILITY_LIMITS,
@@ -994,4 +1012,261 @@ test("provider exposes only the QA Boolean and public context creation cannot ac
     () => createRequestContext({ observer: session }),
     (error) => error?.code === "TMDB_OBSERVABILITY_INTEGRITY_FAILED" && error?.stage === "context-binding",
   );
+});
+
+test("First Pick route is real-provider-only, bounded to three, and uses exact cache states", async () => {
+  const item = {
+    providerId: "tmdb",
+    providerContentId: "101",
+    tmdbId: 101,
+    providerMediaType: "movie",
+    displayContentType: "movie",
+    title: "실제 작품",
+  };
+  const enabled = (results) => ({
+    id: "tmdb",
+    isEnabled: () => true,
+    getFirstPicks: async () => ({ results }),
+  });
+
+  const one = await createFirstPicksResponse(enabled([item]));
+  assert.equal(one.status, 200);
+  assert.equal(one.headers.get("cache-control"), "public, s-maxage=300");
+  assert.deepEqual((await one.json()).results, [item]);
+
+  const three = await createFirstPicksResponse(enabled([item, { ...item, providerContentId: "102", tmdbId: 102 }, { ...item, providerContentId: "103", tmdbId: 103 }, { ...item, providerContentId: "104", tmdbId: 104 }]));
+  assert.equal((await three.json()).results.length, 3);
+
+  const empty = await createFirstPicksResponse(enabled([]));
+  assert.equal(empty.status, 200);
+  assert.equal(empty.headers.get("cache-control"), "public, s-maxage=60");
+  assert.equal((await empty.json()).dataSource, "empty");
+
+  for (const unavailable of [
+    { id: "mock", isEnabled: () => true, getFirstPicks: async () => ({ results: [item] }) },
+    { id: "tmdb", isEnabled: () => false, getFirstPicks: async () => ({ results: [item] }) },
+    { id: "tmdb", isEnabled: () => true, getFirstPicks: async () => { throw new Error("offline"); } },
+    enabled([{ ...item, providerContentId: "", tmdbId: null }]),
+  ]) {
+    const response = await createFirstPicksResponse(unavailable);
+    const body = await response.json();
+    assert.equal(response.status, 503);
+    assert.equal(response.headers.get("cache-control"), "no-store");
+    assert.equal(body.fallbackUsed, false);
+    assert.deepEqual(body.results, []);
+    assert.equal(JSON.stringify(body).includes("mock"), false);
+  }
+});
+
+test("First Pick normalization requires provider identity and keeps optional metadata honest", () => {
+  assert.equal(toFirstPickContentModel({ title: "식별자 없음" }), null);
+  const item = toFirstPickContentModel({
+    tmdbId: 77,
+    providerMediaType: "tv",
+    displayContentType: "drama",
+    title: "실제 드라마",
+    genres: ["기타"],
+    ott: ["검색 필요"],
+  });
+  assert.equal(item.providerId, "tmdb");
+  assert.equal(item.providerContentId, "77");
+  assert.equal(item.providerMediaType, "tv");
+  assert.equal(item.displayContentType, "drama");
+  assert.deepEqual(item.genres, []);
+  assert.deepEqual(item.platforms, []);
+  assert.equal(item.runtime, 0);
+  assert.equal(item.rating, 0);
+});
+
+test("First Pick discover uses the independent 5/2/3 context with retry zero", async () => {
+  const previousKey = process.env.TMDB_API_KEY;
+  process.env.TMDB_API_KEY = "deterministic-fixture-key";
+  const calls = [];
+  const context = createRequestContext({
+    limits: FIRST_PICK_TMDB_REQUEST_LIMITS,
+    fetchImpl: async (url) => {
+      calls.push(url);
+      const parsed = new URL(url);
+      if (parsed.pathname.startsWith("/3/discover/")) {
+        const mediaType = parsed.pathname.endsWith("/tv") ? "tv" : "movie";
+        return tmdbFixtureResponse(200, {
+          page: 1,
+          total_pages: 1,
+          results: [{
+            id: mediaType === "tv" ? 202 : 101,
+            media_type: mediaType,
+            title: mediaType === "movie" ? "영화" : undefined,
+            name: mediaType === "tv" ? "드라마" : undefined,
+            genre_ids: [mediaType === "tv" ? 18 : 28],
+          }],
+        });
+      }
+      return tmdbFixtureResponse(200, { id: 101, title: "영화", genres: [{ id: 28, name: "Action" }] });
+    },
+  });
+  try {
+    const payload = await firstPicksTmdb({ requestContext: context });
+    assert.ok(payload.results.length >= 1);
+    assert.ok(payload.results.length <= 3);
+    assert.ok(payload.diagnostics.requestsUsed <= 5);
+    assert.ok(payload.diagnostics.listRequestsUsed <= 2);
+    assert.ok(payload.diagnostics.detailRequestsUsed <= 3);
+    assert.ok(payload.diagnostics.maxConcurrentObserved <= 3);
+    assert.equal(payload.diagnostics.retryCount, 0);
+    assert.equal(context.limits.retries, 0);
+    assert.equal(calls.some((url) => url.includes("/trending") || url.includes("/search/")), false);
+  } finally {
+    if (previousKey === undefined) delete process.env.TMDB_API_KEY;
+    else process.env.TMDB_API_KEY = previousKey;
+  }
+});
+
+test("Confirmed Seed rows preserve raw text, invalidate stale identity, and retain one trailing blank", () => {
+  let nextId = 2;
+  const blank = () => createSeedRow(`row-${nextId++}`);
+  let rows = [createSeedRow("row-1")];
+  rows = editSeedRow(rows, "row-1", "인터", blank);
+  assert.equal(rows[0].state, CONFIRMED_SEED_STATE.RAW_TYPING);
+  assert.equal(rows.length, 2);
+  assert.equal(rows[1].raw, "");
+
+  rows = showSeedSuggestions(rows, "row-1");
+  assert.equal(rows[0].state, CONFIRMED_SEED_STATE.SUGGESTIONS_VISIBLE);
+  const confirmed = { tmdbId: 157336, mediaType: "movie", contentType: "movie", resolvedTitle: "인터스텔라", year: 2014 };
+  rows = confirmSeedRow(rows, "row-1", confirmed, blank);
+  assert.equal(rows[0].raw, "인터");
+  assert.equal(rows[0].confirmed, confirmed);
+  assert.equal(seedRowsToPreferenceState(rows).confirmedSeeds[0].tmdbId, 157336);
+
+  rows = editSeedRow(rows, "row-1", "인터 ", blank);
+  assert.equal(rows[0].confirmed, null);
+  assert.equal(rows[0].state, CONFIRMED_SEED_STATE.CONFIRMED_THEN_RAW_EDITED);
+  rows = closeSeedSuggestions(rows, "row-1");
+  assert.equal(rows[0].state, CONFIRMED_SEED_STATE.UNRESOLVED_RAW);
+
+  rows = confirmSeedRow(rows, "row-1", confirmed, blank);
+  rows = removeSeedConfirmation(rows, "row-1");
+  assert.equal(rows[0].raw, "인터 ");
+  assert.equal(rows[0].confirmed, null);
+  assert.equal(rows[0].state, CONFIRMED_SEED_STATE.CONFIRMATION_REMOVED);
+  assert.equal(normalizeSeedRows(rows, blank).filter((row) => !row.raw.trim() && !row.confirmed).length, 1);
+});
+
+test("Confirmed Seed keyboard navigation wraps, Enter can target a highlight, and Tab does not select", () => {
+  assert.equal(nextHighlightedSuggestion(-1, 3, "ArrowDown"), 0);
+  assert.equal(nextHighlightedSuggestion(2, 3, "ArrowDown"), 0);
+  assert.equal(nextHighlightedSuggestion(-1, 3, "ArrowUp"), 2);
+  assert.equal(nextHighlightedSuggestion(0, 3, "ArrowUp"), 2);
+  assert.equal(nextHighlightedSuggestion(1, 3, "Tab"), 1);
+  assert.equal(nextHighlightedSuggestion(1, 3, "Enter"), 1);
+  assert.equal(nextHighlightedSuggestion(1, 3, "Escape"), 1);
+});
+
+test("final Product candidate path closes all seven content-type combinations", () => {
+  const candidates = [
+    { tmdbId: 1, providerMediaType: "movie", displayContentType: "movie", type: "movie", title: "영화", genreIds: [28], rating: 8, popularity: 30 },
+    { tmdbId: 2, providerMediaType: "tv", displayContentType: "drama", type: "drama", title: "드라마", genreIds: [18], rating: 8, popularity: 20 },
+    { tmdbId: 3, providerMediaType: "movie", displayContentType: "animation", type: "animation", title: "애니", genreIds: [16], rating: 8, popularity: 10 },
+  ];
+  const combinations = [
+    ["movie"], ["drama"], ["animation"], ["movie", "drama"],
+    ["movie", "animation"], ["drama", "animation"], ["movie", "drama", "animation"],
+  ];
+  for (const contentTypes of combinations) {
+    const result = finalizeCandidatePool(candidates, { contentTypes, limit: 12 });
+    const finalItems = [...result.results, ...result.relaxedResults];
+    assert.equal(finalItems.length, contentTypes.length, contentTypes.join("+"));
+    assert.equal(finalItems.every((item) => contentTypes.includes(item.displayContentType)), true, contentTypes.join("+"));
+  }
+});
+
+test("Production render path uses calm copy and cannot reach static First Pick demos", async () => {
+  const source = await readFile(new URL("../../../app/page.jsx", import.meta.url), "utf8");
+  const renderSource = source.slice(source.indexOf("  return (", source.indexOf("export default function Home")));
+  for (const required of [
+    "먼저 살펴볼 작품", "취향 알려주기", "내 취향으로 추천받기", "작품을 불러오는 중입니다.",
+    "추천 근거", "선택 기준", "비슷한 작품", "OTT 제공 정보는 아직 확인되지 않았습니다.",
+  ]) assert.equal(renderSource.includes(required), true, required);
+  for (const prohibited of ["더미 결과", "이후 실제 지표로 교체됩니다", "요즘 많이 고르는 작품", "대표 추천", "heroRecommendations"])
+    assert.equal(renderSource.includes(prohibited), false, prohibited);
+});
+
+test("First Pick client cache releases every failed promise and retains valid success or empty", async () => {
+  const source = await readFile(new URL("../../../app/page.jsx", import.meta.url), "utf8");
+  const start = source.indexOf("function isValidFirstPickPayload");
+  const end = source.indexOf("const timeSlotContent", start);
+  assert.ok(start >= 0 && end > start);
+  const loaderSource = source.slice(start, end);
+  const validItem = {
+    providerId: "tmdb",
+    providerContentId: "101",
+    tmdbId: 101,
+    providerMediaType: "movie",
+    displayContentType: "movie",
+    title: "실제 작품",
+  };
+  const payload = (results) => ({ source: "tmdb", providerId: "tmdb", fallbackUsed: false, results });
+  const response = (ok, value) => ({ ok, json: async () => value });
+  const createLoader = (fetchImpl) => {
+    const context = vm.createContext({ fetch: fetchImpl, Error, Promise, Array, String });
+    vm.runInContext(`let firstPickRequestPromise;\n${loaderSource}\nthis.load = loadFirstPicksOnce;`, context);
+    return context.load;
+  };
+
+  let nonOkCalls = 0;
+  const nonOkLoader = createLoader(async () => {
+    nonOkCalls += 1;
+    return nonOkCalls === 1 ? response(false, payload([])) : response(true, payload([validItem]));
+  });
+  await assert.rejects(nonOkLoader(), /FIRST_PICK_REQUEST_FAILED/);
+  assert.equal((await nonOkLoader()).payload.results.length, 1);
+  assert.equal(nonOkCalls, 2);
+
+  let thrownCalls = 0;
+  const thrownLoader = createLoader(async () => {
+    thrownCalls += 1;
+    if (thrownCalls === 1) throw new Error("offline");
+    return response(true, payload([validItem]));
+  });
+  await assert.rejects(thrownLoader(), /offline/);
+  await thrownLoader();
+  assert.equal(thrownCalls, 2);
+
+  let parseCalls = 0;
+  const parseLoader = createLoader(async () => {
+    parseCalls += 1;
+    if (parseCalls === 1) return { ok: true, json: async () => { throw new Error("bad-json"); } };
+    return response(true, payload([]));
+  });
+  await assert.rejects(parseLoader(), /bad-json/);
+  const emptyPromise = parseLoader();
+  assert.equal(parseLoader(), emptyPromise);
+  assert.equal((await emptyPromise).payload.results.length, 0);
+  assert.equal(parseCalls, 2);
+
+  let successCalls = 0;
+  const successLoader = createLoader(async () => {
+    successCalls += 1;
+    return response(true, payload([validItem]));
+  });
+  const successPromise = successLoader();
+  assert.equal(successLoader(), successPromise);
+  await successPromise;
+  assert.equal(successLoader(), successPromise);
+  assert.equal(successCalls, 1);
+});
+
+test("condition sheet and First Pick retry source preserve the bounded interaction contract", async () => {
+  const source = await readFile(new URL("../../../app/page.jsx", import.meta.url), "utf8");
+  for (const required of [
+    'role={showConditions ? "dialog" : undefined}',
+    'aria-modal={showConditions ? "true" : undefined}',
+    'aria-labelledby={showConditions ? "conditionPanelTitle" : undefined}',
+    'id="conditionPanelTitle"',
+    'onKeyDown={handleConditionKeyDown}',
+    'conditionCloseButtonRef.current?.focus',
+    'conditionOpenerRef.current?.isConnected',
+    'firstPickInFlightRef.current',
+    '다시 불러오기',
+  ]) assert.equal(source.includes(required), true, required);
 });

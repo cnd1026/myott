@@ -13,6 +13,14 @@ export const TMDB_REQUEST_LIMITS = Object.freeze({
   retries: 2,
 });
 
+export const FIRST_PICK_TMDB_REQUEST_LIMITS = Object.freeze({
+  total: 5,
+  list: 2,
+  detail: 3,
+  concurrency: 3,
+  retries: 0,
+});
+
 export const TMDB_TIME_LIMITS = Object.freeze({
   fetchTimeoutMs: 8_000,
   recommendationDeadlineMs: 15_000,

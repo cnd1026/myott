@@ -2,6 +2,7 @@ import test, { beforeEach } from "node:test";
 import assert from "node:assert/strict";
 
 import {
+  FIRST_PICK_TMDB_REQUEST_LIMITS,
   TMDB_REQUEST_LIMITS,
   TMDB_TIME_LIMITS,
   TmdbBudgetError,
@@ -959,4 +960,12 @@ test("active-base request policy constants remain exact", () => {
     recommendationDeadlineMs: 15_000,
     maximumRetryAfterMs: 5_000,
   });
+  assert.deepEqual(FIRST_PICK_TMDB_REQUEST_LIMITS, {
+    total: 5,
+    list: 2,
+    detail: 3,
+    concurrency: 3,
+    retries: 0,
+  });
+  assert.deepEqual(createTmdbRequestContext({ limits: FIRST_PICK_TMDB_REQUEST_LIMITS }).limits, FIRST_PICK_TMDB_REQUEST_LIMITS);
 });

@@ -22,6 +22,17 @@ import {
   resolveEmptyStateMessage,
 } from "../src/lib/recommendation/seeds/seedRequest.js";
 import {
+  closeSeedSuggestions,
+  confirmSeedRow,
+  createSeedRow,
+  editSeedRow,
+  nextHighlightedSuggestion,
+  normalizeSeedRows,
+  removeSeedConfirmation,
+  seedRowsToPreferenceState,
+  showSeedSuggestions,
+} from "../src/lib/recommendation/seeds/confirmedSeedState.js";
+import {
   PRIMARY_OTT_OPTIONS,
   RUNTIME_FILTERS,
   evaluateHardFilters,
@@ -309,6 +320,8 @@ const relatedClickSuppressMs = 220;
 const unknownOttLabel = "OTT 정보 확인 필요";
 const collapsedOptionCount = 8;
 const autocompleteDebounceMs = 150;
+const firstPickUnavailableMessage = "추천 정보를 불러오지 못했습니다. 잠시 후 다시 확인해 주세요.";
+const firstPickEmptyMessage = "지금 보여드릴 작품을 찾지 못했습니다.";
 const recommendationInsightText = {
   multipleSeed: "여러 입력 작품에서 함께 추천되었습니다.",
   genreMatch: "입력한 작품들과 공통 장르가 많습니다.",
@@ -323,7 +336,6 @@ const recommendationInsightText = {
 const initialPreferenceDraft = createInitialPreferenceDraft();
 const initialOtt = initialPreferenceDraft.ottProviders;
 const initialTypes = initialPreferenceDraft.contentTypes;
-const initialTitles = ["", "", ""];
 const emptyPreferenceValues = Object.freeze([]);
 const titlePlaceholders = ["예: 인터스텔라", "예: 오징어 게임", "예: 너의 이름은"];
 const showDevProviderStatus = process.env.NODE_ENV !== "production";
@@ -352,6 +364,35 @@ const initialSeedDiagnostics = {
   confirmedSeedCount: 0,
   inputAliasCount: 0,
 };
+
+let firstPickRequestPromise;
+
+function isValidFirstPickPayload(payload) {
+  if (payload?.source !== "tmdb" || payload?.providerId !== "tmdb" || payload?.fallbackUsed !== false ||
+      !Array.isArray(payload.results) || payload.results.length > 3) return false;
+  return payload.results.every((item) => item?.providerId === "tmdb" &&
+    String(item.providerContentId || item.tmdbId || "").trim() &&
+    ["movie", "tv"].includes(item.providerMediaType) &&
+    ["movie", "drama", "animation"].includes(item.displayContentType) &&
+    String(item.title || "").trim());
+}
+
+function loadFirstPicksOnce() {
+  if (!firstPickRequestPromise) {
+    firstPickRequestPromise = fetch("/api/recommend/first-picks", { cache: "no-store" })
+      .then(async (response) => {
+        const payload = await response.json();
+        if (!response.ok) throw new Error("FIRST_PICK_REQUEST_FAILED");
+        if (!isValidFirstPickPayload(payload)) throw new Error("FIRST_PICK_RESPONSE_INVALID");
+        return { response, payload };
+      })
+      .catch((error) => {
+        firstPickRequestPromise = undefined;
+        throw error;
+      });
+  }
+  return firstPickRequestPromise;
+}
 
 const timeSlotContent = {
   morning: {
@@ -880,6 +921,30 @@ function normalizeProviderResult(content, quickPicks = [], reasonSeed = "", labe
   };
 }
 
+function normalizeFirstPickResult(content = {}) {
+  const item = normalizeProviderResult(content);
+  const genres = Array.isArray(content.genres) ? content.genres.filter(Boolean) : [];
+  const runtime = Number(content.runtime);
+  const rating = Number(content.rating);
+  const platforms = Array.isArray(content.platforms) ? content.platforms.filter(Boolean) : [];
+  return {
+    ...item,
+    firstPick: true,
+    tags: [],
+    genre: genres.join(", "),
+    genres,
+    runtime: Number.isFinite(runtime) && runtime > 0 ? `${runtime}분` : "",
+    rating: Number.isFinite(rating) && rating > 0 ? rating.toFixed(1) : "",
+    ott: platforms,
+    director: content.director || "정보 확인 필요",
+    actors: Array.isArray(content.actors) ? content.actors : [],
+    reason: "실제 TMDB 작품 정보입니다.",
+    poster: content.poster || "",
+    detailPoster: content.poster || content.backdrop || "",
+    synopsis: content.synopsis || "줄거리 정보는 아직 확인되지 않았습니다.",
+  };
+}
+
 function isSelectedContentType(content, selectedTypes, selectedFilters = []) {
   return contentTypeMatchesSelection(content, selectedTypes, selectedFilters);
 }
@@ -1146,28 +1211,6 @@ function toggleValue(values, value) {
   return values.includes(value) ? values.filter((item) => item !== value) : [...values, value];
 }
 
-function normalizeTitleInputs(values) {
-  const normalized = [...values];
-
-  while (normalized.length < initialTitles.length) {
-    normalized.push("");
-  }
-
-  while (
-    normalized.length > initialTitles.length &&
-    normalized.at(-1)?.trim() === "" &&
-    normalized.at(-2)?.trim() === ""
-  ) {
-    normalized.splice(normalized.length - 2, 1);
-  }
-
-  if (normalized.length >= initialTitles.length && normalized.at(-1)?.trim()) {
-    normalized.push("");
-  }
-
-  return normalized;
-}
-
 function providerStatusLabel(providerStatus) {
   if (!providerStatus.checked) return "Checking";
   if (providerStatus.dataSource === "empty") return "Empty";
@@ -1284,22 +1327,23 @@ function FounderQaPanel({ environmentStatus, session, dirty, requestGate, relate
 }
 
 function DecisionCard({ item, enteredTitles, selectedFilters = [], onOpen, badge, reasonOverride, className = "", qaMode = false }) {
+  const firstPick = Boolean(item.firstPick);
   return (
     <article className={`result-card decision-card ${className}`.trim()}>
       <button className="decision-card-open" type="button" onClick={() => onOpen(item)} aria-label={`${item.title} 상세 보기`}>
       <div className="thumbnail poster" aria-hidden="true"><PosterVisual poster={item.poster} title={item.title} /></div>
       <div className="result-body">
         {badge ? <span className="card-context">{badge}</span> : null}
-        <p className="decision-reason">{reasonOverride || decisionReason(item, enteredTitles, selectedFilters)}</p>
+        {!firstPick ? <p className="decision-reason">{reasonOverride || decisionReason(item, enteredTitles, selectedFilters)}</p> : null}
         <div className="decision-title-row">
           <h3>{item.title}</h3>
           <span className="type-badge">{item.label}</span>
         </div>
         <div className="decision-facts" aria-label={`${item.title} 핵심 정보`}>
-          <span><strong>장르</strong>{item.genre}</span>
-          <span><strong>러닝타임</strong>{item.runtime}</span>
-          <span><strong>평점</strong>{item.rating}</span>
-          <span><strong>OTT</strong>{item.ott.join(", ")}</span>
+          {item.genre ? <span><strong>장르</strong>{item.genre}</span> : null}
+          {item.runtime ? <span><strong>러닝타임</strong>{item.runtime}</span> : null}
+          {item.rating ? <span><strong>평점</strong>{item.rating}</span> : null}
+          <span><strong>OTT</strong>{item.ott.length ? item.ott.join(", ") : "OTT 제공 정보는 아직 확인되지 않았습니다."}</span>
         </div>
       </div>
       </button>
@@ -1337,13 +1381,18 @@ function DecisionCard({ item, enteredTitles, selectedFilters = [], onOpen, badge
 export default function Home() {
   const [selectedOtt, setSelectedOtt] = useState(initialOtt);
   const [selectedTypes, setSelectedTypes] = useState(initialTypes);
-  const [titles, setTitles] = useState(initialTitles);
+  const seedRowSequenceRef = useRef(2);
+  const createBlankSeedRow = () => createSeedRow(`seed-${seedRowSequenceRef.current++}`);
+  const [seedRows, setSeedRows] = useState(() => [createSeedRow("seed-1")]);
   const [selectedQuickPicks, setSelectedQuickPicks] = useState([]);
   const [optionGroups, setOptionGroups] = useState(quickPickGroups);
   const [optionMetadata, setOptionMetadata] = useState(initialOptionMetadata);
   const [quickPickSearch, setQuickPickSearch] = useState("");
   const [expandedOptionGroups, setExpandedOptionGroups] = useState({});
   const [showQuickPick, setShowQuickPick] = useState(false);
+  const [showConditions, setShowConditions] = useState(false);
+  const [firstPicks, setFirstPicks] = useState([]);
+  const [firstPickStatus, setFirstPickStatus] = useState("loading");
   const [results, setResults] = useState([]);
   const [recommendationStatus, setRecommendationStatus] = useState("idle");
   const [selectedDetail, setSelectedDetail] = useState(null);
@@ -1353,13 +1402,22 @@ export default function Home() {
   const [environmentProviderStatus, setEnvironmentProviderStatus] = useState(initialProviderStatus);
   const [recommendationSession, setRecommendationSession] = useState(null);
   const [qaMode, setQaMode] = useState(false);
-  const [timeSlot, setTimeSlot] = useState("evening");
   const [suggestions, setSuggestions] = useState({});
-  const [activeSuggestionIndex, setActiveSuggestionIndex] = useState(null);
-  const [confirmedSeeds, setConfirmedSeeds] = useState({});
+  const [activeSuggestionRowId, setActiveSuggestionRowId] = useState(null);
+  const [highlightedSuggestions, setHighlightedSuggestions] = useState({});
   const [seedDiagnostics, setSeedDiagnostics] = useState(initialSeedDiagnostics);
   const suggestionCacheRef = useRef(new Map());
+  const seedInputRefs = useRef(new Map());
+  const resultsHeadingRef = useRef(null);
+  const personalizationRef = useRef(null);
   const relatedStripRef = useRef(null);
+  const firstPickInFlightRef = useRef(false);
+  const firstPickMountedRef = useRef(false);
+  const conditionPanelRef = useRef(null);
+  const conditionCloseButtonRef = useRef(null);
+  const conditionOpenerRef = useRef(null);
+  const conditionSummaryRef = useRef(null);
+  const conditionWasOpenRef = useRef(false);
   const relatedDragRef = useRef({
     active: false,
     startX: 0,
@@ -1373,6 +1431,7 @@ export default function Home() {
   if (!recommendationRequestGateRef.current) recommendationRequestGateRef.current = createLatestRequestGate();
   if (!relatedRequestGateRef.current) relatedRequestGateRef.current = createLatestRequestGate();
 
+  const { titles, confirmedSeeds } = useMemo(() => seedRowsToPreferenceState(seedRows), [seedRows]);
   const enteredTitles = useMemo(() => titles.map((title) => title.trim()).filter(Boolean), [titles]);
   const draftPreferences = useMemo(() => createSubmittedPreferences({
     titles,
@@ -1389,7 +1448,6 @@ export default function Home() {
   const preferencesDirty = Boolean(submittedPreferences && preferencesChanged(draftPreferences, submittedPreferences));
   const hasOptionPreference = selectedQuickPicks.length > 0 || selectedOtt.length > 0 || selectedTypes.length > 0;
   const canRecommend = (enteredTitles.length > 0 || hasOptionPreference) && recommendationStatus !== "loading";
-  const heroRecommendations = useMemo(() => buildHeroRecommendations(timeSlot).slice(0, 3), [timeSlot]);
   const optionLabelByValue = useMemo(() => new Map(optionGroups.flatMap((group) => group.options)), [optionGroups]);
   const appliedConditionLabels = useMemo(
     () => submittedPreferences ? preferenceConditionLabels(submittedPreferences, optionLabelByValue) : [],
@@ -1416,6 +1474,14 @@ export default function Home() {
     processedSeedCount: seedDiagnostics.processedSeedCount,
     unresolvedSeedCount: seedDiagnostics.unresolvedSeedCount,
   });
+  const conditionSummary = [
+    selectedOtt.length ? `OTT ${selectedOtt.length}` : "OTT 미선택",
+    selectedTypes.length ? `종류 ${selectedTypes.length}` : "종류 미선택",
+    selectedQuickPicks.length ? `옵션 ${selectedQuickPicks.length}` : "옵션 없음",
+  ].join(" · ");
+  const showStickyRecommendation = canRecommend && !showConditions && !showQuickPick && !selectedDetail &&
+    !["loading", "success", "empty"].includes(recommendationStatus);
+  const activeSuggestionRaw = seedRows.find((row) => row.id === activeSuggestionRowId)?.raw || "";
 
   useEffect(() => {
     setQaMode(process.env.NODE_ENV !== "production" && new URLSearchParams(window.location.search).get("qa") === "1");
@@ -1426,12 +1492,28 @@ export default function Home() {
       if (event.key !== "Escape") return;
       setSelectedDetail(null);
       setShowQuickPick(false);
-      closeSuggestions();
+      setShowConditions(false);
+      setSuggestions({});
+      setActiveSuggestionRowId(null);
     }
 
     document.addEventListener("keydown", handleEscape);
     return () => document.removeEventListener("keydown", handleEscape);
   }, []);
+
+  useEffect(() => {
+    if (showConditions) {
+      conditionWasOpenRef.current = true;
+      window.requestAnimationFrame(() => conditionCloseButtonRef.current?.focus({ preventScroll: true }));
+      return;
+    }
+    if (!conditionWasOpenRef.current) return;
+    conditionWasOpenRef.current = false;
+    const focusTarget = conditionOpenerRef.current?.isConnected
+      ? conditionOpenerRef.current
+      : conditionSummaryRef.current;
+    window.requestAnimationFrame(() => focusTarget?.focus({ preventScroll: true }));
+  }, [showConditions]);
 
   useEffect(() => {
     function handleOutsidePointerDown(event) {
@@ -1450,8 +1532,22 @@ export default function Home() {
   }, []);
 
   useEffect(() => {
-    setTimeSlot(getTimeSlot(new Date()));
+    firstPickMountedRef.current = true;
+    requestFirstPicks();
+    return () => {
+      firstPickMountedRef.current = false;
+    };
   }, []);
+
+  useEffect(() => {
+    if (recommendationStatus !== "success" || !resultsHeadingRef.current) return;
+    const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    resultsHeadingRef.current.focus({ preventScroll: true });
+    resultsHeadingRef.current.scrollIntoView({
+      behavior: reducedMotion ? "auto" : "smooth",
+      block: "start",
+    });
+  }, [recommendationStatus]);
 
   useEffect(() => {
     let isMounted = true;
@@ -1523,18 +1619,19 @@ export default function Home() {
   }, [selectedDetail, submittedFilters, optionLabelByValue, results]);
 
   useEffect(() => {
-    if (activeSuggestionIndex === null) return undefined;
-    const query = titles[activeSuggestionIndex]?.trim() || "";
+    if (activeSuggestionRowId === null) return undefined;
+    const query = activeSuggestionRaw.trim();
 
     if (query.length < 2) {
-      setSuggestions((current) => ({ ...current, [activeSuggestionIndex]: [] }));
+      setSuggestions((current) => ({ ...current, [activeSuggestionRowId]: [] }));
       return undefined;
     }
 
     const cacheKey = query.toLocaleLowerCase("ko-KR");
     const cachedSuggestions = suggestionCacheRef.current.get(cacheKey);
     if (cachedSuggestions) {
-      setSuggestions((current) => ({ ...current, [activeSuggestionIndex]: cachedSuggestions }));
+      setSuggestions((current) => ({ ...current, [activeSuggestionRowId]: cachedSuggestions }));
+      setSeedRows((current) => showSeedSuggestions(current, activeSuggestionRowId));
       return undefined;
     }
 
@@ -1548,10 +1645,12 @@ export default function Home() {
         const payload = await response.json();
         const nextSuggestions = payload.results || [];
         suggestionCacheRef.current.set(cacheKey, nextSuggestions);
-        setSuggestions((current) => ({ ...current, [activeSuggestionIndex]: nextSuggestions }));
+        setSuggestions((current) => ({ ...current, [activeSuggestionRowId]: nextSuggestions }));
+        setHighlightedSuggestions((current) => ({ ...current, [activeSuggestionRowId]: -1 }));
+        setSeedRows((current) => showSeedSuggestions(current, activeSuggestionRowId));
       } catch (error) {
         if (error?.name === "AbortError") return;
-        setSuggestions((current) => ({ ...current, [activeSuggestionIndex]: [] }));
+        setSuggestions((current) => ({ ...current, [activeSuggestionRowId]: [] }));
       }
     }, autocompleteDebounceMs);
 
@@ -1559,7 +1658,7 @@ export default function Home() {
       window.clearTimeout(timeout);
       controller.abort();
     };
-  }, [titles, activeSuggestionIndex]);
+  }, [activeSuggestionRaw, activeSuggestionRowId]);
 
   async function refreshProviderStatus(query = "interstellar") {
     if (!showDevProviderStatus) return;
@@ -1602,6 +1701,7 @@ export default function Home() {
     setSelectedDetail(null);
     relatedRequestGateRef.current.abort();
     setShowQuickPick(false);
+    setShowConditions(false);
     closeSuggestions();
 
     if (!currentTitles.length) {
@@ -1708,6 +1808,7 @@ export default function Home() {
 
   function openDetail(item) {
     setShowQuickPick(false);
+    setShowConditions(false);
     setRelatedItems([]);
     setRelatedStatus("loading");
     setSelectedDetail(item);
@@ -1801,34 +1902,125 @@ export default function Home() {
     openDetail(item);
   }
 
-  function updateTitle(index, value) {
-    setTitles((current) => normalizeTitleInputs(current.map((item, itemIndex) => (itemIndex === index ? value : item))));
-    setConfirmedSeeds((current) => {
-      if (!current[index]) return current;
-      const next = { ...current };
-      delete next[index];
-      return next;
-    });
-    setActiveSuggestionIndex(index);
+  function updateTitle(rowId, value) {
+    setSeedRows((current) => editSeedRow(current, rowId, value, createBlankSeedRow));
+    setActiveSuggestionRowId(rowId);
+    setHighlightedSuggestions((current) => ({ ...current, [rowId]: -1 }));
   }
 
-  function selectSuggestion(index, suggestion) {
-    const selection = applySuggestionSelection(titles[index] || "", suggestion);
-    setConfirmedSeeds((current) => ({ ...current, [index]: selection.confirmedSeed }));
-    setSuggestions((current) => ({ ...current, [index]: [] }));
-    setActiveSuggestionIndex(null);
+  function selectSuggestion(rowId, suggestion) {
+    const row = seedRows.find((item) => item.id === rowId);
+    const selection = applySuggestionSelection(row?.raw || "", suggestion);
+    if (!selection.confirmedSeed) return;
+    setSeedRows((current) => confirmSeedRow(current, rowId, selection.confirmedSeed, createBlankSeedRow));
+    setSuggestions((current) => ({ ...current, [rowId]: [] }));
+    setHighlightedSuggestions((current) => ({ ...current, [rowId]: -1 }));
+    setActiveSuggestionRowId(null);
   }
 
-  function focusTitleInput(index) {
-    setActiveSuggestionIndex(index);
+  function focusTitleInput(rowId) {
+    setActiveSuggestionRowId(rowId);
     setSuggestions((current) =>
-      Object.fromEntries(Object.entries(current).filter(([suggestionIndex]) => Number(suggestionIndex) === index)),
+      Object.fromEntries(Object.entries(current).filter(([suggestionRowId]) => suggestionRowId === rowId)),
     );
   }
 
-  function closeSuggestions() {
+  function closeSuggestions(rowId = activeSuggestionRowId) {
+    if (rowId) setSeedRows((current) => closeSeedSuggestions(current, rowId));
     setSuggestions({});
-    setActiveSuggestionIndex(null);
+    setHighlightedSuggestions({});
+    setActiveSuggestionRowId(null);
+  }
+
+  function handleSuggestionKeyDown(event, rowId) {
+    const rowSuggestions = suggestions[rowId] || [];
+    if (["ArrowDown", "ArrowUp"].includes(event.key)) {
+      event.preventDefault();
+      setHighlightedSuggestions((current) => ({
+        ...current,
+        [rowId]: nextHighlightedSuggestion(current[rowId] ?? -1, rowSuggestions.length, event.key),
+      }));
+      return;
+    }
+    if (event.key === "Enter" && rowSuggestions.length) {
+      const selectedIndex = highlightedSuggestions[rowId] ?? -1;
+      if (selectedIndex < 0) return;
+      event.preventDefault();
+      selectSuggestion(rowId, rowSuggestions[selectedIndex]);
+      return;
+    }
+    if (event.key === "Escape") {
+      event.preventDefault();
+      closeSuggestions(rowId);
+    }
+  }
+
+  function removeConfirmation(row) {
+    setSeedRows((current) => removeSeedConfirmation(current, row.id));
+    setActiveSuggestionRowId(row.id);
+    window.requestAnimationFrame(() => seedInputRefs.current.get(row.id)?.focus());
+  }
+
+  function focusPersonalization() {
+    const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    personalizationRef.current?.scrollIntoView({ behavior: reducedMotion ? "auto" : "smooth", block: "start" });
+    window.requestAnimationFrame(() => seedInputRefs.current.get(seedRows[0]?.id)?.focus());
+  }
+
+  async function requestFirstPicks() {
+    if (firstPickInFlightRef.current) return;
+    firstPickInFlightRef.current = true;
+    setFirstPickStatus("loading");
+    try {
+      const { payload } = await loadFirstPicksOnce();
+      if (!firstPickMountedRef.current) return;
+      const items = payload.results.map(normalizeFirstPickResult).slice(0, 3);
+      setFirstPicks(items);
+      setFirstPickStatus(items.length ? "success" : "empty");
+    } catch {
+      if (!firstPickMountedRef.current) return;
+      setFirstPicks([]);
+      setFirstPickStatus("unavailable");
+    } finally {
+      firstPickInFlightRef.current = false;
+    }
+  }
+
+  function openConditions(event) {
+    conditionOpenerRef.current = event.currentTarget;
+    setShowConditions(true);
+  }
+
+  function closeConditions() {
+    setShowConditions(false);
+  }
+
+  function handleConditionKeyDown(event) {
+    if (!showConditions) return;
+    if (event.key === "Escape") {
+      event.preventDefault();
+      event.stopPropagation();
+      closeConditions();
+      return;
+    }
+    if (event.key !== "Tab" || !conditionPanelRef.current) return;
+    const focusable = [...conditionPanelRef.current.querySelectorAll(
+      'button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [href], [tabindex]:not([tabindex="-1"])',
+    )].filter((node) => node.getClientRects().length > 0);
+    if (!focusable.length) {
+      event.preventDefault();
+      conditionPanelRef.current.focus();
+      return;
+    }
+    const first = focusable[0];
+    const last = focusable[focusable.length - 1];
+    if (event.shiftKey && document.activeElement === first) {
+      event.preventDefault();
+      last.focus();
+    } else if (!event.shiftKey && document.activeElement === last) {
+      event.preventDefault();
+      first.focus();
+    }
   }
 
   function resetAll() {
@@ -1836,19 +2028,21 @@ export default function Home() {
     relatedRequestGateRef.current.abort();
     setSelectedOtt([...initialOtt]);
     setSelectedTypes([...initialTypes]);
-    setTitles([...initialTitles]);
+    seedRowSequenceRef.current = 2;
+    setSeedRows([createSeedRow("seed-1")]);
     setSelectedQuickPicks([]);
     setQuickPickSearch("");
     setExpandedOptionGroups({});
     setShowQuickPick(false);
+    setShowConditions(false);
     setResults([]);
     setRecommendationStatus("idle");
     setSelectedDetail(null);
     setRelatedItems([]);
     setRelatedStatus("idle");
     setSuggestions({});
-    setActiveSuggestionIndex(null);
-    setConfirmedSeeds({});
+    setHighlightedSuggestions({});
+    setActiveSuggestionRowId(null);
     setSeedDiagnostics(initialSeedDiagnostics);
     setRecommendationSession(null);
   }
@@ -1858,33 +2052,45 @@ export default function Home() {
       <section className="hero-recommendation" aria-labelledby="heroRecommendationTitle">
         <div className="hero-heading">
           <div>
-            <p className="eyebrow">First Pick</p>
-            <h1 id="heroRecommendationTitle">오늘 볼 작품, 3개만 먼저 골라드릴게요</h1>
+            <p className="eyebrow">먼저 보기</p>
+            <h1 id="heroRecommendationTitle">먼저 살펴볼 작품</h1>
           </div>
-          <p>입력하기 전에도 바로 고를 수 있게 추천을 먼저 보여드립니다. 더 정확히 고르고 싶다면 아래에서 취향을 조금만 알려주세요.</p>
+          <p>취향을 입력하기 전에 몇 작품을 먼저 보여드립니다.</p>
         </div>
-        <div className="result-grid hero-grid" aria-label="Hero Recommendation">
-          {heroRecommendations.map(({ item, badge, reason }) => (
+        {firstPickStatus === "loading" ? (
+          <div className="hero-grid first-pick-loading" aria-live="polite" aria-label="작품을 불러오는 중입니다.">
+            {Array.from({ length: 3 }).map((_, index) => <div className="first-pick-skeleton" key={`first-pick-loading-${index}`} />)}
+          </div>
+        ) : null}
+        {firstPickStatus === "success" ? (
+          <div className="result-grid hero-grid" aria-label="먼저 살펴볼 작품">
+          {firstPicks.map((item) => (
             <DecisionCard
               item={item}
               enteredTitles={[]}
               selectedFilters={[]}
               onOpen={openDetail}
-              badge={badge}
-              reasonOverride={reason}
               className="hero-card"
-              key={badge}
+              key={`${item.providerMediaType}-${item.providerContentId}`}
             />
           ))}
-        </div>
-        <p className="hero-next-step">마음에 드는 작품이 없다면, 좋아했던 작품이나 분위기를 알려주고 더 정확히 골라보세요.</p>
+          </div>
+        ) : null}
+        {firstPickStatus === "empty" ? <p className="first-pick-state" role="status">{firstPickEmptyMessage}</p> : null}
+        {firstPickStatus === "unavailable" ? (
+          <div className="first-pick-state" role="status">
+            <span>{firstPickUnavailableMessage}</span>
+            <button className="first-pick-retry-button" type="button" onClick={requestFirstPicks}>다시 불러오기</button>
+          </div>
+        ) : null}
+        <button className="hero-next-step" type="button" onClick={focusPersonalization}>취향 알려주기</button>
       </section>
 
-      <section className="recommendation-panel" aria-labelledby="pageTitle">
+      <section className="recommendation-panel" aria-labelledby="pageTitle" ref={personalizationRef}>
         <div className="page-heading">
-          <p className="eyebrow">MovieMind DNA</p>
-          <h1 id="pageTitle">취향을 알려주면 더 좁혀드릴게요</h1>
-          <p>이용 중인 OTT와 콘텐츠 종류를 고르고, 좋아했던 작품이나 추천 옵션을 더하면 결과가 바로 아래에 표시됩니다.</p>
+          <p className="eyebrow">나만의 추천</p>
+          <h1 id="pageTitle">취향을 알려주세요</h1>
+          <p>이용 중인 OTT와 콘텐츠 종류, 좋아했던 작품을 바탕으로 추천합니다.</p>
           {showDevProviderStatus ? (
             <div className="provider-status" id="providerStatus" aria-label="Provider status" title={visibleProviderStatus.message}>
               <span>Data Source</span>
@@ -1895,7 +2101,36 @@ export default function Home() {
           ) : null}
         </div>
 
+        <button
+          ref={conditionSummaryRef}
+          className="condition-summary"
+          type="button"
+          aria-expanded={showConditions}
+          aria-controls="conditionPanel"
+          onClick={openConditions}
+        >
+          <span><strong>현재 조건</strong>{conditionSummary}</span>
+          <span aria-hidden="true">변경</span>
+        </button>
+
         <form className="recommendation-form" id="recommendationForm" onSubmit={handleSubmit}>
+          <div className={`condition-shell ${showConditions ? "is-open" : ""}`}>
+          <button className="condition-backdrop" type="button" aria-label="조건 선택 닫기" onClick={closeConditions} />
+          <section
+            ref={conditionPanelRef}
+            className="condition-panel"
+            id="conditionPanel"
+            role={showConditions ? "dialog" : undefined}
+            aria-modal={showConditions ? "true" : undefined}
+            aria-labelledby={showConditions ? "conditionPanelTitle" : undefined}
+            aria-label={showConditions ? undefined : "추천 조건"}
+            tabIndex={showConditions ? -1 : undefined}
+            onKeyDown={handleConditionKeyDown}
+          >
+          <div className="condition-sheet-heading">
+            <div><p className="eyebrow">조건</p><h2 id="conditionPanelTitle">추천 조건</h2></div>
+            <button ref={conditionCloseButtonRef} className="close-button" type="button" onClick={closeConditions} aria-label="추천 조건 닫기">×</button>
+          </div>
           <fieldset className="option-section">
             <legend>
               <span>1</span>
@@ -1940,41 +2175,63 @@ export default function Home() {
             </div>
           </fieldset>
 
+          <button className="secondary-button condition-option-button" id="quickPickButton" type="button" onClick={() => setShowQuickPick(true)}>
+            {selectedQuickPicks.length ? `추천 옵션 (${selectedQuickPicks.length})` : "추천 옵션"}
+          </button>
+          <button className="condition-done-button" type="button" onClick={closeConditions}>조건 적용</button>
+          </section>
+          </div>
+
           <section className="input-section" aria-labelledby="inputSectionTitle">
             <div className="section-title">
               <span>3</span>
               <div>
                 <h2 id="inputSectionTitle">좋아하는 작품 입력</h2>
-                <p className="section-copy">인상 깊었던 작품을 적어주세요. 마지막 칸을 채우면 새 입력창이 자동으로 생깁니다.</p>
+                <p className="section-copy">작품을 검색하고 정확한 항목을 확인해 주세요.</p>
               </div>
             </div>
             <div className="input-group" aria-label="좋아했던 작품 입력">
-              {titles.map((title, index) => (
-                <label
+              {seedRows.map((row, index) => (
+                <div
                   className="title-input-field"
                   data-autocomplete-root
-                  data-confirmed-seed={confirmedSeeds[index] ? "true" : "false"}
-                  key={`title-${index + 1}`}
+                  data-confirmed-seed={row.confirmed ? "true" : "false"}
+                  data-seed-state={row.state}
+                  key={row.id}
                 >
-                  작품 {index + 1}
+                  <label htmlFor={`titleInput${index + 1}`}>작품 {index + 1}</label>
                   <input
+                    ref={(node) => node ? seedInputRefs.current.set(row.id, node) : seedInputRefs.current.delete(row.id)}
                     id={`titleInput${index + 1}`}
                     type="text"
                     name="title"
                     placeholder={titlePlaceholders[index] || "예: 최근 좋았던 작품"}
                     autoComplete="off"
-                    value={title}
-                    onChange={(event) => updateTitle(index, event.target.value)}
-                    onFocus={() => focusTitleInput(index)}
+                    value={row.raw}
+                    aria-controls={`suggestions-${row.id}`}
+                    aria-expanded={Boolean(suggestions[row.id]?.length)}
+                    aria-activedescendant={(highlightedSuggestions[row.id] ?? -1) >= 0 ? `suggestion-${row.id}-${highlightedSuggestions[row.id]}` : undefined}
+                    onChange={(event) => updateTitle(row.id, event.target.value)}
+                    onFocus={() => focusTitleInput(row.id)}
+                    onKeyDown={(event) => handleSuggestionKeyDown(event, row.id)}
                   />
-                  {suggestions[index]?.length ? (
-                    <div className="suggestion-list" role="listbox" aria-label={`작품 ${index + 1} 검색 후보`}>
-                      {suggestions[index].map((suggestion) => (
+                  {row.confirmed ? (
+                    <span className="confirmed-seed-chip">
+                      <span>✓ {row.confirmed.resolvedTitle} · {row.confirmed.year || "연도 확인"} · {row.confirmed.contentType === "movie" ? "영화" : row.confirmed.contentType === "animation" ? "애니" : "드라마"}</span>
+                      <button type="button" onClick={() => removeConfirmation(row)} aria-label={`${row.confirmed.resolvedTitle} 확인 해제`}>×</button>
+                    </span>
+                  ) : null}
+                  {suggestions[row.id]?.length ? (
+                    <div className="suggestion-list" id={`suggestions-${row.id}`} role="listbox" aria-label={`작품 ${index + 1} 검색 후보`}>
+                      {suggestions[row.id].map((suggestion, suggestionIndex) => (
                         <button
                           className="suggestion-item"
                           type="button"
                           role="option"
-                          onClick={() => selectSuggestion(index, suggestion)}
+                          id={`suggestion-${row.id}-${suggestionIndex}`}
+                          aria-selected={highlightedSuggestions[row.id] === suggestionIndex}
+                          onMouseDown={(event) => event.preventDefault()}
+                          onClick={() => selectSuggestion(row.id, suggestion)}
                           key={`${suggestion.providerContentId}-${suggestion.title}`}
                         >
                           <span className="suggestion-poster" aria-hidden="true">
@@ -1991,15 +2248,12 @@ export default function Home() {
                       ))}
                     </div>
                   ) : null}
-                </label>
+                </div>
               ))}
             </div>
           </section>
 
           <div className="form-actions">
-            <button className="secondary-button" id="quickPickButton" type="button" onClick={() => setShowQuickPick(true)}>
-              {selectedQuickPicks.length ? `추천 옵션 (${selectedQuickPicks.length})` : "추천 옵션"}
-            </button>
             <button className="secondary-button" id="resetAllButton" type="button" onClick={resetAll}>
               전체 초기화
             </button>
@@ -2009,6 +2263,12 @@ export default function Home() {
           </div>
         </form>
       </section>
+
+      {showStickyRecommendation ? (
+        <div className="mobile-sticky-action">
+          <button className="primary-button" type="submit" form="recommendationForm">내 취향으로 추천받기</button>
+        </div>
+      ) : null}
 
       {qaMode ? (
         <FounderQaPanel
@@ -2023,8 +2283,8 @@ export default function Home() {
       <section className="results-panel" aria-labelledby="resultsTitle">
         <div className="section-heading">
           <div>
-            <p className="eyebrow">Result</p>
-            <h2 id="resultsTitle">추천 결과</h2>
+            <p className="eyebrow">추천</p>
+            <h2 id="resultsTitle" ref={resultsHeadingRef} tabIndex={-1}>추천 결과</h2>
           </div>
           <p className="result-count" id="resultCount">{results.length}개</p>
         </div>
@@ -2039,8 +2299,8 @@ export default function Home() {
         {preferencesDirty ? (
           <section className="preferences-dirty-banner" role="status">
             <div>
-              <strong>추천 조건이 변경되었습니다.</strong>
-              <p>새 조건으로 다시 추천받아 주세요. 현재 카드는 이전 적용 조건을 유지합니다.</p>
+              <strong>조건이 바뀌었습니다. 다시 추천받아 주세요.</strong>
+              <p>현재 결과는 이전에 적용한 조건을 유지합니다.</p>
               <div className="preference-chip-list draft">
                 {draftConditionLabels.map((label) => <span key={label}>{label}</span>)}
               </div>
@@ -2054,11 +2314,11 @@ export default function Home() {
           <p className="seed-coverage" role="status">{seedCoverageMessage}</p>
         ) : null}
         {recommendationStatus === "loading" ? (
-          <div className="empty-state loading-state" id="loadingState">추천을 찾는 중입니다...</div>
+          <div className="empty-state loading-state" id="loadingState">작품을 불러오는 중입니다.</div>
         ) : null}
         {!results.length && recommendationStatus !== "loading" ? (
           <div className="empty-state" id="emptyState">
-            {emptyStateMessage}
+            {recommendationStatus === "empty" ? "조건에 맞는 작품을 찾지 못했습니다." : emptyStateMessage}
           </div>
         ) : null}
         <div className="result-grid" id="resultGrid">
@@ -2082,7 +2342,7 @@ export default function Home() {
             <div className="sheet-handle" aria-hidden="true" />
             <div className="sheet-heading">
               <div>
-                <p className="eyebrow">Quick Pick</p>
+                <p className="eyebrow">추천 옵션</p>
                 <h2 id="quickPickTitle">추천 옵션</h2>
                 <p className="sheet-count" id="quickPickCount">필터 {selectedQuickPicks.length}개 선택됨</p>
               </div>
@@ -2204,14 +2464,14 @@ export default function Home() {
                 <span className="type-badge">{selectedDetail.label}</span>
                 <h2 id="detailTitle">{selectedDetail.title}</h2>
                 <div className="meta-list">
-                  <span><strong>장르</strong> {selectedDetail.genre}</span>
+                  <span><strong>장르</strong> {selectedDetail.genre || "정보 확인 필요"}</span>
                   <span><strong>감독</strong> {selectedDetail.director}</span>
                   <span><strong>주요 배우</strong> {selectedDetail.actors.join(", ")}</span>
                 </div>
                 <p className="detail-reason"><strong>추천 이유</strong><br />{recommendationReason(selectedDetail, submittedTitles, submittedFilters)}</p>
                 {selectedDetail.recommendationInsight?.length ? (
                   <section className="insight-panel" aria-labelledby="recommendationInsightTitle">
-                    <p className="trust-label" id="recommendationInsightTitle">Recommendation Insight</p>
+                    <p className="trust-label" id="recommendationInsightTitle">추천 근거</p>
                     <ul className="insight-list">
                       {selectedDetail.recommendationInsight.map((insight) => (
                         <li key={insight}>{insight}</li>
@@ -2221,8 +2481,8 @@ export default function Home() {
                 ) : null}
                 <section className="trust-panel" aria-labelledby="trustSignalTitle">
                   <div>
-                    <p className="trust-label" id="trustSignalTitle">Trust Signal</p>
-                    <p className="trust-copy">선택을 돕기 위한 참고 단서입니다. 이후 실제 지표로 교체됩니다.</p>
+                    <p className="trust-label" id="trustSignalTitle">선택 기준</p>
+                    <p className="trust-copy">작품을 살펴볼 때 참고할 수 있는 정보입니다.</p>
                   </div>
                   <div className="trust-grid">
                     {trustSignals(selectedDetail, submittedTitles).map((signal) => (
@@ -2236,7 +2496,7 @@ export default function Home() {
                 <p><strong>줄거리</strong><br />{selectedDetail.synopsis}</p>
                 <div className="detail-next-step" aria-label={`${selectedDetail.title} OTT 확인`}>
                   <span>볼 수 있는 OTT</span>
-                  <strong>{selectedDetail.ott.join(", ")}</strong>
+                  <strong>{selectedDetail.ott.length ? selectedDetail.ott.join(", ") : "OTT 제공 정보는 아직 확인되지 않았습니다."}</strong>
                 </div>
               </div>
             </div>
@@ -2245,7 +2505,7 @@ export default function Home() {
             <section className="related-panel" aria-labelledby="relatedRecommendationTitle">
               <div className="related-heading">
                 <div>
-                  <p className="trust-label" id="relatedRecommendationTitle">Related Picks</p>
+                  <p className="trust-label" id="relatedRecommendationTitle">비슷한 작품</p>
                   <p className="trust-copy">
                     {relatedStatus === "loading"
                       ? "연관 추천을 불러오는 중입니다."
@@ -2257,9 +2517,9 @@ export default function Home() {
                   </p>
                 </div>
                 {relatedRecommendations.length ? (
-                  <div className="related-controls" aria-label="Related Picks 이동">
-                    <button type="button" onClick={() => scrollRelated(-1)} aria-label="이전 Related Picks">‹</button>
-                    <button type="button" onClick={() => scrollRelated(1)} aria-label="다음 Related Picks">›</button>
+                  <div className="related-controls" aria-label="비슷한 작품 이동">
+                    <button type="button" onClick={() => scrollRelated(-1)} aria-label="이전 비슷한 작품">‹</button>
+                    <button type="button" onClick={() => scrollRelated(1)} aria-label="다음 비슷한 작품">›</button>
                   </div>
                 ) : null}
               </div>

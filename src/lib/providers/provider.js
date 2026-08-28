@@ -10,6 +10,7 @@
  * @property {(request: ContentSearchRequest) => Promise<ContentSearchResult[]>} search
  * @property {(request: ContentDetailRequest) => Promise<ContentDetail | null>} getDetail
  * @property {(request: ContentRecommendationRequest) => Promise<ContentSearchResult[]>} getRecommendations
+ * @property {() => Promise<{results: ContentSearchResult[]}>} getFirstPicks
  * @property {(request: ContentTrendingRequest) => Promise<ContentSearchResult[]>} getTrending
  *
  * @typedef {Object} ContentSearchRequest
