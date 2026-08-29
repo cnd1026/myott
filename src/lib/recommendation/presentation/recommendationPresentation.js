@@ -15,6 +15,54 @@ const normalizeTitleKey = (value = "") => String(value)
   .toLocaleLowerCase("ko-KR")
   .replace(/[^\p{L}\p{N}]+/gu, "");
 
+const asStringArray = (value) => (Array.isArray(value) ? value : [value])
+  .map((item) => String(item || "").trim())
+  .filter(Boolean);
+
+function cleanSeedTitle(value = "") {
+  return String(value)
+    .trim()
+    .replace(/[\s.。．,，、!！?？:：;；"'“”‘’()[\]{}<>《》]+$/gu, "")
+    .trim();
+}
+
+function seedWithKoreanObjectParticle(value = "") {
+  const title = cleanSeedTitle(value);
+  const lastCharacter = [...title].at(-1);
+  if (!lastCharacter) return "";
+  const code = lastCharacter.charCodeAt(0);
+  const hasFinalConsonant = code >= 0xac00 && code <= 0xd7a3 && (code - 0xac00) % 28 !== 0;
+  return `${title}${hasFinalConsonant ? "을" : "를"}`;
+}
+
+export function resolveCanonicalReasonSeed(item = {}, confirmedSeeds = {}) {
+  const requestedKeys = new Set([
+    ...asStringArray(item.reasonSeed),
+    ...asStringArray(item.seedTitle),
+    ...asStringArray(item.reasonSeeds),
+    ...asStringArray(item.seedTitles),
+  ].map(normalizeTitleKey).filter(Boolean));
+
+  for (const confirmed of Object.values(confirmedSeeds || {})) {
+    if (!confirmed || typeof confirmed !== "object") continue;
+    const canonicalTitle = cleanSeedTitle(
+      confirmed.resolvedTitle || confirmed.originalTitle || confirmed.title || confirmed.displayTitle,
+    );
+    if (!canonicalTitle) continue;
+    const aliases = [
+      confirmed.inputTitle,
+      confirmed.displayTitle,
+      confirmed.resolvedTitle,
+      confirmed.originalTitle,
+      confirmed.title,
+      ...(Array.isArray(confirmed.inputAliases) ? confirmed.inputAliases : []),
+    ].map(normalizeTitleKey).filter(Boolean);
+    if (aliases.some((alias) => requestedKeys.has(alias))) return canonicalTitle;
+  }
+
+  return cleanSeedTitle(item.reasonSeed || item.seedTitle || "");
+}
+
 const reasonByGenre = Object.freeze({
   "genre-action": "전투와 추격 중심의 액션 요소를 반영한 추천",
   "genre-adventure": "탐험과 여정 중심의 모험 요소를 반영한 추천",
@@ -49,6 +97,44 @@ export function buildSelectedOptionReason(item = {}, filters = [], { sentence = 
       : `${labels[0] || "선택한 장르"} 요소를 반영한 추천`;
   }
   return sentence ? `${reason}입니다.` : reason;
+}
+
+export function buildEvidenceGroundedDecisionReason(item = {}, {
+  titles = [],
+  confirmedSeeds = {},
+  selectedFilters = [],
+  selectedTypes = [],
+  selectedOtt = [],
+} = {}) {
+  const canonicalSeed = resolveCanonicalReasonSeed(item, confirmedSeeds);
+  const genres = presentationGenreLabels(item);
+  const primaryGenre = genres[0] || String(item.genre || "").split(",")[0].trim();
+  if (canonicalSeed && primaryGenre) {
+    return `${seedWithKoreanObjectParticle(canonicalSeed)} 좋아했다면 ${primaryGenre} 작품으로 이어가는 추천`;
+  }
+  if (canonicalSeed) return `${seedWithKoreanObjectParticle(canonicalSeed)} 좋아했다면 추천`;
+
+  if (titles.length > 1) return "여러 취향을 함께 반영한 추천";
+  if (titles.length) return "입력한 취향을 바탕으로 추천";
+
+  const selectedReason = buildSelectedOptionReason(item, selectedFilters);
+  if (selectedReason) return selectedReason;
+
+  const actualOtt = asStringArray(item.ott).map((value) => value.toLocaleLowerCase("ko-KR"));
+  const selectedOttLabel = selectedOtt.find((value) => actualOtt.some((actual) => actual.includes(String(value).split("-")[0])));
+  if (selectedOttLabel) return "선택한 OTT에서 볼 수 있는 작품 중 고른 추천";
+
+  const displayType = normalizeDisplayContentType(item);
+  const typeLabel = { movie: "영화", drama: "드라마", animation: "애니" }[displayType];
+  if (typeLabel && selectedTypes.includes(displayType)) return `${typeLabel} 조건에 맞춘 추천`;
+
+  return item.reason || "오늘 바로 고르기 좋은 추천";
+}
+
+export function buildEvidenceGroundedRecommendationReason(item = {}, preferences = {}) {
+  const decision = buildEvidenceGroundedDecisionReason(item, preferences);
+  const detail = String(item.reason || "").trim();
+  return detail && detail !== decision ? `${decision}입니다. ${detail}` : `${decision}입니다.`;
 }
 
 export function dedupePrimaryDisplayTitles(items = []) {

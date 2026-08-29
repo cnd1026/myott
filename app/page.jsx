@@ -10,10 +10,12 @@ import {
   prioritizeGenreOptions,
 } from "../src/lib/recommendation/genres/genreContract.js";
 import {
-  buildSelectedOptionReason,
+  buildEvidenceGroundedDecisionReason,
+  buildEvidenceGroundedRecommendationReason,
   contentTypeMatchesSelection,
   dedupePrimaryDisplayTitles,
   presentationGenreLabels,
+  resolveCanonicalReasonSeed,
 } from "../src/lib/recommendation/presentation/recommendationPresentation.js";
 import {
   applySuggestionSelection,
@@ -337,6 +339,7 @@ const initialPreferenceDraft = createInitialPreferenceDraft();
 const initialOtt = initialPreferenceDraft.ottProviders;
 const initialTypes = initialPreferenceDraft.contentTypes;
 const emptyPreferenceValues = Object.freeze([]);
+const emptyConfirmedSeeds = Object.freeze({});
 const titlePlaceholders = ["예: 인터스텔라", "예: 오징어 게임", "예: 너의 이름은"];
 const showDevProviderStatus = process.env.NODE_ENV !== "production";
 const initialProviderStatus = {
@@ -431,22 +434,6 @@ function cleanSeedTitleForDisplay(value = "") {
     .trim();
 }
 
-function hasKoreanFinalConsonant(value = "") {
-  const title = cleanSeedTitleForDisplay(value);
-  const lastCharacter = [...title].at(-1);
-  if (!lastCharacter) return false;
-
-  const code = lastCharacter.charCodeAt(0);
-  if (code < 0xac00 || code > 0xd7a3) return false;
-  return (code - 0xac00) % 28 !== 0;
-}
-
-function seedWithKoreanObjectParticle(seedTitle = "") {
-  const title = cleanSeedTitleForDisplay(seedTitle);
-  if (!title) return "";
-  return `${title}${hasKoreanFinalConsonant(title) ? "을" : "를"}`;
-}
-
 function titleMatchesSeed(item, seedTitle) {
   const seedKey = normalizeTitleKey(seedTitle);
   if (!seedKey) return false;
@@ -466,26 +453,8 @@ function PosterVisual({ poster, title }) {
   return poster || thumbnailText(title);
 }
 
-function recommendationReason(item, titles, selectedFilters = []) {
-  if (item.reasonSeed) return `${seedWithKoreanObjectParticle(item.reasonSeed)} 좋아해서 추천합니다. ${item.reason}`;
-  if (titles.length > 1) return `여러 취향을 함께 반영한 추천입니다. ${item.reason}`;
-  if (titles.length) return `입력한 취향을 바탕으로 추천합니다. ${item.reason}`;
-  const selectedReason = buildSelectedOptionReason(item, selectedFilters, { sentence: true });
-  if (selectedReason) return selectedReason;
-  return item.reason;
-}
-
-function decisionReason(item, titles, selectedFilters = []) {
-  if (item.reasonSeed) return `${seedWithKoreanObjectParticle(item.reasonSeed)} 좋아했다면 추천`;
-  if (titles.length > 1) return "여러 취향을 함께 반영한 추천";
-  if (titles.length) return "입력한 취향을 바탕으로 추천";
-  const selectedReason = buildSelectedOptionReason(item, selectedFilters);
-  if (selectedReason) return selectedReason;
-  if (item.tags.includes("genre-sf")) return "몰입감 있는 SF를 좋아한다면 추천";
-  if (item.tags.includes("genre-romance")) return "감정선이 선명한 이야기를 좋아한다면 추천";
-  if (item.tags.includes("genre-thriller")) return "긴장감 있는 이야기를 좋아한다면 추천";
-  if (item.tags.includes("mood-moving")) return "여운이 남는 작품을 찾는다면 추천";
-  return "오늘 바로 고르기 좋은 추천";
+function rationalePreferences(titles, confirmedSeeds, selectedFilters, selectedTypes, selectedOtt) {
+  return { titles, confirmedSeeds, selectedFilters, selectedTypes, selectedOtt };
 }
 
 function trustSignals(item, titles) {
@@ -877,7 +846,14 @@ function balanceContentDiversity(sortedResults, selectedTypes) {
   return balanced;
 }
 
-function normalizeProviderResult(content, quickPicks = [], reasonSeed = "", labelByValue = quickPickLabelByValue, selectedOtt = []) {
+function normalizeProviderResult(
+  content,
+  quickPicks = [],
+  reasonSeed = "",
+  labelByValue = quickPickLabelByValue,
+  selectedOtt = [],
+  confirmedSeeds = {},
+) {
   const title = content.title || "제목 없음";
   const type = contentTypeForUi(content);
   const genres = presentationGenreLabels(content);
@@ -893,7 +869,11 @@ function normalizeProviderResult(content, quickPicks = [], reasonSeed = "", labe
   return {
     ...content,
     title,
-    reasonSeed: cleanSeedTitleForDisplay(content.seedTitle || reasonSeed),
+    reasonSeed: resolveCanonicalReasonSeed({
+      ...content,
+      reasonSeed: content.reasonSeed || reasonSeed,
+      seedTitle: content.seedTitle || reasonSeed,
+    }, confirmedSeeds),
     type,
     contentType: type,
     displayContentType: type,
@@ -1083,6 +1063,7 @@ async function fetchProviderRecommendations(
         item.reasonSeed || item.seedTitle || "",
         labelByValue,
         selectedOtt,
+        confirmedSeeds,
       ),
     )
     .filter((item) => !uniqueTitles.some((title) => titleMatchesSeed(item, title)))
@@ -1181,7 +1162,11 @@ async function fetchOptionRecommendations(
   };
 }
 
-async function fetchRelatedRecommendations(item, quickPicks, labelByValue, { signal, primaryItems = [] } = {}) {
+async function fetchRelatedRecommendations(item, quickPicks, labelByValue, {
+  signal,
+  primaryItems = [],
+  confirmedSeeds = {},
+} = {}) {
   const providerContentId = item.providerContentId || item.tmdbId || "";
   if (!providerContentId) return [];
 
@@ -1203,7 +1188,7 @@ async function fetchRelatedRecommendations(item, quickPicks, labelByValue, { sig
 
   const payload = await response.json();
   return dedupeRelatedItems((payload.results || [])
-    .map((content) => normalizeProviderResult(content, quickPicks, "", labelByValue))
+    .map((content) => normalizeProviderResult(content, quickPicks, "", labelByValue, [], confirmedSeeds))
   , item, primaryItems).slice(0, relatedPickCount);
 }
 
@@ -1326,15 +1311,28 @@ function FounderQaPanel({ environmentStatus, session, dirty, requestGate, relate
   );
 }
 
-function DecisionCard({ item, enteredTitles, selectedFilters = [], onOpen, badge, reasonOverride, className = "", qaMode = false }) {
+function DecisionCard({
+  item,
+  enteredTitles,
+  confirmedSeeds = {},
+  selectedFilters = [],
+  selectedTypes = [],
+  selectedOtt = [],
+  onOpen,
+  badge,
+  reasonOverride,
+  className = "",
+  qaMode = false,
+}) {
   const firstPick = Boolean(item.firstPick);
+  const rationale = rationalePreferences(enteredTitles, confirmedSeeds, selectedFilters, selectedTypes, selectedOtt);
   return (
     <article className={`result-card decision-card ${className}`.trim()}>
-      <button className="decision-card-open" type="button" onClick={() => onOpen(item)} aria-label={`${item.title} 상세 보기`}>
+      <button className="decision-card-open" type="button" onClick={(event) => onOpen(item, event.currentTarget)} aria-label={`${item.title} 상세 보기`}>
       <div className="thumbnail poster" aria-hidden="true"><PosterVisual poster={item.poster} title={item.title} /></div>
       <div className="result-body">
         {badge ? <span className="card-context">{badge}</span> : null}
-        {!firstPick ? <p className="decision-reason">{reasonOverride || decisionReason(item, enteredTitles, selectedFilters)}</p> : null}
+        {!firstPick ? <p className="decision-reason">{reasonOverride || buildEvidenceGroundedDecisionReason(item, rationale)}</p> : null}
         <div className="decision-title-row">
           <h3>{item.title}</h3>
           <span className="type-badge">{item.label}</span>
@@ -1396,6 +1394,7 @@ export default function Home() {
   const [results, setResults] = useState([]);
   const [recommendationStatus, setRecommendationStatus] = useState("idle");
   const [selectedDetail, setSelectedDetail] = useState(null);
+  const [detailScrolled, setDetailScrolled] = useState(false);
   const [relatedItems, setRelatedItems] = useState([]);
   const [relatedStatus, setRelatedStatus] = useState("idle");
   const [providerStatus, setProviderStatus] = useState(initialProviderStatus);
@@ -1418,6 +1417,10 @@ export default function Home() {
   const conditionOpenerRef = useRef(null);
   const conditionSummaryRef = useRef(null);
   const conditionWasOpenRef = useRef(false);
+  const detailLayerRef = useRef(null);
+  const detailCloseButtonRef = useRef(null);
+  const detailOpenerRef = useRef(null);
+  const detailWasOpenRef = useRef(false);
   const relatedDragRef = useRef({
     active: false,
     startX: 0,
@@ -1445,6 +1448,7 @@ export default function Home() {
   const submittedFilters = submittedPreferences?.filters || emptyPreferenceValues;
   const submittedTypes = submittedPreferences?.contentTypes || emptyPreferenceValues;
   const submittedOtt = submittedPreferences?.ottProviders || emptyPreferenceValues;
+  const submittedConfirmedSeeds = submittedPreferences?.confirmedSeeds || emptyConfirmedSeeds;
   const preferencesDirty = Boolean(submittedPreferences && preferencesChanged(draftPreferences, submittedPreferences));
   const hasOptionPreference = selectedQuickPicks.length > 0 || selectedOtt.length > 0 || selectedTypes.length > 0;
   const canRecommend = (enteredTitles.length > 0 || hasOptionPreference) && recommendationStatus !== "loading";
@@ -1514,6 +1518,19 @@ export default function Home() {
       : conditionSummaryRef.current;
     window.requestAnimationFrame(() => focusTarget?.focus({ preventScroll: true }));
   }, [showConditions]);
+
+  useEffect(() => {
+    if (selectedDetail) {
+      detailWasOpenRef.current = true;
+      setDetailScrolled(false);
+      window.requestAnimationFrame(() => detailCloseButtonRef.current?.focus({ preventScroll: true }));
+      return;
+    }
+    if (!detailWasOpenRef.current) return;
+    detailWasOpenRef.current = false;
+    const opener = detailOpenerRef.current;
+    window.requestAnimationFrame(() => opener?.isConnected && opener.focus({ preventScroll: true }));
+  }, [selectedDetail]);
 
   useEffect(() => {
     function handleOutsidePointerDown(event) {
@@ -1598,6 +1615,7 @@ export default function Home() {
         const nextRelated = await fetchRelatedRecommendations(selectedDetail, submittedFilters, optionLabelByValue, {
           signal: request.signal,
           primaryItems: results,
+          confirmedSeeds: submittedConfirmedSeeds,
         });
         if (!relatedRequestGateRef.current.canCommit(request.sequence)) return;
         setRelatedItems(nextRelated);
@@ -1616,7 +1634,7 @@ export default function Home() {
     return () => {
       relatedRequestGateRef.current.abort();
     };
-  }, [selectedDetail, submittedFilters, optionLabelByValue, results]);
+  }, [selectedDetail, submittedFilters, submittedConfirmedSeeds, optionLabelByValue, results]);
 
   useEffect(() => {
     if (activeSuggestionRowId === null) return undefined;
@@ -1806,7 +1824,8 @@ export default function Home() {
     }
   }
 
-  function openDetail(item) {
+  function openDetail(item, opener = null) {
+    if (opener) detailOpenerRef.current = opener;
     setShowQuickPick(false);
     setShowConditions(false);
     setRelatedItems([]);
@@ -1899,7 +1918,34 @@ export default function Home() {
     }
 
     relatedDragRef.current.suppressClickUntil = 0;
-    openDetail(item);
+    openDetail(item, event.currentTarget);
+  }
+
+  function handleDetailKeyDown(event) {
+    if (event.key === "Escape") {
+      event.preventDefault();
+      event.stopPropagation();
+      setSelectedDetail(null);
+      return;
+    }
+    if (event.key !== "Tab" || !detailLayerRef.current) return;
+    const focusable = [...detailLayerRef.current.querySelectorAll(
+      'button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [href], [tabindex]:not([tabindex="-1"])',
+    )].filter((node) => node.getClientRects().length > 0);
+    if (!focusable.length) {
+      event.preventDefault();
+      detailLayerRef.current.focus();
+      return;
+    }
+    const first = focusable[0];
+    const last = focusable[focusable.length - 1];
+    if (event.shiftKey && document.activeElement === first) {
+      event.preventDefault();
+      last.focus();
+    } else if (!event.shiftKey && document.activeElement === last) {
+      event.preventDefault();
+      first.focus();
+    }
   }
 
   function updateTitle(rowId, value) {
@@ -2076,6 +2122,7 @@ export default function Home() {
           ))}
           </div>
         ) : null}
+        {firstPickStatus === "success" ? <p className="first-pick-browse-cue" aria-hidden="true">옆으로 넘겨 더 보기 <span>→</span></p> : null}
         {firstPickStatus === "empty" ? <p className="first-pick-state" role="status">{firstPickEmptyMessage}</p> : null}
         {firstPickStatus === "unavailable" ? (
           <div className="first-pick-state" role="status">
@@ -2109,8 +2156,8 @@ export default function Home() {
           aria-controls="conditionPanel"
           onClick={openConditions}
         >
-          <span><strong>현재 조건</strong>{conditionSummary}</span>
-          <span aria-hidden="true">변경</span>
+          <span className="condition-summary-copy"><strong>현재 조건</strong><span>{conditionSummary}</span></span>
+          <span className="condition-summary-action"><span>조건 바꾸기</span><span aria-hidden="true">›</span></span>
         </button>
 
         <form className="recommendation-form" id="recommendationForm" onSubmit={handleSubmit}>
@@ -2326,7 +2373,10 @@ export default function Home() {
             <DecisionCard
               item={item}
               enteredTitles={submittedTitles}
+              confirmedSeeds={submittedConfirmedSeeds}
               selectedFilters={submittedFilters}
+              selectedTypes={submittedTypes}
+              selectedOtt={submittedOtt}
               onOpen={openDetail}
               qaMode={qaMode}
               key={item.id || item.providerContentId || item.title}
@@ -2455,9 +2505,16 @@ export default function Home() {
       {selectedDetail ? (
         <div className="detail-overlay" id="detailOverlay" aria-hidden="false">
           <div className="detail-backdrop" onClick={() => setSelectedDetail(null)} />
-          <div className="detail-stack">
-          <section className="detail-layer" role="dialog" aria-modal="true" aria-labelledby="detailTitle">
-            <button className="close-button detail-close" type="button" onClick={() => setSelectedDetail(null)} aria-label="상세 정보 닫기">×</button>
+          <div className="detail-stack" ref={detailLayerRef} tabIndex={-1} onKeyDown={handleDetailKeyDown}>
+          <div className="detail-layer-shell">
+          <section
+            className="detail-layer"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="detailTitle"
+            onScroll={(event) => setDetailScrolled(event.currentTarget.scrollTop > 48)}
+          >
+            <button ref={detailCloseButtonRef} className="close-button detail-close" type="button" onClick={() => setSelectedDetail(null)} aria-label="상세 정보 닫기">×</button>
             <div className="detail-layout">
               <div className="detail-thumb poster" aria-hidden="true"><PosterVisual poster={selectedDetail.detailPoster || selectedDetail.poster} title={selectedDetail.title} /></div>
               <div className="detail-info">
@@ -2468,7 +2525,10 @@ export default function Home() {
                   <span><strong>감독</strong> {selectedDetail.director}</span>
                   <span><strong>주요 배우</strong> {selectedDetail.actors.join(", ")}</span>
                 </div>
-                <p className="detail-reason"><strong>추천 이유</strong><br />{recommendationReason(selectedDetail, submittedTitles, submittedFilters)}</p>
+                <p className="detail-reason"><strong>추천 이유</strong><br />{buildEvidenceGroundedRecommendationReason(
+                  selectedDetail,
+                  rationalePreferences(submittedTitles, submittedConfirmedSeeds, submittedFilters, submittedTypes, submittedOtt),
+                )}</p>
                 {selectedDetail.recommendationInsight?.length ? (
                   <section className="insight-panel" aria-labelledby="recommendationInsightTitle">
                     <p className="trust-label" id="recommendationInsightTitle">추천 근거</p>
@@ -2501,6 +2561,10 @@ export default function Home() {
               </div>
             </div>
           </section>
+          <div className={`detail-scroll-cue ${detailScrolled ? "is-hidden" : ""}`} aria-hidden="true">
+            <span>상세 정보 · 비슷한 작품 더 보기</span><strong>↓</strong>
+          </div>
+          </div>
           {relatedStatus !== "idle" ? (
             <section className="related-panel" aria-labelledby="relatedRecommendationTitle">
               <div className="related-heading">
@@ -2557,7 +2621,10 @@ export default function Home() {
                       <span className="related-thumb" aria-hidden="true"><PosterVisual poster={item.poster} title={item.title} /></span>
                       <span>
                         <strong>{item.title}</strong>
-                        <small>{decisionReason(item, submittedTitles, submittedFilters)}</small>
+                        <small>{buildEvidenceGroundedDecisionReason(
+                          item,
+                          rationalePreferences(submittedTitles, submittedConfirmedSeeds, submittedFilters, submittedTypes, submittedOtt),
+                        )}</small>
                       </span>
                     </button>
                   ))}
