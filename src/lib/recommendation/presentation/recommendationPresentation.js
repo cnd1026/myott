@@ -131,6 +131,78 @@ export function buildEvidenceGroundedDecisionReason(item = {}, {
   return item.reason || "오늘 바로 고르기 좋은 추천";
 }
 
+function uniqueReasonCandidates(candidates = []) {
+  return [...new Set(candidates.map((candidate) => String(candidate || "").trim()).filter(Boolean))];
+}
+
+function buildEvidenceGroundedDecisionReasonCandidates(item = {}, {
+  titles = [],
+  confirmedSeeds = {},
+  selectedFilters = [],
+  selectedTypes = [],
+  selectedOtt = [],
+} = {}) {
+  const canonicalSeed = resolveCanonicalReasonSeed(item, confirmedSeeds);
+  const genres = presentationGenreLabels(item);
+  const primaryGenre = genres[0] || String(item.genre || "").split(",")[0].trim();
+  const selectedReason = buildSelectedOptionReason(item, selectedFilters);
+  const displayType = normalizeDisplayContentType(item);
+  const typeLabel = { movie: "영화", drama: "드라마", animation: "애니" }[displayType];
+  const actualOtt = asStringArray(item.ott).map((value) => value.toLocaleLowerCase("ko-KR"));
+  const selectedOttMatch = selectedOtt.some((value) => (
+    actualOtt.some((actual) => actual.includes(String(value).split("-")[0].toLocaleLowerCase("ko-KR")))
+  ));
+  const candidates = [];
+
+  if (canonicalSeed && primaryGenre) {
+    const seed = seedWithKoreanObjectParticle(canonicalSeed);
+    candidates.push(`${seed} 좋아했다면 ${primaryGenre} 작품으로 이어가는 추천`);
+  }
+  if (selectedReason) candidates.push(selectedReason);
+  if (typeLabel && selectedTypes.includes(displayType)) candidates.push(`${typeLabel} 조건에 맞춘 추천`);
+  if (selectedOttMatch) candidates.push("선택한 OTT에서 볼 수 있는 작품 중 고른 추천");
+  if (canonicalSeed && primaryGenre) {
+    candidates.push(
+      `${canonicalSeed}에서 좋아한 ${primaryGenre} 결을 이어 살펴보는 추천`,
+      `${canonicalSeed}와 맞닿은 ${primaryGenre} 장르에서 고른 추천`,
+    );
+  }
+  if (canonicalSeed) {
+    const seed = seedWithKoreanObjectParticle(canonicalSeed);
+    candidates.push(
+      `${seed} 좋아했다면 이어서 살펴볼 추천`,
+      `${canonicalSeed}에서 이어지는 취향을 반영한 추천`,
+    );
+  }
+  if (titles.length > 1) candidates.push("여러 취향을 함께 반영한 추천");
+  else if (titles.length) candidates.push("입력한 취향을 바탕으로 추천");
+  if (primaryGenre) candidates.push(`${primaryGenre} 장르 정보를 반영한 추천`);
+
+  const fallback = String(item.reason || "").trim() || "오늘 바로 고르기 좋은 추천";
+  candidates.push(fallback);
+  return uniqueReasonCandidates(candidates);
+}
+
+export function buildEvidenceGroundedDecisionReasons(items = [], preferences = {}) {
+  const usedReasons = new Set();
+  let previousReason = "";
+
+  return items.map((item, index) => {
+    const candidates = buildEvidenceGroundedDecisionReasonCandidates(item, preferences);
+    const offset = candidates.length ? index % candidates.length : 0;
+    const orderedCandidates = candidates.map((_, candidateIndex) => (
+      candidates[(offset + candidateIndex) % candidates.length]
+    ));
+    const reason = orderedCandidates.find((candidate) => candidate !== previousReason && !usedReasons.has(candidate))
+      || orderedCandidates.find((candidate) => candidate !== previousReason)
+      || orderedCandidates[0]
+      || "오늘 바로 고르기 좋은 추천";
+    usedReasons.add(reason);
+    previousReason = reason;
+    return reason;
+  });
+}
+
 export function buildEvidenceGroundedRecommendationReason(item = {}, preferences = {}) {
   const decision = buildEvidenceGroundedDecisionReason(item, preferences);
   const detail = String(item.reason || "").trim();

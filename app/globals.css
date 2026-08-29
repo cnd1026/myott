@@ -181,8 +181,87 @@ h1 {
   gap: 16px;
 }
 
+.recommendation-option-section {
+  display: grid;
+  grid-column: 1 / -1;
+  grid-template-columns: minmax(0, 1fr) minmax(220px, 280px);
+  align-items: center;
+  gap: 18px;
+  border: 1px solid rgba(47, 125, 104, 0.28);
+  border-radius: 8px;
+  padding: 16px 18px;
+  background: var(--surface-soft);
+}
+
+.recommendation-option-heading h3,
+.recommendation-option-heading p {
+  margin: 0;
+}
+
+.recommendation-option-heading h3 {
+  color: var(--text);
+  font-size: 17px;
+}
+
+.recommendation-option-heading p {
+  margin-top: 5px;
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.45;
+}
+
 .condition-option-button {
-  align-self: end;
+  display: inline-flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  width: 100%;
+  min-height: 54px;
+  border: 1px solid rgba(47, 125, 104, 0.58);
+  border-radius: 8px;
+  padding: 0 16px;
+  background: #fff;
+  box-shadow: 0 4px 0 rgba(47, 125, 104, 0.2), 0 10px 20px rgba(23, 32, 38, 0.08);
+  color: var(--accent-strong);
+  font-size: 15px;
+  font-weight: 900;
+  text-align: left;
+  transition: border-color 140ms ease, background-color 140ms ease, box-shadow 140ms ease, color 140ms ease, transform 140ms ease;
+}
+
+.condition-option-button:hover {
+  border-color: var(--accent-strong);
+  box-shadow: 0 5px 0 rgba(47, 125, 104, 0.24), 0 13px 24px rgba(23, 32, 38, 0.11);
+  transform: translateY(-1px);
+}
+
+.condition-option-button:active {
+  box-shadow: 0 2px 0 rgba(47, 125, 104, 0.22), 0 5px 12px rgba(23, 32, 38, 0.08);
+  transform: translateY(2px);
+}
+
+.condition-option-button:focus-visible {
+  outline: 3px solid rgba(47, 125, 104, 0.28);
+  outline-offset: 3px;
+}
+
+.condition-option-button.is-selected {
+  border-color: var(--accent-strong);
+  background: var(--accent);
+  box-shadow: 0 4px 0 var(--accent-strong), 0 12px 22px rgba(47, 125, 104, 0.22);
+  color: #fff;
+}
+
+.condition-option-button.is-selected:active {
+  box-shadow: 0 2px 0 var(--accent-strong), 0 5px 12px rgba(47, 125, 104, 0.16);
+  transform: translateY(2px);
+}
+
+.condition-option-arrow {
+  flex: 0 0 auto;
+  font-size: 25px;
+  font-weight: 700;
+  line-height: 1;
 }
 
 .option-section,
@@ -1716,6 +1795,12 @@ input[type="text"]:focus {
     border-radius: 8px 8px 0 0;
     padding: 16px 14px calc(18px + env(safe-area-inset-bottom));
     background: var(--surface);
+  }
+
+  .recommendation-option-section {
+    grid-template-columns: 1fr;
+    gap: 12px;
+    padding: 14px;
   }
 
   .condition-sheet-heading {

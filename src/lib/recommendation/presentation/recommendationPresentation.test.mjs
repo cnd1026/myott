@@ -3,6 +3,7 @@ import test from "node:test";
 
 import {
   buildEvidenceGroundedDecisionReason,
+  buildEvidenceGroundedDecisionReasons,
   buildEvidenceGroundedRecommendationReason,
   buildSelectedOptionReason,
   contentTypeMatchesSelection,
@@ -140,6 +141,37 @@ test("recommendation rationale uses canonical seed identity and card-specific ev
   assert.match(adventureReason, /모험/);
   assert.notEqual(sfReason, adventureReason);
   assert.match(buildEvidenceGroundedRecommendationReason(scienceFiction, preferences), /우주 탐사 설정/);
+});
+
+test("recommendation rationale stays truthful, varied, and deterministic across cards", () => {
+  const preferences = {
+    titles: ["인터"],
+    confirmedSeeds: { 0: { inputTitle: "인터", resolvedTitle: "인터스텔라" } },
+    selectedFilters: ["genre-sf"],
+    selectedTypes: ["movie"],
+    selectedOtt: ["netflix"],
+  };
+  const items = ["듄", "그래비티", "마션"].map((title, index) => ({
+    title,
+    reasonSeed: "인터",
+    providerMediaType: "movie",
+    displayContentType: "movie",
+    providerGenreIds: [878],
+    matchedTaxonomyValues: ["genre-sf"],
+    ott: ["Netflix"],
+    reason: `검증된 상세 근거 ${index + 1}`,
+  }));
+
+  const first = buildEvidenceGroundedDecisionReasons(items, preferences);
+  const second = buildEvidenceGroundedDecisionReasons(items, preferences);
+
+  assert.deepEqual(first, second);
+  assert.equal(new Set(first).size, 3);
+  assert.match(first[0], /인터스텔라.*SF/);
+  assert.match(first[1], /미래|우주|SF/);
+  assert.match(first[2], /영화 조건/);
+  assert.doesNotMatch(first.join(" "), /인터(?:을|를) 좋아/);
+  assert.doesNotMatch(first.join(" "), /요즘 인기|수상|관객|리뷰|트렌드/);
 });
 
 test("confirmed seed state preserves raw input, invalidates on edit, and removes identity only", () => {

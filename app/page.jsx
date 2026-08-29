@@ -11,6 +11,7 @@ import {
 } from "../src/lib/recommendation/genres/genreContract.js";
 import {
   buildEvidenceGroundedDecisionReason,
+  buildEvidenceGroundedDecisionReasons,
   buildEvidenceGroundedRecommendationReason,
   contentTypeMatchesSelection,
   dedupePrimaryDisplayTitles,
@@ -1466,6 +1467,10 @@ export default function Home() {
     [optionGroups, quickPickSearch, expandedOptionGroups],
   );
   const selectedQuickPickChips = selectedQuickPicks.map((value) => [value, optionLabelByValue.get(value)]).filter(([, label]) => Boolean(label));
+  const visibleDecisionReasons = useMemo(() => buildEvidenceGroundedDecisionReasons(
+    results,
+    rationalePreferences(submittedTitles, submittedConfirmedSeeds, submittedFilters, submittedTypes, submittedOtt),
+  ), [results, submittedTitles, submittedConfirmedSeeds, submittedFilters, submittedTypes, submittedOtt]);
   const relatedRecommendations = relatedStatus === "success" ? relatedItems : [];
   const seedCoverageMessage = buildSeedCoverageMessage(seedDiagnostics);
   const visibleProviderStatus = recommendationSession ? providerStatus : environmentProviderStatus;
@@ -2222,9 +2227,24 @@ export default function Home() {
             </div>
           </fieldset>
 
-          <button className="secondary-button condition-option-button" id="quickPickButton" type="button" onClick={() => setShowQuickPick(true)}>
-            {selectedQuickPicks.length ? `추천 옵션 (${selectedQuickPicks.length})` : "추천 옵션"}
-          </button>
+          <section className="recommendation-option-section" aria-labelledby="recommendationOptionTitle">
+            <div className="recommendation-option-heading">
+              <h3 id="recommendationOptionTitle">추천 옵션</h3>
+              <p id="recommendationOptionDescription">장르 · 국가 · 분위기 · 러닝타임</p>
+            </div>
+            <button
+              className={`condition-option-button ${selectedQuickPicks.length ? "is-selected" : ""}`.trim()}
+              id="quickPickButton"
+              type="button"
+              aria-haspopup="dialog"
+              aria-expanded={showQuickPick}
+              aria-describedby="recommendationOptionDescription"
+              onClick={() => setShowQuickPick(true)}
+            >
+              <span>{selectedQuickPicks.length ? `추천 옵션 ${selectedQuickPicks.length}개 선택` : "추천 옵션 선택"}</span>
+              <span className="condition-option-arrow" aria-hidden="true">›</span>
+            </button>
+          </section>
           <button className="condition-done-button" type="button" onClick={closeConditions}>조건 적용</button>
           </section>
           </div>
@@ -2369,7 +2389,7 @@ export default function Home() {
           </div>
         ) : null}
         <div className="result-grid" id="resultGrid">
-          {results.map((item) => (
+          {results.map((item, index) => (
             <DecisionCard
               item={item}
               enteredTitles={submittedTitles}
@@ -2377,6 +2397,7 @@ export default function Home() {
               selectedFilters={submittedFilters}
               selectedTypes={submittedTypes}
               selectedOtt={submittedOtt}
+              reasonOverride={visibleDecisionReasons[index]}
               onOpen={openDetail}
               qaMode={qaMode}
               key={item.id || item.providerContentId || item.title}
