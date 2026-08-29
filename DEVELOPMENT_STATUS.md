@@ -112,6 +112,17 @@ MyOTT is under active development. This public log summarizes externally safe mi
 - Preserved A5 as `FAILED / PRESERVED`. The A6 authoritative security state remained Automation Bypass `0`, URL/Shareable Bypass `0`, and Security Cleanup Objective `PASS`.
 - Kept `dpl_BcDszqF4oY7c9JtE3vbBnSkhPCyT` as the known-good rollback baseline and left release tag `v0.1.0` fixed at `28b4553f19851df7ce6e5a8296b4e506c456308f`.
 
+## 2026-08-29
+
+- Completed `MYOTT_FOUNDER_PRODUCTION_REQA_CORRECTION_V1` implementation in Product commit `8f61403616265d99cfe69530a4dcd46016fa667b` after Founder re-QA findings were corrected and independently re-reviewed.
+- Kept Confirmed Seed raw input separate from canonical provider identity while using the canonical title for visible recommendation identity and rationale. Raw edit invalidation and remove-confirmation behavior remain intact.
+- Improved evidence-grounded recommendation rationale, First Pick desktop framing and mobile rail affordance, preference density, Seed input geometry, selectable OTT/Content Type tiles, mobile condition disclosure, and the below-fold detail cue while preserving reset behavior and the calm OTT-curator voice.
+- Preserved the Founder hard-filter observation at 9 total / 7 movie / 2 drama without claiming an exact pinned execution state. Local exact checks produced movie-only 4 / 4 / 0 and movie+drama 7 / 4 / 3, so `CONTENT_TYPE_HARD_FILTER_REGRESSION` remains not confirmed and hard-filter semantics were not changed.
+- Validation remained closed at focused `10 / 10`, Content Type matrix `7 / 7`, recommendation regression `208 / 208`, deterministic QA `107 / 107`, and production build/static generation `12 / 12`.
+- Preserved the initial Independent Review as FAIL after a second Next dev runtime used the same Founder candidate worktree and Founder Preview changed from HTTP 200 to 500. Source hashes remained unchanged; the conflicting runtime was removed, Founder Preview recovery passed, and a physically isolated Independent Re-Review passed with no open findings.
+- Established the operating rule that persistent Founder Preview `:3000` must not share its candidate worktree or `.next` state with another dev/build runtime. A second browser-QA or review runtime requires a physical shadow with independent runtime state; port separation alone is insufficient.
+- Kept `FIRST_PICK_REFRESH` as a separate Product enhancement requiring a Founder Gate. Production remains unchanged, and historical Type Expansion Track A remains completed/inconclusive with pair reproduction not evaluable and root cause unresolved.
+
 ## Maintenance policy going forward
 
 When meaningful development continues but a public product commit is delayed by QA, security, or release gates, MyOTT will publish a small public-safe maintenance signal when useful. That signal may be a status update, documentation commit, issue, or review artifact. Empty commits and fabricated activity are not part of this policy.

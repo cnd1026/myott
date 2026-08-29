@@ -2,6 +2,29 @@
 
 개발 과정에서의 작업 내용, 결정, 아쉬운 점, 다음 개선 사항을 날짜별로 기록합니다.
 
+## 2026-08-29 - Founder Production Re-QA Correction V1
+
+### 구현한 것
+
+- Product commit `8f61403616265d99cfe69530a4dcd46016fa667b`에 Founder re-QA 교정 후보를 고정했습니다.
+- Confirmed Seed의 raw 입력과 canonical provider identity를 계속 분리하고, 화면의 확인 identity와 추천 근거에는 canonical title을 사용하도록 교정했습니다. raw 입력의 의미 있는 수정에 따른 확인 무효화와 raw를 남기는 확인 해제 동작은 보존했습니다.
+- 근거 기반 추천 이유의 다양성을 개선하고 Calm OTT Curator 문체를 유지했습니다.
+- First Pick desktop framing과 mobile rail affordance, preference density, Seed input geometry, OTT/Content Type selectable tile, mobile current-condition disclosure, detail below-fold cue를 교정했으며 reset 동작은 변경하지 않았습니다.
+
+### 검증과 운영 경계
+
+- Focused `10 / 10`, Content Type matrix `7 / 7`, recommendation regression `208 / 208`, deterministic QA `107 / 107`, build/static generation `12 / 12`를 보존했습니다.
+- Initial Independent Review는 동일 candidate worktree에서 두 번째 Next dev runtime이 시작된 뒤 Founder Preview가 HTTP 200에서 500으로 바뀐 사실 때문에 `FAIL / PRESERVED`입니다. 당시 Product candidate hash는 변경되지 않았습니다.
+- Conflicting same-worktree runtime을 정확히 정리하고 disposable `.next`를 재생성한 Founder Preview recovery는 PASS했습니다. 별도 physical shadow와 독립 `.next`를 사용한 Independent Re-Review도 PASS했으며 open finding은 없습니다.
+- Founder Preview `:3000`은 latest coherent candidate를 지속 제공하는 runtime입니다. 실행 중 같은 candidate worktree에서 두 번째 Next dev/build runtime을 시작하지 않으며, port 분리만으로 runtime isolation을 인정하지 않습니다. Browser QA와 IR은 independent runtime state를 가진 physical shadow를 사용합니다.
+- 이 기록은 관측보다 깊은 Next.js 내부 원인을 확정하지 않습니다.
+
+### 보존한 제품 상태
+
+- Founder hard-filter 관측은 9 total / 7 movie / 2 drama로 보존하되 exact execution state는 pinned되지 않았습니다. Local exact 결과는 movie-only 4 / 4 / 0, movie+drama 7 / 4 / 3이며 `CONTENT_TYPE_HARD_FILTER_REGRESSION`은 not confirmed입니다. Hard-filter semantics 변경은 0입니다.
+- `FIRST_PICK_REFRESH`는 Founder Gate가 필요한 별도 Product enhancement입니다.
+- Production은 변경하지 않았습니다. Type Expansion Track A는 `COMPLETED / INCONCLUSIVE`, pair reproduction은 `NOT EVALUABLE`, root cause는 `UNRESOLVED`로 유지합니다.
+
 ## 2026-08-28 - Post-v0.1.0 Product UX Production Release V1
 
 ### Production release
