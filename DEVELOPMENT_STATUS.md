@@ -114,6 +114,12 @@ MyOTT is under active development. This public log summarizes externally safe mi
 
 ## 2026-08-29
 
+- Completed the bounded targeted UX follow-up after Founder re-QA passed 7 of 9 checks and identified only mechanical recommendation-rationale repetition and recommendation-option control hierarchy for correction.
+- Kept the follow-up limited to grounded, deterministic rationale variation and clearer placement/tactile states for the Founder-visible `추천 옵션` control (`#quickPickButton`). Unsupported or fabricated evidence remained zero, and the canonical visible seed title is used instead of a raw alias.
+- Independent Review passed with no open findings. Focused checks passed `11 / 11`, the Content Type matrix passed `7 / 7`, recommendation regression passed `209 / 209`, deterministic QA passed `107 / 107`, and build/static generation passed `12 / 12`.
+- Used a physical browser-review shadow on port 3002 with zero interference to Founder Preview on port 3000. A second Next runtime must not be started directly from the active Founder Preview candidate worktree.
+- Production remained unchanged at source `b3022e26d75765d00b989e5402ef5f5dbf4606d2` and deployment `dpl_HrnDnQCa1395W1hACM7Aen9Pb3Pu`.
+- Recorded `MYOTT_FIRST_PICK_TEMPORARY_ROTATION_V1` as an authorized, next queued Product enhancement that is not yet executable. `CONTEXTUAL FIRST PICK V2` remains deferred as a future Product feature; neither was implemented in this closure.
 - Completed `MYOTT_FOUNDER_PRODUCTION_REQA_CORRECTION_V1` implementation in Product commit `8f61403616265d99cfe69530a4dcd46016fa667b` after Founder re-QA findings were corrected and independently re-reviewed.
 - Kept Confirmed Seed raw input separate from canonical provider identity while using the canonical title for visible recommendation identity and rationale. Raw edit invalidation and remove-confirmation behavior remain intact.
 - Improved evidence-grounded recommendation rationale, First Pick desktop framing and mobile rail affordance, preference density, Seed input geometry, selectable OTT/Content Type tiles, mobile condition disclosure, and the below-fold detail cue while preserving reset behavior and the calm OTT-curator voice.

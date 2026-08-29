@@ -2,6 +2,26 @@
 
 개발 과정에서의 작업 내용, 결정, 아쉬운 점, 다음 개선 사항을 날짜별로 기록합니다.
 
+## 2026-08-29 - Founder Production Re-QA Targeted UX Follow-up V1
+
+### 교정한 범위
+
+- Targeted Founder Re-QA는 `7 / 9 PASS`였고, 교정 대상은 추천 이유의 기계적 반복과 추천 옵션 control의 배치/촉각적 위계 두 가지뿐이었습니다.
+- Founder가 보는 `추천 옵션` control은 `#quickPickButton`입니다. 화면 위계는 `OTT / 콘텐츠 종류 -> 추천 옵션 section -> 추천 옵션 control -> 조건 적용` 순서로 정리했습니다.
+- 추천 이유는 canonical seed, 실제 장르, 실제로 일치한 옵션, 선택된 콘텐츠 종류, 실제 OTT 교집합, 기존의 사실 기반 presentation evidence만 사용합니다. 지원되지 않거나 꾸며낸 근거는 0이며, raw seed alias `인터` 대신 canonical visible seed title `인터스텔라`를 사용합니다.
+- 같은 입력은 byte-for-byte 동일한 visible sequence를 만들고, 검증 fixture에서는 근거를 유지한 추천 이유가 `4 / 4` 서로 다르게 나타납니다.
+
+### 검증과 runtime 경계
+
+- Independent Review는 `PASS`, open finding은 `NONE`입니다. Focused `11 / 11`, Content Type matrix `7 / 7`, recommendation regression `209 / 209`, deterministic QA `107 / 107`, build/static generation `12 / 12`가 PASS했습니다.
+- IR browser는 port 3002의 physical shadow를 사용했고 Founder Preview `:3000` 간섭은 0이었습니다. active Founder Preview candidate worktree에서 두 번째 Next runtime을 직접 시작하지 않습니다.
+- Production은 이 후속 작업으로 변경되지 않았습니다. Production source는 `b3022e26d75765d00b989e5402ef5f5dbf4606d2`, deployment는 `dpl_HrnDnQCa1395W1hACM7Aen9Pb3Pu`로 유지됩니다.
+
+### 다음 큐 결정
+
+- `MYOTT_FIRST_PICK_TEMPORARY_ROTATION_V1 = AUTHORIZED / NEXT QUEUED PRODUCT ENHANCEMENT / NOT YET EXECUTABLE`로 기록합니다. 이 closure에서는 구현하지 않았습니다.
+- `CONTEXTUAL FIRST PICK V2 = DEFERRED / FUTURE PRODUCT FEATURE`로 유지합니다.
+
 ## 2026-08-29 - Founder Production Re-QA Correction V1
 
 ### 구현한 것
