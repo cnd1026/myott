@@ -1,8 +1,8 @@
 # Prompt Guide
 
-Version: 1.5.1
+Version: 1.6.0
 
-Last Updated: 2026-07-18
+Last Updated: 2026-08-30
 
 Status: ACTIVE
 
@@ -52,20 +52,45 @@ flowchart TD
 Task:
 <Task ID>
 
-Codex Mode:
-낮음 / 보통 / 높음 / 매우높음 / 울트라
+Codex Mode Policy Source:
+docs/project/CODEX_MODE_SELECTION_POLICY.md
 
-Codex Mode Reason:
-<왜 이 Mode가 필요한지>
+Codex Mode Policy Version:
+1.0
+
+Model:
+5.6 <family>
+
+Reasoning Level:
+<supported level>
+
+Codex Mode:
+5.6 <family> / <reasoning>
+
+Mode Rationale:
+<why this is the lowest sufficient selection>
+
+Mode Auto-change:
+PROHIBITED
+
+Mode Change Authority:
+HQ / Founder only
+
+Actual Model / Reasoning:
+<explicit UI/trusted execution evidence>
+or
+NOT REPORTED / NOT INFERRED
 
 Codex Stage:
 <현재 작업 단계>
 
 AI Execution Profile:
 Platform: <ChatGPT / Codex>
-Model: <모델>
-Reasoning: <선택한 Platform UI의 reasoning option>
-Reason: <이 모델과 reasoning level을 선택한 이유>
+If Platform is Codex: use the Codex Mode policy fields above; do not duplicate Model or Reasoning here.
+If Platform is ChatGPT:
+  Model: <model>
+  Reasoning: <supported ChatGPT UI option>
+  Reason: <selection rationale>
 
 Repository Scope:
 <Product / Documentation / Platform / Both>
@@ -143,23 +168,13 @@ Known Issues:
 
 ---
 
-## 3. Codex Mode
+## 3. Codex Mode Selection
 
-| Mode | 사용 기준 | 기대 행동 |
-| --- | --- | --- |
-| 낮음 | 문서 수정, 작은 UI polish, 영향 범위가 좁은 작업 | 기존 패턴을 확인하고 최소 변경으로 처리 |
-| 보통 | 일반 기능 수정, UX 개선, 제한된 파일 변경 | 구현, 검증, 문서 반영까지 완료 |
-| 높음 | Provider, API, 상태 관리, 회귀 위험이 있는 작업 | 구조 확인, 회귀 검증, QA 케이스 중심 진행 |
-| 매우높음 | 추천 엔진, 아키텍처, 운영, 보안, 다중 Module 작업 | 기존 구조와 장기 유지보수를 우선하고 검증을 강화 |
-| 울트라 | 회사 핵심 표준, 출시 차단 문제, Production Migration, 복구 비용이 큰 보안·데이터 무결성·전사 재사용 체계 | 모든 QA Layer를 분리하고 증거 계약, adversarial 검증, 최종 Commit 재실행을 적용 |
+Codex Model Family와 Reasoning Level의 현재 선택 기준은 [Codex Mode Selection Policy](./CODEX_MODE_SELECTION_POLICY.md)가 정본입니다. 두 값은 별도 선택이며, 최근 Task의 Mode를 다음 Task에 상속하지 않습니다.
 
-Codex Mode는 작업 난이도가 아니라 실패했을 때의 제품 영향도와 검증 강도를 나타냅니다.
+Task Prompt는 정책 source/version, Model Family, Reasoning Level, lowest-sufficient rationale, auto-change prohibition, change authority, 그리고 Requested/Actual 구분을 모두 기록합니다.
 
-Codex Mode Reason:
-
-- Mode를 선택한 이유를 한 줄 이상 작성한다.
-- 기능 개발이 아니더라도 운영 체계, QA, 보안, 문서 표준처럼 장기 영향이 크면 높은 Mode를 사용할 수 있다.
-- Reason은 Codex가 검증 강도와 작업 보수성을 조절하는 기준이 된다.
+아래 과거 5단계 Codex Mode 표와 예시는 historical/deprecated guidance입니다. 현재 Task의 완전한 Mode system으로 사용하지 않습니다.
 
 ---
 
@@ -296,8 +311,10 @@ MyOTT의 공식 운영 문서는 아래 체계를 중심으로 확장합니다.
 
 Prompt 작성 후 아래 항목을 확인합니다.
 
-- [ ] Codex Mode가 적절한가
-- [ ] Codex Mode Reason을 작성했는가
+- [ ] Codex Mode Policy source/version을 기록했는가
+- [ ] Model Family와 Reasoning Level을 별도로 기록했는가
+- [ ] lowest-sufficient Mode Rationale을 작성했는가
+- [ ] Actual Model / Reasoning을 UI/trusted evidence와 구분했는가
 - [ ] Goal이 명확한가
 - [ ] Priority 순서가 맞는가
 - [ ] ROI가 표시되어 있는가
@@ -371,8 +388,9 @@ Prompt Guide는 Semantic Versioning을 사용합니다.
 | v1.3 | Governance, Checklist, ROI, Documentation Sprint 기준 추가 |
 | v1.4 | AI Execution Profile과 AI Session Review 표준 추가 |
 | v1.4.1 | 제공 Platform UI 기준에 맞춘 Profile 표현 보정 |
-| v1.5.0 | Codex Mode 5단계와 영구 QA Protocol/증거 계약 추가 |
+| v1.5.0 | Historical/deprecated Codex Mode 5단계와 영구 QA Protocol/증거 계약 추가 |
 | v1.5.1 | 숫자 범위 합집합·교집합과 label/bound 경계 QA 질문 추가 |
+| v1.6.0 | Codex Mode Selection Policy를 정본으로 연결하고 Model Family/Reasoning Level 분리 기록 추가 |
 | v2.0 | Major Workflow 변경 |
 
 Version 변경 기준:
@@ -490,15 +508,23 @@ ChatGPT examples:
 
 ### 17.2 Codex Standard
 
+Codex Mode의 현재 정본은 [Codex Mode Selection Policy](./CODEX_MODE_SELECTION_POLICY.md)입니다. 이 절의 과거 profile 예시는 정본 matrix가 아니며, 현재 Task 선택은 policy source/version과 supported combination을 기준으로 합니다.
+
 Codex Task Prompt에는 아래 형식을 항상 포함합니다.
 
 ```text
 AI Execution Profile
 
 Platform: Codex
-Model: <CTO가 선택한 Codex 모델>
-Reasoning: <CTO가 선택한 Codex UI의 추론 깊이>
-Reason: <작업 범위, 위험도, 회귀 비용 및 ROI를 고려한 선택 이유>
+Codex Mode Policy Source: docs/project/CODEX_MODE_SELECTION_POLICY.md
+Codex Mode Policy Version: 1.0
+Model: 5.6 <family>
+Reasoning Level: <supported level>
+Codex Mode: 5.6 <family> / <reasoning>
+Mode Rationale: <why this is the lowest sufficient selection>
+Mode Auto-change: PROHIBITED
+Mode Change Authority: HQ / Founder only
+Actual Model / Reasoning: <explicit UI/trusted execution evidence> or NOT REPORTED / NOT INFERRED
 ```
 
 Codex rule:
@@ -507,7 +533,7 @@ Codex rule:
 - Codex의 model/Reasoning 선택지는 ChatGPT 표준으로 재사용하지 않는다.
 - 실제 Codex UI에 없는 모델 또는 추론 단계를 문서에 가정하지 않는다.
 
-Codex-only examples:
+Historical Codex-only examples:
 
 아래는 Codex 전용 profile 예시이며 ChatGPT 적용 예시가 아닙니다. 실제 사용 전에는 Codex UI에서 해당 선택지가 제공되는지 확인합니다.
 

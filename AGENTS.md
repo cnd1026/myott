@@ -32,6 +32,7 @@
 - Recommendation: [Recommendation Architecture](docs/project/RECOMMENDATION_ARCHITECTURE.md)
 - QA: [Codex QA Protocol](docs/project/CODEX_QA_PROTOCOL.md)
 - Founder Preview: [Founder Preview Operations](docs/project/FOUNDER_PREVIEW_OPERATIONS.md)
+- Codex Mode Selection: [Codex Mode Selection Policy](docs/project/CODEX_MODE_SELECTION_POLICY.md)
 - 개발 규칙: [Development Rules](docs/project/DEVELOPMENT_RULES.md)
 - 협업 역할: [AI Collaboration](docs/project/AI_COLLABORATION.md)
 - 중요 결정: [Decision Log](docs/project/DECISION_LOG.md)
@@ -52,6 +53,7 @@ Manifest가 없거나 Base Commit, 금지 범위, Gate가 불명확하면 구현
 ## 4. Repository Work Rules
 
 - 작업 전 branch, HEAD, `origin/main`, working tree를 확인합니다.
+- 모든 새 Codex Task의 첫 실행 전에는 `AGENTS.md`와 Codex Model Family/Reasoning Level 선택을 [Codex Mode Selection Policy](docs/project/CODEX_MODE_SELECTION_POLICY.md)에 대조합니다.
 - 기존 변경은 사용자 작업으로 간주하며 임의로 되돌리지 않습니다.
 - Task의 In Scope만 수정하고 인접 리팩터링은 별도 제안으로 남깁니다.
 - 정본 계약을 바꾸는 변경은 Architecture Agent 검토와 PM Lab Gate를 거칩니다.

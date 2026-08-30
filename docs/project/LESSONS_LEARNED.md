@@ -2,7 +2,7 @@
 
 Version: 1.0
 
-Last Updated: 2026-07-04
+Last Updated: 2026-08-30
 
 Status: ACTIVE
 
@@ -84,6 +84,17 @@ Lessons Learned의 목적:
 | Cause | Codex sandbox와 Founder local runtime의 네트워크 조건이 다르다. |
 | Solution | Codex는 build/dev/mock fallback/code path를 검증하고, 실제 TMDB 성공 경로는 Founder Local QA 기준으로 확인한다. |
 | Preventive Rule | 외부 API 품질은 Codex PASS만으로 완료하지 않고 Founder Local QA 결과를 최종 Evidence로 기록한다. |
+
+### LL-006: Codex Mode는 이전 Task에서 상속하지 않는다
+
+| Field | Content |
+| --- | --- |
+| Lesson | Codex Mode는 Task별로 Model Family와 Reasoning Level을 다시 선택한다. |
+| Problem | Historical process incident: `5.6 Sol / 높음`이 성격이 다른 Task에도 반복 사용되며 universal default처럼 취급됐다. |
+| Cause | recent-pattern overgeneralization, 압축된 장기 context memory, mandatory canonical Mode preflight 부재. |
+| Solution | dedicated canonical Mode policy, Task Manifest enforcement, mandatory policy reread trigger를 도입했다. |
+| Preventive Rule | 이전 Task의 Codex Mode를 상속하지 않는다. 모든 Task에서 canonical policy를 기준으로 lowest sufficient Model Family와 Reasoning Level을 선택한다. |
+| Classification | PROCESS DEFECT. 개인 Agent를 비난하지 않는다. |
 
 ---
 
