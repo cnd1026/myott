@@ -2,6 +2,45 @@
 
 개발 과정에서의 작업 내용, 결정, 아쉬운 점, 다음 개선 사항을 날짜별로 기록합니다.
 
+## 2026-08-30 - Founder Re-QA Rationale and Option Copy Correction V1
+
+### Founder finding
+
+- 추천 이유의 문장 종결이 중복되거나 부자연스럽게 이어지는 문제가 있었습니다.
+- 실제 seed가 없는데도 `입력한 작품`을 근거로 주장하는 문구가 있었습니다.
+- 기본 추천 이유가 기계적으로 반복됐고, 시청 가능 여부나 정보 상태가 추천 이유처럼 사용됐습니다.
+- 추천 옵션 버튼의 idle copy를 더 명확하게 개선해 달라는 요청이 있었습니다.
+
+### Final Product correction
+
+- First Pick 문맥은 하위 추천 상태와 분리된 중립적·내재적 근거로 유지했습니다.
+- 실제 제출된 seed 근거가 있을 때만 seed/input 연결 문구를 허용하고, 그 외의 false input 주장은 제거했습니다.
+- 기본 추천 이유는 실제 콘텐츠 근거를 선택하며, 증거가 지원할 때 `runtime-genre`, `multi-genre`, `genre-range` 구조를 사용합니다.
+- 가용성 정보만으로 기본 Primary 추천 이유를 만들지 않습니다. 명시적으로 선택되고 실제 항목과 일치한 OTT만 보조 근거 후보가 될 수 있습니다.
+- 추천 옵션 idle copy를 `더 많은 옵션 선택하기`로 교정했고 selected-count copy는 유지했습니다.
+
+### Final QA / IR
+
+- Focused presentation: `27 / 27 PASS`
+- Safe recommendation test union: `65 / 65 PASS`
+- Content Type: `8 / 8 PASS`
+- Targeted deterministic rationale/OTT: `8 / 8 PASS`
+- Production build: `PASS`
+- `git diff --check`: `PASS`
+- REC-QA-091 selected/executed: `0 / 0`
+- Independent Review R3: `PASS`
+- Findings: CRITICAL `0`, MAJOR `0`, MINOR `1`
+- MINOR는 ignored candidate-local `node_modules` runtime artifact뿐이며 staging 및 commit 대상이 아닙니다.
+- 최종 6개 결과에서 exact duplicate는 `0`, dominant skeleton은 `2 / 6`, evidence-driven structural family는 `3`이었습니다.
+- Founder의 `사실상 문장이 거의 다 비슷` 지적은 `MATERIALLY RESOLVED`로 판정했고, 기본 추천 이유는 predominantly recommendation copy로 분류했습니다.
+
+### Preserved boundaries
+
+- Ranking, filtering, retrieval, Provider/TMDB contract는 변경하지 않았습니다.
+- First Pick freshness와 cross-surface dedupe는 변경하지 않았고, 현재 lifecycle 종료 뒤의 다음 승인된 Product Task로 유지합니다.
+- Production/Vercel mutation은 0이며 REC-QA-091은 `CLOSED / PRESERVED`, Track A는 unchanged입니다.
+- Founder final Product signoff는 아직 pending입니다.
+
 ## 2026-08-29 - Founder Production Re-QA Targeted UX Follow-up V1
 
 ### 교정한 범위

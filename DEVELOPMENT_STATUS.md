@@ -129,6 +129,16 @@ MyOTT is under active development. This public log summarizes externally safe mi
 - Established the operating rule that persistent Founder Preview `:3000` must not share its candidate worktree or `.next` state with another dev/build runtime. A second browser-QA or review runtime requires a physical shadow with independent runtime state; port separation alone is insufficient.
 - Kept `FIRST_PICK_REFRESH` as a separate Product enhancement requiring a Founder Gate. Production remains unchanged, and historical Type Expansion Track A remains completed/inconclusive with pair reproduction not evaluable and root cause unresolved.
 
+## 2026-08-30
+
+- Completed a Founder follow-up correction for the remaining recommendation-rationale quality findings after the prior targeted UX release.
+- Removed false input-based rationale claims and duplicated Korean sentence-ending composition defects, and changed the idle recommendation-option copy to `더 많은 옵션 선택하기` while preserving clear selected-count copy.
+- Default, no-input Primary recommendation reasons now use truthful intrinsic content evidence such as actual genres and runtime. Availability-only provider metadata is no longer used as the primary reason when an OTT service was not explicitly selected.
+- Kept First Pick rationale independent from lower recommendation state. Independent Review R3 passed with exact rationale duplicates at 0, a dominant normalized skeleton of 2/6, and three meaningful evidence-driven structural families.
+- Final six-result review found zero false-input, false-OTT, unsupported/provider-boilerplate, or malformed-ending findings.
+- Preserved retrieval, filtering, ranking, Provider, and request-budget semantics. First Pick freshness and top-vs-primary dedupe remain separate queued Product work and were not implemented here.
+- Production remains unchanged, and Founder final Product signoff has not yet been claimed.
+
 ## Maintenance policy going forward
 
 When meaningful development continues but a public product commit is delayed by QA, security, or release gates, MyOTT will publish a small public-safe maintenance signal when useful. That signal may be a status update, documentation commit, issue, or review artifact. Empty commits and fabricated activity are not part of this policy.

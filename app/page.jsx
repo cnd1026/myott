@@ -16,6 +16,7 @@ import {
   contentTypeMatchesSelection,
   dedupePrimaryDisplayTitles,
   presentationGenreLabels,
+  recommendationOptionButtonLabel,
   resolveCanonicalReasonSeed,
 } from "../src/lib/recommendation/presentation/recommendationPresentation.js";
 import {
@@ -462,7 +463,7 @@ function trustSignals(item, titles) {
   return [
     {
       label: "취향 연결",
-      value: titles.length ? "입력 작품 기준" : "선택 옵션 기준",
+      value: item.firstPick ? "먼저 살펴보는 작품" : titles.length ? "입력 작품 기준" : "선택 옵션 기준",
     },
     {
       label: "대표 장르",
@@ -2241,7 +2242,7 @@ export default function Home() {
               aria-describedby="recommendationOptionDescription"
               onClick={() => setShowQuickPick(true)}
             >
-              <span>{selectedQuickPicks.length ? `추천 옵션 ${selectedQuickPicks.length}개 선택` : "추천 옵션 선택"}</span>
+              <span>{recommendationOptionButtonLabel(selectedQuickPicks.length)}</span>
               <span className="condition-option-arrow" aria-hidden="true">›</span>
             </button>
           </section>
