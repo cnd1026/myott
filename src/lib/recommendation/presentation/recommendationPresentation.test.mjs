@@ -5,13 +5,16 @@ import {
   buildEvidenceGroundedDecisionReason,
   buildEvidenceGroundedDecisionReasons,
   buildEvidenceGroundedRecommendationReason,
+  buildBaselineSessionContext,
   buildSelectedOptionReason,
   buildFirstPickRecommendationReason,
   contentTypeMatchesSelection,
   dedupePrimaryDisplayTitles,
+  normalizeDisplayOttProviders,
   presentationGenreLabels,
   recommendationOptionButtonLabel,
   resolveCanonicalReasonSeed,
+  isBaselineRecommendationContext,
 } from "./recommendationPresentation.js";
 import {
   confirmSeedRow,
@@ -171,7 +174,7 @@ test("recommendation rationale stays truthful, varied, and deterministic across 
   assert.equal(new Set(first).size, 3);
   assert.match(first[0], /인터스텔라.*SF/);
   assert.match(first[1], /미래|우주|SF/);
-  assert.match(first[2], /영화 조건/);
+  assert.match(first[2], /인터스텔라|SF|미래|우주/);
   assert.doesNotMatch(first.join(" "), /인터(?:을|를) 좋아/);
   assert.doesNotMatch(first.join(" "), /요즘 인기|수상|관객|리뷰|트렌드/);
 });
@@ -213,14 +216,74 @@ test("default all-type state does not claim a focused type selection", () => {
   assert.doesNotMatch(reason, /드라마 조건에 맞춘 추천/);
 });
 
-test("focused type selection may be used as a truthful rationale", () => {
+test("top-level content type selection remains a baseline filter, not personalization", () => {
   const reason = buildEvidenceGroundedDecisionReason({
     providerMediaType: "tv",
     displayContentType: "drama",
     providerGenreIds: [18],
   }, { selectedTypes: ["drama"] });
 
-  assert.equal(reason, "드라마 조건에 맞춘 추천");
+  assert.doesNotMatch(reason, /드라마 조건에 맞춘 추천/);
+  assert.match(reason, /드라마/);
+});
+
+test("baseline session predicate treats OTT and top-level types as base filters", () => {
+  assert.equal(isBaselineRecommendationContext({
+    selectedTypes: ["movie", "drama", "animation"],
+  }), true);
+  assert.equal(isBaselineRecommendationContext({
+    selectedTypes: ["drama"],
+    selectedOtt: ["netflix"],
+  }), true);
+  assert.equal(isBaselineRecommendationContext({
+    selectedTypes: ["drama"],
+    selectedFilters: ["genre-horror"],
+  }), false);
+  assert.equal(isBaselineRecommendationContext({
+    titles: ["인터스텔라"],
+  }), false);
+});
+
+test("baseline session copy distinguishes pure default from base-filtered", () => {
+  assert.equal(buildBaselineSessionContext({
+    selectedTypes: ["movie", "drama", "animation"],
+  }), "추가 취향 정보가 없어 폭넓은 기본 추천을 보여드려요.");
+  assert.equal(buildBaselineSessionContext({
+    selectedTypes: ["movie", "drama", "animation"],
+    selectedOtt: ["netflix"],
+  }), "추가 취향 정보가 없어 선택한 기본 조건을 기준으로 추천했어요.");
+  assert.equal(buildBaselineSessionContext({
+    selectedTypes: ["drama"],
+  }), "추가 취향 정보가 없어 선택한 기본 조건을 기준으로 추천했어요.");
+  assert.equal(buildBaselineSessionContext({
+    selectedTypes: ["movie", "drama", "animation"],
+    selectedFilters: ["genre-horror"],
+  }), "");
+});
+
+test("baseline items retain distinct truthful evidence when their metadata differs", () => {
+  const reasons = buildEvidenceGroundedDecisionReasons([
+    { providerMediaType: "tv", displayContentType: "drama", providerGenreIds: [80, 18] },
+    { providerMediaType: "movie", displayContentType: "movie", providerGenreIds: [878, 12] },
+    { providerMediaType: "tv", displayContentType: "drama", providerGenreIds: [16, 10751, 35, 14] },
+  ], { selectedTypes: ["movie", "drama", "animation"] });
+
+  assert.equal(new Set(reasons).size, 3);
+  assert.match(reasons[0], /범죄·드라마/);
+  assert.match(reasons[1], /SF·모험/);
+  assert.match(reasons[2], /애니메이션|가족|코미디/);
+});
+
+test("default baseline has no false title or preference relationship claim", () => {
+  const reason = buildEvidenceGroundedRecommendationReason({
+    providerMediaType: "tv",
+    displayContentType: "drama",
+    providerGenreIds: [80, 18],
+    reason: "입력한 작품과 연결해 확인해볼 만한 실제 검색 결과입니다.",
+  }, { selectedTypes: ["movie", "drama", "animation"] });
+
+  assert.doesNotMatch(reason, /입력한 작품|입력한 취향/);
+  assert.doesNotMatch(reason, /드라마 조건에 맞춘 추천/);
 });
 
 test("generic provider boilerplate is suppressed while useful detail is retained", () => {
@@ -323,9 +386,9 @@ test("no-input primary rationales use diverse evidence-backed structures", () =>
     selectedTypes: ["movie", "drama", "animation"],
   });
   const structuralFamilies = reasons.map((reason) => {
-    if (reason.includes("시청 정보를 확인할 수 있는")) return "availability";
     if (reason.includes("장르를 넘나드는")) return "genre-range";
-    if (reason.includes(" 안에 ") && reason.includes(" 흐름을 담은 ")) return "runtime-genre";
+    if (reason.includes("장르가 함께 드러나는")) return "multi-genre";
+    if (reason.startsWith("평점 ")) return "rating";
     return "other";
   });
   const familyCounts = structuralFamilies.reduce((counts, family) => ({
@@ -394,6 +457,196 @@ test("explicit OTT match keeps intrinsic content as the primary rationale", () =
   assert.equal(reason, "범죄·드라마 장르가 함께 드러나는 드라마입니다.");
 });
 
+test("metadata-rich Netflix items never select the provider-only rationale", () => {
+  const reason = buildEvidenceGroundedDecisionReason({
+    title: "Walking Dead equivalent",
+    providerMediaType: "tv",
+    displayContentType: "drama",
+    providerGenreIds: [10759, 18, 10765],
+    ott: ["Netflix"],
+  }, {
+    selectedTypes: ["movie", "drama", "animation"],
+    selectedOtt: ["netflix"],
+  });
+
+  assert.equal(reason, "액션·모험·드라마 장르가 함께 드러나는 드라마입니다.");
+  assert.notEqual(reason, "선택한 OTT에서 볼 수 있는 작품 중 고른 추천");
+});
+
+test("provider-only rationale is not preferred over reusable intrinsic evidence", () => {
+  const reasons = buildEvidenceGroundedDecisionReasons([
+    ...Array.from({ length: 3 }, (_, index) => ({
+      providerContentId: `provider-reason-${index}`,
+      providerMediaType: "tv",
+      displayContentType: "drama",
+      providerGenreIds: [18, 80],
+      ott: ["Netflix"],
+    })),
+  ], {
+    selectedTypes: ["movie", "drama", "animation"],
+    selectedOtt: ["netflix"],
+  });
+
+  assert.equal(reasons.length, 3);
+  assert.ok(reasons.every((reason) => !reason.includes("선택한 OTT에서 볼 수 있는")));
+  assert.ok(reasons.every((reason) => /장르|평점|형식/.test(reason)));
+});
+
+test("displayed genre metadata is usable when provider ids are absent", () => {
+  const reason = buildEvidenceGroundedDecisionReason({
+    providerMediaType: "tv",
+    displayContentType: "drama",
+    genre: "액션·모험, 드라마, SF·판타지",
+    ott: ["Netflix"],
+  }, {
+    selectedTypes: ["movie", "drama", "animation"],
+    selectedOtt: ["netflix"],
+  });
+
+  assert.match(reason, /액션·모험·드라마 장르가 함께 드러나는 드라마입니다/);
+  assert.doesNotMatch(reason, /선택한 OTT에서 볼 수 있는/);
+});
+
+test("rating evidence outranks a type-only fallback", () => {
+  const reason = buildEvidenceGroundedDecisionReason({
+    providerMediaType: "tv",
+    displayContentType: "drama",
+    rating: 8.2,
+    ott: ["Netflix"],
+  }, {
+    selectedTypes: ["movie", "drama", "animation"],
+    selectedOtt: ["netflix"],
+  });
+
+  assert.equal(reason, "평점 8.2의 드라마입니다.");
+  assert.doesNotMatch(reason, /형식으로/);
+});
+
+test("rating-only movie and animation rationales use each existing type label once", () => {
+  const cases = [
+    ["movie", "영화"],
+    ["animation", "애니"],
+  ];
+
+  for (const [displayContentType, label] of cases) {
+    const reason = buildEvidenceGroundedDecisionReason({
+      providerMediaType: displayContentType === "movie" ? "movie" : "tv",
+      displayContentType,
+      rating: 8.2,
+      ott: ["Netflix"],
+    }, {
+      selectedTypes: [displayContentType],
+      selectedOtt: ["netflix"],
+    });
+
+    assert.equal(reason, `평점 8.2의 ${label}입니다.`);
+    assert.equal(reason.split(label).length - 1, 1);
+  }
+});
+
+test("metadata-sparse items keep a safe non-OTT fallback", () => {
+  const reason = buildEvidenceGroundedDecisionReason({
+    providerMediaType: "tv",
+    displayContentType: "drama",
+    ott: ["Netflix"],
+  }, {
+    selectedTypes: ["movie", "drama", "animation"],
+    selectedOtt: ["netflix"],
+  });
+
+  assert.equal(reason, "드라마 형식으로 만나볼 수 있는 작품입니다.");
+  assert.doesNotMatch(reason, /Netflix|선택한 OTT에서 볼 수 있는/);
+});
+
+test("type-only provider prose yields intrinsic evidence when metadata exists", () => {
+  const reasons = buildEvidenceGroundedDecisionReasons([
+    {
+      providerMediaType: "tv",
+      displayContentType: "drama",
+      genre: "SF·판타지, 드라마",
+      rating: "8.2",
+      reason: "드라마 형식으로 만나볼 수 있는 작품입니다.",
+    },
+    {
+      providerMediaType: "movie",
+      displayContentType: "movie",
+      genre: "공포, 스릴러",
+      rating: "8.2",
+      reason: "영화 형식으로 만나볼 수 있는 작품입니다.",
+    },
+  ], { selectedTypes: ["movie", "drama", "animation"] });
+
+  assert.match(reasons[0], /SF·판타지|드라마|평점/);
+  assert.match(reasons[1], /공포|스릴러|평점/);
+  assert.doesNotMatch(reasons.join(" "), /형식으로 만나볼 수 있는 작품입니다/);
+});
+
+test("Silo and Obsession-equivalent rich cards never regress to type-only after reason diversity is exhausted", () => {
+  const cardInputs = [
+    ["crime", "범죄, 액션, 스릴러", "8.8"],
+    ["drama", "범죄, 드라마, 미스터리", "8.4"],
+    ["animation", "애니메이션, 코미디, SF·판타지, 액션·모험", "8.7"],
+    ["movie", "드라마, 범죄", "8.7"],
+    ["drama", "범죄, 드라마, 코미디", "8.5"],
+    ["animation", "애니메이션, 액션, 판타지", "8.8"],
+    ["movie", "범죄, 드라마, 스릴러", "6.3"],
+    ["drama", "범죄, 드라마, 미스터리", "8.0"],
+    ["animation", "모험, 애니메이션, 가족, 판타지", "8.9"],
+    ["drama", "액션·모험, 미스터리", "8.2"],
+    ["movie", "가족, 애니메이션, SF, 모험", "8.3"],
+    ["drama", "액션·모험, 드라마, SF·판타지", "8.1"],
+  ].map(([type, genre, rating], index) => ({
+    providerContentId: `browser-equivalent-${index}`,
+    providerMediaType: type === "movie" ? "movie" : "tv",
+    displayContentType: type,
+    genre,
+    rating,
+    reason: `${type === "movie" ? "영화" : type === "animation" ? "애니" : "드라마"} 형식으로 만나볼 수 있는 작품입니다.`,
+  }));
+
+  const reasons = buildEvidenceGroundedDecisionReasons(cardInputs, {
+    selectedTypes: ["movie", "drama", "animation"],
+    selectedOtt: ["netflix"],
+  });
+
+  assert.equal(reasons.length, 12);
+  assert.doesNotMatch(reasons.join(" "), /형식으로 만나볼 수 있는 작품입니다/);
+  assert.match(reasons[7], /범죄|드라마|미스터리|평점/);
+  assert.match(reasons[10], /가족|애니메이션|SF|모험|평점/);
+});
+
+test("metadata-sparse cards retain the truthful type-only fallback", () => {
+  const [reason] = buildEvidenceGroundedDecisionReasons([{
+    providerContentId: "sparse-equivalent",
+    providerMediaType: "tv",
+    displayContentType: "drama",
+    reason: "드라마 형식으로 만나볼 수 있는 작품입니다.",
+  }], { selectedTypes: ["movie", "drama", "animation"] });
+
+  assert.equal(reason, "드라마 형식으로 만나볼 수 있는 작품입니다");
+});
+
+test("duplicate intrinsic family does not resurrect a rich item's type-only fallback", () => {
+  const reasons = buildEvidenceGroundedDecisionReasons([
+    {
+      providerMediaType: "tv",
+      displayContentType: "drama",
+      providerGenreIds: [80, 18],
+      reason: "범죄·드라마 장르가 함께 드러나는 드라마입니다.",
+    },
+    {
+      providerMediaType: "tv",
+      displayContentType: "drama",
+      genre: "범죄, 드라마",
+      rating: "8.1",
+      reason: "드라마 형식으로 만나볼 수 있는 작품입니다.",
+    },
+  ], { selectedTypes: ["movie", "drama", "animation"] });
+
+  assert.doesNotMatch(reasons[1], /형식으로 만나볼 수 있는 작품입니다/);
+  assert.match(reasons[1], /범죄|드라마|평점/);
+});
+
 test("explicit OTT nonmatch cannot claim availability", () => {
   const reason = buildEvidenceGroundedDecisionReason({
     providerMediaType: "tv",
@@ -407,6 +660,88 @@ test("explicit OTT nonmatch cannot claim availability", () => {
 
   assert.doesNotMatch(reason, /OTT|시청 정보를 확인할 수 있는/);
   assert.match(reason, /장르가 함께 드러나는/);
+});
+
+test("metadata-backed baseline reasons never fall back to generic filler", () => {
+  const reasons = buildEvidenceGroundedDecisionReasons([
+    { providerContentId: "metadata-1", providerMediaType: "tv", displayContentType: "drama", providerGenreIds: [18] },
+    { providerContentId: "metadata-2", providerMediaType: "movie", displayContentType: "movie", rating: 8.2 },
+    { providerContentId: "metadata-3", providerMediaType: "tv", displayContentType: "drama", providerGenreIds: [80, 9648] },
+  ], { selectedTypes: ["movie", "drama", "animation"] });
+
+  assert.equal(reasons.length, 3);
+  assert.ok(reasons.every((reason) => !/오늘 바로|기본 정보를 바탕으로/.test(reason)));
+});
+
+test("truthful item-specific rationale is reusable before generic fallback", () => {
+  const items = [1, 2].map((id) => ({
+    providerContentId: `same-detail-${id}`,
+    providerMediaType: "tv",
+    displayContentType: "drama",
+    reason: "인물 사이의 긴장을 따라갈 수 있는 작품입니다.",
+  }));
+  const reasons = buildEvidenceGroundedDecisionReasons(items, {
+    selectedTypes: ["movie", "drama", "animation"],
+  });
+
+  assert.deepEqual(reasons, [
+    "인물 사이의 긴장을 따라갈 수 있는 작품입니다",
+    "인물 사이의 긴장을 따라갈 수 있는 작품입니다",
+  ]);
+  assert.ok(reasons.every((reason) => !/오늘 바로|기본 정보를 바탕으로/.test(reason)));
+});
+
+test("runtime evidence stays hidden unless a runtime option is selected", () => {
+  const reason = buildEvidenceGroundedDecisionReason({
+    providerMediaType: "movie",
+    displayContentType: "movie",
+    runtimeMinutes: 47,
+    providerGenreIds: [],
+  }, { selectedTypes: ["movie"] });
+
+  assert.doesNotMatch(reason, /47분/);
+  assert.match(reason, /영화 형식/);
+});
+
+test("selected runtime options expose only the approved display buckets", () => {
+  const cases = [
+    ["runtime-short", "60분 이하", 47],
+    ["runtime-medium", "2시간 이하", 90],
+    ["runtime-long", "2시간 이상", 180],
+  ];
+
+  for (const [filter, bucket, runtimeMinutes] of cases) {
+    const reason = buildEvidenceGroundedDecisionReason({
+      providerMediaType: "movie",
+      displayContentType: "movie",
+      runtimeMinutes,
+      providerGenreIds: [],
+    }, { selectedTypes: ["movie"], selectedFilters: [filter] });
+
+    assert.match(reason, new RegExp(bucket));
+    assert.doesNotMatch(reason, new RegExp(`${runtimeMinutes}분`));
+  }
+});
+
+test("runtime-bearing item detail cannot leak exact minutes into rationale", () => {
+  const reason = buildEvidenceGroundedRecommendationReason({
+    providerMediaType: "tv",
+    displayContentType: "drama",
+    runtimeMinutes: 121,
+    providerGenreIds: [18],
+    reason: "121분 동안 이어지는 인물 관계의 긴장이 인상적인 작품입니다.",
+  }, { selectedTypes: ["drama"] });
+
+  assert.doesNotMatch(reason, /121분/);
+  assert.match(reason, /드라마/);
+});
+
+test("display OTT normalization merges only the explicit Netflix aliases", () => {
+  const rawProviders = ["Netflix Standard with Ads", "Netflix", "TVING", "Hulu"];
+  const normalized = normalizeDisplayOttProviders(rawProviders);
+
+  assert.deepEqual(normalized, ["Netflix", "TVING", "Hulu"]);
+  assert.deepEqual(rawProviders, ["Netflix Standard with Ads", "Netflix", "TVING", "Hulu"]);
 });
 
 test("option button copy exposes idle and selected states", () => {

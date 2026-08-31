@@ -171,6 +171,31 @@ function ConvertTo-FounderUtcDateTime {
   ).ToUniversalTime()
 }
 
+function Get-FounderProcessCreationIdentity {
+  param(
+    [Parameter(Mandatory = $true)]
+    $Value
+  )
+
+  return (ConvertTo-FounderUtcDateTime -Value $Value).Ticks
+}
+
+function Test-FounderProcessCreationIdentityEqual {
+  param(
+    [Parameter(Mandatory = $true)]
+    $Left,
+    [Parameter(Mandatory = $true)]
+    $Right
+  )
+
+  try {
+    return (Get-FounderProcessCreationIdentity -Value $Left) -eq
+      (Get-FounderProcessCreationIdentity -Value $Right)
+  } catch {
+    return $false
+  }
+}
+
 function Test-FounderPortCanBeAllocated {
   param(
     [Parameter(Mandatory = $true)]
@@ -249,6 +274,21 @@ function Get-FounderGitInfo {
   return [pscustomobject]$result
 }
 
+function Invoke-FounderGitUtf8 {
+  param(
+    [Parameter(Mandatory = $true)]
+    [string[]]$GitArguments
+  )
+
+  $previousOutputEncoding = [Console]::OutputEncoding
+  try {
+    [Console]::OutputEncoding = New-Object System.Text.UTF8Encoding($false)
+    return @(& git @GitArguments 2>$null)
+  } finally {
+    [Console]::OutputEncoding = $previousOutputEncoding
+  }
+}
+
 function Get-FounderGitRepositoryIdentity {
   param(
     [Parameter(Mandatory = $true)]
@@ -258,9 +298,21 @@ function Get-FounderGitRepositoryIdentity {
   $normalizedRepositoryPath = Normalize-FounderRepositoryPath -Path $RepositoryPath
   try {
     $safeDirectoryArgument = "safe.directory=$normalizedRepositoryPath"
-    $topLevel = (& git -c $safeDirectoryArgument -C $normalizedRepositoryPath rev-parse --path-format=absolute --show-toplevel 2>$null | Select-Object -First 1).Trim()
-    $commonDirectory = (& git -c $safeDirectoryArgument -C $normalizedRepositoryPath rev-parse --path-format=absolute --git-common-dir 2>$null | Select-Object -First 1).Trim()
-    $remote = (& git -c $safeDirectoryArgument -C $normalizedRepositoryPath config --get remote.origin.url 2>$null | Select-Object -First 1).Trim()
+    $topLevel = (Invoke-FounderGitUtf8 -GitArguments @(
+        '-c', $safeDirectoryArgument,
+        '-C', $normalizedRepositoryPath,
+        'rev-parse', '--path-format=absolute', '--show-toplevel'
+      ) | Select-Object -First 1).Trim()
+    $commonDirectory = (Invoke-FounderGitUtf8 -GitArguments @(
+        '-c', $safeDirectoryArgument,
+        '-C', $normalizedRepositoryPath,
+        'rev-parse', '--path-format=absolute', '--git-common-dir'
+      ) | Select-Object -First 1).Trim()
+    $remote = (Invoke-FounderGitUtf8 -GitArguments @(
+        '-c', $safeDirectoryArgument,
+        '-C', $normalizedRepositoryPath,
+        'config', '--get', 'remote.origin.url'
+      ) | Select-Object -First 1).Trim()
   } catch {
     return $null
   }
@@ -712,25 +764,651 @@ function Get-FounderListeners {
   }
 }
 
+function Initialize-FounderNativeProcessQuery {
+  if ($null -ne ('MyOttFounderPreviewProcessQuery' -as [type])) {
+    return $true
+  }
+
+  try {
+    Add-Type -TypeDefinition @'
+using System;
+using System.ComponentModel;
+using System.IO;
+using System.Runtime.InteropServices;
+using System.Text;
+
+public sealed class MyOttFounderPreviewProcessMetadata
+{
+    public int ProcessId { get; set; }
+    public int ParentProcessId { get; set; }
+    public string CommandLine { get; set; }
+    public string ExecutablePath { get; set; }
+    public DateTime CreationTimeUtc { get; set; }
+}
+
+public sealed class MyOttFounderPreviewTerminationLease : IDisposable
+{
+    private const uint WaitObject0 = 0;
+    private const uint WaitTimeout = 0x102;
+    private const uint WaitFailed = 0xFFFFFFFF;
+    private IntPtr process;
+
+    internal MyOttFounderPreviewTerminationLease(
+        IntPtr processHandle,
+        MyOttFounderPreviewProcessMetadata metadata)
+    {
+        process = processHandle;
+        Metadata = metadata;
+    }
+
+    public MyOttFounderPreviewProcessMetadata Metadata { get; private set; }
+    public bool IsDisposed { get { return process == IntPtr.Zero; } }
+
+    [DllImport("kernel32.dll", SetLastError = true)]
+    private static extern bool CloseHandle(IntPtr handle);
+
+    [DllImport("kernel32.dll", SetLastError = true)]
+    private static extern bool TerminateProcess(IntPtr processHandle, uint exitCode);
+
+    [DllImport("kernel32.dll", SetLastError = true)]
+    private static extern uint WaitForSingleObject(IntPtr handle, uint milliseconds);
+
+    public string TerminateIfRunning(uint exitCode)
+    {
+        if (process == IntPtr.Zero)
+        {
+            throw new ObjectDisposedException("MyOttFounderPreviewTerminationLease");
+        }
+
+        uint waitResult = WaitForSingleObject(process, 0);
+        if (waitResult == WaitObject0)
+        {
+            return "ALREADY_EXITED";
+        }
+        if (waitResult == WaitFailed)
+        {
+            throw new Win32Exception(Marshal.GetLastWin32Error());
+        }
+        if (waitResult != WaitTimeout)
+        {
+            throw new InvalidOperationException("Unexpected process wait result.");
+        }
+
+        if (TerminateProcess(process, exitCode))
+        {
+            return "TERMINATED";
+        }
+
+        int terminateError = Marshal.GetLastWin32Error();
+        waitResult = WaitForSingleObject(process, 0);
+        if (waitResult == WaitObject0)
+        {
+            return "ALREADY_EXITED";
+        }
+        throw new Win32Exception(terminateError);
+    }
+
+    public void Dispose()
+    {
+        IntPtr handle = process;
+        process = IntPtr.Zero;
+        if (handle != IntPtr.Zero && !CloseHandle(handle))
+        {
+            throw new Win32Exception(Marshal.GetLastWin32Error());
+        }
+        GC.SuppressFinalize(this);
+    }
+}
+
+public static class MyOttFounderPreviewProcessQuery
+{
+    private const uint ProcessTerminate = 0x0001;
+    private const uint ProcessQueryLimitedInformation = 0x1000;
+    private const uint Synchronize = 0x00100000;
+    private const int ProcessBasicInformation = 0;
+    private const int ProcessCommandLineInformation = 60;
+
+    [StructLayout(LayoutKind.Sequential)]
+    private struct ProcessBasicInformationData
+    {
+        public IntPtr Reserved1;
+        public IntPtr PebBaseAddress;
+        public IntPtr Reserved2_0;
+        public IntPtr Reserved2_1;
+        public IntPtr UniqueProcessId;
+        public IntPtr InheritedFromUniqueProcessId;
+    }
+
+    [StructLayout(LayoutKind.Sequential)]
+    private struct UnicodeString
+    {
+        public ushort Length;
+        public ushort MaximumLength;
+        public IntPtr Buffer;
+    }
+
+    [StructLayout(LayoutKind.Sequential)]
+    private struct FileTime
+    {
+        public uint Low;
+        public uint High;
+    }
+
+    [DllImport("kernel32.dll", SetLastError = true)]
+    private static extern IntPtr OpenProcess(uint desiredAccess, bool inheritHandle, int processId);
+
+    [DllImport("kernel32.dll", SetLastError = true)]
+    private static extern bool CloseHandle(IntPtr handle);
+
+    [DllImport("shell32.dll", CharSet = CharSet.Unicode, SetLastError = true)]
+    private static extern IntPtr CommandLineToArgvW(string commandLine, out int argumentCount);
+
+    [DllImport("kernel32.dll", SetLastError = true)]
+    private static extern IntPtr LocalFree(IntPtr memory);
+
+    [DllImport("kernel32.dll", SetLastError = true)]
+    private static extern bool GetProcessTimes(
+        IntPtr process,
+        out FileTime creation,
+        out FileTime exit,
+        out FileTime kernel,
+        out FileTime user);
+
+    [DllImport("kernel32.dll", CharSet = CharSet.Unicode, SetLastError = true)]
+    private static extern bool QueryFullProcessImageName(
+        IntPtr process,
+        int flags,
+        StringBuilder executablePath,
+        ref int size);
+
+    [DllImport("ntdll.dll")]
+    private static extern int NtQueryInformationProcess(
+        IntPtr process,
+        int informationClass,
+        IntPtr information,
+        int informationLength,
+        out int returnLength);
+
+    public static MyOttFounderPreviewProcessMetadata Query(int processId)
+    {
+        IntPtr process = OpenProcess(ProcessQueryLimitedInformation, false, processId);
+        if (process == IntPtr.Zero)
+        {
+            throw new Win32Exception(Marshal.GetLastWin32Error());
+        }
+
+        try
+        {
+            return QueryFromHandle(process, processId);
+        }
+        finally
+        {
+            CloseHandle(process);
+        }
+    }
+
+    public static MyOttFounderPreviewTerminationLease AcquireTerminationLease(int processId)
+    {
+        uint access = ProcessQueryLimitedInformation | ProcessTerminate | Synchronize;
+        IntPtr process = OpenProcess(access, false, processId);
+        if (process == IntPtr.Zero)
+        {
+            throw new Win32Exception(Marshal.GetLastWin32Error());
+        }
+
+        try
+        {
+            MyOttFounderPreviewProcessMetadata metadata = QueryFromHandle(process, processId);
+            MyOttFounderPreviewTerminationLease lease =
+                new MyOttFounderPreviewTerminationLease(process, metadata);
+            process = IntPtr.Zero;
+            return lease;
+        }
+        finally
+        {
+            if (process != IntPtr.Zero && !CloseHandle(process))
+            {
+                throw new Win32Exception(Marshal.GetLastWin32Error());
+            }
+        }
+    }
+
+    public static string[] ParseCommandLine(string commandLine)
+    {
+        if (String.IsNullOrWhiteSpace(commandLine) ||
+            commandLine.Length > 32767 ||
+            commandLine.IndexOf('\0') >= 0 ||
+            !HasBalancedNativeQuotes(commandLine))
+        {
+            throw new InvalidOperationException("Process command line is malformed.");
+        }
+
+        int argumentCount;
+        IntPtr argumentVector = CommandLineToArgvW(commandLine, out argumentCount);
+        if (argumentVector == IntPtr.Zero)
+        {
+            throw new Win32Exception(Marshal.GetLastWin32Error());
+        }
+
+        string[] arguments = null;
+        try
+        {
+            if (argumentCount <= 0 || argumentCount > 256)
+            {
+                throw new InvalidOperationException("Process argument count is outside the accepted bound.");
+            }
+
+            arguments = new string[argumentCount];
+            for (int index = 0; index < argumentCount; index++)
+            {
+                IntPtr argumentPointer = Marshal.ReadIntPtr(
+                    argumentVector,
+                    index * IntPtr.Size);
+                if (argumentPointer == IntPtr.Zero)
+                {
+                    throw new InvalidOperationException("Process argument pointer is unavailable.");
+                }
+                string argument = Marshal.PtrToStringUni(argumentPointer);
+                if (argument == null)
+                {
+                    throw new InvalidOperationException("Process argument is unavailable.");
+                }
+                arguments[index] = argument;
+            }
+        }
+        finally
+        {
+            if (LocalFree(argumentVector) != IntPtr.Zero)
+            {
+                throw new InvalidOperationException("Native argument memory could not be released.");
+            }
+        }
+        return arguments;
+    }
+
+    public static bool IsOwnershipCommandLineUnambiguous(string commandLine)
+    {
+        if (String.IsNullOrWhiteSpace(commandLine) ||
+            commandLine.Length > 32767 ||
+            commandLine.IndexOf('\0') >= 0)
+        {
+            return false;
+        }
+
+        bool inQuotes = false;
+        for (int index = 0; index < commandLine.Length; index++)
+        {
+            if (commandLine[index] != '"')
+            {
+                continue;
+            }
+
+            int precedingBackslashes = 0;
+            for (int cursor = index - 1; cursor >= 0 && commandLine[cursor] == '\\'; cursor--)
+            {
+                precedingBackslashes++;
+            }
+            if (precedingBackslashes % 2 != 0)
+            {
+                return false;
+            }
+
+            if (!inQuotes)
+            {
+                bool validOpening = index == 0 ||
+                    Char.IsWhiteSpace(commandLine[index - 1]) ||
+                    commandLine[index - 1] == '=';
+                if (!validOpening)
+                {
+                    return false;
+                }
+                inQuotes = true;
+            }
+            else
+            {
+                bool validClosing = index == commandLine.Length - 1 ||
+                    Char.IsWhiteSpace(commandLine[index + 1]);
+                if (!validClosing)
+                {
+                    return false;
+                }
+                inQuotes = false;
+            }
+        }
+        return !inQuotes;
+    }
+
+    private static bool HasBalancedNativeQuotes(string commandLine)
+    {
+        bool inQuotes = false;
+        int consecutiveBackslashes = 0;
+        for (int index = 0; index < commandLine.Length; index++)
+        {
+            char character = commandLine[index];
+            if (character == '\\')
+            {
+                consecutiveBackslashes++;
+                continue;
+            }
+            if (character == '"' && consecutiveBackslashes % 2 == 0)
+            {
+                inQuotes = !inQuotes;
+            }
+            consecutiveBackslashes = 0;
+        }
+        return !inQuotes;
+    }
+
+    private static MyOttFounderPreviewProcessMetadata QueryFromHandle(IntPtr process, int processId)
+    {
+        ProcessBasicInformationData basic = QueryBasicInformation(process);
+        if (basic.UniqueProcessId.ToInt64() != processId ||
+            basic.InheritedFromUniqueProcessId.ToInt64() <= 0)
+        {
+            throw new InvalidOperationException("Process identity or parent identity is unavailable.");
+        }
+
+        string commandLine = QueryCommandLine(process);
+        if (String.IsNullOrWhiteSpace(commandLine))
+        {
+            throw new InvalidOperationException("Process command line is unavailable.");
+        }
+
+        FileTime creation;
+        FileTime exit;
+        FileTime kernel;
+        FileTime user;
+        if (!GetProcessTimes(process, out creation, out exit, out kernel, out user))
+        {
+            throw new Win32Exception(Marshal.GetLastWin32Error());
+        }
+
+        long creationFileTime = ((long)creation.High << 32) | creation.Low;
+        StringBuilder executablePath = new StringBuilder(32768);
+        int executablePathLength = executablePath.Capacity;
+        if (!QueryFullProcessImageName(process, 0, executablePath, ref executablePathLength))
+        {
+            throw new Win32Exception(Marshal.GetLastWin32Error());
+        }
+
+        return new MyOttFounderPreviewProcessMetadata
+        {
+            ProcessId = processId,
+            ParentProcessId = basic.InheritedFromUniqueProcessId.ToInt32(),
+            CommandLine = commandLine,
+            ExecutablePath = executablePath.ToString(),
+            CreationTimeUtc = DateTime.FromFileTimeUtc(creationFileTime)
+        };
+    }
+
+    private static ProcessBasicInformationData QueryBasicInformation(IntPtr process)
+    {
+        int size = Marshal.SizeOf(typeof(ProcessBasicInformationData));
+        IntPtr buffer = Marshal.AllocHGlobal(size);
+        try
+        {
+            int returnLength;
+            int status = NtQueryInformationProcess(
+                process,
+                ProcessBasicInformation,
+                buffer,
+                size,
+                out returnLength);
+            if (status < 0)
+            {
+                throw new InvalidOperationException("Process basic information query failed.");
+            }
+            return (ProcessBasicInformationData)Marshal.PtrToStructure(
+                buffer,
+                typeof(ProcessBasicInformationData));
+        }
+        finally
+        {
+            Marshal.FreeHGlobal(buffer);
+        }
+    }
+
+    private static string QueryCommandLine(IntPtr process)
+    {
+        int requiredLength;
+        NtQueryInformationProcess(
+            process,
+            ProcessCommandLineInformation,
+            IntPtr.Zero,
+            0,
+            out requiredLength);
+        if (requiredLength <= 0)
+        {
+            throw new InvalidOperationException("Process command line size is unavailable.");
+        }
+
+        IntPtr buffer = Marshal.AllocHGlobal(requiredLength);
+        try
+        {
+            int returnLength;
+            int status = NtQueryInformationProcess(
+                process,
+                ProcessCommandLineInformation,
+                buffer,
+                requiredLength,
+                out returnLength);
+            if (status < 0)
+            {
+                throw new InvalidOperationException("Process command line query failed.");
+            }
+
+            UnicodeString value = (UnicodeString)Marshal.PtrToStructure(
+                buffer,
+                typeof(UnicodeString));
+            if (value.Buffer == IntPtr.Zero || value.Length == 0 || value.Length % 2 != 0)
+            {
+                throw new InvalidOperationException("Process command line result is malformed.");
+            }
+            return Marshal.PtrToStringUni(value.Buffer, value.Length / 2);
+        }
+        finally
+        {
+            Marshal.FreeHGlobal(buffer);
+        }
+    }
+}
+'@ -ErrorAction Stop
+    return $null -ne ('MyOttFounderPreviewProcessQuery' -as [type])
+  } catch {
+    return $false
+  }
+}
+
+function Get-FounderNativeProcessMetadata {
+  param(
+    [Parameter(Mandatory = $true)]
+    [int]$ProcessId
+  )
+
+  if (-not (Initialize-FounderNativeProcessQuery)) {
+    return $null
+  }
+  try {
+    return [MyOttFounderPreviewProcessQuery]::Query($ProcessId)
+  } catch {
+    return $null
+  }
+}
+
+function Merge-FounderProcessMetadataSources {
+  param(
+    [Parameter(Mandatory = $true)]
+    [int]$ExpectedProcessId,
+    [AllowNull()]
+    $CimProcess,
+    [AllowNull()]
+    $RuntimeProcess,
+    [AllowNull()]
+    $NativeProcess
+  )
+
+  try {
+    $availableSources = @()
+    $processIds = @()
+    if ($null -ne $CimProcess) {
+      $availableSources += 'CIM'
+      $processIds += [int](Get-FounderPropertyValue -Object $CimProcess -Name 'ProcessId' -DefaultValue 0)
+    }
+    if ($null -ne $RuntimeProcess) {
+      $availableSources += 'GET_PROCESS'
+      $processIds += [int](Get-FounderPropertyValue -Object $RuntimeProcess -Name 'Id' -DefaultValue 0)
+    }
+    if ($null -ne $NativeProcess) {
+      $availableSources += 'NATIVE_QUERY'
+      $processIds += [int](Get-FounderPropertyValue -Object $NativeProcess -Name 'ProcessId' -DefaultValue 0)
+    }
+    if ($availableSources.Count -lt 2 -or
+      @($processIds | Where-Object { $_ -ne $ExpectedProcessId }).Count -gt 0) {
+      return $null
+    }
+
+    $parentIds = @()
+    $commandLines = @()
+    $executablePaths = @()
+    $startTimes = @()
+    if ($null -ne $CimProcess) {
+      $parentIds += [int](Get-FounderPropertyValue -Object $CimProcess -Name 'ParentProcessId' -DefaultValue 0)
+      $commandLines += [string](Get-FounderPropertyValue -Object $CimProcess -Name 'CommandLine' -DefaultValue '')
+      $cimPath = [string](Get-FounderPropertyValue -Object $CimProcess -Name 'ExecutablePath' -DefaultValue '')
+      if (-not [string]::IsNullOrWhiteSpace($cimPath)) { $executablePaths += $cimPath }
+    }
+    if ($null -ne $RuntimeProcess) {
+      $runtimePath = [string](Get-FounderPropertyValue -Object $RuntimeProcess -Name 'Path' -DefaultValue '')
+      if (-not [string]::IsNullOrWhiteSpace($runtimePath)) { $executablePaths += $runtimePath }
+      $startTimes += ConvertTo-FounderUtcDateTime `
+        -Value (Get-FounderPropertyValue -Object $RuntimeProcess -Name 'StartTime' -DefaultValue $null)
+    }
+    if ($null -ne $NativeProcess) {
+      $parentIds += [int](Get-FounderPropertyValue -Object $NativeProcess -Name 'ParentProcessId' -DefaultValue 0)
+      $commandLines += [string](Get-FounderPropertyValue -Object $NativeProcess -Name 'CommandLine' -DefaultValue '')
+      $nativePath = [string](Get-FounderPropertyValue -Object $NativeProcess -Name 'ExecutablePath' -DefaultValue '')
+      if (-not [string]::IsNullOrWhiteSpace($nativePath)) { $executablePaths += $nativePath }
+      $startTimes += ConvertTo-FounderUtcDateTime `
+        -Value (Get-FounderPropertyValue -Object $NativeProcess -Name 'CreationTimeUtc' -DefaultValue $null)
+    }
+
+    if ($parentIds.Count -eq 0 -or @($parentIds | Where-Object { $_ -le 0 }).Count -gt 0 -or
+      @($parentIds | Select-Object -Unique).Count -ne 1) {
+      return $null
+    }
+    if ($commandLines.Count -eq 0 -or @($commandLines | Where-Object { [string]::IsNullOrWhiteSpace($_) }).Count -gt 0) {
+      return $null
+    }
+    $expectedCommandLine = [string]$commandLines[0]
+    foreach ($commandLine in $commandLines) {
+      if (-not [string]::Equals($expectedCommandLine, [string]$commandLine, [System.StringComparison]::Ordinal)) {
+        return $null
+      }
+    }
+    if ($startTimes.Count -lt 2) {
+      return $null
+    }
+    $expectedStartTime = [datetime]$startTimes[0]
+    foreach ($startTime in $startTimes) {
+      if (-not (Test-FounderProcessCreationIdentityEqual -Left $expectedStartTime -Right $startTime)) {
+        return $null
+      }
+    }
+    if ($executablePaths.Count -eq 0) {
+      return $null
+    }
+    $expectedExecutablePath = Normalize-FounderRepositoryPath -Path ([string]$executablePaths[0])
+    foreach ($executablePath in $executablePaths) {
+      if (-not [string]::Equals(
+          $expectedExecutablePath,
+          (Normalize-FounderRepositoryPath -Path ([string]$executablePath)),
+          [System.StringComparison]::OrdinalIgnoreCase
+        )) {
+        return $null
+      }
+    }
+
+    $name = if ($null -ne $CimProcess) {
+      [string](Get-FounderPropertyValue -Object $CimProcess -Name 'Name' -DefaultValue '')
+    } elseif ($null -ne $RuntimeProcess) {
+      [string](Get-FounderPropertyValue -Object $RuntimeProcess -Name 'ProcessName' -DefaultValue '')
+    } else {
+      [System.IO.Path]::GetFileName($expectedExecutablePath)
+    }
+
+    return [pscustomobject]@{
+      ProcessId = $ExpectedProcessId
+      ParentProcessId = [int]$parentIds[0]
+      Name = $name
+      ExecutablePath = $expectedExecutablePath
+      CommandLine = $expectedCommandLine
+      StartTime = $expectedStartTime.ToUniversalTime().ToString('o')
+      MetadataSources = @($availableSources)
+    }
+  } catch {
+    return $null
+  }
+}
+
 function Get-FounderProcessMetadata {
   param(
     [Parameter(Mandatory = $true)]
     [int]$ProcessId
   )
 
+  $cimProcess = $null
+  $runtimeProcess = $null
+  $nativeProcess = $null
+  try { $cimProcess = Get-CimInstance Win32_Process -Filter "ProcessId=$ProcessId" -ErrorAction Stop } catch {}
+  try { $runtimeProcess = Get-Process -Id $ProcessId -ErrorAction Stop } catch {}
+  $nativeProcess = Get-FounderNativeProcessMetadata -ProcessId $ProcessId
+
+  return Merge-FounderProcessMetadataSources `
+    -ExpectedProcessId $ProcessId `
+    -CimProcess $cimProcess `
+    -RuntimeProcess $runtimeProcess `
+    -NativeProcess $nativeProcess
+}
+
+function Test-FounderProcessMetadataIdentity {
+  param(
+    [AllowNull()]
+    $Expected,
+    [AllowNull()]
+    $Observed
+  )
+
+  if ($null -eq $Expected -or $null -eq $Observed) {
+    return $false
+  }
+
   try {
-    $cimProcess = Get-CimInstance Win32_Process -Filter "ProcessId=$ProcessId" -ErrorAction Stop
-    $runtimeProcess = Get-Process -Id $ProcessId -ErrorAction Stop
-    return [pscustomobject]@{
-      ProcessId = [int]$cimProcess.ProcessId
-      ParentProcessId = [int]$cimProcess.ParentProcessId
-      Name = [string]$cimProcess.Name
-      ExecutablePath = [string]$cimProcess.ExecutablePath
-      CommandLine = [string]$cimProcess.CommandLine
-      StartTime = $runtimeProcess.StartTime.ToUniversalTime().ToString('o')
+    if ([int]$Expected.ProcessId -le 0 -or
+      [int]$Expected.ProcessId -ne [int]$Observed.ProcessId -or
+      [int]$Expected.ParentProcessId -le 0 -or
+      [int]$Expected.ParentProcessId -ne [int]$Observed.ParentProcessId) {
+      return $false
     }
+
+    $expectedCommandLine = [string]$Expected.CommandLine
+    $observedCommandLine = [string]$Observed.CommandLine
+    if ([string]::IsNullOrWhiteSpace($expectedCommandLine) -or
+      [string]::IsNullOrWhiteSpace($observedCommandLine) -or
+      -not [string]::Equals($expectedCommandLine, $observedCommandLine, [System.StringComparison]::Ordinal)) {
+      return $false
+    }
+
+    $expectedPath = Normalize-FounderRepositoryPath -Path ([string]$Expected.ExecutablePath)
+    $observedPath = Normalize-FounderRepositoryPath -Path ([string]$Observed.ExecutablePath)
+    if ([string]::IsNullOrWhiteSpace($expectedPath) -or
+      [string]::IsNullOrWhiteSpace($observedPath) -or
+      -not [string]::Equals($expectedPath, $observedPath, [System.StringComparison]::OrdinalIgnoreCase)) {
+      return $false
+    }
+
+    return Test-FounderProcessCreationIdentityEqual -Left $Expected.StartTime -Right $Observed.StartTime
   } catch {
-    return $null
+    return $false
   }
 }
 
@@ -762,38 +1440,77 @@ function Get-FounderProcessAncestors {
   return $ancestors
 }
 
+function Get-FounderProcessDescendantRelationships {
+  param(
+    [Parameter(Mandatory = $true)]
+    [int]$ProcessId,
+    [Parameter(Mandatory = $true)]
+    [AllowEmptyCollection()]
+    [object[]]$ProcessSnapshot
+  )
+
+  $relationships = @()
+  $queue = New-Object System.Collections.Queue
+  $queue.Enqueue([pscustomobject]@{ ProcessId = $ProcessId; Depth = 0 })
+  $seen = @{}
+  while ($queue.Count -gt 0) {
+    $current = $queue.Dequeue()
+    foreach ($child in @($ProcessSnapshot | Where-Object { [int]$_.ParentProcessId -eq [int]$current.ProcessId })) {
+      $childId = [int]$child.ProcessId
+      if ($childId -le 0 -or $seen.ContainsKey($childId)) {
+        continue
+      }
+      $seen[$childId] = $true
+      $relationship = [pscustomobject]@{
+        ProcessId = $childId
+        Depth = [int]$current.Depth + 1
+      }
+      $relationships += $relationship
+      $queue.Enqueue($relationship)
+    }
+  }
+  return @($relationships)
+}
+
+function Get-FounderProcessParentSnapshot {
+  try {
+    return @(Get-CimInstance Win32_Process -ErrorAction Stop | ForEach-Object {
+        [pscustomobject]@{
+          ProcessId = [int]$_.ProcessId
+          ParentProcessId = [int]$_.ParentProcessId
+        }
+      })
+  } catch {
+    $snapshot = @()
+    foreach ($runtimeProcess in @(Get-Process -ErrorAction SilentlyContinue)) {
+      $nativeProcess = Get-FounderNativeProcessMetadata -ProcessId ([int]$runtimeProcess.Id)
+      if ($null -ne $nativeProcess) {
+        $snapshot += [pscustomobject]@{
+          ProcessId = [int]$nativeProcess.ProcessId
+          ParentProcessId = [int]$nativeProcess.ParentProcessId
+        }
+      }
+    }
+    return @($snapshot)
+  }
+}
+
 function Get-FounderProcessDescendants {
   param(
     [Parameter(Mandatory = $true)]
     [int]$ProcessId
   )
 
-  $allProcesses = @()
-  try {
-    $allProcesses = @(Get-CimInstance Win32_Process -ErrorAction Stop)
-  } catch {
-    return @()
-  }
+  $allProcesses = @(Get-FounderProcessParentSnapshot)
+  if ($allProcesses.Count -eq 0) { return @() }
 
   $descendants = @()
-  $queue = New-Object System.Collections.Queue
-  $queue.Enqueue([pscustomobject]@{ ProcessId = $ProcessId; Depth = 0 })
-  $seen = @{}
-  while ($queue.Count -gt 0) {
-    $current = $queue.Dequeue()
-    foreach ($child in @($allProcesses | Where-Object { [int]$_.ParentProcessId -eq [int]$current.ProcessId })) {
-      $childId = [int]$child.ProcessId
-      if ($seen.ContainsKey($childId)) {
-        continue
-      }
-      $seen[$childId] = $true
-      $metadata = Get-FounderProcessMetadata -ProcessId $childId
-      if ($null -ne $metadata) {
-        $descendants += [pscustomobject]@{
-          Metadata = $metadata
-          Depth = [int]$current.Depth + 1
-        }
-        $queue.Enqueue([pscustomobject]@{ ProcessId = $childId; Depth = [int]$current.Depth + 1 })
+  foreach ($relationship in @(Get-FounderProcessDescendantRelationships -ProcessId $ProcessId -ProcessSnapshot $allProcesses)) {
+    $metadata = Get-FounderProcessMetadata -ProcessId ([int]$relationship.ProcessId)
+    if ($null -ne $metadata) {
+      $descendants += [pscustomobject]@{
+        Metadata = $metadata
+        Depth = [int]$relationship.Depth
       }
     }
   }
@@ -830,40 +1547,19 @@ function ConvertFrom-FounderWindowsCommandLine {
     return [pscustomobject]@{ Success = $false; Tokens = @() }
   }
 
-  $tokens = New-Object System.Collections.Generic.List[string]
-  $builder = New-Object System.Text.StringBuilder
-  $inQuotes = $false
-  $tokenStarted = $false
-  for ($index = 0; $index -lt $CommandLine.Length; $index++) {
-    $character = $CommandLine[$index]
-    if ($character -eq '"') {
-      $inQuotes = -not $inQuotes
-      $tokenStarted = $true
-      continue
-    }
-    if ([char]::IsWhiteSpace($character) -and -not $inQuotes) {
-      if ($tokenStarted) {
-        $tokens.Add($builder.ToString())
-        [void]$builder.Clear()
-        $tokenStarted = $false
-      }
-      continue
-    }
-    [void]$builder.Append($character)
-    $tokenStarted = $true
-  }
-
-  if ($inQuotes) {
-    return [pscustomobject]@{ Success = $false; Tokens = @() }
-  }
-  if ($tokenStarted) {
-    $tokens.Add($builder.ToString())
-  }
-  if ($tokens.Count -eq 0 -or @($tokens | Where-Object { [string]::IsNullOrWhiteSpace($_) }).Count -gt 0) {
+  if (-not (Initialize-FounderNativeProcessQuery)) {
     return [pscustomobject]@{ Success = $false; Tokens = @() }
   }
 
-  return [pscustomobject]@{ Success = $true; Tokens = @($tokens) }
+  try {
+    $tokens = @([MyOttFounderPreviewProcessQuery]::ParseCommandLine($CommandLine))
+    if ($tokens.Count -eq 0) {
+      return [pscustomobject]@{ Success = $false; Tokens = @() }
+    }
+    return [pscustomobject]@{ Success = $true; Tokens = @($tokens) }
+  } catch {
+    return [pscustomobject]@{ Success = $false; Tokens = @() }
+  }
 }
 
 function Test-FounderOfficialNextCliPath {
@@ -916,6 +1612,16 @@ function Get-FounderCanonicalNextDevCommand {
     DevSubcommand = ''
     ApplicationDirectory = ''
     ApplicationMatchesTarget = $false
+  }
+  if (-not (Initialize-FounderNativeProcessQuery)) {
+    return [pscustomobject]$result
+  }
+  try {
+    if (-not [MyOttFounderPreviewProcessQuery]::IsOwnershipCommandLineUnambiguous($CommandLine)) {
+      return [pscustomobject]$result
+    }
+  } catch {
+    return [pscustomobject]$result
   }
   $parsed = ConvertFrom-FounderWindowsCommandLine -CommandLine $CommandLine
   if (-not $parsed.Success -or $parsed.Tokens.Count -lt 4) {
@@ -1006,6 +1712,27 @@ function Test-FounderCommandLooksLikeDevServer {
   return [bool]$canonicalCommand.IsCanonical
 }
 
+function Test-FounderApprovedNodeExecutable {
+  param(
+    [AllowNull()]
+    [string]$ExecutablePath,
+    [Parameter(Mandatory = $true)]
+    [string]$RepositoryPath
+  )
+
+  if ([string]::IsNullOrWhiteSpace($ExecutablePath)) {
+    return $false
+  }
+  try {
+    $runtime = Resolve-FounderRuntime -RepositoryPath $RepositoryPath
+    return Test-FounderRepositoryPathEqual `
+      -Left $ExecutablePath `
+      -Right $runtime.NodeExecutable
+  } catch {
+    return $false
+  }
+}
+
 function Test-FounderProcessChainRelationship {
   param(
     [Parameter(Mandatory = $true)]
@@ -1028,6 +1755,16 @@ function Test-FounderProcessChainRelationship {
     }
     if ($index + 1 -ge $Chain.Count -or
       [int]$current.ParentProcessId -ne [int]$Chain[$index + 1].ProcessId) {
+      return $false
+    }
+
+    try {
+      $childStartTime = ConvertTo-FounderUtcDateTime -Value $current.StartTime
+      $parentStartTime = ConvertTo-FounderUtcDateTime -Value $Chain[$index + 1].StartTime
+      if ($parentStartTime.Ticks -gt $childStartTime.Ticks) {
+        return $false
+      }
+    } catch {
       return $false
     }
   }
@@ -1060,6 +1797,7 @@ function Get-FounderProcessOwnershipFromChain {
 
   $referencesRepository = $false
   $looksLikeDevServer = $false
+  $canonicalExecutableMismatch = $false
   $provingProcess = $null
   foreach ($process in $Chain) {
     $repositoryTextProof = Test-FounderCommandLineReferencesRepository `
@@ -1070,9 +1808,14 @@ function Get-FounderProcessOwnershipFromChain {
       -RepositoryPath $RepositoryPath
     $repositoryProof = [bool]$canonicalCommand.ApplicationMatchesTarget
     $nextProof = [bool]$canonicalCommand.IsCanonical
+    $executableProof = Test-FounderApprovedNodeExecutable `
+      -ExecutablePath ([string]$process.ExecutablePath) `
+      -RepositoryPath $RepositoryPath
     $referencesRepository = $referencesRepository -or $repositoryTextProof
     $looksLikeDevServer = $looksLikeDevServer -or $nextProof
-    if ($repositoryProof -and $nextProof) {
+    $canonicalExecutableMismatch = $canonicalExecutableMismatch -or
+      ($repositoryProof -and $nextProof -and -not $executableProof)
+    if ($repositoryProof -and $nextProof -and $executableProof) {
       $provingProcess = $process
       break
     }
@@ -1089,6 +1832,8 @@ function Get-FounderProcessOwnershipFromChain {
     $reason = 'single-process-repository-path-and-next-dev-confirmed'
   } elseif ($null -ne $provingProcess) {
     $reason = 'listener-ancestry-to-proving-process-unverified'
+  } elseif ($canonicalExecutableMismatch) {
+    $reason = 'canonical-command-executable-mismatch'
   } elseif ($referencesRepository -and $looksLikeDevServer) {
     $reason = 'split-process-repository-and-next-dev-evidence-rejected'
   } elseif ($referencesRepository) {
@@ -1183,9 +1928,10 @@ function Test-FounderStateProcessIdentity {
   }
 
   try {
-    $stateStart = ConvertTo-FounderUtcDateTime -Value $State.listenerStartedAt
     $actualStart = ConvertTo-FounderUtcDateTime -Value $ProcessMetadata.StartTime
-    if ([math]::Abs(($stateStart - $actualStart).TotalSeconds) -gt 2) {
+    if (-not (Test-FounderProcessCreationIdentityEqual `
+          -Left $State.listenerStartedAt `
+          -Right $actualStart)) {
       return $false
     }
   } catch {
@@ -1210,9 +1956,10 @@ function Test-FounderStateProcessIdentity {
     return $false
   }
   try {
-    $ownershipListenerStart = ConvertTo-FounderUtcDateTime -Value $Ownership.Chain[0].StartTime
     if ([int]$Ownership.Chain[0].ProcessId -ne [int]$ProcessMetadata.ProcessId -or
-      [math]::Abs(($ownershipListenerStart - $actualStart).TotalSeconds) -gt 2 -or
+      -not (Test-FounderProcessCreationIdentityEqual `
+        -Left $Ownership.Chain[0].StartTime `
+        -Right $actualStart) -or
       -not [string]::Equals(
         [string]$Ownership.Chain[0].CommandLine,
         [string]$ProcessMetadata.CommandLine,
@@ -1236,9 +1983,9 @@ function Test-FounderStateProcessIdentity {
   }
 
   try {
-    $stateLauncherStart = ConvertTo-FounderUtcDateTime -Value $State.launcherStartedAt
-    $actualLauncherStart = ConvertTo-FounderUtcDateTime -Value $verifiedOwnership.ProvingProcess.StartTime
-    if ([math]::Abs(($stateLauncherStart - $actualLauncherStart).TotalSeconds) -gt 2) {
+    if (-not (Test-FounderProcessCreationIdentityEqual `
+          -Left $State.launcherStartedAt `
+          -Right $verifiedOwnership.ProvingProcess.StartTime)) {
       return $false
     }
   } catch {
@@ -2086,6 +2833,72 @@ function New-FounderStateRecord {
   }
 }
 
+function Invoke-FounderPinnedProcessTermination {
+  param(
+    [Parameter(Mandatory = $true)]
+    $ExpectedMetadata,
+    [AllowNull()]
+    $Lease
+  )
+
+  $processId = [int](Get-FounderPropertyValue -Object $ExpectedMetadata -Name 'ProcessId' -DefaultValue 0)
+  if ($processId -le 0 -or $null -eq $Lease) {
+    return [pscustomobject]@{ Status = 'HANDLE_ACQUISITION_FAILED'; ProcessId = $processId }
+  }
+
+  $status = 'TERMINATION_FAILED'
+  try {
+    $nativeMetadata = $Lease.Metadata
+    $observedMetadata = [pscustomobject]@{
+      ProcessId = [int]$nativeMetadata.ProcessId
+      ParentProcessId = [int]$nativeMetadata.ParentProcessId
+      Name = ''
+      ExecutablePath = [string]$nativeMetadata.ExecutablePath
+      CommandLine = [string]$nativeMetadata.CommandLine
+      StartTime = (ConvertTo-FounderUtcDateTime -Value $nativeMetadata.CreationTimeUtc).ToString('o')
+      MetadataSources = @('PINNED_NATIVE_HANDLE')
+    }
+    if (-not (Test-FounderProcessMetadataIdentity -Expected $ExpectedMetadata -Observed $observedMetadata)) {
+      $status = 'IDENTITY_MISMATCH'
+    } else {
+      $nativeResult = [string]$Lease.TerminateIfRunning([uint32]1)
+      $status = switch ($nativeResult) {
+        'TERMINATED' { 'TERMINATION_REQUESTED' }
+        'ALREADY_EXITED' { 'ALREADY_EXITED' }
+        default { 'TERMINATION_FAILED' }
+      }
+    }
+  } catch {
+    $status = 'TERMINATION_FAILED'
+  } finally {
+    try {
+      $Lease.Dispose()
+    } catch {
+      $status = 'HANDLE_CLEANUP_FAILED'
+    }
+  }
+
+  return [pscustomobject]@{ Status = $status; ProcessId = $processId }
+}
+
+function Stop-FounderProcessIfIdentityMatches {
+  param(
+    [Parameter(Mandatory = $true)]
+    $ExpectedMetadata
+  )
+
+  $processId = [int](Get-FounderPropertyValue -Object $ExpectedMetadata -Name 'ProcessId' -DefaultValue 0)
+  if ($processId -le 0 -or -not (Initialize-FounderNativeProcessQuery)) {
+    return [pscustomobject]@{ Status = 'HANDLE_ACQUISITION_FAILED'; ProcessId = $processId }
+  }
+  try {
+    $lease = [MyOttFounderPreviewProcessQuery]::AcquireTerminationLease($processId)
+  } catch {
+    return [pscustomobject]@{ Status = 'HANDLE_ACQUISITION_FAILED'; ProcessId = $processId }
+  }
+  return Invoke-FounderPinnedProcessTermination -ExpectedMetadata $ExpectedMetadata -Lease $lease
+}
+
 function Stop-FounderOwnedProcessTree {
   param(
     [Parameter(Mandatory = $true)]
@@ -2104,30 +2917,72 @@ function Stop-FounderOwnedProcessTree {
   }
 
   $targets = @()
+  $targetProcessIds = @{}
   foreach ($descendant in @(Get-FounderProcessDescendants -ProcessId $RootProcessId | Sort-Object Depth -Descending)) {
     $descendantOwnership = Get-FounderProcessOwnership -ProcessId $descendant.Metadata.ProcessId -RepositoryPath $RepositoryPath
-    if ($descendantOwnership.Owned) {
-      $targets += [int]$descendant.Metadata.ProcessId
+    $descendantProcessId = [int]$descendant.Metadata.ProcessId
+    if ($descendantOwnership.Owned -and -not $targetProcessIds.ContainsKey($descendantProcessId)) {
+      $targets += [pscustomobject]@{
+        ProcessId = $descendantProcessId
+        Metadata = $descendantOwnership.Process
+      }
+      $targetProcessIds[$descendantProcessId] = $true
     }
   }
-  $targets += $RootProcessId
-  $targets = @($targets | Select-Object -Unique)
+  if (-not $targetProcessIds.ContainsKey($RootProcessId)) {
+    $targets += [pscustomobject]@{
+      ProcessId = $RootProcessId
+      Metadata = $ownership.Process
+    }
+    $targetProcessIds[$RootProcessId] = $true
+  }
 
+  $identityFailures = @()
+  $terminationFailures = @()
   foreach ($target in $targets) {
-    Stop-Process -Id $target -ErrorAction SilentlyContinue
+    $stopResult = Stop-FounderProcessIfIdentityMatches -ExpectedMetadata $target.Metadata
+    if ($stopResult.Status -eq 'IDENTITY_MISMATCH') {
+      $identityFailures += [int]$target.ProcessId
+    } elseif ($stopResult.Status -in @(
+        'HANDLE_ACQUISITION_FAILED',
+        'TERMINATION_FAILED',
+        'HANDLE_CLEANUP_FAILED'
+      )) {
+      $terminationFailures += [int]$target.ProcessId
+    }
   }
   Start-Sleep -Milliseconds 750
+
+  $remaining = @()
+  $stopped = @()
   foreach ($target in $targets) {
-    if ($null -ne (Get-FounderProcessMetadata -ProcessId $target)) {
-      Stop-Process -Id $target -Force -ErrorAction SilentlyContinue
+    $observed = Get-FounderProcessMetadata -ProcessId $target.ProcessId
+    if ($null -eq $observed) {
+      $stopped += [int]$target.ProcessId
+    } elseif (Test-FounderProcessMetadataIdentity -Expected $target.Metadata -Observed $observed) {
+      $remaining += [int]$target.ProcessId
+    } else {
+      $identityFailures += [int]$target.ProcessId
     }
   }
-
-  $remaining = @($targets | Where-Object { $null -ne (Get-FounderProcessMetadata -ProcessId $_) })
+  $identityFailures = @($identityFailures | Select-Object -Unique)
+  $terminationFailures = @($terminationFailures | Select-Object -Unique)
+  $success = $remaining.Count -eq 0 -and
+    $identityFailures.Count -eq 0 -and
+    $terminationFailures.Count -eq 0
+  $reason = if ($identityFailures.Count -gt 0) {
+    "Process identity changed before stop: $($identityFailures -join ', ')"
+  } elseif ($terminationFailures.Count -gt 0) {
+    "Pinned process termination failed: $($terminationFailures -join ', ')"
+  } elseif ($remaining.Count -gt 0) {
+    "Processes still running: $($remaining -join ', ')"
+  } else {
+    'owned-process-tree-stopped'
+  }
   return [pscustomobject]@{
-    Success = $remaining.Count -eq 0
-    Reason = if ($remaining.Count -eq 0) { 'owned-process-tree-stopped' } else { "Processes still running: $($remaining -join ', ')" }
-    StoppedProcessIds = @($targets | Where-Object { $_ -notin $remaining })
+    Success = $success
+    Reason = $reason
+    StoppedProcessIds = @($stopped)
   }
 }
 
@@ -2269,7 +3124,15 @@ function Start-FounderPreview {
       if ($launcherOwnership.Owned) {
         Stop-FounderOwnedProcessTree -RootProcessId $launcher.Id -RepositoryPath $Config.RepositoryPath | Out-Null
       } else {
-        Stop-Process -Id $launcher.Id -ErrorAction SilentlyContinue
+        $launcherNativeMetadata = Get-FounderNativeProcessMetadata -ProcessId $launcher.Id
+        $launcherMetadata = Merge-FounderProcessMetadataSources `
+          -ExpectedProcessId $launcher.Id `
+          -CimProcess $null `
+          -RuntimeProcess $launcher `
+          -NativeProcess $launcherNativeMetadata
+        if ($null -ne $launcherMetadata) {
+          Stop-FounderProcessIfIdentityMatches -ExpectedMetadata $launcherMetadata | Out-Null
+        }
       }
     }
     Remove-FounderPreviewState -Config $Config

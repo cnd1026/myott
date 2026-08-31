@@ -8,6 +8,7 @@ import {
   contentTypeMatchesSubmittedPreferences,
   normalizeDisplayContentType,
   normalizeProviderMediaType,
+  selectedRuntimeFilter,
 } from "../filters/hardFilterContract.js";
 
 const normalizeTitleKey = (value = "") => String(value)
@@ -18,6 +19,23 @@ const normalizeTitleKey = (value = "") => String(value)
 const asStringArray = (value) => (Array.isArray(value) ? value : [value])
   .map((item) => String(item || "").trim())
   .filter(Boolean);
+
+const DISPLAY_OTT_ALIASES = Object.freeze({
+  netflix: "Netflix",
+  "netflix standard with ads": "Netflix",
+});
+
+export function normalizeDisplayOttProviders(providers = []) {
+  const seen = new Set();
+  return asStringArray(providers).reduce((normalized, provider) => {
+    const aliasKey = provider.toLocaleLowerCase("en-US");
+    const displayName = DISPLAY_OTT_ALIASES[aliasKey] || provider;
+    if (seen.has(displayName)) return normalized;
+    seen.add(displayName);
+    normalized.push(displayName);
+    return normalized;
+  }, []);
+}
 
 function cleanSeedTitle(value = "") {
   return String(value)
@@ -96,7 +114,24 @@ function withoutTerminalPunctuation(value = "") {
 function isGenericProviderReason(value = "") {
   const normalized = normalizeReasonText(value);
   if (genericProviderReasons.includes(normalized)) return true;
+  if (normalized === "선택한 OTT에서 볼 수 있는 작품 중 고른 추천") return true;
   return /^(?:실제\s+TMDB\s+작품\s+정보|실제\s+검색\s+결과)입니다(?:[.。]\s*입니다)*[.。]*$/u.test(normalized);
+}
+
+function isTypeOnlyReason(value = "") {
+  return /^(?:영화|드라마|애니) 형식으로 만나볼 수 있는 작품입니다[.。]*$/u.test(withoutTerminalPunctuation(value));
+}
+
+function containsProviderGeneratedBoilerplate(value = "") {
+  return /(?:실제\s+TMDB\s+작품\s+정보|실제\s+검색\s+결과)입니다/u.test(normalizeReasonText(value));
+}
+
+function removeProviderGeneratedBoilerplate(value = "") {
+  return normalizeReasonText(value)
+    .split(/(?<=[.!?。！？])\s*/u)
+    .filter((sentence) => !containsProviderGeneratedBoilerplate(sentence))
+    .join(" ")
+    .trim();
 }
 
 function isGenericStructuralReason(value = "") {
@@ -118,6 +153,46 @@ function hasSubmittedPreferenceEvidence({ titles = [], confirmedSeeds = {} } = {
   return hasTitle || hasConfirmedSeed;
 }
 
+function hasConfirmedSeed(confirmedSeeds = {}) {
+  return Object.values(confirmedSeeds || {}).some((seed) => {
+    if (!seed || typeof seed !== "object") return false;
+    return Boolean(cleanSeedTitle(seed.resolvedTitle || seed.originalTitle || seed.title || seed.displayTitle));
+  });
+}
+
+function hasExtraRecommendationOption(selectedFilters = []) {
+  return Array.isArray(selectedFilters) && selectedFilters.some((filter) => String(filter || "").trim());
+}
+
+function hasDefaultContentTypes(selectedTypes = []) {
+  const actual = [...new Set(Array.isArray(selectedTypes) ? selectedTypes : [])].sort();
+  return actual.length === defaultContentTypes.length
+    && [...defaultContentTypes].sort().every((type) => actual.includes(type));
+}
+
+export function isBaselineRecommendationContext({
+  titles = [],
+  confirmedSeeds = {},
+  selectedFilters = [],
+} = {}) {
+  return !asStringArray(titles).some((title) => cleanSeedTitle(title))
+    && !hasConfirmedSeed(confirmedSeeds)
+    && !hasExtraRecommendationOption(selectedFilters);
+}
+
+export function buildBaselineSessionContext({
+  titles = [],
+  confirmedSeeds = {},
+  selectedFilters = [],
+  selectedTypes = [],
+  selectedOtt = [],
+} = {}) {
+  if (!isBaselineRecommendationContext({ titles, confirmedSeeds, selectedFilters })) return "";
+  return hasDefaultContentTypes(selectedTypes) && !asStringArray(selectedOtt).length
+    ? "추가 취향 정보가 없어 폭넓은 기본 추천을 보여드려요."
+    : "추가 취향 정보가 없어 선택한 기본 조건을 기준으로 추천했어요.";
+}
+
 function filterUnsupportedPreferenceReason(detail, hasPreferenceEvidence) {
   if (hasPreferenceEvidence) return detail;
 
@@ -134,10 +209,19 @@ function filterUnsupportedPreferenceReason(detail, hasPreferenceEvidence) {
 
 function meaningfulItemReason(item = {}, preferences = {}) {
   const detail = normalizeReasonText(item.reason);
-  if (!detail || isGenericProviderReason(detail) || isGenericStructuralReason(detail)) return "";
+  const hasPreferenceEvidence = hasSubmittedPreferenceEvidence(preferences);
+  const safeDetail = !hasPreferenceEvidence && containsProviderGeneratedBoilerplate(detail)
+    ? removeProviderGeneratedBoilerplate(detail)
+    : detail;
+  if (!safeDetail || isGenericProviderReason(safeDetail) || isGenericStructuralReason(safeDetail)) return "";
+  if (isTypeOnlyReason(safeDetail) && (
+    presentationGenreLabels(item).length > 0
+    || (Number.isFinite(Number(item.rating)) && Number(item.rating) > 0)
+  )) return "";
+  if (/\d{1,4}(?:\.\d+)?\s*분|러닝타임|상영\s*시간|\bruntime\b/iu.test(safeDetail)) return "";
   return withoutTerminalPunctuation(filterUnsupportedPreferenceReason(
-    detail,
-    hasSubmittedPreferenceEvidence(preferences),
+    safeDetail,
+    hasPreferenceEvidence,
   ));
 }
 
@@ -145,65 +229,84 @@ function typeLabelForItem(item = {}) {
   return contentTypeLabels[normalizeDisplayContentType(item)] || "";
 }
 
-function hasFocusedContentTypeSelection(selectedTypes = []) {
-  const uniqueTypes = [...new Set(Array.isArray(selectedTypes) ? selectedTypes : [])];
-  return uniqueTypes.length > 0 && uniqueTypes.length < defaultContentTypes.length;
-}
-
 function stableReasonIndex(item = {}) {
   const identity = String(item.providerContentId || item.tmdbId || item.id || item.title || "");
   return [...identity].reduce((total, character) => total + character.codePointAt(0), 0) % 3;
 }
 
-function neutralEvidenceReason(item = {}, preferences = {}) {
+function runtimeReasonLabel(selectedFilters = []) {
+  const selected = selectedRuntimeFilter(selectedFilters);
+  if (!selected) return "";
+  if (selected.value === "runtime-short") return "60분 이하";
+  if (selected.value === "runtime-medium") return "2시간 이하";
+  if (selected.value === "runtime-long") return "2시간 이상";
+  return "";
+}
+
+function neutralEvidenceReasons(item = {}, preferences = {}) {
   const genres = presentationGenreLabels(item);
   const primaryGenre = genres[0] || String(item.genre || "").split(",")[0].trim();
   const typeLabel = typeLabelForItem(item);
   const detail = meaningfulItemReason(item, preferences);
-  if (detail) return { reason: detail, family: "item-specific" };
-
-  const numericRuntime = Number(item.runtimeMinutes);
-  const runtime = Number.isFinite(numericRuntime) && numericRuntime > 0
-    ? `${numericRuntime}분`
-    : /^\d+(?:\.\d+)?분$/u.test(String(item.runtime || ""))
-      ? String(item.runtime)
-      : "";
   const numericRating = Number(item.rating);
+  const hasIntrinsicEvidence = genres.length > 0 || (Number.isFinite(numericRating) && numericRating > 0);
+  if (detail) return [{ reason: detail, family: "item-specific" }];
+
+  const runtime = runtimeReasonLabel(preferences.selectedFilters);
   const rating = Number.isFinite(numericRating) && numericRating > 0 ? numericRating.toFixed(1) : "";
+  const reasons = [];
+  if (runtime && genres.length >= 2 && typeLabel) {
+    reasons.push({
+      reason: `${runtime} 범위에서 ${genres.slice(0, 2).join("·")} 흐름을 담은 ${typeLabel}입니다.`,
+      family: "runtime-genre",
+    });
+  } else if (runtime && typeLabel) {
+    reasons.push({
+      reason: `${runtime} 범위에 맞는 ${typeLabel}입니다.`,
+      family: "runtime",
+    });
+  }
   if (genres.length >= 4 && typeLabel) {
-    return {
+    reasons.push({
       reason: `${genres.slice(0, 3).join("·")} 장르를 넘나드는 ${typeLabel}입니다.`,
       family: "genre-range",
-    };
-  }
-  if (runtime && genres.length >= 2 && typeLabel) {
-    return {
-      reason: `${runtime} 안에 ${genres.slice(0, 2).join("·")} 흐름을 담은 ${typeLabel}입니다.`,
-      family: "runtime-genre",
-    };
+    });
   }
   if (genres.length >= 2 && typeLabel) {
-    return {
+    reasons.push({
       reason: `${genres.slice(0, 2).join("·")} 장르가 함께 드러나는 ${typeLabel}입니다.`,
       family: "multi-genre",
-    };
+    });
   }
   if (rating && (primaryGenre || typeLabel)) {
-    return {
-      reason: `평점 ${rating}의 ${primaryGenre || typeLabel} ${typeLabel || "작품"}입니다.`,
+    const ratingSubject = primaryGenre && typeLabel && primaryGenre !== typeLabel
+      ? `${primaryGenre} ${typeLabel}`
+      : typeLabel || primaryGenre || "작품";
+    reasons.push({
+      reason: `평점 ${rating}의 ${ratingSubject}입니다.`,
       family: "rating",
-    };
+    });
   }
   if (primaryGenre && typeLabel) {
-    return { reason: `${primaryGenre} 장르의 ${typeLabel}입니다.`, family: "genre" };
+    reasons.push({ reason: `${primaryGenre} 장르의 ${typeLabel}입니다.`, family: "genre" });
   }
-  if (typeLabel) return { reason: `${typeLabel} 형식으로 만나볼 수 있는 작품입니다.`, family: "type" };
-  return { reason: "작품의 기본 정보를 바탕으로 살펴볼 만한 선택입니다.", family: "generic" };
+  if (rating) reasons.push({ reason: `평점 ${rating}의 작품입니다.`, family: "rating" });
+  if (typeLabel && !hasIntrinsicEvidence) {
+    reasons.push({ reason: `${typeLabel} 형식으로 만나볼 수 있는 작품입니다.`, family: "type" });
+  }
+  return reasons.length
+    ? reasons
+    : [{ reason: "작품의 기본 정보를 바탕으로 살펴볼 만한 선택입니다.", family: "generic" }];
+}
+
+function neutralEvidenceReason(item = {}, preferences = {}) {
+  return neutralEvidenceReasons(item, preferences)[0];
 }
 
 function neutralReasonCandidates(item = {}, preferences = {}) {
-  const evidenceReason = neutralEvidenceReason(item, preferences);
-  return evidenceReason.reason ? [evidenceReason.reason] : [];
+  return neutralEvidenceReasons(item, preferences)
+    .map(({ reason }) => reason)
+    .filter(Boolean);
 }
 
 export function buildFirstPickRecommendationReason(item = {}) {
@@ -283,14 +386,11 @@ export function buildEvidenceGroundedDecisionReason(item = {}, {
   const selectedReason = buildSelectedOptionReason(item, selectedFilters);
   if (selectedReason) return selectedReason;
 
-  const displayType = normalizeDisplayContentType(item);
-  const typeLabel = contentTypeLabels[displayType];
-  if (typeLabel && hasFocusedContentTypeSelection(selectedTypes) && selectedTypes.includes(displayType)) {
-    return `${typeLabel} 조건에 맞춘 추천`;
-  }
-
-  const neutralReason = neutralReasonCandidates(item, { titles, confirmedSeeds })[0];
+  const neutralReason = neutralReasonCandidates(item, { titles, confirmedSeeds, selectedFilters })[0];
   if (neutralReason) return neutralReason;
+
+  const itemReason = meaningfulItemReason(item, { titles, confirmedSeeds, selectedFilters });
+  if (itemReason) return itemReason;
 
   const actualOtt = asStringArray(item.ott).map((value) => value.toLocaleLowerCase("ko-KR"));
   const selectedOttMatch = selectedOtt.some((value) => (
@@ -305,6 +405,27 @@ function uniqueReasonCandidates(candidates = []) {
   return [...new Set(candidates.map((candidate) => String(candidate || "").trim()).filter(Boolean))];
 }
 
+function isGenericRecommendationReason(value = "") {
+  const normalized = withoutTerminalPunctuation(value);
+  return isGenericProviderReason(normalized)
+    || isGenericStructuralReason(normalized)
+    || normalized === "선택한 OTT에서 볼 수 있는 작품 중 고른 추천"
+    || normalized === "작품의 기본 정보를 바탕으로 살펴볼 만한 선택입니다"
+    || normalized === "오늘 바로 고르기 좋은 추천";
+}
+
+function recommendationReasonFamily(value = "") {
+  const normalized = withoutTerminalPunctuation(value);
+  if (isGenericRecommendationReason(normalized)) return "generic";
+  if (/범위에서|범위에 맞는/u.test(normalized)) return "runtime";
+  if (/장르를 넘나드는/u.test(normalized)) return "genre-range";
+  if (/장르가 함께 드러나는/u.test(normalized)) return "multi-genre";
+  if (/^평점 /u.test(normalized)) return "rating";
+  if (/ 장르의 /u.test(normalized)) return "genre";
+  if (/ 형식으로 /u.test(normalized)) return "type";
+  return "item-specific";
+}
+
 function buildEvidenceGroundedDecisionReasonCandidates(item = {}, {
   titles = [],
   confirmedSeeds = {},
@@ -316,8 +437,6 @@ function buildEvidenceGroundedDecisionReasonCandidates(item = {}, {
   const genres = presentationGenreLabels(item);
   const primaryGenre = genres[0] || String(item.genre || "").split(",")[0].trim();
   const selectedReason = buildSelectedOptionReason(item, selectedFilters);
-  const displayType = normalizeDisplayContentType(item);
-  const typeLabel = contentTypeLabels[displayType];
   const actualOtt = asStringArray(item.ott).map((value) => value.toLocaleLowerCase("ko-KR"));
   const selectedOttMatch = selectedOtt.some((value) => (
     actualOtt.some((actual) => actual.includes(String(value).split("-")[0].toLocaleLowerCase("ko-KR")))
@@ -329,9 +448,6 @@ function buildEvidenceGroundedDecisionReasonCandidates(item = {}, {
     candidates.push(`${seed} 좋아했다면 ${primaryGenre} 작품으로 이어가는 추천`);
   }
   if (selectedReason) candidates.push(selectedReason);
-  if (typeLabel && hasFocusedContentTypeSelection(selectedTypes) && selectedTypes.includes(displayType)) {
-    candidates.push(`${typeLabel} 조건에 맞춘 추천`);
-  }
   if (canonicalSeed && primaryGenre) {
     candidates.push(
       `${canonicalSeed}에서 좋아한 ${primaryGenre} 결을 이어 살펴보는 추천`,
@@ -347,7 +463,7 @@ function buildEvidenceGroundedDecisionReasonCandidates(item = {}, {
   }
   if (titles.length > 1) candidates.push("여러 취향을 함께 반영한 추천");
   else if (titles.length) candidates.push("입력한 취향을 바탕으로 추천");
-  candidates.push(...neutralReasonCandidates(item, { titles, confirmedSeeds }));
+  candidates.push(...neutralReasonCandidates(item, { titles, confirmedSeeds, selectedFilters }));
   if (selectedOttMatch) candidates.push("선택한 OTT에서 볼 수 있는 작품 중 고른 추천");
   candidates.push("오늘 바로 고르기 좋은 추천");
   return uniqueReasonCandidates(candidates);
@@ -355,15 +471,24 @@ function buildEvidenceGroundedDecisionReasonCandidates(item = {}, {
 
 export function buildEvidenceGroundedDecisionReasons(items = [], preferences = {}) {
   const usedReasons = new Set();
+  const usedFamilies = new Map();
   let previousReason = "";
 
   return items.map((item) => {
     const candidates = buildEvidenceGroundedDecisionReasonCandidates(item, preferences);
-    const reason = candidates.find((candidate) => candidate !== previousReason && !usedReasons.has(candidate))
+    const reason = candidates.find((candidate) => {
+      if (isGenericRecommendationReason(candidate) || usedReasons.has(candidate)) return false;
+      return (usedFamilies.get(recommendationReasonFamily(candidate)) || 0) < 2;
+    })
+      || candidates.find((candidate) => !isGenericRecommendationReason(candidate) && !usedReasons.has(candidate))
+      || candidates.find((candidate) => !isGenericRecommendationReason(candidate))
+      || candidates.find((candidate) => candidate !== previousReason && !usedReasons.has(candidate))
       || candidates.find((candidate) => candidate !== previousReason)
       || candidates[0]
       || "오늘 바로 고르기 좋은 추천";
     usedReasons.add(reason);
+    const family = recommendationReasonFamily(reason);
+    usedFamilies.set(family, (usedFamilies.get(family) || 0) + 1);
     previousReason = reason;
     return reason;
   });
@@ -407,5 +532,13 @@ export function contentTypeMatchesSelection(item = {}, selectedTypes = [], selec
 export { normalizeDisplayContentType, normalizeProviderMediaType };
 
 export function presentationGenreLabels(item = {}) {
-  return localizedGenreLabels(item);
+  const labels = localizedGenreLabels(item);
+  const displayGenre = typeof item.genre === "string" ? item.genre : "";
+  displayGenre.split(",").forEach((value) => {
+    const label = value.trim();
+    if (label && !["장르 확인 필요", "정보 확인 필요"].includes(label) && !labels.includes(label)) {
+      labels.push(label);
+    }
+  });
+  return labels;
 }

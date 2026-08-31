@@ -432,3 +432,20 @@ Runtime Domain `1~300분`의 현재 의도:
 - `121~300`: `runtime-long`
 - uncovered runtime: 0
 - unintended overlap: 0
+
+---
+
+## 21. Closed QA Case Execution Firewall
+
+`CLOSED / PRESERVED` 상태의 QA case는 후속 Task가 명시적으로 재개하지 않는 한 선택하거나 실행하지 않습니다. 직접 실행뿐 아니라 aggregate suite의 간접 선택도 같은 실행으로 취급합니다.
+
+Task가 닫힌 case의 실행을 금지하면 aggregate QA command를 실행하기 전에 실제 suite membership을 확인합니다. 금지 case가 포함되거나 membership을 증명할 수 없으면 aggregate command를 실행하지 않고, 범위가 증명된 direct entrypoint만 사용합니다.
+
+Known incident:
+
+- `REC-QA-091`은 `CLOSED / PRESERVED`입니다.
+- `pnpm qa:recommendation`은 `REC-QA-091`을 선택할 수 있으므로 이를 금지한 V3/R7 범위에서는 실행할 수 없습니다.
+- 이 incident가 발생한 Review V2는 `FAIL / REVIEW_FIREWALL_BREACH`로 보존하며 PASS로 재해석하지 않습니다.
+- Clean replacement review는 prohibited case selected/executed `0 / 0`을 raw command membership과 실행 기록으로 확인해야 합니다.
+
+닫힌 case의 Product source, fixture, expected result를 수정해 우회하지 않습니다. 재개가 필요하면 별도 Task authority와 정확한 QA scope를 먼저 확정합니다.

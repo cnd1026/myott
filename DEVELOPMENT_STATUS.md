@@ -139,6 +139,14 @@ MyOTT is under active development. This public log summarizes externally safe mi
 - Preserved retrieval, filtering, ranking, Provider, and request-budget semantics. First Pick freshness and top-vs-primary dedupe remain separate queued Product work and were not implemented here.
 - Production remains unchanged, and Founder final Product signoff has not yet been claimed.
 
+## 2026-08-31
+
+- Finalized the reviewed recommendation-rationale candidate: pure-default and base-filtered sessions use distinct truthful summaries, while OTT and top-level content type remain base filters rather than extra personalization.
+- Rich cards now prefer intrinsic genre or rating evidence, rating-only copy uses the consumer-facing type label once, metadata-sparse cards retain a truthful type fallback, and runtime rationale is limited to the explicit `60분 이하`, `2시간 이하`, and `2시간 이상` options without exact-minute copy.
+- Preserved the separate First Pick path, normalized the two approved Netflix display aliases to one label, and retained the idle/selected recommendation-option copy without changing retrieval, ranking, filtering, Provider/TMDB, or request budgets.
+- Restored the normal managed Founder Preview lifecycle with stricter process-identity and termination checks. Clean Independent Review V3 passed with no findings; the earlier Review V2 remains a failed process record because its closed REC-QA case crossed the review firewall.
+- Main, Production, Vercel, release, and deployment state remain unchanged while the reviewed feature candidate awaits the explicit main-integration gate.
+
 ## Maintenance policy going forward
 
 When meaningful development continues but a public product commit is delayed by QA, security, or release gates, MyOTT will publish a small public-safe maintenance signal when useful. That signal may be a status update, documentation commit, issue, or review artifact. Empty commits and fabricated activity are not part of this policy.

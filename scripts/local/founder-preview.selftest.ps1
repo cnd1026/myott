@@ -115,9 +115,339 @@ Assert-FounderTest 'Direct Next, pnpm, and cmd wrapper forms are not enabled by 
 Assert-FounderTest 'Malformed unmatched-quote command fails closed' {
   -not (Test-FounderCommandLooksLikeDevServer -CommandLine "node.exe `"$($currentRuntime.NextCliPath) dev" -RepositoryPath $repositoryPath)
 }
+Assert-FounderTest 'Native argv parses spaces in quoted paths without approximation' {
+  $parsed = ConvertFrom-FounderWindowsCommandLine `
+    -CommandLine 'node.exe "C:\work\My OTT\next" dev "C:\work\My OTT"'
+  $parsed.Success -and
+    $parsed.Tokens.Count -eq 4 -and
+    $parsed.Tokens[1] -eq 'C:\work\My OTT\next' -and
+    $parsed.Tokens[3] -eq 'C:\work\My OTT'
+}
+Assert-FounderTest 'Native argv preserves Unicode quoted application paths' {
+  $parsed = ConvertFrom-FounderWindowsCommandLine `
+    -CommandLine 'node.exe "C:\작업 공간\MyOTT\next" dev "C:\작업 공간\MyOTT"'
+  $parsed.Success -and
+    $parsed.Tokens[1] -eq 'C:\작업 공간\MyOTT\next' -and
+    $parsed.Tokens[3] -eq 'C:\작업 공간\MyOTT'
+}
+Assert-FounderTest 'Native argv handles escaped quote and empty quoted argument exactly' {
+  $parsed = ConvertFrom-FounderWindowsCommandLine `
+    -CommandLine 'node.exe "C:\work\arg\"quoted" ""'
+  $parsed.Success -and
+    $parsed.Tokens.Count -eq 3 -and
+    $parsed.Tokens[1] -eq 'C:\work\arg"quoted' -and
+    $parsed.Tokens[2] -eq ''
+}
+Assert-FounderTest 'Ownership grammar rejects embedded escaped quotes despite native tokenization' {
+  -not [MyOttFounderPreviewProcessQuery]::IsOwnershipCommandLineUnambiguous(
+    'node.exe "C:\work\arg\"quoted" ""'
+  )
+}
+Assert-FounderTest 'Ownership grammar rejects doubled-quote CRT divergence' {
+  -not [MyOttFounderPreviewProcessQuery]::IsOwnershipCommandLineUnambiguous(
+    'node.exe "a""b" c'
+  )
+}
+Assert-FounderTest 'Native argv handles trailing backslashes before closing quote exactly' {
+  $parsed = ConvertFrom-FounderWindowsCommandLine `
+    -CommandLine 'node.exe "C:\work\path\\" tail'
+  $parsed.Success -and
+    $parsed.Tokens.Count -eq 3 -and
+    $parsed.Tokens[1] -eq 'C:\work\path\' -and
+    $parsed.Tokens[2] -eq 'tail'
+}
+Assert-FounderTest 'Independent escaped-quote ownership false-positive now fails closed' {
+  $attackCommand = 'node.exe "' + $currentRuntime.NextCliPath + '" dev "' +
+    $repositoryPath + '\" --hostname 127.0.0.1 --port 3000'
+  $parsed = ConvertFrom-FounderWindowsCommandLine -CommandLine $attackCommand
+  $canonical = Get-FounderCanonicalNextDevCommand `
+    -CommandLine $attackCommand `
+    -RepositoryPath $repositoryPath
+  -not $parsed.Success -and
+    -not $canonical.IsCanonical -and
+    -not $canonical.ApplicationMatchesTarget
+}
+Assert-FounderTest 'Embedded NUL command line fails closed before native parsing' {
+  $malformed = 'node.exe' + [char]0 + ' "C:\work\app.js"'
+  -not (ConvertFrom-FounderWindowsCommandLine -CommandLine $malformed).Success
+}
 Assert-FounderTest 'Unavailable process metadata fails ownership closed' {
   $emptyOwnership = Get-FounderProcessOwnershipFromChain -Chain @() -ProcessId 1234 -RepositoryPath $repositoryPath
   -not $emptyOwnership.Owned -and $emptyOwnership.Reason -eq 'process-metadata-unavailable'
+}
+
+function New-FounderFakeTerminationLease {
+  param(
+    [Parameter(Mandatory = $true)]
+    $Metadata,
+    [string]$TerminationResult = 'TERMINATED',
+    [switch]$ThrowOnTermination,
+    [switch]$ThrowOnDispose
+  )
+
+  $lease = [pscustomobject]@{
+    Metadata = $Metadata
+    TerminationResult = $TerminationResult
+    ThrowOnTermination = [bool]$ThrowOnTermination
+    ThrowOnDispose = [bool]$ThrowOnDispose
+    TerminateCalls = 0
+    Disposed = $false
+  }
+  $lease | Add-Member -MemberType ScriptMethod -Name TerminateIfRunning -Value {
+    param([uint32]$ExitCode)
+    $this.TerminateCalls++
+    if ($this.ThrowOnTermination) {
+      throw 'simulated termination failure'
+    }
+    return $this.TerminationResult
+  }
+  $lease | Add-Member -MemberType ScriptMethod -Name Dispose -Value {
+    $this.Disposed = $true
+    if ($this.ThrowOnDispose) {
+      throw 'simulated handle cleanup failure'
+    }
+  }
+  return $lease
+}
+$runtimeMetadataSource = [pscustomobject]@{
+  Id = 1234
+  ProcessName = 'node'
+  Path = 'C:\Program Files\nodejs\node.exe'
+  StartTime = ConvertTo-FounderUtcDateTime -Value $startTime
+}
+$nativeMetadataSource = [pscustomobject]@{
+  ProcessId = 1234
+  ParentProcessId = 1000
+  CommandLine = $repoCommand
+  ExecutablePath = 'C:\Program Files\nodejs\node.exe'
+  CreationTimeUtc = ConvertTo-FounderUtcDateTime -Value $startTime
+}
+$fallbackMetadata = Merge-FounderProcessMetadataSources `
+  -ExpectedProcessId 1234 `
+  -CimProcess $null `
+  -RuntimeProcess $runtimeMetadataSource `
+  -NativeProcess $nativeMetadataSource
+Assert-FounderTest 'CIM access failure retains independently cross-checked process metadata' {
+  $null -ne $fallbackMetadata -and
+    $fallbackMetadata.ProcessId -eq 1234 -and
+    $fallbackMetadata.ParentProcessId -eq 1000 -and
+    $fallbackMetadata.CommandLine -eq $repoCommand -and
+    @($fallbackMetadata.MetadataSources) -contains 'GET_PROCESS' -and
+    @($fallbackMetadata.MetadataSources) -contains 'NATIVE_QUERY'
+}
+Assert-FounderTest 'Self-spawn metadata fallback preserves canonical ownership proof' {
+  $fallbackOwnership = Get-FounderProcessOwnershipFromChain `
+    -Chain @($fallbackMetadata) `
+    -ProcessId 1234 `
+    -RepositoryPath $repositoryPath
+  $fallbackOwnership.Owned -and $fallbackOwnership.ProvingProcessId -eq 1234
+}
+Assert-FounderTest 'Spoofed node command line from another executable is unowned' {
+  $spoofedExecutableMetadata = $fallbackMetadata.PSObject.Copy()
+  $spoofedExecutableMetadata.ExecutablePath = 'C:\Windows\System32\notepad.exe'
+  $spoofedOwnership = Get-FounderProcessOwnershipFromChain `
+    -Chain @($spoofedExecutableMetadata) `
+    -ProcessId 1234 `
+    -RepositoryPath $repositoryPath
+  -not $spoofedOwnership.Owned -and
+    $spoofedOwnership.Reason -eq 'canonical-command-executable-mismatch'
+}
+Assert-FounderTest 'Metadata source PID disagreement fails closed' {
+  $wrongPidNative = $nativeMetadataSource.PSObject.Copy()
+  $wrongPidNative.ProcessId = 4321
+  $null -eq (Merge-FounderProcessMetadataSources `
+      -ExpectedProcessId 1234 `
+      -CimProcess $null `
+      -RuntimeProcess $runtimeMetadataSource `
+      -NativeProcess $wrongPidNative)
+}
+Assert-FounderTest 'Metadata source parent disagreement fails closed' {
+  $cimMetadataSource = [pscustomobject]@{
+    ProcessId = 1234
+    ParentProcessId = 999
+    Name = 'node.exe'
+    ExecutablePath = 'C:\Program Files\nodejs\node.exe'
+    CommandLine = $repoCommand
+    CreationDate = ConvertTo-FounderUtcDateTime -Value $startTime
+  }
+  $null -eq (Merge-FounderProcessMetadataSources `
+      -ExpectedProcessId 1234 `
+      -CimProcess $cimMetadataSource `
+      -RuntimeProcess $runtimeMetadataSource `
+      -NativeProcess $nativeMetadataSource)
+}
+Assert-FounderTest 'Missing required parent identity fails closed' {
+  $missingParentNative = $nativeMetadataSource.PSObject.Copy()
+  $missingParentNative.ParentProcessId = 0
+  $null -eq (Merge-FounderProcessMetadataSources `
+      -ExpectedProcessId 1234 `
+      -CimProcess $null `
+      -RuntimeProcess $runtimeMetadataSource `
+      -NativeProcess $missingParentNative)
+}
+Assert-FounderTest 'Missing required command line fails closed' {
+  $missingCommandNative = $nativeMetadataSource.PSObject.Copy()
+  $missingCommandNative.CommandLine = ''
+  $null -eq (Merge-FounderProcessMetadataSources `
+      -ExpectedProcessId 1234 `
+      -CimProcess $null `
+      -RuntimeProcess $runtimeMetadataSource `
+      -NativeProcess $missingCommandNative)
+}
+Assert-FounderTest 'Metadata source command line disagreement fails closed' {
+  $wrongCommandCim = [pscustomobject]@{
+    ProcessId = 1234
+    ParentProcessId = 1000
+    Name = 'node.exe'
+    ExecutablePath = 'C:\Program Files\nodejs\node.exe'
+    CommandLine = $otherRepoCommand
+    CreationDate = ConvertTo-FounderUtcDateTime -Value $startTime
+  }
+  $null -eq (Merge-FounderProcessMetadataSources `
+      -ExpectedProcessId 1234 `
+      -CimProcess $wrongCommandCim `
+      -RuntimeProcess $runtimeMetadataSource `
+      -NativeProcess $nativeMetadataSource)
+}
+Assert-FounderTest 'Lower-precision CIM creation date cannot replace exact runtime-native identity' {
+  $cimPrecisionSource = [pscustomobject]@{
+    ProcessId = 1234
+    ParentProcessId = 1000
+    Name = 'node.exe'
+    ExecutablePath = 'C:\Program Files\nodejs\node.exe'
+    CommandLine = $repoCommand
+    CreationDate = (ConvertTo-FounderUtcDateTime -Value $startTime).AddTicks(1)
+  }
+  $merged = Merge-FounderProcessMetadataSources `
+    -ExpectedProcessId 1234 `
+    -CimProcess $cimPrecisionSource `
+    -RuntimeProcess $runtimeMetadataSource `
+    -NativeProcess $nativeMetadataSource
+  $null -ne $merged -and
+    (Test-FounderProcessCreationIdentityEqual -Left $merged.StartTime -Right $startTime)
+}
+Assert-FounderTest 'CIM plus one exact source cannot establish canonical creation identity' {
+  $cimMetadataSource = [pscustomobject]@{
+    ProcessId = 1234
+    ParentProcessId = 1000
+    Name = 'node.exe'
+    ExecutablePath = 'C:\Program Files\nodejs\node.exe'
+    CommandLine = $repoCommand
+    CreationDate = ConvertTo-FounderUtcDateTime -Value $startTime
+  }
+  $null -eq (Merge-FounderProcessMetadataSources `
+      -ExpectedProcessId 1234 `
+      -CimProcess $cimMetadataSource `
+      -RuntimeProcess $runtimeMetadataSource `
+      -NativeProcess $null)
+}
+Assert-FounderTest 'PID reuse start-time disagreement across metadata sources fails closed' {
+  $wrongStartNative = $nativeMetadataSource.PSObject.Copy()
+  $wrongStartNative.CreationTimeUtc = (ConvertTo-FounderUtcDateTime -Value $startTime).AddMinutes(2)
+  $null -eq (Merge-FounderProcessMetadataSources `
+      -ExpectedProcessId 1234 `
+      -CimProcess $null `
+      -RuntimeProcess $runtimeMetadataSource `
+      -NativeProcess $wrongStartNative)
+}
+Assert-FounderTest 'Sub-second process creation disagreement across metadata sources fails closed' {
+  $wrongStartNative = $nativeMetadataSource.PSObject.Copy()
+  $wrongStartNative.CreationTimeUtc = (ConvertTo-FounderUtcDateTime -Value $startTime).AddTicks(1)
+  $null -eq (Merge-FounderProcessMetadataSources `
+      -ExpectedProcessId 1234 `
+      -CimProcess $null `
+      -RuntimeProcess $runtimeMetadataSource `
+      -NativeProcess $wrongStartNative)
+}
+Assert-FounderTest 'Exact process metadata identity accepts the same process' {
+  Test-FounderProcessMetadataIdentity -Expected $fallbackMetadata -Observed $fallbackMetadata.PSObject.Copy()
+}
+Assert-FounderTest 'Stop-time process metadata identity rejects PID reuse' {
+  $replacementMetadata = $fallbackMetadata.PSObject.Copy()
+  $replacementMetadata.StartTime = (ConvertTo-FounderUtcDateTime -Value $fallbackMetadata.StartTime).AddTicks(1)
+  -not (Test-FounderProcessMetadataIdentity -Expected $fallbackMetadata -Observed $replacementMetadata)
+}
+Assert-FounderTest 'Stop-time process metadata identity rejects command replacement' {
+  $replacementMetadata = $fallbackMetadata.PSObject.Copy()
+  $replacementMetadata.CommandLine = $otherRepoCommand
+  -not (Test-FounderProcessMetadataIdentity -Expected $fallbackMetadata -Observed $replacementMetadata)
+}
+Assert-FounderTest 'Pinned termination validates and terminates through the same lease' {
+  $lease = New-FounderFakeTerminationLease -Metadata $nativeMetadataSource
+  $result = Invoke-FounderPinnedProcessTermination -ExpectedMetadata $fallbackMetadata -Lease $lease
+  $result.Status -eq 'TERMINATION_REQUESTED' -and
+    $lease.TerminateCalls -eq 1 -and
+    $lease.Disposed
+}
+Assert-FounderTest 'PID reuse after validation never terminates the replacement identity' {
+  $replacementNative = $nativeMetadataSource.PSObject.Copy()
+  $replacementNative.CreationTimeUtc = (ConvertTo-FounderUtcDateTime -Value $startTime).AddTicks(1)
+  $lease = New-FounderFakeTerminationLease -Metadata $replacementNative
+  $result = Invoke-FounderPinnedProcessTermination -ExpectedMetadata $fallbackMetadata -Lease $lease
+  $result.Status -eq 'IDENTITY_MISMATCH' -and
+    $lease.TerminateCalls -eq 0 -and
+    $lease.Disposed
+}
+Assert-FounderTest 'Validated process exit before termination leaves replacement untouched' {
+  $replacementTerminated = $false
+  $lease = New-FounderFakeTerminationLease -Metadata $nativeMetadataSource -TerminationResult 'ALREADY_EXITED'
+  $result = Invoke-FounderPinnedProcessTermination -ExpectedMetadata $fallbackMetadata -Lease $lease
+  $result.Status -eq 'ALREADY_EXITED' -and
+    $lease.TerminateCalls -eq 1 -and
+    -not $replacementTerminated -and
+    $lease.Disposed
+}
+Assert-FounderTest 'Fresh PID identity cannot substitute for the pinned termination lease' {
+  $freshPidMetadata = $nativeMetadataSource.PSObject.Copy()
+  $freshPidMetadata.CommandLine = $otherRepoCommand
+  $lease = New-FounderFakeTerminationLease -Metadata $freshPidMetadata
+  $result = Invoke-FounderPinnedProcessTermination -ExpectedMetadata $fallbackMetadata -Lease $lease
+  $result.Status -eq 'IDENTITY_MISMATCH' -and $lease.TerminateCalls -eq 0
+}
+Assert-FounderTest 'Pinned termination handle acquisition failure fails closed' {
+  $result = Invoke-FounderPinnedProcessTermination -ExpectedMetadata $fallbackMetadata -Lease $null
+  $result.Status -eq 'HANDLE_ACQUISITION_FAILED'
+}
+Assert-FounderTest 'Pinned termination API failure fails closed and cleans the handle' {
+  $lease = New-FounderFakeTerminationLease -Metadata $nativeMetadataSource -ThrowOnTermination
+  $result = Invoke-FounderPinnedProcessTermination -ExpectedMetadata $fallbackMetadata -Lease $lease
+  $result.Status -eq 'TERMINATION_FAILED' -and
+    $lease.TerminateCalls -eq 1 -and
+    $lease.Disposed
+}
+Assert-FounderTest 'Pinned termination handle cleanup failure fails closed' {
+  $lease = New-FounderFakeTerminationLease -Metadata $nativeMetadataSource -ThrowOnDispose
+  $result = Invoke-FounderPinnedProcessTermination -ExpectedMetadata $fallbackMetadata -Lease $lease
+  $result.Status -eq 'HANDLE_CLEANUP_FAILED' -and $lease.Disposed
+}
+Assert-FounderTest 'Native pinned handle has bounded lifetime without terminating its process' {
+  $lease = [MyOttFounderPreviewProcessQuery]::AcquireTerminationLease($PID)
+  $samePid = $lease.Metadata.ProcessId -eq $PID
+  $lease.Dispose()
+  $samePid -and $lease.IsDisposed
+}
+Assert-FounderTest 'Native process query exposes current PID parent command and start identity' {
+  $currentNativeMetadata = Get-FounderNativeProcessMetadata -ProcessId $PID
+  $null -ne $currentNativeMetadata -and
+    $currentNativeMetadata.ProcessId -eq $PID -and
+    $currentNativeMetadata.ParentProcessId -gt 0 -and
+    -not [string]::IsNullOrWhiteSpace($currentNativeMetadata.CommandLine) -and
+    -not [string]::IsNullOrWhiteSpace($currentNativeMetadata.ExecutablePath) -and
+    $currentNativeMetadata.CreationTimeUtc -is [datetime]
+}
+$descendantRelationships = @(Get-FounderProcessDescendantRelationships `
+    -ProcessId 10 `
+    -ProcessSnapshot @(
+      [pscustomobject]@{ ProcessId = 20; ParentProcessId = 10 },
+      [pscustomobject]@{ ProcessId = 30; ParentProcessId = 20 },
+      [pscustomobject]@{ ProcessId = 40; ParentProcessId = 999 }
+    ))
+Assert-FounderTest 'Descendant snapshot preserves exact launcher-listener ancestry' {
+  $descendantRelationships.Count -eq 2 -and
+    $descendantRelationships[0].ProcessId -eq 20 -and
+    $descendantRelationships[0].Depth -eq 1 -and
+    $descendantRelationships[1].ProcessId -eq 30 -and
+    $descendantRelationships[1].Depth -eq 2
 }
 Assert-FounderTest 'NODE_OPTIONS adds system CA once' {
   (Merge-FounderNodeOptions -CurrentValue '--trace-warnings') -eq '--trace-warnings --use-system-ca'
@@ -134,6 +464,26 @@ Assert-FounderTest 'Managed state identity validates' {
 Assert-FounderTest 'JSON round-trip DateTime state identity validates without locale drift' {
   $roundTripState = $validState | ConvertTo-Json | ConvertFrom-Json
   Test-FounderStateProcessIdentity -State $roundTripState -ProcessMetadata $processMetadata -RepositoryPath $repositoryPath
+}
+Assert-FounderTest 'Timezone-equivalent process creation identity remains exact' {
+  $utcInstant = [datetimeoffset](ConvertTo-FounderUtcDateTime -Value $startTime)
+  $offsetInstant = $utcInstant.ToOffset([timespan]::FromHours(9)).ToString('o')
+  Test-FounderProcessCreationIdentityEqual -Left $startTime -Right $offsetInstant
+}
+Assert-FounderTest 'Listener state creation identity plus one tick is rejected' {
+  $changedState = $validState.PSObject.Copy()
+  $changedState.listenerStartedAt = (ConvertTo-FounderUtcDateTime -Value $startTime).AddTicks(1).ToString('o')
+  -not (Test-FounderStateProcessIdentity -State $changedState -ProcessMetadata $processMetadata -RepositoryPath $repositoryPath)
+}
+Assert-FounderTest 'Listener state creation identity minus one tick is rejected' {
+  $changedState = $validState.PSObject.Copy()
+  $changedState.listenerStartedAt = (ConvertTo-FounderUtcDateTime -Value $startTime).AddTicks(-1).ToString('o')
+  -not (Test-FounderStateProcessIdentity -State $changedState -ProcessMetadata $processMetadata -RepositoryPath $repositoryPath)
+}
+Assert-FounderTest 'Historical listener state within old two-second tolerance is rejected' {
+  $changedState = $validState.PSObject.Copy()
+  $changedState.listenerStartedAt = (ConvertTo-FounderUtcDateTime -Value $startTime).AddSeconds(1).ToString('o')
+  -not (Test-FounderStateProcessIdentity -State $changedState -ProcessMetadata $processMetadata -RepositoryPath $repositoryPath)
 }
 Assert-FounderTest 'PID reuse start-time mismatch is rejected' {
   $reusedProcess = $processMetadata.PSObject.Copy()
@@ -392,6 +742,16 @@ Assert-FounderTest 'Same-process proving launcher is derived by production owner
     $sharedOwnership.ProvingProcessId -eq $targetLauncherMetadata.ProcessId -and
     $sharedOwnership.ListenerDescendsFromProvingProcess
 }
+Assert-FounderTest 'Parent created after child cannot prove listener ancestry' {
+  $reusedParent = $targetLauncherMetadata.PSObject.Copy()
+  $reusedParent.StartTime = (ConvertTo-FounderUtcDateTime -Value $sharedListenerMetadata.StartTime).AddTicks(1)
+  $reusedParentOwnership = Get-FounderProcessOwnershipFromChain `
+    -Chain @($sharedListenerMetadata, $reusedParent) `
+    -ProcessId $sharedListenerMetadata.ProcessId `
+    -RepositoryPath $repositoryPath
+  -not $reusedParentOwnership.Owned -and
+    -not $reusedParentOwnership.ListenerDescendsFromProvingProcess
+}
 Assert-FounderTest 'State launcher PID mismatch is rejected' {
   $wrongLauncherState = $sharedState.PSObject.Copy()
   $wrongLauncherState.launcherPid = 9999
@@ -406,6 +766,29 @@ Assert-FounderTest 'State launcher start-time mismatch is rejected' {
   $wrongLauncherStartState.launcherStartedAt = (Get-Date).AddMinutes(2).ToUniversalTime().ToString('o')
   -not (Test-FounderStateProcessIdentity `
       -State $wrongLauncherStartState `
+      -ProcessMetadata $sharedListenerMetadata `
+      -RepositoryPath $repositoryPath `
+      -Ownership $sharedOwnership)
+}
+Assert-FounderTest 'Ownership listener creation identity one-tick mismatch is rejected' {
+  $changedListener = $sharedListenerMetadata.PSObject.Copy()
+  $changedListener.StartTime = (ConvertTo-FounderUtcDateTime -Value $sharedListenerMetadata.StartTime).AddTicks(1).ToString('o')
+  $changedOwnership = [pscustomobject]@{
+    Owned = $sharedOwnership.Owned
+    Chain = @($changedListener, $targetLauncherMetadata)
+    Process = $changedListener
+  }
+  -not (Test-FounderStateProcessIdentity `
+      -State $sharedState `
+      -ProcessMetadata $sharedListenerMetadata `
+      -RepositoryPath $repositoryPath `
+      -Ownership $changedOwnership)
+}
+Assert-FounderTest 'Launcher state creation identity one-tick mismatch is rejected' {
+  $changedState = $sharedState.PSObject.Copy()
+  $changedState.launcherStartedAt = (ConvertTo-FounderUtcDateTime -Value $targetLauncherMetadata.StartTime).AddTicks(1).ToString('o')
+  -not (Test-FounderStateProcessIdentity `
+      -State $changedState `
       -ProcessMetadata $sharedListenerMetadata `
       -RepositoryPath $repositoryPath `
       -Ownership $sharedOwnership)
@@ -567,8 +950,11 @@ Assert-FounderTest 'Unsupported and malformed ranges fail closed' {
 }
 
 $resolvedRuntime = Resolve-FounderRuntime -RepositoryPath $repositoryPath
-Assert-FounderTest 'Current linked worktree resolves verified shared runtime' {
-  $resolvedRuntime.DependencySourceClassification -eq 'SAME_REPOSITORY_SHARED_DEPENDENCIES' -and
+Assert-FounderTest 'Current linked worktree resolves a verified canonical runtime' {
+  $resolvedRuntime.DependencySourceClassification -in @(
+    'TARGET_LOCAL_DEPENDENCIES',
+    'SAME_REPOSITORY_SHARED_DEPENDENCIES'
+  ) -and
     (Test-Path -LiteralPath $resolvedRuntime.NextCliPath) -and
     $resolvedRuntime.NextVersion -eq '15.5.19' -and
     $resolvedRuntime.DependencyCompatibility.Compatible
@@ -602,6 +988,95 @@ try {
   }
 } finally {
   Remove-Item -LiteralPath $environmentTestRoot -Recurse -Force -ErrorAction SilentlyContinue
+}
+
+$unicodeTestRoot = Join-Path $env:TEMP ("myott-founder-unicode-selftest-{0}-{1}" -f $PID, [guid]::NewGuid().ToString('N'))
+$unicodePrimarySegment = -join @(
+  [char]0xD55C, [char]0xAE00, [char]0xACBD, [char]0xB85C
+)
+$unicodeTargetSegment = -join @(
+  [char]0xC5F0, [char]0xACB0, [char]0xC791,
+  [char]0xC5C5, [char]0xD2B8, [char]0xB9AC
+)
+$unicodePrimary = Join-Path (Join-Path $unicodeTestRoot $unicodePrimarySegment) 'repo'
+$unicodeTarget = Join-Path $unicodeTestRoot $unicodeTargetSegment
+$normalizedTempRoot = Normalize-FounderRepositoryPath -Path $env:TEMP
+$normalizedUnicodeTestRoot = Normalize-FounderRepositoryPath -Path $unicodeTestRoot
+if (-not $normalizedUnicodeTestRoot.StartsWith(
+    "$normalizedTempRoot\",
+    [System.StringComparison]::OrdinalIgnoreCase
+  )) {
+  throw 'Unicode self-test root must stay inside the process temporary directory.'
+}
+
+$unicodeTargetIdentity = $null
+$unicodePrimaryIdentity = $null
+$unicodeResolvedPrimary = ''
+$unicodeSameRepository = $false
+$unicodeEnvironment = $null
+$unicodeHostEncodingRestored = $false
+try {
+  New-Item -ItemType Directory -Path $unicodePrimary -Force | Out-Null
+  & git init --quiet -b main $unicodePrimary 2>$null | Out-Null
+  if ($LASTEXITCODE -ne 0) { throw 'Unicode self-test Git initialization failed.' }
+  & git -C $unicodePrimary remote add origin https://example.invalid/myott-unicode-selftest.git 2>$null
+  if ($LASTEXITCODE -ne 0) { throw 'Unicode self-test remote identity setup failed.' }
+  Set-Content -LiteralPath (Join-Path $unicodePrimary 'README.md') -Value 'unicode path self-test' -Encoding ASCII
+  & git -C $unicodePrimary add README.md 2>$null
+  if ($LASTEXITCODE -ne 0) { throw 'Unicode self-test Git staging failed.' }
+  & git -C $unicodePrimary -c user.name=MyOTT-Selftest -c user.email=selftest@invalid commit --quiet -m initial 2>$null | Out-Null
+  if ($LASTEXITCODE -ne 0) { throw 'Unicode self-test Git commit failed.' }
+  & git -C $unicodePrimary worktree add --quiet -b unicode-selftest $unicodeTarget 2>$null | Out-Null
+  if ($LASTEXITCODE -ne 0) { throw 'Unicode self-test linked worktree creation failed.' }
+  New-Item -ItemType File -Path (Join-Path $unicodePrimary '.env.local') -Force | Out-Null
+
+  $previousSelftestEncoding = [Console]::OutputEncoding
+  try {
+    [Console]::OutputEncoding = [System.Text.Encoding]::ASCII
+    $unicodeTargetIdentity = Get-FounderGitRepositoryIdentity -RepositoryPath $unicodeTarget
+    $unicodeResolvedPrimary = Get-FounderPrimaryWorktreePath -RepositoryIdentity $unicodeTargetIdentity
+    $unicodePrimaryIdentity = Get-FounderGitRepositoryIdentity -RepositoryPath $unicodeResolvedPrimary
+    $unicodeSameRepository = Test-FounderGitRepositoryIdentityEqual `
+      -Left $unicodeTargetIdentity `
+      -Right $unicodePrimaryIdentity
+    $unicodeEnvironment = Get-FounderEnvironmentSource `
+      -TargetRepositoryPath $unicodeTarget `
+      -PrimaryRepositoryPath $unicodeResolvedPrimary `
+      -SameRepository $unicodeSameRepository
+    $unicodeHostEncodingRestored = [Console]::OutputEncoding.CodePage -eq [System.Text.Encoding]::ASCII.CodePage
+  } finally {
+    [Console]::OutputEncoding = $previousSelftestEncoding
+  }
+} finally {
+  if ((Test-Path -LiteralPath $unicodeTestRoot) -and
+    $normalizedUnicodeTestRoot.StartsWith("$normalizedTempRoot\", [System.StringComparison]::OrdinalIgnoreCase)) {
+    Remove-Item -LiteralPath $unicodeTestRoot -Recurse -Force -ErrorAction SilentlyContinue
+  }
+}
+
+Assert-FounderTest 'Unicode linked-worktree repository path survives non-UTF8 host output encoding' {
+  $null -ne $unicodeTargetIdentity -and
+    (Test-FounderRepositoryPathEqual -Left $unicodeTargetIdentity.RepositoryPath -Right $unicodeTarget)
+}
+Assert-FounderTest 'Unicode linked-worktree common directory resolves to the exact primary Git directory' {
+  $null -ne $unicodeTargetIdentity -and
+    (Test-FounderRepositoryPathEqual `
+      -Left $unicodeTargetIdentity.CommonDirectory `
+      -Right (Join-Path $unicodePrimary '.git'))
+}
+Assert-FounderTest 'Unicode linked-worktree primary path and same-repository identity resolve exactly' {
+  (Test-FounderRepositoryPathEqual -Left $unicodeResolvedPrimary -Right $unicodePrimary) -and
+    $unicodeSameRepository
+}
+Assert-FounderTest 'Unicode linked-worktree inherits primary env without copying contents' {
+  $null -ne $unicodeEnvironment -and
+    $unicodeEnvironment.Classification -eq 'SAME_REPOSITORY_PRIMARY_ENV' -and
+    (Test-FounderRepositoryPathEqual `
+      -Left $unicodeEnvironment.Path `
+      -Right (Join-Path $unicodePrimary '.env.local'))
+}
+Assert-FounderTest 'Unicode-safe Git invocation restores the caller output encoding' {
+  $unicodeHostEncodingRestored
 }
 
 $ownedEntry = [pscustomobject]@{ Port = 3001; ProcessId = 101; Owned = $true }

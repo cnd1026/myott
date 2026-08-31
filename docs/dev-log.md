@@ -2,6 +2,32 @@
 
 개발 과정에서의 작업 내용, 결정, 아쉬운 점, 다음 개선 사항을 날짜별로 기록합니다.
 
+## 2026-08-31 - Founder Re-QA Rationale and Preview Finalization
+
+### 최종 Product 계약
+
+- 순수 기본 추천은 `추가 취향 정보가 없어 폭넓은 기본 추천을 보여드려요.`, OTT 또는 상위 콘텐츠 종류만 고른 기본 필터 추천은 `추가 취향 정보가 없어 선택한 기본 조건을 기준으로 추천했어요.`로 구분합니다.
+- OTT와 상위 콘텐츠 종류는 base filter이며 추가 개인화 근거로 주장하지 않습니다. 장르·평점이 있는 카드는 내재적 근거를 우선하고, 정보가 부족한 카드에만 사실적인 type fallback을 유지합니다.
+- rating-only 문구는 `평점 8.2의 드라마입니다.`와 같이 기존 소비자용 type label을 한 번만 사용합니다. runtime 근거는 사용자가 runtime 옵션을 명시적으로 고른 경우에만 `60분 이하`, `2시간 이하`, `2시간 이상` bucket으로 표시하고 정확한 분 수는 추천 이유에 사용하지 않습니다.
+- `Netflix Standard with Ads`와 `Netflix`는 화면에서 `Netflix` 한 번으로 정규화합니다. First Pick의 분리된 내재적 근거 경로와 추천 옵션의 `더 많은 옵션 선택하기` / `추가 옵션 N개 선택됨` 문구를 보존했습니다.
+
+### Founder Preview 운영 복구
+
+- 정상 코드 작업은 `founder:preflight`로 시작하고 `founder:finalize`로 종료하며, 공식 Preview는 `127.0.0.1:3000`의 `RUNNING_MANAGED` 상태로 남깁니다. 임시 QA는 `3001-3100`만 사용하고 `3101`은 cleanup 전용, `3102+`는 금지합니다.
+- Process metadata source 하나가 AccessDenied여도 다른 독립적으로 유효한 증거를 폐기하지 않되, 필수 소유권 증거는 끝까지 fail-closed합니다. 생성 identity, 실제 Node 실행 파일, Next application directory, argv 경계를 정확히 검증하고 종료 대상은 검증된 kernel process identity에 고정합니다.
+- 정상 lifecycle에서는 Founder 수동 PowerShell이 필요하지 않습니다. unrelated, unproven, 또는 security blocker가 확인된 경우에만 사람 개입으로 반환합니다.
+
+### QA와 Review
+
+- R5 Product Browser와 canonical build, R6 runtime rationale, R7 rating-only copy가 구현·검증됐고 Clean Independent Review V3는 CRITICAL/MAJOR/MINOR `0/0/0`으로 PASS했습니다.
+- 이전 Review V2는 `FAIL / REVIEW_FIREWALL_BREACH`로 보존합니다. Product MAJOR가 아니라 닫힌 `REC-QA-091`을 금지된 aggregate suite가 선택·실행한 절차 위반이었습니다.
+- `REC-QA-091`은 `CLOSED / PRESERVED`입니다. 닫힌 QA case가 금지된 Task에서는 aggregate suite membership을 먼저 확인하고 해당 case가 포함되면 실행하지 않습니다.
+
+### 보존 경계와 다음 Gate
+
+- Retrieval, ranking, semantic genre, hard filter, Provider/TMDB, request budget, First Pick freshness/dedupe는 변경하지 않았습니다.
+- Main, Production, Vercel, release, deployment는 변경하지 않았습니다. 다음 단계는 feature branch finalization 뒤 별도 Founder main-integration gate입니다.
+
 ## 2026-08-30 - Founder Re-QA Rationale and Option Copy Correction V1
 
 ### Founder finding

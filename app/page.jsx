@@ -13,8 +13,10 @@ import {
   buildEvidenceGroundedDecisionReason,
   buildEvidenceGroundedDecisionReasons,
   buildEvidenceGroundedRecommendationReason,
+  buildBaselineSessionContext,
   contentTypeMatchesSelection,
   dedupePrimaryDisplayTitles,
+  normalizeDisplayOttProviders,
   presentationGenreLabels,
   recommendationOptionButtonLabel,
   resolveCanonicalReasonSeed,
@@ -1343,7 +1345,9 @@ function DecisionCard({
           {item.genre ? <span><strong>장르</strong>{item.genre}</span> : null}
           {item.runtime ? <span><strong>러닝타임</strong>{item.runtime}</span> : null}
           {item.rating ? <span><strong>평점</strong>{item.rating}</span> : null}
-          <span><strong>OTT</strong>{item.ott.length ? item.ott.join(", ") : "OTT 제공 정보는 아직 확인되지 않았습니다."}</span>
+          <span><strong>OTT</strong>{normalizeDisplayOttProviders(item.ott).length
+            ? normalizeDisplayOttProviders(item.ott).join(", ")
+            : "OTT 제공 정보는 아직 확인되지 않았습니다."}</span>
         </div>
       </div>
       </button>
@@ -1458,6 +1462,16 @@ export default function Home() {
   const appliedConditionLabels = useMemo(
     () => submittedPreferences ? preferenceConditionLabels(submittedPreferences, optionLabelByValue) : [],
     [submittedPreferences, optionLabelByValue],
+  );
+  const submittedBaselineContext = useMemo(
+    () => buildBaselineSessionContext({
+      titles: submittedTitles,
+      confirmedSeeds: submittedConfirmedSeeds,
+      selectedFilters: submittedFilters,
+      selectedTypes: submittedTypes,
+      selectedOtt: submittedOtt,
+    }),
+    [submittedTitles, submittedConfirmedSeeds, submittedFilters, submittedTypes, submittedOtt],
   );
   const draftConditionLabels = useMemo(
     () => preferenceConditionLabels(draftPreferences, optionLabelByValue),
@@ -2359,6 +2373,7 @@ export default function Home() {
         {submittedPreferences ? (
           <section className="applied-preferences" aria-label="적용된 추천 조건">
             <p>적용된 조건</p>
+            {submittedBaselineContext ? <p className="applied-preferences-context">{submittedBaselineContext}</p> : null}
             <div className="preference-chip-list">
               {appliedConditionLabels.map((label) => <span key={label}>{label}</span>)}
             </div>
@@ -2578,7 +2593,9 @@ export default function Home() {
                 <p><strong>줄거리</strong><br />{selectedDetail.synopsis}</p>
                 <div className="detail-next-step" aria-label={`${selectedDetail.title} OTT 확인`}>
                   <span>볼 수 있는 OTT</span>
-                  <strong>{selectedDetail.ott.length ? selectedDetail.ott.join(", ") : "OTT 제공 정보는 아직 확인되지 않았습니다."}</strong>
+                  <strong>{normalizeDisplayOttProviders(selectedDetail.ott).length
+                    ? normalizeDisplayOttProviders(selectedDetail.ott).join(", ")
+                    : "OTT 제공 정보는 아직 확인되지 않았습니다."}</strong>
                 </div>
               </div>
             </div>

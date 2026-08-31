@@ -1,8 +1,8 @@
 # Founder Preview Operations
 
-Version: 1.1
+Version: 1.2
 
-Last Updated: 2026-07-17
+Last Updated: 2026-08-31
 
 Related Task: MYOTT-S09-OPS-001A
 
@@ -25,6 +25,8 @@ http://127.0.0.1:3000
 - Runtime PID, Lock, Log를 Repository 밖에서 관리한다.
 
 이 운영 자동화는 제품 추천 로직을 변경하지 않습니다.
+
+정상 MyOTT 코드 작업에서는 Founder가 수동 PowerShell을 실행할 필요가 없습니다. 관련 없는 Process, 소유권을 증명할 수 없는 Process, 또는 보안상 검증 불가능한 상태만 사람 개입이 필요한 blocker로 반환합니다.
 
 ---
 
@@ -169,6 +171,12 @@ Repository 경로는 단순 부분 문자열로 비교하지 않습니다. 현�
 - 다른 Repository Process 종료
 
 Process metadata를 읽을 수 없으면 안전을 우선해 `BLOCKED` 또는 `UNOWNED`로 처리합니다.
+
+Metadata source 하나의 실패가 다른 source에서 독립적으로 검증된 증거를 무효화하지는 않습니다. 예를 들어 CIM 조회가 `AccessDenied`여도 approved runtime API나 kernel-backed 조회에서 얻은 유효한 Process identity, executable path, command line 증거는 각각 유지합니다. 다만 필수 ownership evidence가 하나라도 없거나 모순되면 최종 소유권 판정은 계속 fail-closed합니다.
+
+Process 생성 identity는 exact canonical value로 비교하며 시간 허용 오차를 ownership 근거로 사용하지 않습니다. Windows command line은 native argv semantics로 해석한 뒤 현재 lifecycle이 허용하는 strict canonical argument subset만 인정합니다. 실제 Node `ExecutablePath`는 승인된 runtime과 정확히 일치해야 하며, application source는 positional Next application-directory argument가 target repository root와 정확히 일치할 때만 증명됩니다.
+
+Process 종료는 검증 시점의 kernel process identity에 묶습니다. 종료 직전에 identity를 다시 확인하며, PID가 재사용됐거나 creation identity가 달라진 Process로 대상을 재지정하지 않습니다. unrelated 또는 ownership이 증명되지 않은 Process는 절대 종료하지 않습니다.
 
 ---
 
@@ -463,7 +471,7 @@ Start Action이 생성한 MyOTT Process만 정리하며 다른 Port로 이동하
 
 ### PowerShell process metadata access denied
 
-소유권 메타데이터를 읽을 수 없는 환경에서는 안전하게 BLOCKED 처리됩니다. 권한을 우회하거나 관리자 권한을 자동 요청하지 않습니다.
+하나의 metadata provider가 `AccessDenied`를 반환해도 다른 approved source에서 독립적으로 검증된 증거는 유지합니다. 필수 ownership evidence가 끝내 부족하거나 source 간 모순이 있으면 안전하게 `BLOCKED` 처리합니다. 권한을 우회하거나 관리자 권한을 자동 요청하지 않습니다.
 
 ---
 
@@ -472,7 +480,7 @@ Start Action이 생성한 MyOTT Process만 정리하며 다른 Port로 이동하
 - TEMP State와 Cache는 Windows 사용자 세션 및 임시 디렉터리 정리에 따라 사라질 수 있습니다.
 - Global Named Mutex는 같은 Windows 사용자 환경의 clone/worktree 간 Port 3000 mutation을 방어합니다.
 - 브라우저의 Next.js 재연결은 브라우저/네트워크 상태에 따라 수동 새로고침이 필요할 수 있습니다.
-- Process Command Line 조회 권한이 제한되면 자동 adopt/stop보다 안전한 BLOCKED 상태를 선택합니다.
+- Process metadata 조회 일부가 제한돼도 독립적으로 검증된 evidence slot은 유지하지만, required ownership contract를 완성하지 못하면 자동 adopt/stop보다 안전한 BLOCKED 상태를 선택합니다.
 - Linked worktree shared runtime은 같은 Git common directory, 같은 origin, 동일 dependency declaration, target SemVer 범위를 충족하는 실제 설치 runtime이 모두 확인될 때만 허용합니다.
 - Production Process Manager, Windows Service, Startup 등록은 범위 밖입니다.
 
