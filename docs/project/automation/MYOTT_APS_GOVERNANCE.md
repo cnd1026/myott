@@ -41,7 +41,25 @@ Status: PUBLIC PRODUCT GOVERNANCE
 - Commit Gate: Independent Validation, Final Integration, PM Lab Platform Gate, Founder Platform Gate, CRITICAL/MAJOR 0
 - Push Gate: Final Commit Smoke, 필요한 Full CDP, Candidate Diff/Commit Tree 일치, Working Tree/Remote 확인
 
+### Gate Semantics
+
+- **Authority Gate**는 제품 목적/범위, 위험 경계, 보호된 외부 권한 또는 새로운 사람 결정이 필요한 경계입니다.
+- **Evidence Gate**는 실행 의도와 범위가 이미 승인되었고 요구된 증거가 통과하면 진행하는 경계입니다. 따라서 승인된 exact scope의 Commit Gate와 Push Gate는 Evidence Gate로 운영할 수 있습니다.
+- **Execution Security Gate**는 의도는 승인되었지만 현재 플랫폼, 도구, 권한 또는 실행 환경이 승인된 계약을 안전하게 수행하지 못하는 경계입니다.
+
+Evidence Gate 또는 Execution Security Gate를 Authority Gate로 자동 변환하지 않습니다. 새로운 경계가 필요할 때만 그 새로운 범위가 Authority Gate가 됩니다. 현재 Task가 별도로 더 좁은 실행 방화벽을 선언하면 그 방화벽이 우선합니다.
+
 `FAIL`, `BLOCKED`, 미승인 Gate, Evidence 없는 상태는 다음 Wave 또는 Git 진행 권한이 아닙니다.
+
+## Standing Bounded Execution
+
+이미 승인된 Product purpose/scope 안에서 다음 조건을 모두 만족하는 local, reversible, exact-allowlist 작업은 새 사람 결정을 만들지 않고 기존 결정과 Evidence Gate에 따라 진행할 수 있습니다.
+
+- 새로운 Product purpose 또는 material user-visible semantic contract가 없음
+- Public API/schema, Provider, dependency, credential, material cost의 추가가 없음
+- Security Boundary, Main, Production 또는 Release의 확장이 없음
+
+이 원칙은 새로운 권한을 부여하지 않으며, 각 Task의 scope와 prohibited operation을 대체하지 않습니다.
 
 ## Repository Boundary
 
@@ -61,3 +79,7 @@ MyOTT에는 범용 Prompt Master, Git Preflight Engine, Gate Engine, Secret Reda
 - QA Checklist와 환경 파일은 명시적 승인 없이 Stage 금지
 - Commit과 Push는 각각의 Gate를 별도로 충족해야 함
 - **No Evidence, No PASS**
+
+## Canonical Persistence
+
+Founder decisions, governance rules, authority changes, Product/semantic contracts와 recovery-critical current state는 정확한 lifecycle boundary에서 `PLAN / READ -> PRE-HASH -> WRITE -> RE-READ -> POST-HASH -> RESULT` 순서로 보존합니다. 정본은 transient execution log archive가 아니며 private Continuity 내용을 public Repository에 복사하지 않습니다.

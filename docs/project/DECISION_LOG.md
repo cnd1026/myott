@@ -146,3 +146,7 @@ Multi-seed의 Common Candidate 우선 배치와 Seed별 round-robin을 타입 re
 Cross-media query에서 사용자 선택 장르는 검색 범위를 좁힐 수 있지만 Seed 관계의 증거를 대체할 수 없습니다. `crossMediaSeedTransferValues`와 `crossMediaSelectedGenreValues`를 별도 보존하고 Detail 후 두 계약을 모두 통과한 후보만 exact pool에 남깁니다. transferable Seed evidence가 없으면 Provider 요청을 시작하지 않고 skip reason을 기록합니다.
 
 Diagnostics는 표시 Content Type `movie/drama/animation`과 Provider media type `movie/tv`를 구분하며, 실제 `tmdbGet`을 실행한 경우에만 cross-media issued count를 증가시킵니다. 기존 API `results` Shape, Hard Filter와 24/8/16 요청 예산은 유지하므로 v2.7.1의 추가 API Shape Breaking Change는 없습니다.
+
+## DL-025 Authority, Evidence, Execution Security Gate를 분리
+
+이미 승인된 작업의 실행 여부는 Evidence Gate가, 현재 플랫폼·도구·권한·환경의 안전한 수행 가능 여부는 Execution Security Gate가 판단하며, 실제 사람의 결정이 필요한 새로운 목적·범위·권한·위험 경계만 Authority Gate로 둡니다. Evidence Gate 또는 Execution Security Gate를 Authority Gate로 자동 승격하지 않으며, 승인된 bounded/local/reversible exact-scope 작업의 Commit과 Push는 각각 독립 Evidence Gate로 확인합니다. Founder 결정, Governance 규칙, 권한 변경, Product/semantic contract와 recovery-critical current state는 `PLAN / READ -> PRE-HASH -> WRITE -> RE-READ -> POST-HASH -> RESULT` lifecycle로 정본에 보존하고, private Continuity를 공개 Repository에 복사하지 않습니다.

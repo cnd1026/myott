@@ -50,6 +50,14 @@
 
 Manifest가 없거나 Base Commit, 금지 범위, Gate가 불명확하면 구현을 시작하지 않습니다.
 
+## 3.1 Gate Semantics
+
+- **Authority Gate**: 제품 목적/범위, 위험 경계, 보호된 외부 권한 또는 기타 새로운 사람 결정이 필요한 경계입니다.
+- **Evidence Gate**: 작업 의도와 범위가 이미 승인된 상태에서 필요한 증거가 통과하면 실행할 수 있는 검증 경계입니다.
+- **Execution Security Gate**: 작업은 승인되었지만 현재 플랫폼, 도구, 권한 또는 실행 환경이 승인된 계약을 안전하게 수행할 수 없는 경계입니다.
+
+Evidence Gate 또는 Execution Security Gate를 Authority Gate로 자동 승격하지 않습니다. 새로운 경계가 실제로 필요해진 경우에만 그 새로운 범위가 Authority Gate가 됩니다. 승인된 제품 목적 안의 bounded/local/reversible 작업은 exact allowlist, no new material contract, no new dependency/provider/credential/cost, no Security Boundary expansion, no Main/Production mutation 조건을 모두 만족할 때 기존 결정과 증거에 따라 계속할 수 있습니다. 단, 현재 Task의 더 좁은 Stage/Commit/Push 방화벽은 항상 우선합니다.
+
 ## 4. Repository Work Rules
 
 - 작업 전 branch, HEAD, `origin/main`, working tree를 확인합니다.
@@ -87,6 +95,10 @@ Manifest가 없거나 Base Commit, 금지 범위, Gate가 불명확하면 구현
 - Commit 전 `git diff --cached --check`와 staged file 목록을 확인합니다.
 - Commit과 Push는 Manifest Gate가 허용하고 모든 필수 Evidence가 있을 때만 수행합니다.
 - QA Checklist MD/PDF와 `.env*`는 Task의 명시적 승인 없이는 Stage하지 않습니다.
+
+## 7.1 Canonical Persistence
+
+Founder 결정, Governance 규칙, 권한 변경, Product/semantic contract 및 recovery-critical current state는 정확한 lifecycle boundary에서 다음 순서로 정본에 보존합니다: `PLAN / READ -> PRE-HASH -> WRITE -> RE-READ -> POST-HASH -> RESULT`. 이 의무는 동일한 bounded destination에 대한 중복 Founder 승인을 만들지 않으며, 정본을 transient execution-log archive로 바꾸거나 private Continuity 내용을 공개 Repository에 복사하지 않습니다.
 
 ## 8. Founder Preview
 
