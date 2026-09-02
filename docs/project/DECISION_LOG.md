@@ -150,3 +150,11 @@ Diagnostics는 표시 Content Type `movie/drama/animation`과 Provider media typ
 ## DL-025 Authority, Evidence, Execution Security Gate를 분리
 
 이미 승인된 작업의 실행 여부는 Evidence Gate가, 현재 플랫폼·도구·권한·환경의 안전한 수행 가능 여부는 Execution Security Gate가 판단하며, 실제 사람의 결정이 필요한 새로운 목적·범위·권한·위험 경계만 Authority Gate로 둡니다. Evidence Gate 또는 Execution Security Gate를 Authority Gate로 자동 승격하지 않으며, 승인된 bounded/local/reversible exact-scope 작업의 Commit과 Push는 각각 독립 Evidence Gate로 확인합니다. Founder 결정, Governance 규칙, 권한 변경, Product/semantic contract와 recovery-critical current state는 `PLAN / READ -> PRE-HASH -> WRITE -> RE-READ -> POST-HASH -> RESULT` lifecycle로 정본에 보존하고, private Continuity를 공개 Repository에 복사하지 않습니다.
+
+## DL-026 Recovery Override and NON-STOP Continuation Firewall
+
+`MYOTT_HQ_STANDING_EXECUTION_AUTHORITY_RECOVERY_OVERRIDE_V1`은 `ACTIVE / APPLIED` 상태다. 이미 승인된 bounded, reversible execution은 exact scope와 required Evidence Gate가 계속 충족되는 동안 허용된 lifecycle을 `NON-STOP`으로 이어갈 수 있다.
+
+`NON-STOP`은 continuation rule이며 Authority 확장 수단이 아니다. Task 목적 또는 scope 확대, 더 좁은 Task Manifest/firewall 무효화, Security 또는 Execution Security control 우회, 새 Provider, Network/Live, Product/Semantic contract, Main, Release, Production, force/history rewrite, irreversible external action 및 execution-security-blocked command의 blind repetition을 허용하지 않는다.
+
+`AUTHORITY GATE != EVIDENCE GATE != EXECUTION SECURITY GATE`. 이미 승인된 operation이 platform/tool denial을 받으면 `EXECUTION_SECURITY_GATE_BLOCKED`로 기록하며 `FOUNDER_APPROVAL_REQUIRED`로 재분류하지 않는다.
