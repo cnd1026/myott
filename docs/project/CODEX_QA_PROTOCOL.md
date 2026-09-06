@@ -463,3 +463,31 @@ identity, command line, root 및 parent 관계로 소유권이 입증되지 않�
 unrelated listener는 종료하지 않습니다. `127.0.0.1:3000`은 임시 Port가 아닌
 최신 후보를 제공하는 persistent Founder Preview로 QA task closure 이후에도
 `LATEST + RUNNING` 상태를 유지해야 합니다.
+
+---
+
+## 23. Representation-Aware Identity Evidence
+
+Dependency and configuration evidence uses three distinct identity layers:
+
+1. `WORKTREE_RAW_IDENTITY`: literal bytes currently stored in the Working Tree filesystem, typically recorded as SHA-256 over actual file bytes. This may legitimately reflect platform EOL representation such as CRLF.
+2. `GIT_CLEAN_INDEX_IDENTITY`: Git filter-aware canonical content that would enter or has entered the index or commit, typically recorded as a Git blob identity. It may differ in raw byte representation from the Working Tree without semantic corruption.
+3. `SEMANTIC_IDENTITY`: the dependency or configuration meaning, such as a package specifier, resolved dependency version, lock graph, or dependency family.
+
+Never compare identities across representation layers as if they were the same metric. Compare a Worktree raw SHA only with an accepted Worktree raw SHA, and compare staged or committed blob identity only with an accepted Git-clean canonical identity. Verify semantic meaning separately.
+
+A CRLF/LF-only raw representation difference is not, by itself, evidence of corruption. Do not normalize files merely to make raw SHA values equal to a canonical staged representation. Do not change `.gitattributes`, `core.autocrlf`, or EOL policy solely to resolve a representation-only mismatch unless separately authorized and semantically necessary. When representation differences exist, future Stage and Commit verifiers must report every relevant layer explicitly.
+
+### Next 15.5.25 Accepted Example
+
+The accepted Next 15.5.25 dependency case demonstrates the contract without collapsing its identities:
+
+| Evidence | Accepted identity |
+| --- | --- |
+| `package.json` Working Tree raw SHA-256 | `7fc6181b19fc52237700f3cb1caf208502869f57889e079b044fd2781e6d65cb` |
+| `pnpm-lock.yaml` authoritative Windows Working Tree raw SHA-256 | `bb64a8ba774fc55e2aa172c5857b2e24361bfa8364b193cc8338a87120f420d7` |
+| `pnpm-lock.yaml` Git-clean canonical blob | `2e137d0a38c602de0b156e6f4235cea591c9ef9c` |
+| Historical isolated LF raw SHA-256 | `281ab6ae149ccbe0c6792fb2715fe0e2e533d3172c494fdf7d5296df2e4b5b79` |
+| Semantic target | Next `15.5.25` |
+
+The accepted determination was CRLF/LF representation difference only: substantive text difference `NO`, semantic dependency graph identity `PASS`, and normalization required `NO`.
