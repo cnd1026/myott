@@ -522,3 +522,240 @@ Founder QA Handoff:
 - Require `READY_FOR_FOUNDER_QA` at the current commit.
 - Leave `127.0.0.1:3000` running for Founder testing.
 ```
+
+## 20. Network-Zero Lifecycle Inspection
+
+Network-zero QA에서는 Founder Preview의 HTTP health check를 실행하지 않고도
+현재 lifecycle과 소유권을 확인할 수 있어야 합니다. 다음 순서는 Product,
+TMDB, API, Browser/CDP 요청을 만들지 않는 읽기 중심 점검입니다.
+
+1. Repository/worktree identity와 변경 범위를 읽기 전용으로 확인합니다.
+2. State JSON, listener, process ownership metadata를 OS 조회로 확인합니다.
+3. `pnpm founder:selftest`를 실행합니다. 이 self-test는 계약과 안전 조건만
+   검사하며 Root 또는 Product API를 호출하지 않습니다.
+4. 임시 서버 정리가 필요할 때는
+   `scripts/local/founder-preview.ps1 -Action cleanup -DryRun`으로 먼저
+   소유권과 대상만 확인합니다. `-DryRun`은 process termination을 수행하지
+   않습니다.
+
+`founder:status`, `founder:preflight`, `founder:ensure`, `founder:finalize`,
+`founder:verify`, `founder:qa-ready`, `founder:check`, `start`, `restart`,
+`build`, `check`는 listener가 존재하는 경우 Root 또는 Product API health
+check를 포함할 수 있습니다. 따라서 이 명령들은 Network-zero 증거로 사용하지
+않습니다. Preview가 실제로 HTTP로 검증되어야 하는 별도 QA에서는 해당 HTTP
+호출을 명시적으로 기록하고 Network-zero 분류와 섞지 않습니다.
+
+이 절차는 실행 중인 `127.0.0.1:3000` Preview를 재시작하거나 종료하지 않으며,
+소유권이 확인되지 않은 process를 종료하지 않습니다. Product/TMDB 요청,
+외부 Network, Browser/CDP, source mutation은 이 점검에 포함되지 않습니다.
+
+## 21. Canonical Port Lifecycle
+
+`127.0.0.1:3000`은 최신 권위 있는 Product working tree를 제공하는
+지속 Founder Preview/Product 개발 서버입니다. 현재 Product 결함이나 미완성 UI는
+허용하지만 서버 중단이나 오래된 source를 정상 상태로 취급하지 않습니다.
+필요한 재시작은 같은 lifecycle 안에서 현재 working tree로 복구해야 합니다.
+
+`3001-3100`은 실제 임시 테스트가 필요할 때만 할당하는 Codex test pool입니다.
+사용하지 않는 점유 Port를 자동으로 빼앗지 않으며, 작업의 성공·실패·중단과
+관계없이 MyOTT/Codex 소유 임시 listener를 종료합니다. listener를 종료하기
+전에는 PID, process identity, command line, repository/root 및 가능한 parent
+관계를 확인해 소유권을 입증합니다. unrelated 또는 소유권을 입증할 수 없는
+process는 그대로 두고 별도로 보고합니다.
+
+## 22. User-Session Self-Healing Supervisor
+
+승인된 V1R1 Supervisor가 설치된 환경에서는 이 절이 이전 direct lifecycle의
+start/ensure/preflight/finalize/stop/restart/build 동작보다 우선합니다.
+실제 활성화 여부는 `supervisor-status`와 설치·이전 검증 결과로 판단합니다.
+문서 존재만으로 이전 완료나 자동 복구 PASS를 선언하지 않습니다.
+
+- 새 예약 작업 이름은 `MyOTT-FounderPreview-3000`입니다. 현재 사용자 Interactive
+  Logon, Limited 권한, AtLogOn 및 같은 Task의 PT1M 무기한 time trigger, IgnoreNew를 사용합니다. 비밀번호,
+  관리자, Windows Service, 로그인 전 실행, 네트워크 선행 조건,
+  WakeToRun은 사용하지 않습니다. Supervisor 실패 재시작은 1분 간격 최대 3회이며
+  실행 시간 제한은 없습니다. StartWhenAvailable은 활성화합니다.
+- 안정 설치 위치는 `%LOCALAPPDATA%\MyOTT\FounderPreview\bin\`입니다.
+  `FounderPreview.Supervisor.ps1`, 검토된 `FounderPreview.Common.ps1`,
+  `FounderPreview.SupervisorLauncher.vbs`를 정확한 hash manifest로 설치합니다.
+  source/installed SHA-256은 installation manifest로 검증합니다. 일반 명령은 설치
+  파일을 자동 갱신하지 않습니다. 손상·누락·Task 정의 불일치는 fail closed입니다.
+- 명시적인 `scripts/local/founder-preview.ps1 -Action supervisor-install`은 새 Task를
+  **비활성 상태로 준비**합니다. 기존 Task 갱신은 정확한 Task 비활성화 및 소유 Supervisor 종료
+  확인 후에만 파일과 action을 갱신하며 기존 trigger를 보존합니다. 기존 관리자와 공존 실행하지 않습니다. 승인된
+  legacy handover 완료 후 `-Action supervisor-activate`로 활성화합니다.
+- Legacy `MyOTT-Founder-Preview-3000`과 `founder-preview-watchdog.ps1`은 새 관리자
+  활성화 전에 정확한 사용자/command/시작시각을 확인합니다. 원본 Task 정의와
+  script hash를 보존하고 자동시작을 먼저 비활성화한 뒤 watchdog root만 종료합니다.
+  canonical runtime과 소유권 불명 descendant는 종료하지 않습니다. 이 전환 충돌이
+  과거 모든 3000 종료의 직접 원인이었다는 뜻은 아닙니다.
+- named mutex와 user-session control event를 사용합니다. 정상 상태는 blocking wait,
+  60초 health timer, HTTP timeout 10초입니다. root `127.0.0.1:3000/`만 확인하며
+  proxy와 redirect를 사용하지 않습니다. Product API/TMDB 요청은 하지 않습니다.
+- HTTP 200은 HEALTHY, 실제 3xx/4xx/5xx(컴파일 오류 HTTP 500 포함)는
+  DEGRADED_BUT_RESPONSIVE입니다. 응답 있는 서버는 health 실패로 재시작하지 않습니다.
+  transport 실패만 T+0/+5/+15 확인 후 정확한 소유권을 재검증합니다.
+- exact process handle의 종료는 timer 전에 대기를 깨웁니다. 복구 backoff는
+  2/10/30초, 재시작 예산은 10분 내 최대 3회입니다. 초과 시 살아 있는 Supervisor가
+  SAFE_HOLD에서 blocking wait합니다. 아래 사유별 재평가 계약 없이 hold를 해제하지 않습니다.
+  명시적 start/ensure 또는 새 candidateRoot의 budget epoch 변경도 보안 hold와 restart 이력을 삭제하지 않습니다.
+- candidateRoot 변경은 명시적 명령, 증가한 generation, 같은 볼륨의 atomic JSON
+  replacement, event signal로만 수행합니다. 다른 worktree를 자동 선택하지 않습니다.
+  같은 root의 source/HEAD 변경은 주기적 Git/hash 조사나 자동 재시작을 유발하지 않습니다.
+- ensure/preflight/finalize/start는 원하는 후보를 RUNNING으로 게시하고 Supervisor와
+  Task를 활성화하고 root transport를 확인합니다. stop은 먼저 persistent STOPPED를 atomic 게시한 뒤
+  정확한 Task를 비활성화합니다. Supervisor가 없으면 소유권 검증된 runtime만 정지합니다. restart는 Supervisor에
+  정확한 runtime 재시작을 요청합니다. 기존 runtime이 exact-owned/responsive이면
+  불필요하게 재시작하지 않고 인수합니다.
+- build는 최대 15분 maintenance lease 동안 정지하며 finally에서 RUNNING을 복원합니다.
+  호출자가 죽으면 lease가 만료되어 복구 억제가 끝납니다. `pnpm check`와
+  `pnpm qa:recommendation` 금지는 유지하며 supervised check는 실행을 거부합니다.
+- PID뿐 아니라 root, executable, command, 시작시각, 열린 process handle과 generation을
+  사용합니다. unknown listener는 SAFE_HOLD이며 port-only/global process kill은 금지입니다.
+- 의미 있는 상태 전이만 로그에 기록하며 정상 성공 probe 로그는 0입니다. health probe마다
+  bounded status를 갱신하므로 정상 state write는 분당 최대 한 번입니다. probe가 억제된
+  STOP/SAFE_HOLD 상태의 heartbeat는 10분 간격입니다. 새 Supervisor 로그는 현재/이전 각 최대 4 MiB로 회전합니다.
+  새 runtime stdout/stderr는 drain 후 폐기하며 raw error, .env, credential을 저장하지 않습니다.
+  기존 legacy 증거 파일은 회전/삭제 대상이 아닙니다.
+- `-Action supervisor-status`는 설치/hash/Task와 bounded status를 읽고 PID 시작시각,
+  executable, installed command 및 Task Running을 대조합니다. 죽은 PID는
+  SUPERVISOR_NOT_RUNNING, 실행 중 PID와 Ready Task의 조합은 TASK_OWNERSHIP_NOT_PROVEN입니다.
+  마지막 완료 probe가 없거나 75초보다 오래되면 HEALTH_NOT_CURRENT입니다. 원본 state 파일의
+  HEALTHY만으로 현재 건강 상태를 판정하지 않습니다. lastProbeStartedAt/CompletedAt,
+  lastSuccessAt, HTTP 결과, 실패 횟수, 다음 확인 시각을 기록하며 timeout 확인 중에도 갱신합니다.
+  Task action은 blocking VBS launcher를 소유하며 launcher는 long-lived Supervisor 종료까지
+  동기 대기합니다. detached bootstrap은 허용하지 않습니다.
+  명령 세션 독립 생존, 1회 장애 자동복구, 10분 저부하 관찰은
+  별도의 실제 설치 acceptance입니다.
+- `-Action supervisor-uninstall`은 정확한 새 Task와 새 bin/state 파일만 제거합니다.
+  전체 FounderPreview 폴더, legacy script/증거, Product/FM/DEP 자료는 지우지 않습니다.
+  이전 후보를 관리하는 legacy watchdog은 자동 재활성화하지 않습니다. 이전 실패 시
+  SAFE_HOLD하고 승인된 direct lifecycle로 되돌리는 판단을 별도로 합니다.
+- package.json/pnpm-lock.yaml 및 FM staged index는 이 설치의 쓰기 대상이 아닙니다.
+
+### Supervisor lifetime and failure evidence
+
+The scheduled action owns a blocking launcher that executes the installed Supervisor synchronously. Desired RUNNING
+must not return normally: an unexpected return exits 21, a handled top-level fatal
+error exits 22, and duplicate-instance rejection exits 23. Only a validated explicit
+STOPPED/UNINSTALL completion may exit 0. STOPPED and maintenance normally keep the
+Supervisor resident; maintenance expiry and health timing retain their existing contract.
+Task Scheduler owns the configured one-minute, three-attempt failure restart policy.
+No detached bootstrap or independent watchdog is part of this contract.
+
+### SAFE_HOLD provenance and bootstrap recovery (schema 2)
+
+- `desiredState` (`RUNNING` / `STOPPED`) and `containmentState` (`NORMAL` /
+  `SAFE_HOLD` / `RECOVERY_PENDING`) are separate. A RUNNING request is not permission
+  to ignore containment. Reboot does not reset containment or restart accounting.
+- Every new hold records an explicit reason: `OWNERSHIP_CONFLICT`,
+  `STATE_CORRUPTION`, `RESTART_BUDGET_EXHAUSTED`, `RUNTIME_IDENTITY_AMBIGUOUS`,
+  `INSTALLATION_INTEGRITY_FAILURE`, or `LEGACY_REASON_MISSING`. Ownership,
+  corruption, identity and installation holds never automatically clear.
+- Status schema 2 records revision, entry time, generation, candidate, installed
+  manifest SHA, restart timestamps, bounded hold history and migration progress.
+  Existing reasonless holds migrate idempotently to `LEGACY_REASON_MISSING`.
+  Their original structured record is preserved; original cause remains
+  `NOT_PROVEN`, and an unavailable original entry time remains null.
+- A legacy/budget hold can be reevaluated on initial migration, desired generation
+  or budget-epoch transition, installed identity repair, lease expiry, or an exact
+  rolling-window count change. Identical PT1M task repetitions do not re-run a
+  blocked evaluation. Ownership changes require a corresponding explicit control
+  generation transition; no new ownership polling loop is installed.
+- An active, unexpired maintenance lease is an outer firewall for SAFE_HOLD
+  reevaluation. Generation, evaluation-key, dependency or install changes during
+  the lease do not collect recovery conditions, change migration decisions, enter
+  `RECOVERY_PENDING`, reserve bootstrap, or recover a runtime. This remains true
+  when the Supervisor restarts and restores the lease. Lease bookkeeping,
+  lifecycle identity/checkpoints, bounded heartbeat/status persistence and control
+  wake accounting may change; `safeHoldReason`, `legacyMigrationStatus`,
+  `evaluationKey`, `recoveryChecks`, `containmentState`, `bootstrapAttempts`,
+  `pageReadiness`, restart accounting and runtime identity may not change as a
+  reevaluation decision while the lease is active.
+- Lease expiry or explicit clear is the material transition that permits one fresh
+  reevaluation against the fully installed post-maintenance state. No compatibility
+  result computed before or during maintenance is reused. The unchanged material
+  key suppresses subsequent PT1M repetitions after that evaluation.
+- Restart accounting stays at three within rolling ten minutes. Expired timestamps
+  permit reevaluation, not unconditional clearing. A valid enabled Task, one exact
+  blocking launcher/Supervisor pair, exact source repository and install identity,
+  clear lease, empty listener/runtime state, available budget, and compatible
+  existing dependencies are all required. No install or alternate runtime is used
+  to bypass a failed precheck. The first failed check is persisted as
+  `BLOCKED_<EXACT_REASON>`.
+- Successful checks move SAFE_HOLD to RECOVERY_PENDING. Checks run again before a
+  durable one-shot bootstrap reservation and restart timestamp are committed.
+  Only the canonical runtime path may then start once. An interrupted reservation
+  becomes `BLOCKED_BOOTSTRAP_INTERRUPTED`; it is never replayed after a crash.
+- NORMAL/COMPLETED requires root HTTP 200 and representative CSS/JS 200 from that
+  exact root HTML, with loopback-only, proxy-free, non-redirecting bounded requests.
+  Failed page readiness remains contained without another bootstrap. Hold history
+  is retained. Normal 60-second health and T+0/+5/+15 failure behavior are unchanged.
+- Canonical JSON writes use a same-directory unique temporary file, explicit disk
+  flush/close, and atomic replace/move. Partial/invalid state fails closed as
+  STATE_CORRUPTION. Raw process output, credentials and provider data are not state.
+- Manual ensure is not normal recovery. A future Founder-selected reboot must
+  prove within 90 seconds of login: Task Running, one launcher/Supervisor/runtime,
+  no visible task console, desired RUNNING, containment NORMAL unless a new explicit
+  safety hold, exact candidate, and root/CSS/JS 200, with manual ensure count zero.
+
+`state/supervisor-lifecycle.json` records the owning PID/start identity, generation,
+candidate, desired state, execution checkpoint and planned/final exit classification.
+The bounded status snapshot also carries the most recent health/control checkpoint.
+A previous attempt with no final record is suspected abrupt termination; it does not
+identify the external actor. A duplicate that did not acquire the mutex cannot replace
+the owner's lifecycle evidence. Raw exception messages and credentials are not recorded.
+Status readback checks current desired generation as well as process and Task identity.
+
+Run focused regressions with `founder-preview.selftest.ps1 -SupervisorOnly`. Live
+acceptance additionally requires exact-owned Supervisor failure recovery through Task
+Scheduler, independent-command survival and healthy scheduled intervals. Configuration
+alone, or a cached HEALTHY state, is not proof of effective failure recovery.
+
+### Periodic task reconciliation and transition-only page readiness
+
+The Founder-approved periodic reconciliation contract supersedes the previous prohibition
+on repeated triggers. The existing task retains AtLogOn and adds one TimeTrigger with
+PT1M repetition, no Duration, and StopAtDurationEnd=false. This also covers the current
+already logged-in session. IgnoreNew prevents concurrent action instances; the Supervisor
+mutex remains the independent single-instance guard. RestartOnFailure remains PT1M/3.
+No second task, detached launcher, extra watchdog, or elevated principal is used.
+
+Only explicit installation updates the stable binaries. Disable the exact task first,
+revalidate and stop only its exact owned Supervisor if running, install/hash-verify, then
+enable/start the same task. Runtime processes are not stopped merely for this update.
+Ordinary build maintenance continues to use the bounded lease, not persistent STOPPED.
+
+Root HTTP 200 proves transport health, not Founder Preview readiness. At start/recovery
+and final QA-ready validation only, read the exact localhost HTML and verify representative
+same-origin CSS and JS references when present. Never follow third-party URLs or add
+asset polling to the 60-second health loop. Asset timeout is PARTIAL_RUNTIME_STALL;
+actual asset 4xx/5xx is DEGRADED_BUT_RESPONSIVE and does not trigger a restart.
+FOUNDER_PREVIEW_READY requires PAGE_READINESS_PASS. A page-readiness failure can remain
+separate from a proven periodic-reconciliation acceptance.
+
+### Hidden blocking Windows compatibility launcher
+
+CURRENT: VBS is an accepted local Windows compatibility bridge for Windows Terminal
+visibility behavior, not a permanent architecture. The existing task executes
+`C:\Windows\System32\wscript.exe //B //Nologo "<installed-bin>\FounderPreview.SupervisorLauncher.vbs"`.
+The launcher accepts no arguments, starts only the fixed installed PowerShell host and
+Supervisor with `-Mode Run`, and uses `WScript.Shell.Run(command, 0, True)`.
+It remains alive until the Supervisor exits and returns that exact exit code. Internal
+launcher failures exit 80/81 without modal UI; no polling, health loop or success log is added.
+Task Scheduler owns the launcher; the launcher owns one Supervisor. Existing trigger,
+principal, restart and runtime-health contracts remain unchanged.
+
+Explicit migration uses `Install-FpsSupervisor -MigrateLauncher` only after the exact
+task is disabled and its proven Supervisor has exited. The old two-file installation
+and direct PowerShell action are accepted only for this migration preflight. Normal
+validation requires all three installed hashes and the exact wscript action. An existing
+installation update preserves desired generation, restart budget and task triggers.
+
+Visible-console verification enumerates WindowsTerminal top-level windows and correlates
+PseudoConsoleWindow owner/root-owner handles to shell PIDs. A zero shell MainWindowHandle
+does not prove invisibility. Shared user Terminal hosts must never be terminated wholesale.
+
+FUTURE: replace this bridge with a supported no-console blocking launcher if Microsoft
+removes or disables VBScript on the target Windows installation. No replacement is
+implemented or installed by this compatibility task.

@@ -146,3 +146,18 @@ Multi-seed의 Common Candidate 우선 배치와 Seed별 round-robin을 타입 re
 Cross-media query에서 사용자 선택 장르는 검색 범위를 좁힐 수 있지만 Seed 관계의 증거를 대체할 수 없습니다. `crossMediaSeedTransferValues`와 `crossMediaSelectedGenreValues`를 별도 보존하고 Detail 후 두 계약을 모두 통과한 후보만 exact pool에 남깁니다. transferable Seed evidence가 없으면 Provider 요청을 시작하지 않고 skip reason을 기록합니다.
 
 Diagnostics는 표시 Content Type `movie/drama/animation`과 Provider media type `movie/tv`를 구분하며, 실제 `tmdbGet`을 실행한 경우에만 cross-media issued count를 증가시킵니다. 기존 API `results` Shape, Hard Filter와 24/8/16 요청 예산은 유지하므로 v2.7.1의 추가 API Shape Breaking Change는 없습니다.
+
+## DL-028 Founder Preview Network-Zero Lifecycle Correction
+
+Founder Preview lifecycle verification is divided into two explicit modes. The
+Network-zero mode uses read-only repository/state/process/listener ownership
+inspection, `founder:selftest`, and a dry-run temporary cleanup inspection. It
+does not call Root, Product API, TMDB, Browser/CDP, or external Network, and it
+does not restart or terminate the existing Founder Preview.
+
+Commands that can perform localhost HTTP health checks, including
+`founder:status`, `preflight`, `ensure`, `finalize`, `verify`, `qa-ready`,
+`check`, `build`, `start`, and `restart`, are not Network-zero evidence. HTTP
+Preview validation remains a separate QA layer and must not be silently used to
+close a Network-zero gate. Product behavior, port ownership, and existing
+Founder Preview lifecycle contracts are otherwise unchanged.

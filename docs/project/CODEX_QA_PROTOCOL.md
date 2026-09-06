@@ -449,3 +449,17 @@ Known incident:
 - Clean replacement review는 prohibited case selected/executed `0 / 0`을 raw command membership과 실행 기록으로 확인해야 합니다.
 
 닫힌 case의 Product source, fixture, expected result를 수정해 우회하지 않습니다. 재개가 필요하면 별도 Task authority와 정확한 QA scope를 먼저 확정합니다.
+
+---
+
+## 22. Founder and Temporary Port Closure
+
+`3001-3100`은 Codex 임시 테스트 Port pool입니다. 점유 Port는 건너뛸 수 있고,
+여러 Port는 테스트에 실제로 필요한 경우에만 사용합니다. QA lifecycle은
+`ALLOCATE -> USE -> VERIFY -> RELEASE`이며 postflight/cleanup은 필수입니다.
+
+QA 종료 시 MyOTT/Codex 임시 listener leak은 `0`이어야 합니다. PID, process
+identity, command line, root 및 parent 관계로 소유권이 입증되지 않은 listener나
+unrelated listener는 종료하지 않습니다. `127.0.0.1:3000`은 임시 Port가 아닌
+최신 후보를 제공하는 persistent Founder Preview로 QA task closure 이후에도
+`LATEST + RUNNING` 상태를 유지해야 합니다.

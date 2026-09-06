@@ -61,3 +61,16 @@ MyOTT에는 범용 Prompt Master, Git Preflight Engine, Gate Engine, Secret Reda
 - QA Checklist와 환경 파일은 명시적 승인 없이 Stage 금지
 - Commit과 Push는 각각의 Gate를 별도로 충족해야 함
 - **No Evidence, No PASS**
+
+## Network-Zero Founder Preview Contract
+
+Network-zero 검증은 Preview HTTP health check와 분리한다. State/process/listener
+소유권의 읽기 전용 확인, `founder:selftest`, 그리고
+`founder-preview.ps1 -Action cleanup -DryRun`만으로 lifecycle 안전 조건을
+검사할 수 있다. `status`, `preflight`, `ensure`, `finalize`, `verify`,
+`qa-ready`, `check`, `build` 및 start/restart 계열은 listener가 있으면
+localhost HTTP를 호출할 수 있으므로 Network-zero 증거로 분류하지 않는다.
+
+Network-zero 절차는 기존 `127.0.0.1:3000` Founder Preview를 재시작하거나
+종료하지 않고, 소유권이 확인된 대상 외의 process를 종료하지 않는다. Product,
+TMDB, 외부 Network, Browser/CDP 요청과 source mutation은 0이어야 한다.

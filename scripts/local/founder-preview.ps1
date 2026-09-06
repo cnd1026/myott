@@ -1,6 +1,6 @@
 param(
   [Parameter(Mandatory = $true)]
-  [ValidateSet('status', 'start', 'stop', 'restart', 'ensure', 'cleanup', 'verify', 'preflight', 'finalize', 'qa-ready', 'build', 'check', 'selftest')]
+  [ValidateSet('status', 'start', 'stop', 'restart', 'ensure', 'cleanup', 'verify', 'preflight', 'finalize', 'qa-ready', 'build', 'check', 'selftest', 'supervisor-install', 'supervisor-activate', 'supervisor-status', 'supervisor-uninstall')]
   [string]$Action,
   [switch]$DryRun,
   [int]$LockTimeoutSeconds = 30
@@ -85,6 +85,15 @@ function Write-QaReadyResult {
 }
 
 try {
+  $supervisorSource = Join-Path $scriptDirectory 'FounderPreview.Supervisor.ps1'
+  $supervisorInstalled = Test-Path -LiteralPath (Join-Path $env:LOCALAPPDATA 'MyOTT\FounderPreview\state\supervisor-install.json')
+  $supervisorMaterial = Test-Path -LiteralPath (Join-Path $env:LOCALAPPDATA 'MyOTT\FounderPreview\bin\FounderPreview.Supervisor.ps1')
+  if ($Action -like 'supervisor-*' -or (($supervisorInstalled -or $supervisorMaterial) -and $Action -in @('status','start','stop','restart','ensure','preflight','finalize','build','check'))) {
+    if (-not (Test-Path -LiteralPath $supervisorSource)) { throw 'SUPERVISOR_SOURCE_MISSING: explicit install reconciliation required' }
+    . $supervisorSource -Mode Library
+    Invoke-FpsCommand -Action $Action -RepositoryPath $repositoryPath | ConvertTo-Json -Depth 10
+    exit 0
+  }
   if ($Action -eq 'selftest') {
     & (Join-Path $scriptDirectory 'founder-preview.selftest.ps1')
     $exitCode = $LASTEXITCODE
