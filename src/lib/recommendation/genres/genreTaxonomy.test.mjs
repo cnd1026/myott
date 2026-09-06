@@ -2,16 +2,30 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import {
+  GENRE_CONTRACT,
   candidateGenreMatchDetail,
   classifyTaxonomyValues,
   genreContractFor,
+  genreIdsForFilters,
   genreMatchStrength,
   genreOptionGroups,
+  incompatibleTaxonomyValues,
+  isTaxonomySelectionStateCompatible,
+  isTaxonomyValueCompatibleWithContentTypes,
   normalizeTaxonomyValue,
+  sanitizeCompatibleTaxonomySelections,
   semanticProviderEligibility,
 } from "./genreContract.js";
 import { calculateRecommendationScore } from "../scoring/recommendationWeightEngine.js";
 import { classifyCandidate } from "../candidates/candidatePipeline.js";
+import {
+  PRIMARY_OTT_OPTIONS,
+  RUNTIME_FILTERS,
+  ottDiscoverParameters,
+  runtimeConstraintFromFilters,
+  selectedOttEntries,
+} from "../filters/hardFilterContract.js";
+import { selectedCountryCode } from "../candidates/candidatePipeline.js";
 
 const fixture = (genreIds, keywords = [], extra = {}) => ({
   mediaType: "tv",
@@ -87,6 +101,145 @@ test("plain TV Drama is not Romance without semantic evidence", () => {
   assert.equal(candidateGenreMatchDetail(plain, ["genre-romance"]).genreMatched, false);
   assert.equal(candidateGenreMatchDetail(romance, ["genre-romance"]).genreMatchMode, "semantic-specialized");
   assert.deepEqual(classifyTaxonomyValues(plain).canonicalGenreValues, ["genre-drama"]);
+});
+
+test("content type compatibility blocks only the eight incompatible option pairs", () => {
+  const incompatiblePairs = [
+    ["genre-history", "drama"],
+    ["genre-music", "drama"],
+    ["format-tv-movie", "movie"],
+    ["format-news", "movie"],
+    ["format-reality", "movie"],
+    ["format-talk", "movie"],
+    ["format-soap", "movie"],
+    ["audience-kids", "movie"],
+  ];
+
+  for (const [value, contentType] of incompatiblePairs) {
+    assert.equal(isTaxonomyValueCompatibleWithContentTypes(value, [contentType]), false, `${value}+${contentType}`);
+    assert.deepEqual(incompatibleTaxonomyValues([value], [contentType]), [value]);
+  }
+
+  const supportedPairs = [
+    ["genre-history", "movie"],
+    ["genre-music", "movie"],
+    ["format-tv-movie", "drama"],
+    ["format-news", "drama"],
+    ["format-reality", "drama"],
+    ["format-talk", "drama"],
+    ["format-soap", "drama"],
+    ["audience-kids", "drama"],
+  ];
+
+  for (const [value, contentType] of supportedPairs) {
+    assert.equal(isTaxonomyValueCompatibleWithContentTypes(value, [contentType]), true, `${value}+${contentType}`);
+    assert.deepEqual(incompatibleTaxonomyValues([value], [contentType]), []);
+  }
+});
+
+test("content type compatibility requires every selected type and fails closed for malformed state", () => {
+  const prohibitedPairs = [
+    ["genre-history", "drama"],
+    ["genre-music", "drama"],
+    ["format-tv-movie", "movie"],
+    ["format-news", "movie"],
+    ["format-reality", "movie"],
+    ["format-talk", "movie"],
+    ["format-soap", "movie"],
+    ["audience-kids", "movie"],
+  ];
+
+  for (const [value, incompatibleType] of prohibitedPairs) {
+    assert.equal(isTaxonomyValueCompatibleWithContentTypes(value, ["movie", "drama", "animation"]), false, `${value}:all`);
+    assert.equal(isTaxonomyValueCompatibleWithContentTypes(value, [incompatibleType, "animation"]), false, `${value}:masked`);
+  }
+
+  assert.equal(isTaxonomyValueCompatibleWithContentTypes("genre-history", ["movie", "animation"]), true);
+  assert.equal(isTaxonomyValueCompatibleWithContentTypes("format-tv-movie", ["drama", "animation"]), true);
+  assert.equal(isTaxonomyValueCompatibleWithContentTypes("genre-action", ["movie", "drama", "animation"]), true);
+  assert.equal(isTaxonomyValueCompatibleWithContentTypes("genre-history", "drama"), false);
+  assert.equal(isTaxonomyValueCompatibleWithContentTypes("genre-history", ["movie", "unknown"]), false);
+  assert.equal(isTaxonomyValueCompatibleWithContentTypes("genre-stale", ["movie"]), false);
+  assert.equal(isTaxonomyValueCompatibleWithContentTypes("country-kr", ["movie", "drama"]), true);
+  assert.deepEqual(incompatibleTaxonomyValues(["genre-stale"], ["movie"]), ["genre-stale"]);
+  assert.equal(isTaxonomySelectionStateCompatible(["genre-history"], ["movie", "drama"]), false);
+  assert.equal(isTaxonomySelectionStateCompatible(["genre-history", "country-kr"], ["movie"]), true);
+  assert.equal(isTaxonomySelectionStateCompatible(["genre-history"], ["movie", "unknown"]), false);
+  assert.equal(isTaxonomySelectionStateCompatible(["genre-history"], "movie"), false);
+  assert.equal(isTaxonomySelectionStateCompatible(["genre-history", 1], ["movie"]), false);
+});
+
+test("compatibility lookup rejects inherited and unknown media keys without throwing", () => {
+  const malformedMediaValues = ["__proto__", "constructor", "toString", "unknown-option-id"];
+  for (const mediaValue of malformedMediaValues) {
+    assert.equal(genreContractFor(mediaValue), null, mediaValue);
+    assert.doesNotThrow(() => isTaxonomyValueCompatibleWithContentTypes("genre-history", [mediaValue]));
+    assert.equal(isTaxonomyValueCompatibleWithContentTypes("genre-history", [mediaValue]), false, mediaValue);
+    assert.equal(isTaxonomySelectionStateCompatible(["genre-history"], [mediaValue]), false, mediaValue);
+  }
+
+  for (const malformedState of [null, undefined, "movie", {}, ["unknown-media"], ["__proto__"], ["constructor"], ["toString"]]) {
+    assert.doesNotThrow(() => isTaxonomyValueCompatibleWithContentTypes("genre-history", malformedState));
+    assert.equal(isTaxonomyValueCompatibleWithContentTypes("genre-history", malformedState), false);
+    assert.equal(isTaxonomySelectionStateCompatible(["genre-history"], malformedState), false);
+  }
+
+  assert.equal(isTaxonomyValueCompatibleWithContentTypes("genre-history", ["movie", "animation"]), true);
+  assert.equal(isTaxonomySelectionStateCompatible(["genre-history"], ["movie", "animation"]), true);
+});
+
+test("type transition sanitizes stale taxonomy selections before submission", () => {
+  const selected = ["genre-history", "genre-action", "country-kr"];
+  assert.deepEqual(sanitizeCompatibleTaxonomySelections(selected, ["movie"]), selected);
+  assert.deepEqual(sanitizeCompatibleTaxonomySelections(selected, ["drama"]), ["genre-action", "country-kr"]);
+  assert.deepEqual(sanitizeCompatibleTaxonomySelections(["genre-history", "format-news"], ["drama"]), ["format-news"]);
+});
+
+test("all 59 active option values are represented by their existing contracts", () => {
+  const countries = [
+    ["country-kr", "KR"], ["country-us", "US"], ["country-jp", "JP"], ["country-gb", "GB"],
+    ["country-fr", "FR"], ["country-de", "DE"], ["country-cn", "CN"], ["country-hk", "HK"],
+    ["country-tw", "TW"], ["country-in", "IN"], ["country-ca", "CA"], ["country-au", "AU"],
+    ["country-es", "ES"], ["country-it", "IT"], ["country-th", "TH"], ["country-br", "BR"],
+    ["country-mx", "MX"],
+  ];
+  const moods = ["mood-light", "mood-moving", "mood-tense"];
+  const activeOptions = [
+    ...[["movie", "content-type"], ["drama", "content-type"], ["animation", "content-type"]],
+    ...countries.map(([value]) => [value, "country"]),
+    ...GENRE_CONTRACT.map(({ value }) => [value, "taxonomy"]),
+    ...PRIMARY_OTT_OPTIONS.map(([value]) => [value, "ott"]),
+    ...Object.keys(RUNTIME_FILTERS).map((value) => [value, "runtime"]),
+    ...moods.map((value) => [value, "mood"]),
+    ["title-seeds", "seed-mode"],
+  ];
+
+  assert.equal(activeOptions.length, 59);
+  assert.equal(new Set(activeOptions.map(([value]) => value)).size, 59);
+  assert.deepEqual({ ...Object.groupBy(activeOptions, ([, category]) => category) }, {
+    "content-type": [["movie", "content-type"], ["drama", "content-type"], ["animation", "content-type"]],
+    country: countries.map(([value]) => [value, "country"]),
+    taxonomy: GENRE_CONTRACT.map(({ value }) => [value, "taxonomy"]),
+    ott: PRIMARY_OTT_OPTIONS.map(([value]) => [value, "ott"]),
+    runtime: Object.keys(RUNTIME_FILTERS).map((value) => [value, "runtime"]),
+    mood: moods.map((value) => [value, "mood"]),
+    "seed-mode": [["title-seeds", "seed-mode"]],
+  });
+
+  for (const [value] of countries) assert.equal(selectedCountryCode([value]), countries.find(([key]) => key === value)[1]);
+  for (const { value } of GENRE_CONTRACT) {
+    assert.ok(genreContractFor(value));
+    assert.ok(genreIdsForFilters([value], "movie").length || genreIdsForFilters([value], "tv").length, value);
+  }
+  for (const [value] of PRIMARY_OTT_OPTIONS) {
+    assert.equal(selectedOttEntries([value]).length, 1, value);
+    assert.ok(Object.keys(ottDiscoverParameters([value])).length, value);
+  }
+  for (const value of Object.keys(RUNTIME_FILTERS)) {
+    assert.ok(runtimeConstraintFromFilters([value]), value);
+  }
+  assert.deepEqual(moods, ["mood-light", "mood-moving", "mood-tense"]);
+  assert.equal(activeOptions.at(-1)[0], "title-seeds");
 });
 
 test("plain TV Mystery is not Horror without semantic evidence", () => {

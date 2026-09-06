@@ -8,6 +8,26 @@ import {
 const normalizeToken = (value) => String(value ?? "").trim().toLowerCase();
 const uniqueNumbers = (values = []) => [...new Set(values.map(Number).filter(Number.isFinite))];
 const uniqueStrings = (values = []) => [...new Set(values.filter(Boolean))];
+const CONTENT_TYPE_PROVIDER_TYPES = new Map([
+  ["movie", Object.freeze(["movie"])],
+  ["drama", Object.freeze(["tv"])],
+  ["tv", Object.freeze(["tv"])],
+  ["series", Object.freeze(["tv"])],
+  ["animation", Object.freeze(["movie", "tv"])],
+]);
+const TAXONOMY_VALUE_PREFIXES = Object.freeze(["genre-", "format-", "audience-", "style-", "tmdb-genre-"]);
+
+function isTaxonomySelectionValue(value) {
+  const token = normalizeToken(value);
+  return Boolean(genreContractFor(value)) || TAXONOMY_VALUE_PREFIXES.some((prefix) => token.startsWith(prefix));
+}
+
+function normalizedSelectedContentTypes(contentTypes) {
+  if (!Array.isArray(contentTypes)) return null;
+  const normalized = contentTypes.map(normalizeToken);
+  if (normalized.some((type) => !CONTENT_TYPE_PROVIDER_TYPES.has(type))) return null;
+  return uniqueStrings(normalized);
+}
 
 const typePolicy = ({
   providerExactIds = [],
@@ -236,6 +256,42 @@ export function normalizeTaxonomyValue(value) {
 
 export function genreContractFor(value) {
   return contractByValue.get(normalizeTaxonomyValue(value)) || null;
+}
+
+export function isTaxonomyValueCompatibleWithContentTypes(value, contentTypes) {
+  const selectedTypes = normalizedSelectedContentTypes(contentTypes);
+  if (selectedTypes === null) return false;
+  const contract = genreContractFor(value);
+  if (!isTaxonomySelectionValue(value)) return true;
+  if (!contract) return false;
+  if (!selectedTypes.length) return true;
+  return selectedTypes.every((type) => {
+    const selectedProviderTypes = CONTENT_TYPE_PROVIDER_TYPES.get(type);
+    return contract.contentTypes.some((providerType) => selectedProviderTypes.includes(providerType));
+  });
+}
+
+export function incompatibleTaxonomyValues(values = [], contentTypes = []) {
+  if (!Array.isArray(values)) return [];
+  return values
+    .filter((value) => isTaxonomySelectionValue(value))
+    .filter((value) => !isTaxonomyValueCompatibleWithContentTypes(value, contentTypes))
+    .map((value) => normalizeTaxonomyValue(value) || String(value));
+}
+
+export function sanitizeCompatibleTaxonomySelections(values = [], contentTypes = []) {
+  if (!Array.isArray(values)) return [];
+  const incompatible = new Set(incompatibleTaxonomyValues(values, contentTypes));
+  return values.filter((value) => !incompatible.has(normalizeTaxonomyValue(value) || String(value)));
+}
+
+export function isTaxonomySelectionStateCompatible(values = [], contentTypes) {
+  if (!Array.isArray(values) || !Array.isArray(contentTypes)) return false;
+  if (normalizedSelectedContentTypes(contentTypes) === null) return false;
+  return values.every((value) => {
+    if (typeof value !== "string" || !value.trim()) return false;
+    return !isTaxonomySelectionValue(value) || isTaxonomyValueCompatibleWithContentTypes(value, contentTypes);
+  });
 }
 
 export function genreValueForProviderName(name) {

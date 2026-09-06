@@ -858,7 +858,7 @@ test("Horror TV breadth stages do not expand representative non-target recall pl
       filters: ["country-us", "genre-romance"],
       contentTypes: ["drama"],
       endpoint: "/3/discover/tv",
-      expected: [["18", 1, "popularity.desc"], ["18", 1, "vote_average.desc"], ["18", 2, "popularity.desc"]],
+      expected: [["18", 1, "popularity.desc"], ["18", 1, "vote_average.desc"], ["18", 2, "popularity.desc"], ["", 1, "popularity.desc"]],
     },
     {
       filters: ["country-us", "genre-sf"],
@@ -904,8 +904,60 @@ test("Horror TV breadth stages do not expand representative non-target recall pl
       scenario.expected,
     );
     assert.ok(discoverRequests.every((request) => request.path === scenario.endpoint));
-    assert.ok(discoverRequests.every((request) => request.withKeywords === ""));
+    if (scenario.filters.includes("genre-romance")) {
+      assert.deepEqual(discoverRequests.map((request) => request.withKeywords), ["", "", "", "328021"]);
+    } else {
+      assert.ok(discoverRequests.every((request) => request.withKeywords === ""));
+    }
   }
+});
+
+test("TV Romance uses the bounded romantic-relationship retrieval lens without semantic credit", async () => {
+  const directGenreCandidate = currentProductCandidate(93_000, { genreIds: [18] });
+  const keywordWithoutEvidence = currentProductCandidate(93_001, { genreIds: [18] });
+  const keywordWithEvidence = currentProductCandidate(93_002, {
+    genreIds: [18],
+    detailKeywords: ["romantic relationship"],
+  });
+  const requestLog = [];
+  const run = await withCurrentProductRuntime(
+    () => discoverTmdb({
+      filters: ["country-us", "genre-romance"],
+      contentTypes: ["drama"],
+      limit: 12,
+      qaObservability: true,
+    }),
+    {
+      fixtureOptions: {
+        count: 1,
+        candidatesByGenreAndPage: { "18:1": [directGenreCandidate] },
+        candidatesByKeywordAndPage: { "328021:1": [keywordWithoutEvidence, keywordWithEvidence] },
+        requestLog,
+      },
+    },
+  );
+  const requests = requestLog.filter((request) => request.path === "/3/discover/tv");
+  const diagnostics = [...run.payload.diagnostics.candidates, ...run.payload.diagnostics.exclusions];
+  const withoutEvidence = diagnostics.find((item) => item.tmdbId === keywordWithoutEvidence.id);
+  const withEvidence = diagnostics.find((item) => item.tmdbId === keywordWithEvidence.id);
+
+  assert.deepEqual(requests.map((request) => [request.withGenres, request.withKeywords, request.page, request.sortBy]), [
+    ["18", "", 1, "popularity.desc"],
+    ["18", "", 1, "vote_average.desc"],
+    ["18", "", 2, "popularity.desc"],
+    ["", "328021", 1, "popularity.desc"],
+  ]);
+  assert.equal(requests.length, 4);
+  assert.equal(run.payload.diagnostics.listRequestsUsed, 4);
+  assert.equal(run.payload.diagnostics.listRequestsUsed <= 8, true);
+  assert.equal(withoutEvidence.semanticGenreMatched, false);
+  assert.equal(withoutEvidence.candidateSource, "tmdb-discover:keyword-romantic-relationship-328021-page-1");
+  assert.equal(withoutEvidence.genreMatchMode, "relaxed");
+  assert.equal(withoutEvidence.semanticGenreReasons.length, 0);
+  assert.equal(withoutEvidence.tmdbId, keywordWithoutEvidence.id);
+  assert.equal(withEvidence.genreMatchMode, "semantic-specialized");
+  assert.equal(run.payload.results.some((item) => item.tmdbId === keywordWithoutEvidence.id), false);
+  assert.equal(run.payload.results.some((item) => item.tmdbId === keywordWithEvidence.id), true);
 });
 
 test("QA lineage adds no Product-policy clock read across an advancing 15-second window", async () => {

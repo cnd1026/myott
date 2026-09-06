@@ -4,6 +4,10 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { calculateRecommendationScore } from "../src/lib/recommendation/scoring/recommendationWeightEngine.js";
 import {
   GENRE_CONTRACT,
+  incompatibleTaxonomyValues,
+  isTaxonomySelectionStateCompatible,
+  isTaxonomyValueCompatibleWithContentTypes,
+  sanitizeCompatibleTaxonomySelections,
   genreIdsForFilters,
   genreOptionGroups,
   genreValuesForItem,
@@ -1456,8 +1460,19 @@ export default function Home() {
   const submittedOtt = submittedPreferences?.ottProviders || emptyPreferenceValues;
   const submittedConfirmedSeeds = submittedPreferences?.confirmedSeeds || emptyConfirmedSeeds;
   const preferencesDirty = Boolean(submittedPreferences && preferencesChanged(draftPreferences, submittedPreferences));
-  const hasOptionPreference = selectedQuickPicks.length > 0 || selectedOtt.length > 0 || selectedTypes.length > 0;
-  const canRecommend = (enteredTitles.length > 0 || hasOptionPreference) && recommendationStatus !== "loading";
+  const incompatibleSelectedQuickPicks = useMemo(
+    () => incompatibleTaxonomyValues(selectedQuickPicks, selectedTypes),
+    [selectedQuickPicks, selectedTypes],
+  );
+  const selectionStateCompatible = useMemo(
+    () => isTaxonomySelectionStateCompatible(selectedQuickPicks, selectedTypes),
+    [selectedQuickPicks, selectedTypes],
+  );
+  const hasOptionPreference = (Array.isArray(selectedQuickPicks) && selectedQuickPicks.length > 0) ||
+    (Array.isArray(selectedOtt) && selectedOtt.length > 0) ||
+    (Array.isArray(selectedTypes) && selectedTypes.length > 0);
+  const canRecommend = (enteredTitles.length > 0 || hasOptionPreference) &&
+    recommendationStatus !== "loading" && incompatibleSelectedQuickPicks.length === 0 && selectionStateCompatible;
   const optionLabelByValue = useMemo(() => new Map(optionGroups.flatMap((group) => group.options)), [optionGroups]);
   const appliedConditionLabels = useMemo(
     () => submittedPreferences ? preferenceConditionLabels(submittedPreferences, optionLabelByValue) : [],
@@ -1506,6 +1521,13 @@ export default function Home() {
   const showStickyRecommendation = canRecommend && !showConditions && !showQuickPick && !selectedDetail &&
     !["loading", "success", "empty"].includes(recommendationStatus);
   const activeSuggestionRaw = seedRows.find((row) => row.id === activeSuggestionRowId)?.raw || "";
+
+  useEffect(() => {
+    setSelectedQuickPicks((current) => {
+      const sanitized = sanitizeCompatibleTaxonomySelections(current, selectedTypes);
+      return sanitized.length === current.length ? current : sanitized;
+    });
+  }, [selectedTypes]);
 
   useEffect(() => {
     setQaMode(process.env.NODE_ENV !== "production" && new URLSearchParams(window.location.search).get("qa") === "1");
@@ -1723,7 +1745,7 @@ export default function Home() {
     event.preventDefault();
     const currentTitles = titles.filter((title) => title.trim());
     const canSubmit = currentTitles.length > 0 || hasOptionPreference;
-    if (!canSubmit) return;
+    if (!canSubmit || !selectionStateCompatible || incompatibleSelectedQuickPicks.length) return;
 
     const request = recommendationRequestGateRef.current.begin();
     const requestId = createRecommendationRequestId(request.sequence);
@@ -1871,6 +1893,7 @@ export default function Home() {
 
   function toggleQuickPickValue(value) {
     setSelectedQuickPicks((current) => {
+      if (!current.includes(value) && !isTaxonomyValueCompatibleWithContentTypes(value, selectedTypes)) return current;
       if (!value.startsWith("runtime-")) return toggleValue(current, value);
       const withoutRuntime = current.filter((item) => !item.startsWith("runtime-"));
       return current.includes(value) ? withoutRuntime : [...withoutRuntime, value];
@@ -2523,6 +2546,7 @@ export default function Home() {
                               name="quickPick"
                               value={value}
                               checked={selectedQuickPicks.includes(value)}
+                              disabled={!selectedQuickPicks.includes(value) && !isTaxonomyValueCompatibleWithContentTypes(value, selectedTypes)}
                               onChange={() => toggleQuickPickValue(value)}
                             />
                             <span>{label}</span>
