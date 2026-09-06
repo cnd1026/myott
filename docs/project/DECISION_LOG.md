@@ -147,6 +147,12 @@ Cross-media query에서 사용자 선택 장르는 검색 범위를 좁힐 수 �
 
 Diagnostics는 표시 Content Type `movie/drama/animation`과 Provider media type `movie/tv`를 구분하며, 실제 `tmdbGet`을 실행한 경우에만 cross-media issued count를 증가시킵니다. 기존 API `results` Shape, Hard Filter와 24/8/16 요청 예산은 유지하므로 v2.7.1의 추가 API Shape Breaking Change는 없습니다.
 
+## DL-027 TV Romance Candidate Retrieval Lens and Option Compatibility Closure
+
+Founder policy `MYOTT_TV_ROMANCE_RETRIEVAL_ASSOCIATION_POLICY_V1` Option A is implemented within the existing Product contract. TV Romance retains Drama provider genre `18` and `semanticRequired=true`; a bounded candidate-retrieval-only page-1 popularity lens uses TMDB keyword `328021` (`romantic relationship`). Retrieval membership does not create semantic Romance credit, and no new provider mapping or semantic inference is introduced.
+
+The eight approved incompatible option/content combinations are blocked by the shared taxonomy contract at UI selection and submission. Existing `/api/recommend/options` unavailable `503`, legitimate empty, and TMDB success distinctions are preserved without route changes. Focused coverage and full recommendation unit validation pass; Product/TMDB Network and Full Matrix rerun remain `0`.
+
 ## DL-028 Founder Preview Network-Zero Lifecycle Correction
 
 Founder Preview lifecycle verification is divided into two explicit modes. The
