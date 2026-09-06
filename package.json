@@ -27,7 +27,7 @@
     "founder:selftest": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/local/founder-preview.ps1 -Action selftest"
   },
   "dependencies": {
-    "next": "^15.3.4",
+    "next": "^15.5.25",
     "react": "^19.0.0",
     "react-dom": "^19.0.0"
   }
