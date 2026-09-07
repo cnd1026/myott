@@ -21,6 +21,25 @@ function isMeaningful(row) {
   return Boolean(row?.raw?.trim() || row?.confirmed);
 }
 
+export function isSeedRowPopulated(row) {
+  return isMeaningful(row);
+}
+
+export function getFavoriteWorkVisibleCount(rows, {
+  initialVisibleCount = 3,
+  revealedVisibleCount = 0,
+} = {}) {
+  const safeRows = Array.isArray(rows) ? rows : [];
+  const initial = Number.isSafeInteger(initialVisibleCount) ? Math.max(0, initialVisibleCount) : 0;
+  const revealed = Number.isSafeInteger(revealedVisibleCount) ? Math.max(0, revealedVisibleCount) : 0;
+  const lastPopulatedIndex = safeRows.reduce(
+    (lastIndex, row, index) => isMeaningful(row) ? index : lastIndex,
+    -1,
+  );
+  const nextAvailableAfterPopulated = lastPopulatedIndex >= 0 ? lastPopulatedIndex + 2 : 0;
+  return Math.max(initial, revealed, safeRows.length, nextAvailableAfterPopulated);
+}
+
 export function normalizeSeedRows(rows, createBlankRow) {
   const next = rows.length ? [...rows] : [createBlankRow()];
   while (next.length > 1 && !isMeaningful(next.at(-1)) && !isMeaningful(next.at(-2))) {

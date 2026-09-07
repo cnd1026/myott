@@ -1651,6 +1651,10 @@ input[type="text"]:focus {
     grid-template-columns: 1fr;
   }
 
+  .input-group[data-viewport-ready="false"] .title-input-field[data-mobile-initial-hidden="true"] {
+    display: none;
+  }
+
   .hero-grid,
   .first-pick-loading {
     display: grid;

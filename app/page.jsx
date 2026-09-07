@@ -36,6 +36,8 @@ import {
   confirmSeedRow,
   createSeedRow,
   editSeedRow,
+  getFavoriteWorkVisibleCount,
+  isSeedRowPopulated,
   nextHighlightedSuggestion,
   normalizeSeedRows,
   removeSeedConfirmation,
@@ -1392,6 +1394,9 @@ export default function Home() {
   const seedRowSequenceRef = useRef(2);
   const createBlankSeedRow = () => createSeedRow(`seed-${seedRowSequenceRef.current++}`);
   const [seedRows, setSeedRows] = useState(() => [createSeedRow("seed-1")]);
+  const [isMobileViewport, setIsMobileViewport] = useState(false);
+  const [isViewportReady, setIsViewportReady] = useState(false);
+  const [revealedSeedRowCount, setRevealedSeedRowCount] = useState(0);
   const [selectedQuickPicks, setSelectedQuickPicks] = useState([]);
   const [optionGroups, setOptionGroups] = useState(quickPickGroups);
   const [optionMetadata, setOptionMetadata] = useState(initialOptionMetadata);
@@ -1445,6 +1450,18 @@ export default function Home() {
   if (!relatedRequestGateRef.current) relatedRequestGateRef.current = createLatestRequestGate();
 
   const { titles, confirmedSeeds } = useMemo(() => seedRowsToPreferenceState(seedRows), [seedRows]);
+  const initialVisibleSeedRowCount = isMobileViewport ? 2 : 3;
+  const visibleSeedRowCount = getFavoriteWorkVisibleCount(seedRows, {
+    initialVisibleCount: initialVisibleSeedRowCount,
+    revealedVisibleCount: revealedSeedRowCount,
+  });
+  const visibleSeedRows = useMemo(() => {
+    const rows = [...seedRows];
+    while (rows.length < visibleSeedRowCount) {
+      rows.push(createSeedRow(`seed-slot-${rows.length + 1}`));
+    }
+    return rows;
+  }, [seedRows, visibleSeedRowCount]);
   const enteredTitles = useMemo(() => titles.map((title) => title.trim()).filter(Boolean), [titles]);
   const draftPreferences = useMemo(() => createSubmittedPreferences({
     titles,
@@ -1521,6 +1538,15 @@ export default function Home() {
   const showStickyRecommendation = canRecommend && !showConditions && !showQuickPick && !selectedDetail &&
     !["loading", "success", "empty"].includes(recommendationStatus);
   const activeSuggestionRaw = seedRows.find((row) => row.id === activeSuggestionRowId)?.raw || "";
+
+  useEffect(() => {
+    const mediaQuery = window.matchMedia("(max-width: 767px)");
+    const updateViewport = () => setIsMobileViewport(mediaQuery.matches);
+    updateViewport();
+    setIsViewportReady(true);
+    mediaQuery.addEventListener?.("change", updateViewport);
+    return () => mediaQuery.removeEventListener?.("change", updateViewport);
+  }, []);
 
   useEffect(() => {
     setSelectedQuickPicks((current) => {
@@ -1992,16 +2018,36 @@ export default function Home() {
   }
 
   function updateTitle(rowId, value) {
-    setSeedRows((current) => editSeedRow(current, rowId, value, createBlankSeedRow));
+    const rowIndex = visibleSeedRows.findIndex((row) => row.id === rowId);
+    setSeedRows((current) => {
+      const next = [...current];
+      while (next.length <= rowIndex) {
+        next.push(createSeedRow(`seed-slot-${next.length + 1}`));
+      }
+      return editSeedRow(next, rowId, value, createBlankSeedRow);
+    });
+    if (rowIndex === visibleSeedRowCount - 1 && value.trim()) {
+      setRevealedSeedRowCount((current) => Math.max(current, visibleSeedRowCount + 1));
+    }
     setActiveSuggestionRowId(rowId);
     setHighlightedSuggestions((current) => ({ ...current, [rowId]: -1 }));
   }
 
   function selectSuggestion(rowId, suggestion) {
-    const row = seedRows.find((item) => item.id === rowId);
+    const row = visibleSeedRows.find((item) => item.id === rowId);
     const selection = applySuggestionSelection(row?.raw || "", suggestion);
     if (!selection.confirmedSeed) return;
-    setSeedRows((current) => confirmSeedRow(current, rowId, selection.confirmedSeed, createBlankSeedRow));
+    const rowIndex = visibleSeedRows.findIndex((item) => item.id === rowId);
+    setSeedRows((current) => {
+      const next = [...current];
+      while (next.length <= rowIndex) {
+        next.push(createSeedRow(`seed-slot-${next.length + 1}`));
+      }
+      return confirmSeedRow(next, rowId, selection.confirmedSeed, createBlankSeedRow);
+    });
+    if (rowIndex === visibleSeedRowCount - 1 && isSeedRowPopulated({ confirmed: selection.confirmedSeed })) {
+      setRevealedSeedRowCount((current) => Math.max(current, visibleSeedRowCount + 1));
+    }
     setSuggestions((current) => ({ ...current, [rowId]: [] }));
     setHighlightedSuggestions((current) => ({ ...current, [rowId]: -1 }));
     setActiveSuggestionRowId(null);
@@ -2119,6 +2165,7 @@ export default function Home() {
     setSelectedTypes([...initialTypes]);
     seedRowSequenceRef.current = 2;
     setSeedRows([createSeedRow("seed-1")]);
+    setRevealedSeedRowCount(0);
     setSelectedQuickPicks([]);
     setQuickPickSearch("");
     setExpandedOptionGroups({});
@@ -2295,13 +2342,18 @@ export default function Home() {
                 <p className="section-copy">작품을 검색하고 정확한 항목을 확인해 주세요.</p>
               </div>
             </div>
-            <div className="input-group" aria-label="좋아했던 작품 입력">
-              {seedRows.map((row, index) => (
+            <div
+              className="input-group"
+              data-viewport-ready={isViewportReady ? "true" : "false"}
+              aria-label="좋아했던 작품 입력"
+            >
+              {visibleSeedRows.map((row, index) => (
                 <div
                   className="title-input-field"
                   data-autocomplete-root
                   data-confirmed-seed={row.confirmed ? "true" : "false"}
                   data-seed-state={row.state}
+                  data-mobile-initial-hidden={index === 2 ? "true" : undefined}
                   key={row.id}
                 >
                   <label htmlFor={`titleInput${index + 1}`}>작품 {index + 1}</label>

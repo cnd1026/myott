@@ -41,6 +41,7 @@ import {
   confirmSeedRow,
   createSeedRow,
   editSeedRow,
+  getFavoriteWorkVisibleCount,
   nextHighlightedSuggestion,
   normalizeSeedRows,
   removeSeedConfirmation,
@@ -1212,6 +1213,65 @@ test("Confirmed Seed keyboard navigation wraps, Enter can target a highlight, an
   assert.equal(nextHighlightedSuggestion(1, 3, "Tab"), 1);
   assert.equal(nextHighlightedSuggestion(1, 3, "Enter"), 1);
   assert.equal(nextHighlightedSuggestion(1, 3, "Escape"), 1);
+});
+
+test("favorite-work visibility starts responsively, expands one slot, and preserves session capacity", () => {
+  const blank = (id) => createSeedRow(id);
+  const initialRows = [blank("row-1")];
+  assert.equal(getFavoriteWorkVisibleCount(initialRows, { initialVisibleCount: 3 }), 3);
+  assert.equal(getFavoriteWorkVisibleCount(initialRows, { initialVisibleCount: 2 }), 2);
+
+  const thirdUsed = [
+    blank("row-1"),
+    blank("row-2"),
+    createSeedRow("row-3", "Alien"),
+    blank("row-4"),
+  ];
+  assert.equal(getFavoriteWorkVisibleCount(thirdUsed, { initialVisibleCount: 3 }), 4);
+  assert.equal(getFavoriteWorkVisibleCount(thirdUsed, { initialVisibleCount: 3, revealedVisibleCount: 4 }), 4);
+
+  const fourthUsed = [...thirdUsed.slice(0, 3), createSeedRow("row-4", "Arrival"), blank("row-5")];
+  assert.equal(getFavoriteWorkVisibleCount(fourthUsed, { initialVisibleCount: 3 }), 5);
+
+  const nonLastUsed = [blank("row-1"), createSeedRow("row-2", "Alien"), blank("row-3")];
+  assert.equal(getFavoriteWorkVisibleCount(nonLastUsed, { initialVisibleCount: 3 }), 3);
+
+  const populatedBeyondInitial = [
+    createSeedRow("row-1", "Alien"),
+    createSeedRow("row-2", "Arrival"),
+    createSeedRow("row-3", "Dune"),
+    createSeedRow("row-4", "Her"),
+    blank("row-5"),
+  ];
+  assert.equal(getFavoriteWorkVisibleCount(populatedBeyondInitial, { initialVisibleCount: 2 }), 5);
+
+  const clearedAfterReveal = [createSeedRow("row-1")];
+  assert.equal(getFavoriteWorkVisibleCount(clearedAfterReveal, {
+    initialVisibleCount: 2,
+    revealedVisibleCount: 5,
+  }), 5);
+
+  assert.equal(getFavoriteWorkVisibleCount(populatedBeyondInitial, { initialVisibleCount: 2 }),
+    getFavoriteWorkVisibleCount(populatedBeyondInitial, { initialVisibleCount: 3 }));
+  const serialized = seedRowsToPreferenceState(populatedBeyondInitial);
+  assert.deepEqual(serialized.titles, ["Alien", "Arrival", "Dune", "Her", ""]);
+  assert.equal(getFavoriteWorkVisibleCount(Array.from({ length: 20 }, (_, index) => createSeedRow(`row-${index + 1}`, `Work ${index + 1}`)), {
+    initialVisibleCount: 3,
+  }), 21);
+});
+
+test("favorite-work mobile initial visibility is wired through readiness CSS, not only the pure helper", async () => {
+  const pageSource = await readFile(new URL("../../../app/page.jsx", import.meta.url), "utf8");
+  const styleSource = await readFile(new URL("../../../app/globals.css", import.meta.url), "utf8");
+
+  assert.match(pageSource, /const \[isViewportReady, setIsViewportReady\] = useState\(false\);/);
+  assert.match(pageSource, /matchMedia\("\(max-width: 767px\)"\)[\s\S]*?setIsViewportReady\(true\);/);
+  assert.match(pageSource, /data-viewport-ready=\{isViewportReady \? "true" : "false"\}/);
+  assert.match(pageSource, /data-mobile-initial-hidden=\{index === 2 \? "true" : undefined\}/);
+  assert.match(
+    styleSource,
+    /@media \(max-width: 767px\)[\s\S]*?\.input-group\[data-viewport-ready="false"\] \.title-input-field\[data-mobile-initial-hidden="true"\] \{\s*display: none;\s*\}/,
+  );
 });
 
 test("final Product candidate path closes all seven content-type combinations", () => {
