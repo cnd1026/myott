@@ -77,12 +77,18 @@ function tmdbFixtureResponse(status, payload = {}) {
   };
 }
 
-function currentProductCandidates(count = 72, { horrorPassCount = null, idOffset = 0 } = {}) {
+function currentProductCandidates(count = 72, {
+  horrorPassCount = null,
+  idOffset = 0,
+  distinctTitles = false,
+} = {}) {
   return Array.from({ length: count }, (_, index) => {
     const id = 80_001 + idOffset + index;
     const horrorFixture = Number.isSafeInteger(horrorPassCount);
     const horrorPass = horrorFixture && index < horrorPassCount;
-    const title = horrorFixture
+    const title = distinctTitles
+      ? `Title${id} Current Product`
+      : horrorFixture
       ? `Candidate${id} Current Product`
       : `Current Product Candidate ${id}`;
     return {
@@ -172,19 +178,57 @@ function currentProductFixtureFetch(calls, fixtureOptions = {}) {
         : page >= 3
           ? [...(additionalHorrorByPage.get(page) || []), ...candidates]
           : candidates;
+      const mediaType = url.pathname.endsWith("/movie") ? "movie" : "tv";
+      const responseCandidates = fixtureOptions.distinctMediaTitles
+        ? pageCandidates.map((candidate) => mediaType === "movie"
+          ? {
+              ...candidate,
+              name: undefined,
+              original_name: undefined,
+              first_air_date: undefined,
+              title: `Movie${candidate.id} Feature`,
+              original_title: `Movie${candidate.id} Feature`,
+              release_date: candidate.first_air_date,
+            }
+          : {
+              ...candidate,
+              name: `Drama${candidate.id} Series`,
+              original_name: `Drama${candidate.id} Series`,
+            })
+        : pageCandidates;
       return tmdbFixtureResponse(200, {
         page,
         total_results: allCandidates.length,
-        results: pageCandidates,
+        results: responseCandidates,
       });
     }
     const detailMatch = url.pathname.match(/^\/3\/(?:tv|movie)\/(\d+)$/);
     assert.ok(detailMatch, `unexpected current Product fixture path: ${url.pathname}`);
     const id = Number(detailMatch[1]);
+    const mediaType = url.pathname.split("/")[2];
+    const detailKey = `${mediaType}:${id}`;
     const candidate = allCandidates.find((item) => item.id === id);
     assert.ok(candidate, `unknown current Product fixture candidate: ${id}`);
+    if (fixtureOptions.detailFailureKeys?.includes(detailKey)) {
+      return tmdbFixtureResponse(503, { status_message: "deterministic detail failure" });
+    }
+    const streamingProvider = fixtureOptions.streamingProviderFor?.({ mediaType, id, candidate });
     return tmdbFixtureResponse(200, {
       ...candidate,
+      ...(fixtureOptions.distinctMediaTitles
+        ? mediaType === "movie"
+          ? {
+              name: undefined,
+              original_name: undefined,
+              title: `Movie${id} Feature`,
+              original_title: `Movie${id} Feature`,
+              release_date: candidate.first_air_date,
+            }
+          : {
+              name: `Drama${id} Series`,
+              original_name: `Drama${id} Series`,
+            }
+        : {}),
       overview: candidate.detailOverview || candidate.overview,
       genres: candidate.genre_ids.map((id) => ({ id, name: id === 9648 ? "Mystery" : "Drama" })),
       episode_run_time: [45],
@@ -197,7 +241,11 @@ function currentProductFixtureFetch(calls, fixtureOptions = {}) {
             : [],
       },
       credits: { cast: [], crew: [] },
-      "watch/providers": { results: {} },
+      "watch/providers": {
+        results: streamingProvider
+          ? { KR: { flatrate: [{ provider_id: streamingProvider.id, provider_name: streamingProvider.name }] } }
+          : {},
+      },
     });
   };
 }
@@ -466,6 +514,150 @@ test("active-base QA observability preserves Product output, request sequence, p
     evidence.events.filter((event) => event.type === "candidate-lineage").map((event) => event.candidateId),
   ).size, 72);
   assert.equal(/https?:\/\/|api_key|authorization|bearer|\?/.test(JSON.stringify(evidence)), false);
+});
+
+test("cache hits return unused detail capacity to the deterministic union candidate plan", async () => {
+  const requestLog = [];
+  const netflix = { id: 8, name: "Netflix" };
+  const run = await withCurrentProductRuntime(
+    async () => {
+      const warm = await discoverTmdb({
+        filters: ["country-us", "netflix"],
+        contentTypes: ["movie"],
+        limit: 12,
+      });
+      const union = await discoverTmdb({
+        filters: ["country-us", "netflix"],
+        contentTypes: ["movie", "drama"],
+        limit: 12,
+      });
+      return { warm, union };
+    },
+    {
+      fixtureOptions: {
+        count: 24,
+        distinctTitles: true,
+        distinctMediaTitles: true,
+        requestLog,
+        streamingProviderFor: ({ mediaType, id }) => {
+          const offset = id - 80_000;
+          if (mediaType === "movie" && (offset <= 3 || offset >= 9)) return netflix;
+          if (mediaType === "tv" && offset >= 9 && offset <= 11) return netflix;
+          return null;
+        },
+      },
+    },
+  );
+  const { warm, union } = run.payload;
+  const resultIds = new Set(union.results.map((item) => `${item.mediaType}:${item.tmdbId}`));
+  const refilledMovieIds = [80_009, 80_010, 80_011, 80_012, 80_013, 80_014];
+
+  assert.equal(warm.diagnostics.detailRequestsUsed, 16);
+  assert.equal(union.results.length, 12);
+  assert.deepEqual(union.diagnostics.selectedExactByType, { movie: 9, drama: 3, animation: 0 });
+  refilledMovieIds.forEach((id) => assert.ok(resultIds.has(`movie:${id}`)));
+  assert.equal(union.results.some((item) => item.mediaType === "tv" && item.tmdbId > 80_011), false);
+  assert.ok(union.diagnostics.detailRequestsUsed > 8);
+  assert.ok(union.diagnostics.cacheHits >= 15);
+  assert.ok(union.diagnostics.detailSelectedCount > 16);
+  assert.ok(union.diagnostics.requestsUsed <= 24);
+  assert.ok(union.diagnostics.listRequestsUsed <= 8);
+  assert.ok(union.diagnostics.detailRequestsUsed <= 16);
+  assert.ok(requestLog.some((request) => request.path === "/3/movie/80014"));
+});
+
+test("no-cache union keeps the existing bounded initial detail allocation", async () => {
+  const requestLog = [];
+  const run = await withCurrentProductRuntime(
+    () => discoverTmdb({
+      filters: ["country-us", "netflix"],
+      contentTypes: ["movie", "drama"],
+      limit: 12,
+    }),
+    {
+      fixtureOptions: {
+        count: 24,
+        distinctTitles: true,
+        distinctMediaTitles: true,
+        requestLog,
+        streamingProviderFor: () => ({ id: 8, name: "Netflix" }),
+      },
+    },
+  );
+
+  assert.equal(run.payload.results.length, 12);
+  assert.equal(run.payload.diagnostics.detailRequestsUsed, 16);
+  assert.equal(run.payload.diagnostics.cacheHits, 0);
+  assert.equal(run.payload.diagnostics.detailSelectedCount, 16);
+  assert.equal(requestLog.filter((request) => /^\/3\/(?:movie|tv)\/\d+$/.test(request.path)).length, 16);
+});
+
+test("cache-aware detail refill stops when the final target and type coverage are already met", async () => {
+  const requestLog = [];
+  const run = await withCurrentProductRuntime(
+    async () => {
+      await discoverTmdb({
+        filters: ["country-us", "netflix"],
+        contentTypes: ["movie"],
+        limit: 12,
+      });
+      return discoverTmdb({
+        filters: ["country-us", "netflix"],
+        contentTypes: ["movie", "drama"],
+        limit: 12,
+      });
+    },
+    {
+      fixtureOptions: {
+        count: 24,
+        distinctTitles: true,
+        distinctMediaTitles: true,
+        requestLog,
+        streamingProviderFor: () => ({ id: 8, name: "Netflix" }),
+      },
+    },
+  );
+
+  assert.equal(run.payload.results.length, 12);
+  assert.equal(run.payload.diagnostics.detailRequestsUsed, 8);
+  assert.equal(run.payload.diagnostics.cacheHits, 9);
+  assert.equal(run.payload.diagnostics.detailSelectedCount, 16);
+  assert.deepEqual(run.payload.diagnostics.typeCoverageShortfall, { movie: 0, drama: 0 });
+});
+
+test("cache-aware detail refill allows genuine insufficient supply and preserves detail failures", async () => {
+  const run = await withCurrentProductRuntime(
+    async () => {
+      await discoverTmdb({
+        filters: ["country-us", "netflix"],
+        contentTypes: ["movie"],
+        limit: 12,
+      });
+      return discoverTmdb({
+        filters: ["country-us", "netflix"],
+        contentTypes: ["movie", "drama"],
+        limit: 12,
+      });
+    },
+    {
+      fixtureOptions: {
+        count: 9,
+        distinctTitles: true,
+        distinctMediaTitles: true,
+        detailFailureKeys: ["tv:80009"],
+        streamingProviderFor: ({ mediaType }) => (
+          mediaType === "movie" ? { id: 8, name: "Netflix" } : null
+        ),
+      },
+    },
+  );
+
+  assert.equal(run.payload.results.length, 9);
+  assert.ok(run.payload.results.every((item) => item.mediaType === "movie"));
+  assert.equal(run.payload.results.some((item) => item.tmdbId === 80_009 && item.mediaType === "tv"), false);
+  assert.ok(run.payload.diagnostics.detailRequestsUsed <= 16);
+  assert.ok(run.payload.diagnostics.requestsUsed <= 24);
+  assert.equal(run.payload.diagnostics.cacheHits, 10);
 });
 
 test("Horror TV exact recall adds true semantic candidates within the bounded page plan", async () => {

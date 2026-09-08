@@ -329,6 +329,26 @@ function countBy(items, selector) {
   }, {});
 }
 
+export function detailAllocationDiagnostics(
+  selected = [],
+  skipped = [],
+  { filters = [], eligibleCount = selected.length + skipped.length } = {},
+) {
+  const selectedFamilies = countBy(
+    selected.flatMap((item) => semanticFamiliesForItem(item, filters).map((family) => ({ family }))),
+    (entry) => entry.family,
+  );
+  return {
+    detailEligibleCount: eligibleCount,
+    detailSelectedCount: selected.length,
+    detailSelectedByMediaType: countBy(selected, (item) => normalizeProviderMediaType(item)),
+    detailSelectedByContentType: countBy(selected, (item) => normalizeDisplayContentType(item)),
+    detailSelectedBySemanticFamily: selectedFamilies,
+    detailSkippedCount: skipped.length,
+    detailSkippedByReason: skipped.length ? { "detail-budget-limit": skipped.length } : {},
+  };
+}
+
 export function planDetailAllocation(
   orderedCandidates = [],
   {
@@ -390,23 +410,14 @@ export function planDetailAllocation(
   }
   const selectedSet = new Set(selected);
   const skipped = orderedCandidates.filter((item) => !selectedSet.has(item));
-  const selectedFamilies = countBy(
-    selected.flatMap((item) => semanticFamiliesForItem(item, filters).map((family) => ({ family }))),
-    (entry) => entry.family,
-  );
 
   return {
     selected,
     skipped,
-    diagnostics: {
-      detailEligibleCount: orderedCandidates.length,
-      detailSelectedCount: selected.length,
-      detailSelectedByMediaType: countBy(selected, (item) => normalizeProviderMediaType(item)),
-      detailSelectedByContentType: countBy(selected, (item) => normalizeDisplayContentType(item)),
-      detailSelectedBySemanticFamily: selectedFamilies,
-      detailSkippedCount: skipped.length,
-      detailSkippedByReason: skipped.length ? { "detail-budget-limit": skipped.length } : {},
-    },
+    diagnostics: detailAllocationDiagnostics(selected, skipped, {
+      filters,
+      eligibleCount: orderedCandidates.length,
+    }),
   };
 }
 
