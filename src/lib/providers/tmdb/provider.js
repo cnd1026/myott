@@ -138,12 +138,14 @@ export const tmdbProvider = {
     limit,
     seedTitles = [],
     qaDiagnostics = false,
+    excludeContentIdentities = [],
   } = {}) {
     if (query) return this.search({ query, filters, contentTypes, seedTitles });
     const payload = await discoverTmdb({
       filters,
       contentTypes,
       limit,
+      excludeContentIdentities,
       qaObservability: process.env.NODE_ENV !== "production" && Boolean(qaDiagnostics),
     });
     return toUnifiedRecommendationPayload(payload);
@@ -152,13 +154,27 @@ export const tmdbProvider = {
   async getFirstPicks() {
     const payload = await firstPicksTmdb();
     return {
-      results: (payload.results || []).map(toFirstPickContentModel).filter(Boolean).slice(0, 3),
+      results: (payload.results || []).map(toFirstPickContentModel).filter(Boolean).slice(0, 6),
       diagnostics: payload.diagnostics || {},
     };
   },
 
-  async getSeedRecommendations({ titles = [], seeds = [], filters = [], contentTypes = [], limit } = {}) {
-    const payload = await recommendSeedsTmdb({ titles, seeds, filters, contentTypes, limit });
+  async getSeedRecommendations({
+    titles = [],
+    seeds = [],
+    filters = [],
+    contentTypes = [],
+    limit,
+    excludeContentIdentities = [],
+  } = {}) {
+    const payload = await recommendSeedsTmdb({
+      titles,
+      seeds,
+      filters,
+      contentTypes,
+      limit,
+      excludeContentIdentities,
+    });
     return {
       ...payload,
       ...toUnifiedRecommendationPayload(payload),

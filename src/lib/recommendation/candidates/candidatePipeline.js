@@ -18,6 +18,7 @@ import {
   reserveTypeCoverage,
   typeCoverageState,
 } from "../recall/recallPlanner.js";
+import { providerContentKey } from "../content/contentIdentity.js";
 
 export { selectedGenreFilters };
 
@@ -512,6 +513,7 @@ export function finalizeCandidatePool(
     seedGenreIds = [],
     diversity = {},
     collectObservabilityTrace = false,
+    excludeContentIdentities = [],
   } = {},
 ) {
   const country = selectedCountryCode(filters);
@@ -580,7 +582,24 @@ export function finalizeCandidatePool(
     contentTypes,
     limit,
   });
-  const exactResults = exactAssembly.selected;
+  const excludedContentKeys = new Set(excludeContentIdentities);
+  const crossSurfaceExclusions = [];
+  const excludeCrossSurfaceMatches = (items) => items.filter((item) => {
+    const excluded = excludedContentKeys.has(providerContentKey(item));
+    if (excluded) crossSurfaceExclusions.push({ ...item, exclusionReason: "cross-surface-first-pick" });
+    return !excluded;
+  });
+  const exactSelected = exactAssembly.selected;
+  const exactSelectedSet = new Set(exactSelected);
+  const exactUniverse = excludedContentKeys.size
+    ? [...exactSelected, ...exactDedupe.kept.filter((item) => !exactSelectedSet.has(item))]
+    : exactSelected;
+  const exactAvailableCandidates = excludedContentKeys.size
+    ? excludeCrossSurfaceMatches(exactUniverse)
+    : exactDedupe.kept;
+  const exactResults = excludedContentKeys.size
+    ? exactAvailableCandidates.slice(0, limit)
+    : exactSelected;
   const sameCountryDedupe = dedupeCandidates(scored.filter((item) => item.resultTier === "same-country-relaxed"));
   const sameCountryEligible = dedupeAgainst(sameCountryDedupe.kept, exactResults);
   const remainingSlots = Math.max(0, limit - exactResults.length);
@@ -591,19 +610,31 @@ export function finalizeCandidatePool(
   const maxSameCountryRelaxed = requiresSpecializedTvRecall
     ? 0
     : Math.min(remainingSlots, Math.floor(exactResults.length * 0.25));
-  const sameCountryResults = balanceSeedSources(
+  const balancedSameCountryResults = balanceSeedSources(
     sameCountryEligible.eligible,
     seedTitles,
     contentTypes,
     maxSameCountryRelaxed,
   );
+  const balancedSameCountrySet = new Set(balancedSameCountryResults);
+  const sameCountryUniverse = excludedContentKeys.size
+    ? [
+        ...balancedSameCountryResults,
+        ...sameCountryEligible.eligible.filter((item) => !balancedSameCountrySet.has(item)),
+      ]
+    : balancedSameCountryResults;
+  const sameCountryResults = excludedContentKeys.size
+    ? excludeCrossSurfaceMatches(sameCountryUniverse).slice(0, maxSameCountryRelaxed)
+    : balancedSameCountryResults;
   const selectedSameCountryKeys = new Set(sameCountryResults.map(contentKey));
   const unusedSameCountryCandidates = sameCountryEligible.eligible
     .filter((item) => !selectedSameCountryKeys.has(contentKey(item)))
     .map((item) => ({ ...item, exclusionReason: item.exclusionReason || "genre-mismatch" }));
   const primaryResults = [...exactResults, ...sameCountryResults];
   const relaxedDedupe = dedupeCandidates(relaxedEligible);
-  const relaxedResults = relaxedDedupe.kept.slice(0, limit);
+  const relaxedResults = (excludedContentKeys.size
+    ? excludeCrossSurfaceMatches(relaxedDedupe.kept)
+    : relaxedDedupe.kept).slice(0, limit);
   const allExclusions = [
     ...exclusions,
     ...exactDedupe.excluded,
@@ -611,10 +642,11 @@ export function finalizeCandidatePool(
     ...sameCountryEligible.excluded,
     ...unusedSameCountryCandidates,
     ...relaxedDedupe.excluded,
+    ...crossSurfaceExclusions,
   ];
   if (observabilityTraceById) {
     for (const item of allExclusions) {
-      if (!["duplicate-content", "duplicate-display-title", "duplicate-franchise"].includes(item.exclusionReason)) {
+      if (!["duplicate-content", "duplicate-display-title", "duplicate-franchise", "cross-surface-first-pick"].includes(item.exclusionReason)) {
         continue;
       }
       const trace = observabilityTraceById.get(candidateLineageId(item));
@@ -649,7 +681,7 @@ export function finalizeCandidatePool(
     counts[type] = (counts[type] || 0) + 1;
     return counts;
   }, { movie: 0, drama: 0, animation: 0 });
-  const availableExactByType = contentTypeCounts(exactDedupe.kept);
+  const availableExactByType = contentTypeCounts(exactAvailableCandidates);
   const selectedExactByType = contentTypeCounts(exactResults);
   const exactTypeCoverage = typeCoverageState(availableExactByType, requestedTypes, { finalLimit: limit });
   const selectedTypeCoverage = typeCoverageState(selectedExactByType, requestedTypes, { finalLimit: limit });

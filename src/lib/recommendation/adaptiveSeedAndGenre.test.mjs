@@ -18,6 +18,14 @@ import {
   clearTmdbRequestCache,
 } from "../providers/tmdb/requestContext.js";
 import { createFirstPicksResponse } from "../../../app/api/recommend/first-picks/route.js";
+import {
+  requestOptionsProviderPayload,
+  requestSeedsProviderPayload,
+} from "./content/crossSurfaceBackfill.js";
+import {
+  FIRST_PICK_BUCKET_MS,
+  selectFirstPicksForBucket,
+} from "./content/firstPickSelection.js";
 import { finalizeCandidatePool } from "./candidates/candidatePipeline.js";
 import {
   createFixtureFetch,
@@ -1111,6 +1119,39 @@ test("First Pick route is real-provider-only, bounded to three, and uses exact c
   }
 });
 
+test("First Pick selection is stable within a five-minute bucket and rotates deterministically", async () => {
+  const candidates = Array.from({ length: 6 }, (_, index) => ({
+    providerId: "tmdb",
+    providerContentId: String(index + 1),
+    tmdbId: index + 1,
+    providerMediaType: index % 2 ? "tv" : "movie",
+    displayContentType: index % 2 ? "drama" : "movie",
+    title: `작품 ${index + 1}`,
+  }));
+  const provider = {
+    id: "tmdb",
+    isEnabled: () => true,
+    getFirstPicks: async () => ({ results: candidates }),
+  };
+  const first = await createFirstPicksResponse(provider, { now: FIRST_PICK_BUCKET_MS * 20 + 1 });
+  const same = await createFirstPicksResponse(provider, { now: FIRST_PICK_BUCKET_MS * 20 + 299999 });
+  const next = await createFirstPicksResponse(provider, { now: FIRST_PICK_BUCKET_MS * 21 });
+  const firstIds = (await first.json()).results.map((item) => item.providerContentId);
+  const sameIds = (await same.json()).results.map((item) => item.providerContentId);
+  const nextIds = (await next.json()).results.map((item) => item.providerContentId);
+
+  assert.deepEqual(firstIds, sameIds);
+  assert.notDeepEqual(firstIds, nextIds);
+  assert.deepEqual(
+    selectFirstPicksForBucket(candidates, FIRST_PICK_BUCKET_MS * 20 + 42).map((item) => item.providerContentId),
+    firstIds,
+  );
+  assert.equal(first.headers.get("cache-control"), "public, s-maxage=300");
+  assert.deepEqual(Object.keys(await createFirstPicksResponse(provider, { now: 0 }).then((response) => response.json())).sort(), [
+    "dataSource", "fallbackUsed", "providerId", "results", "source",
+  ]);
+});
+
 test("First Pick normalization requires provider identity and keeps optional metadata honest", () => {
   assert.equal(toFirstPickContentModel({ title: "식별자 없음" }), null);
   const item = toFirstPickContentModel({
@@ -1160,7 +1201,7 @@ test("First Pick discover uses the independent 5/2/3 context with retry zero", a
   try {
     const payload = await firstPicksTmdb({ requestContext: context });
     assert.ok(payload.results.length >= 1);
-    assert.ok(payload.results.length <= 3);
+    assert.ok(payload.results.length <= 6);
     assert.ok(payload.diagnostics.requestsUsed <= 5);
     assert.ok(payload.diagnostics.listRequestsUsed <= 2);
     assert.ok(payload.diagnostics.detailRequestsUsed <= 3);
@@ -1172,6 +1213,127 @@ test("First Pick discover uses the independent 5/2/3 context with retry zero", a
     if (previousKey === undefined) delete process.env.TMDB_API_KEY;
     else process.env.TMDB_API_KEY = previousKey;
   }
+});
+
+test("both primary recommendation paths send one stable First Pick identity snapshot to the server", async () => {
+  const source = await readFile(new URL("../../../app/page.jsx", import.meta.url), "utf8");
+  assert.equal(source.includes("const visibleFirstPickKeys = providerContentKeySet(firstPicks);"), true);
+  assert.equal((source.match(/excludedProviderKeys: visibleFirstPickKeys/g) || []).length, 2);
+  assert.equal(source.includes("excludeProviderIdentityMatches("), false);
+  assert.equal(source.includes("seedPayload.excludeContentIdentities = excludeContentIdentities;"), true);
+  assert.equal(source.includes('params.set("excludeContentIdentities", JSON.stringify(excludeContentIdentities));'), true);
+  const optionStart = source.indexOf("async function fetchOptionRecommendations");
+  const optionEnd = source.indexOf("async function fetchRelatedRecommendations", optionStart);
+  const optionSource = source.slice(optionStart, optionEnd);
+  assert.ok(optionStart >= 0 && optionEnd > optionStart);
+  assert.equal(optionSource.includes("excludeProviderIdentityMatches("), false);
+  const resetStart = source.indexOf("  function resetAll() {");
+  const resetEnd = source.indexOf("\n  }", resetStart);
+  const resetSource = source.slice(resetStart, resetEnd);
+  assert.ok(resetStart >= 0 && resetEnd > resetStart);
+  assert.equal(resetSource.includes("requestFirstPicks"), false);
+  assert.equal(resetSource.includes("loadFirstPicksOnce"), false);
+});
+
+function rankedBackfillCandidates(count = 15) {
+  return Array.from({ length: count }, (_, index) => ({
+    providerId: "tmdb",
+    tmdbId: index + 1,
+    providerMediaType: "movie",
+    displayContentType: "movie",
+    type: "movie",
+    title: `후보 ${index + 1}`,
+    genreIds: [28],
+    popularity: count - index,
+    rating: 8,
+    voteCount: 1_000 - index,
+  }));
+}
+
+test("options route excludes before limit 12 and backfills from candidate 13 without another provider call", async () => {
+  const candidates = rankedBackfillCandidates(13);
+  let providerCalls = 0;
+  let received;
+  const provider = {
+    id: "tmdb",
+    name: "TMDB Provider",
+    async getRecommendations(options) {
+      providerCalls += 1;
+      received = options;
+      return finalizeCandidatePool(candidates, options);
+    },
+  };
+
+  const payload = await requestOptionsProviderPayload(provider, {
+    filters: [],
+    contentTypes: ["movie"],
+    excludeContentIdentities: ["tmdb:movie:1"],
+  });
+
+  assert.equal(providerCalls, 1);
+  assert.equal(received.limit, 12);
+  assert.deepEqual(received.excludeContentIdentities, ["tmdb:movie:1"]);
+  assert.equal(payload.results.length, 12);
+  assert.deepEqual(payload.results.map((item) => item.tmdbId), Array.from({ length: 12 }, (_, index) => index + 2));
+  assert.equal(payload.results[0].title, "후보 2");
+});
+
+test("seeds route uses the same pre-limit exclusion and supports multiple or insufficient backfill", async () => {
+  const candidates = rankedBackfillCandidates(15);
+  let providerCalls = 0;
+  const provider = {
+    id: "tmdb",
+    name: "TMDB Provider",
+    async getSeedRecommendations(options) {
+      providerCalls += 1;
+      return finalizeCandidatePool(candidates, options);
+    },
+  };
+  const input = {
+    titles: ["Seed"],
+    seeds: [],
+    filters: [],
+    contentTypes: ["movie"],
+    excludeContentIdentities: ["tmdb:movie:1", "tmdb:movie:2", "tmdb:movie:3"],
+  };
+
+  const payload = await requestSeedsProviderPayload(provider, input);
+  assert.equal(providerCalls, 1);
+  assert.equal(payload.results.length, 12);
+  assert.deepEqual(payload.results.map((item) => item.tmdbId), Array.from({ length: 12 }, (_, index) => index + 4));
+
+  const insufficient = finalizeCandidatePool(candidates.slice(0, 3), {
+    contentTypes: ["movie"],
+    limit: 12,
+    excludeContentIdentities: ["tmdb:movie:1"],
+  });
+  assert.deepEqual(insufficient.results.map((item) => item.tmdbId), [2, 3]);
+});
+
+test("omitted request field preserves ranking and both routes fail malformed fields closed", async () => {
+  const candidates = rankedBackfillCandidates(13);
+  let providerCalls = 0;
+  const provider = {
+    id: "tmdb",
+    name: "TMDB Provider",
+    async getRecommendations(options) {
+      providerCalls += 1;
+      return finalizeCandidatePool(candidates, options);
+    },
+  };
+  const omitted = await requestOptionsProviderPayload(provider, { contentTypes: ["movie"] });
+  assert.equal(providerCalls, 1);
+  assert.deepEqual(omitted.results.map((item) => item.tmdbId), Array.from({ length: 12 }, (_, index) => index + 1));
+
+  const optionsRouteSource = await readFile(new URL("../../../app/api/recommend/options/route.js", import.meta.url), "utf8");
+  const seedsRouteSource = await readFile(new URL("../../../app/api/recommend/seeds/route.js", import.meta.url), "utf8");
+  for (const source of [optionsRouteSource, seedsRouteSource]) {
+    assert.equal(source.includes("parseExcludeContentIdentities"), true);
+    assert.equal(source.includes('status: 400'), true);
+    assert.equal(source.includes('"Cache-Control": "no-store"'), true);
+  }
+  assert.equal(optionsRouteSource.includes("requestOptionsProviderPayload"), true);
+  assert.equal(seedsRouteSource.includes("requestSeedsProviderPayload"), true);
 });
 
 test("Confirmed Seed rows preserve raw text, invalidate stale identity, and retain one trailing blank", () => {

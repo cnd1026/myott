@@ -2,6 +2,8 @@ import { getActiveProvider, getFallbackProvider, isTmdbProviderEnabled } from ".
 import { sanitizeFounderDiagnostics } from "../../../../src/lib/recommendation/qa/founderDiagnostics.js";
 import { createRouteFailureObserver } from "../../../../src/lib/recommendation/qa/routeFailureObservability.js";
 import { TMDB_OBSERVABILITY_INTEGRITY_CODE } from "../../../../src/lib/recommendation/qa/tmdbObservability.js";
+import { parseExcludeContentIdentities } from "../../../../src/lib/recommendation/content/contentIdentity.js";
+import { requestOptionsProviderPayload } from "../../../../src/lib/recommendation/content/crossSurfaceBackfill.js";
 
 const TMDB_OBSERVABILITY_SAFE_STAGES = new Set([
   "session-creation",
@@ -44,11 +46,11 @@ function sourceMetadata(provider, { message = "", fallbackUsed = false, fallback
 }
 
 async function recommendWithProvider(provider, filters, contentTypes, sourceOptions = {}) {
-  const providerPayload = await provider.getRecommendations({
+  const providerPayload = await requestOptionsProviderPayload(provider, {
     filters,
     contentTypes,
-    limit: 12,
     qaDiagnostics: Boolean(sourceOptions.qaDiagnostics),
+    excludeContentIdentities: sourceOptions.excludeContentIdentities || [],
   });
   const results = Array.isArray(providerPayload) ? providerPayload : providerPayload.results || [];
   const relaxedResults = Array.isArray(providerPayload) ? [] : providerPayload.relaxedResults || [];
@@ -99,6 +101,13 @@ export async function GET(request) {
     const filters = request.nextUrl.searchParams.get("filters")?.split(",").map((value) => value.trim()).filter(Boolean) || [];
     const contentTypes = request.nextUrl.searchParams.get("types")?.split(",").map((value) => value.trim()).filter(Boolean) || [];
     const requestId = request.nextUrl.searchParams.get("requestId")?.trim() || "";
+    const exclusion = parseExcludeContentIdentities(request.nextUrl.searchParams.get("excludeContentIdentities"));
+    if (!exclusion.valid) {
+      return Response.json({ error: "Invalid excludeContentIdentities." }, {
+        status: 400,
+        headers: { "Cache-Control": "no-store" },
+      });
+    }
     routeObserver = advanceRouteFailureObservation(routeObserver, "request-parsing-complete");
     routeObserver = advanceRouteFailureObservation(routeObserver, "route-ready");
     const activeProvider = getActiveProvider();
@@ -130,6 +139,7 @@ export async function GET(request) {
         await recommendWithProvider(activeProvider, filters, contentTypes, {
           requestId,
           qaDiagnostics,
+          excludeContentIdentities: exclusion.identities,
           dataSource: "fallback",
           fallbackUsed: true,
           fallbackReason: "TMDB API key is not configured.",
@@ -145,7 +155,11 @@ export async function GET(request) {
 
     try {
       routeObserver = advanceRouteFailureObservation(routeObserver, "active-provider-entered");
-      const activePayload = await recommendWithProvider(activeProvider, filters, contentTypes, { requestId, qaDiagnostics });
+      const activePayload = await recommendWithProvider(activeProvider, filters, contentTypes, {
+        requestId,
+        qaDiagnostics,
+        excludeContentIdentities: exclusion.identities,
+      });
       routeObserver = advanceRouteFailureObservation(routeObserver, "active-response-started");
       return Response.json(activePayload, {
         headers: {
@@ -180,6 +194,7 @@ export async function GET(request) {
       const fallbackPayload = await recommendWithProvider(fallbackProvider, filters, contentTypes, {
         requestId,
         qaDiagnostics,
+        excludeContentIdentities: exclusion.identities,
         dataSource: "fallback",
         fallbackUsed: true,
         fallbackReason: message,

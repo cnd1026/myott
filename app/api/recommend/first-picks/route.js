@@ -1,4 +1,5 @@
 import { tmdbProvider } from "../../../../src/lib/providers/tmdb/provider.js";
+import { selectFirstPicksForBucket } from "../../../../src/lib/recommendation/content/firstPickSelection.js";
 
 const successCache = "public, s-maxage=300";
 const emptyCache = "public, s-maxage=60";
@@ -19,7 +20,7 @@ function validFirstPick(item = {}) {
     String(item.title || "").trim();
 }
 
-export async function createFirstPicksResponse(provider = tmdbProvider) {
+export async function createFirstPicksResponse(provider = tmdbProvider, { now = Date.now() } = {}) {
   if (provider?.id !== "tmdb" || typeof provider.isEnabled !== "function" || !provider.isEnabled() ||
       typeof provider.getFirstPicks !== "function") {
     return response({
@@ -33,10 +34,11 @@ export async function createFirstPicksResponse(provider = tmdbProvider) {
 
   try {
     const payload = await provider.getFirstPicks();
-    const results = Array.isArray(payload?.results) ? payload.results.slice(0, 3) : [];
-    if (results.some((item) => !validFirstPick(item))) {
+    const candidates = Array.isArray(payload?.results) ? payload.results : [];
+    if (candidates.some((item) => !validFirstPick(item))) {
       throw new Error("FIRST_PICK_PROVIDER_IDENTITY_INVALID");
     }
+    const results = selectFirstPicksForBucket(candidates, now, 3);
     if (!results.length) {
       return response({
         source: "tmdb",

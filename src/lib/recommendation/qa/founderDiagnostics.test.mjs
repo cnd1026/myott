@@ -9,6 +9,7 @@ import {
   relatedTmdb,
 } from "../../../../lib/tmdb.js";
 import { clearTmdbRequestCache } from "../../providers/tmdb/requestContext.js";
+import { finalizeCandidatePool } from "../candidates/candidatePipeline.js";
 
 import {
   attachFounderDiagnostics,
@@ -31,6 +32,11 @@ import {
   ROUTE_FAILURE_HANDLER_PHASES,
   createRouteFailureObserver,
 } from "./routeFailureObservability.js";
+import { parseExcludeContentIdentities } from "../content/contentIdentity.js";
+import {
+  requestOptionsProviderPayload,
+  requestSeedsProviderPayload,
+} from "../content/crossSurfaceBackfill.js";
 
 const optionsRouteUrl = new URL("../../../../app/api/recommend/options/route.js", import.meta.url);
 const seedsRouteUrl = new URL("../../../../app/api/recommend/seeds/route.js", import.meta.url);
@@ -44,6 +50,8 @@ async function importOptionsRoute(stubs) {
     ...stubs,
     sanitizeFounderDiagnostics,
     TMDB_OBSERVABILITY_INTEGRITY_CODE,
+    parseExcludeContentIdentities,
+    requestOptionsProviderPayload,
     createRouteFailureObserver: stubs.createRouteFailureObserver || createRouteFailureObserver,
     routeResponse: stubs.routeResponse || globalThis.Response,
   };
@@ -63,6 +71,14 @@ async function importOptionsRoute(stubs) {
     .replace(
       'import { TMDB_OBSERVABILITY_INTEGRITY_CODE } from "../../../../src/lib/recommendation/qa/tmdbObservability.js";',
       "const { TMDB_OBSERVABILITY_INTEGRITY_CODE } = globalThis.__REC_QA_091_ACTIVE_ROUTE_STUBS__;",
+    )
+    .replace(
+      'import { parseExcludeContentIdentities } from "../../../../src/lib/recommendation/content/contentIdentity.js";',
+      "const { parseExcludeContentIdentities } = globalThis.__REC_QA_091_ACTIVE_ROUTE_STUBS__;",
+    )
+    .replace(
+      'import { requestOptionsProviderPayload } from "../../../../src/lib/recommendation/content/crossSurfaceBackfill.js";',
+      "const { requestOptionsProviderPayload } = globalThis.__REC_QA_091_ACTIVE_ROUTE_STUBS__;",
     );
   optionsRouteImportSequence += 1;
   return import(`data:text/javascript;base64,${Buffer.from(source).toString("base64")}#active-route-${optionsRouteImportSequence}`);
@@ -72,6 +88,8 @@ async function importSeedsRoute(stubs) {
   globalThis.__REC_QA_091_ACTIVE_ROUTE_STUBS__ = {
     ...stubs,
     sanitizeFounderDiagnostics,
+    parseExcludeContentIdentities,
+    requestSeedsProviderPayload,
   };
   const source = (await readFile(seedsRouteUrl, "utf8"))
     .replace(
@@ -81,6 +99,14 @@ async function importSeedsRoute(stubs) {
     .replace(
       'import { sanitizeFounderDiagnostics } from "../../../../src/lib/recommendation/qa/founderDiagnostics.js";',
       "const { sanitizeFounderDiagnostics } = globalThis.__REC_QA_091_ACTIVE_ROUTE_STUBS__;",
+    )
+    .replace(
+      'import { parseExcludeContentIdentities } from "../../../../src/lib/recommendation/content/contentIdentity.js";',
+      "const { parseExcludeContentIdentities } = globalThis.__REC_QA_091_ACTIVE_ROUTE_STUBS__;",
+    )
+    .replace(
+      'import { requestSeedsProviderPayload } from "../../../../src/lib/recommendation/content/crossSurfaceBackfill.js";',
+      "const { requestSeedsProviderPayload } = globalThis.__REC_QA_091_ACTIVE_ROUTE_STUBS__;",
     );
   seedsRouteImportSequence += 1;
   return import(`data:text/javascript;base64,${Buffer.from(source).toString("base64")}#seed-route-${seedsRouteImportSequence}`);
@@ -255,9 +281,130 @@ function seedRouteRequest(body) {
   return { json: async () => body };
 }
 
+function routeBackfillCandidates(count = 15, { sameTitleAt = null } = {}) {
+  return Array.from({ length: count }, (_, index) => {
+    const id = index + 1;
+    return {
+      providerId: "tmdb",
+      providerContentId: String(id),
+      tmdbId: id,
+      providerMediaType: "movie",
+      displayContentType: "movie",
+      type: "movie",
+      title: id === sameTitleAt ? "Same Title" : `Route candidate ${id}`,
+      genreIds: [28],
+      popularity: count - index,
+      rating: 8,
+      voteCount: 1_000 - index,
+    };
+  });
+}
+
+function routeBackfillProvider(candidates, method) {
+  const requests = [];
+  return {
+    provider: {
+      id: "tmdb",
+      name: "TMDB Provider",
+      async [method](options) {
+        requests.push(options);
+        return finalizeCandidatePool(candidates, options);
+      },
+    },
+    requests,
+  };
+}
+
 function relatedRouteRequest(query) {
   return { nextUrl: new URL(`http://local.test/api/related?${query}`) };
 }
+
+test("options route executes parsing, provider wiring, and production finalizer backfill before limit twelve", async () => {
+  await withNodeEnvironment("test", async () => {
+    const { provider, requests } = routeBackfillProvider(routeBackfillCandidates(), "getRecommendations");
+    const { GET } = await importOptionsRoute({
+      getActiveProvider: () => provider,
+      getFallbackProvider: () => ({ id: "mock", name: "Mock Provider" }),
+      isTmdbProviderEnabled: () => true,
+    });
+    const query = new URLSearchParams({
+      types: "movie",
+      excludeContentIdentities: JSON.stringify(["TMDB:MOVIE:1"]),
+    }).toString();
+    const response = await GET(routeRequest(query));
+    const body = await response.json();
+
+    assert.equal(response.status, 200);
+    assert.equal(requests.length, 1);
+    assert.equal(requests[0].limit, 12);
+    assert.deepEqual(requests[0].excludeContentIdentities, ["tmdb:movie:1"]);
+    assert.equal(body.results.length, 12);
+    assert.deepEqual(body.results.map((item) => item.tmdbId), Array.from({ length: 12 }, (_, index) => index + 2));
+    assert.equal(body.results.some((item) => item.tmdbId === 1), false);
+    assert.equal(body.results.some((item) => item.tmdbId === 13), true);
+
+    const omitted = await GET(routeRequest("types=movie"));
+    assert.deepEqual((await omitted.json()).results.map((item) => item.tmdbId), Array.from({ length: 12 }, (_, index) => index + 1));
+    assert.deepEqual(requests[1].excludeContentIdentities, []);
+
+    const multiple = new URLSearchParams({
+      types: "movie",
+      excludeContentIdentities: JSON.stringify(["TMDB:MOVIE:1", "tmdb:movie:2", "tmdb:movie:3"]),
+    }).toString();
+    const multipleResponse = await GET(routeRequest(multiple));
+    assert.deepEqual((await multipleResponse.json()).results.map((item) => item.tmdbId), Array.from({ length: 12 }, (_, index) => index + 4));
+    assert.deepEqual(requests[2].excludeContentIdentities, ["tmdb:movie:1", "tmdb:movie:2", "tmdb:movie:3"]);
+
+    const callsBeforeInvalid = requests.length;
+    const malformed = await GET(routeRequest(`types=movie&excludeContentIdentities=${encodeURIComponent(JSON.stringify(["Same Title"]))}`));
+    assert.equal(malformed.status, 400);
+    assert.equal(malformed.headers.get("cache-control"), "no-store");
+    assert.equal(requests.length, callsBeforeInvalid);
+
+    const overCap = await GET(routeRequest(`types=movie&excludeContentIdentities=${encodeURIComponent(JSON.stringify([
+      "tmdb:movie:1", "tmdb:movie:2", "tmdb:movie:3", "tmdb:movie:4",
+    ]))}`));
+    assert.equal(overCap.status, 400);
+    assert.equal(requests.length, callsBeforeInvalid);
+  });
+});
+
+test("seeds route executes default-condition parsing, provider wiring, and production finalizer backfill before limit twelve", async () => {
+  await withNodeEnvironment("test", async () => {
+    const { provider, requests } = routeBackfillProvider(routeBackfillCandidates(13), "getSeedRecommendations");
+    const { POST } = await importSeedsRoute({
+      getActiveProvider: () => provider,
+      getFallbackProvider: () => ({ id: "mock", name: "Mock Provider" }),
+      isTmdbProviderEnabled: () => true,
+    });
+    const response = await POST(seedRouteRequest({
+      titles: ["Seed"],
+      seeds: [],
+      filters: [],
+      contentTypes: ["movie"],
+      excludeContentIdentities: ["tmdb:movie:1"],
+    }));
+    const body = await response.json();
+
+    assert.equal(response.status, 200);
+    assert.equal(requests.length, 1);
+    assert.equal(requests[0].limit, 12);
+    assert.deepEqual(requests[0].excludeContentIdentities, ["tmdb:movie:1"]);
+    assert.equal(body.results.length, 12);
+    assert.deepEqual(body.results.map((item) => item.tmdbId), Array.from({ length: 12 }, (_, index) => index + 2));
+    assert.equal(body.results.some((item) => item.tmdbId === 1), false);
+    assert.equal(body.results.some((item) => item.tmdbId === 13), true);
+
+    const omitted = await POST(seedRouteRequest({
+      titles: ["Seed"],
+      seeds: [],
+      filters: [],
+      contentTypes: ["movie"],
+    }));
+    assert.deepEqual((await omitted.json()).results.map((item) => item.tmdbId), Array.from({ length: 12 }, (_, index) => index + 1));
+    assert.deepEqual(requests[1].excludeContentIdentities, []);
+  });
+});
 
 async function assertRecommendationUnavailable(response, { cause, tmdbEnabled }) {
   const text = await response.text();
@@ -2491,13 +2638,14 @@ test("options route activates after the exact gate and before Product parameter 
     });
 
     const body = await (await GET(request)).json();
-    assert.deepEqual(order.slice(0, 9), [
+    assert.deepEqual(order.slice(0, 10), [
       "lookup:qa",
       "observer:create",
       "phase:qa-activated",
       "lookup:filters",
       "lookup:types",
       "lookup:requestId",
+      "lookup:excludeContentIdentities",
       "phase:request-parsing-complete",
       "phase:route-ready",
       "get-active-provider",

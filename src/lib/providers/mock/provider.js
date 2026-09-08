@@ -105,7 +105,12 @@ function fallbackResults(contentTypes = [], limit = DEFAULT_LIMIT) {
   return mockContents.filter((content) => contentMatchesTypes(content, contentTypes)).slice(0, limit).map(cloneContent);
 }
 
-function progressiveRecommendationPayload(filters = [], contentTypes = [], limit = DEFAULT_LIMIT) {
+function progressiveRecommendationPayload(
+  filters = [],
+  contentTypes = [],
+  limit = DEFAULT_LIMIT,
+  excludeContentIdentities = [],
+) {
   const { runtimes } = optionFilterGroups(filters);
   const candidates = mockContents
     .filter((content) => contentMatchesTypes(content, contentTypes))
@@ -115,7 +120,12 @@ function progressiveRecommendationPayload(filters = [], contentTypes = [], limit
       candidateSource: "mock-candidate",
     }));
 
-  return finalizeCandidatePool(candidates, { filters, contentTypes, limit });
+  return finalizeCandidatePool(candidates, {
+    filters,
+    contentTypes,
+    limit,
+    excludeContentIdentities,
+  });
 }
 
 export const mockProvider = {
@@ -147,17 +157,37 @@ export const mockProvider = {
     return content ? cloneContent(content) : null;
   },
 
-  async getRecommendations({ filters = [], contentTypes = [], limit = DEFAULT_LIMIT } = {}) {
-    const payload = progressiveRecommendationPayload(filters, contentTypes, limit);
+  async getRecommendations({
+    filters = [],
+    contentTypes = [],
+    limit = DEFAULT_LIMIT,
+    excludeContentIdentities = [],
+  } = {}) {
+    const payload = progressiveRecommendationPayload(filters, contentTypes, limit, excludeContentIdentities);
 
     if (payload.results.length) return payload;
     if (filters.some((filter) => filter.startsWith("country-"))) return payload;
-    return finalizeCandidatePool(fallbackResults(contentTypes, limit), { filters, contentTypes, limit });
+    return finalizeCandidatePool(
+      fallbackResults(contentTypes, limit + excludeContentIdentities.length),
+      { filters, contentTypes, limit, excludeContentIdentities },
+    );
   },
 
-  async getSeedRecommendations({ titles = [], seeds = [], filters = [], contentTypes = [], limit = DEFAULT_LIMIT } = {}) {
+  async getSeedRecommendations({
+    titles = [],
+    seeds = [],
+    filters = [],
+    contentTypes = [],
+    limit = DEFAULT_LIMIT,
+    excludeContentIdentities = [],
+  } = {}) {
     const normalizedInput = normalizeSeedInputs({ titles, seeds });
-    const supplement = progressiveRecommendationPayload(filters, contentTypes, limit).results;
+    const supplement = progressiveRecommendationPayload(
+      filters,
+      contentTypes,
+      limit,
+      excludeContentIdentities,
+    ).results;
     const seedGroups = normalizedInput.entries.map((entry) => ({
       title: entry.title,
       seed: entry.seed || { title: entry.title, genreIds: [] },
@@ -179,6 +209,7 @@ export const mockProvider = {
       contentTypes,
       limit,
       seedTitles: normalizedInput.normalizedSeeds,
+      excludeContentIdentities,
     });
     const processedSeeds = normalizedInput.normalizedSeeds;
     const uniqueResolvedWorkCount = normalizedInput.entries.length;

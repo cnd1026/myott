@@ -4,6 +4,8 @@ import {
   isTmdbProviderEnabled,
 } from "../../../../src/lib/providers/registry";
 import { sanitizeFounderDiagnostics } from "../../../../src/lib/recommendation/qa/founderDiagnostics.js";
+import { parseExcludeContentIdentities } from "../../../../src/lib/recommendation/content/contentIdentity.js";
+import { requestSeedsProviderPayload } from "../../../../src/lib/recommendation/content/crossSurfaceBackfill.js";
 
 function recommendationUnavailable(cause) {
   return Response.json({
@@ -66,15 +68,15 @@ function confirmedSeedArray(value) {
 
 async function recommendWithProvider(
   provider,
-  { titles, seeds, filters, contentTypes, requestId, qaDiagnostics },
+  { titles, seeds, filters, contentTypes, requestId, qaDiagnostics, excludeContentIdentities },
   sourceOptions = {},
 ) {
-  const payload = await provider.getSeedRecommendations({
+  const payload = await requestSeedsProviderPayload(provider, {
     titles,
     seeds,
     filters,
     contentTypes,
-    limit: 12,
+    excludeContentIdentities,
   });
   const results = Array.isArray(payload) ? payload : payload.results || [];
   const metadata = sourceMetadata(provider, sourceOptions);
@@ -125,6 +127,14 @@ export async function POST(request) {
     return Response.json({ error: "Invalid JSON body." }, { status: 400 });
   }
 
+  const exclusion = parseExcludeContentIdentities(body?.excludeContentIdentities);
+  if (!exclusion.valid) {
+    return Response.json({ error: "Invalid excludeContentIdentities." }, {
+      status: 400,
+      headers: { "Cache-Control": "no-store" },
+    });
+  }
+
   const input = {
     titles: stringArray(body?.titles),
     seeds: confirmedSeedArray(body?.seeds),
@@ -132,6 +142,7 @@ export async function POST(request) {
     filters: stringArray(body?.filters),
     requestId: typeof body?.requestId === "string" ? body.requestId : "",
     qaDiagnostics: process.env.NODE_ENV !== "production" && body?.qaDiagnostics === true,
+    excludeContentIdentities: exclusion.identities,
   };
   const activeProvider = getActiveProvider();
 

@@ -60,7 +60,10 @@ import {
   createSubmittedPreferences,
   preferencesChanged,
 } from "../src/lib/recommendation/preferences/submittedPreferenceSession.js";
-import { dedupeRelatedItems } from "../src/lib/recommendation/content/contentIdentity.js";
+import {
+  dedupeRelatedItems,
+  providerContentKeySet,
+} from "../src/lib/recommendation/content/contentIdentity.js";
 import { createLatestRequestGate } from "../src/lib/recommendation/requests/latestRequestGate.js";
 import {
   attachFounderDiagnostics,
@@ -1030,7 +1033,7 @@ async function fetchProviderRecommendations(
   selectedOtt,
   optionMetadata,
   labelByValue,
-  { signal, requestId, qaMode = false } = {},
+  { signal, requestId, qaMode = false, excludedProviderKeys = new Set() } = {},
 ) {
   const uniqueTitles = [...new Set(titles.filter((title) => title.trim()))];
   const filters = [...quickPicks, ...selectedOtt];
@@ -1042,6 +1045,10 @@ async function fetchProviderRecommendations(
   });
   seedPayload.requestId = requestId;
   seedPayload.qaDiagnostics = qaMode;
+  const excludeContentIdentities = [...excludedProviderKeys].slice(0, 3);
+  if (excludeContentIdentities.length) {
+    seedPayload.excludeContentIdentities = excludeContentIdentities;
+  }
   const response = await fetch("/api/recommend/seeds", {
     method: "POST",
     cache: "no-store",
@@ -1122,7 +1129,7 @@ async function fetchOptionRecommendations(
   selectedOtt,
   optionMetadata,
   labelByValue,
-  { signal, requestId, qaMode = false } = {},
+  { signal, requestId, qaMode = false, excludedProviderKeys = new Set() } = {},
 ) {
   const filters = [...quickPicks, ...selectedOtt];
   const params = new URLSearchParams({
@@ -1131,6 +1138,10 @@ async function fetchOptionRecommendations(
     requestId: requestId || "",
   });
   if (qaMode) params.set("qa", "1");
+  const excludeContentIdentities = [...excludedProviderKeys].slice(0, 3);
+  if (excludeContentIdentities.length) {
+    params.set("excludeContentIdentities", JSON.stringify(excludeContentIdentities));
+  }
   const response = await fetch(`/api/recommend/options?${params.toString()}`, {
     cache: "no-store",
     signal,
@@ -1783,6 +1794,7 @@ export default function Home() {
       filters: selectedQuickPicks,
       ottProviders: selectedOtt,
     });
+    const visibleFirstPickKeys = providerContentKeySet(firstPicks);
     setRecommendationStatus("loading");
     setSelectedDetail(null);
     relatedRequestGateRef.current.abort();
@@ -1803,7 +1815,7 @@ export default function Home() {
           snapshot.ottProviders,
           optionMetadata,
           optionLabelByValue,
-          { signal: request.signal, requestId, qaMode },
+          { signal: request.signal, requestId, qaMode, excludedProviderKeys: visibleFirstPickKeys },
         );
         if (!recommendationRequestGateRef.current.canCommit(request.sequence)) return;
         setResults(optionResults);
@@ -1854,7 +1866,7 @@ export default function Home() {
         snapshot.ottProviders,
         optionMetadata,
         optionLabelByValue,
-        { signal: request.signal, requestId, qaMode },
+        { signal: request.signal, requestId, qaMode, excludedProviderKeys: visibleFirstPickKeys },
       );
       if (!recommendationRequestGateRef.current.canCommit(request.sequence)) return;
       setResults(providerResults);
