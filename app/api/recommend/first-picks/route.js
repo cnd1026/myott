@@ -1,9 +1,23 @@
 import { tmdbProvider } from "../../../../src/lib/providers/tmdb/provider.js";
+import { firstPickBrowserFixtureProvider } from "../../../../src/lib/providers/tmdb/testing/firstPickBrowserFixture.js";
 import { selectFirstPicksForBucket } from "../../../../src/lib/recommendation/content/firstPickSelection.js";
 
 const successCache = "public, s-maxage=300";
 const emptyCache = "public, s-maxage=60";
 const errorCache = "no-store";
+export const BROWSER_QA_FIRST_PICKS_BINDING = "A2_OFFLINE_FIRST_PICKS_V1";
+
+export function resolveFirstPicksProvider({
+  binding = process.env.MYOTT_BROWSER_QA_FIRST_PICKS_FIXTURE || "",
+  nodeEnv = process.env.NODE_ENV || "",
+  defaultProvider = tmdbProvider,
+} = {}) {
+  if (!binding) return defaultProvider;
+  if (nodeEnv !== "production" && binding === BROWSER_QA_FIRST_PICKS_BINDING) {
+    return firstPickBrowserFixtureProvider;
+  }
+  return null;
+}
 
 function response(payload, status, cacheControl) {
   return Response.json(payload, {
@@ -67,5 +81,5 @@ export async function createFirstPicksResponse(provider = tmdbProvider, { now = 
 }
 
 export async function GET() {
-  return createFirstPicksResponse();
+  return createFirstPicksResponse(resolveFirstPicksProvider());
 }
