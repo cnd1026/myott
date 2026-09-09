@@ -2,6 +2,20 @@
 
 프로젝트의 주요 변경 사항을 날짜별로 기록합니다.
 
+## 2026-09-10 - I18N Locale Routing Foundation
+
+### 변경 내용
+
+- canonical locale prefix parsing, replacement, query/hash-preserving navigation helper를 추가했습니다.
+
+### 이유
+
+- 향후 locale route와 manual override가 legacy root를 바꾸거나 provider region·legal jurisdiction을 혼동하지 않고 같은 navigation contract를 사용하도록 하기 위해서입니다.
+
+### 다음 작업
+
+- message catalog가 준비되기 전까지 public English language switch는 노출하지 않습니다.
+
 ## 2026-09-10 - I18N Locale Resolution Foundation
 
 ### 변경 내용

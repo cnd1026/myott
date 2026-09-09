@@ -2,6 +2,20 @@
 
 개발 과정에서의 작업 내용, 결정, 아쉬운 점, 다음 개선 사항을 날짜별로 기록합니다.
 
+## 2026-09-10 - I18N Locale Routing Foundation
+
+### 오늘 작업
+
+- locale route prefix와 manual navigation target을 만드는 pure helper 및 focused tests를 추가했습니다.
+
+### 결정한 것
+
+- `/`은 계속 legacy Korean root이며, message catalog 없이 public English UI switch나 runtime route activation을 하지 않습니다.
+
+### 다음 개선
+
+- `MYOTT_I18N_KO_EN_MESSAGE_CATALOG_FOUNDATION_V1`에서 complete visible copy contract를 먼저 준비합니다.
+
 ## 2026-09-10 - I18N Locale Foundation
 
 ### 오늘 작업
