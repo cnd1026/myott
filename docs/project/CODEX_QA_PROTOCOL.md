@@ -26,6 +26,8 @@ Codex QA의 목적은 구현 완료를 주장하는 것이 아니라, 기대값�
 
 이 문서는 Word/PDF 체크리스트보다 우선하는 QA Source of Truth입니다. 외부 체크리스트는 Founder가 수기로 기록하는 보조 산출물입니다.
 
+Recommendation-specific supported entrypoints, receipt boundaries, and suite-selection rules are maintained in [Recommendation QA Operations](RECOMMENDATION_QA_OPERATIONS.md). This pointer does not change this Protocol's layer or aggregate-command policy.
+
 ---
 
 ## 2. Founder And Codex Roles
