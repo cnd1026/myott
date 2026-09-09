@@ -2,6 +2,12 @@
 
 이 문서는 Sprint별 Task, Commit, Review, 상태를 기록합니다.
 
+## Release Preparation
+
+| Task ID | Task | Commit | Review | 상태 |
+| --- | --- | --- | --- | --- |
+| MYOTT_RELEASE_ATTRIBUTION_MINIMAL_CORRECTION_V1 | Release attribution minimal correction | `this commit` | TMDB/JustWatch attribution static verification; Browser QA separately classified. | 정적 검증 완료 / Browser QA 별도 BLOCKED |
+
 ## Security Maintenance
 
 | Task ID | Task | Commit | Review | 상태 |

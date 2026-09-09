@@ -2,6 +2,20 @@
 
 개발 과정에서의 작업 내용, 결정, 아쉬운 점, 다음 개선 사항을 날짜별로 기록합니다.
 
+## 2026-09-10 - Release Attribution Minimal Correction
+
+### 오늘 작업
+
+- root layout의 일반 사용자 footer에 TMDB approved logo, 필수 비보증 문구, JustWatch 출처를 추가했습니다.
+
+### 결정한 것
+
+- 추천·Provider·Hard Filter·request budget은 변경하지 않고 attribution만 독립된 layout 영역으로 유지합니다.
+
+### 다음 개선
+
+- Security Seal coverage와 Release path는 이 feature와 분리된 Gate에서 판단합니다.
+
 ## 2026-08-31 - Founder Re-QA Rationale and Preview Finalization
 
 ### 최종 Product 계약

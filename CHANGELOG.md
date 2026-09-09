@@ -1,6 +1,20 @@
 # Changelog
 
 프로젝트의 주요 변경 사항을 날짜별로 기록합니다.
+
+## 2026-09-10 - Release Attribution Disclosure
+
+### 변경 내용
+
+- 일반 화면 하단에 TMDB approved logo, TMDB API 비보증 고지, JustWatch watch-provider 출처를 포함한 데이터 출처·고지 영역을 추가했습니다.
+
+### 이유
+
+- TMDB 데이터·이미지와 watch-provider 정보를 사용하는 화면에서 사용자 접근 가능한 attribution을 제공하기 위해서입니다.
+
+### 다음 작업
+
+- Release 경로, Security coverage, 상업 사용 관련 후속 Gate를 별도로 판단합니다.
 ## 2026-08-21 - Founder Preview Worktree Runtime Support
 
 - Git linked worktree에 독립 `node_modules`가 없어도 같은 Git common repository와 origin, 호환 `next/react/react-dom` 계약이 확인되면 primary worktree의 기존 runtime을 안전하게 재사용합니다.
