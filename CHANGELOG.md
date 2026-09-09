@@ -2,6 +2,20 @@
 
 프로젝트의 주요 변경 사항을 날짜별로 기록합니다.
 
+## 2026-09-10 - Global-First Public Launch Foundation
+
+### 변경 내용
+
+- Global/free/guest-first public launch 원칙과 optional account, locale·content region·legal jurisdiction 분리, privacy/consent, SEO readiness, growth KPI 계약을 문서화했습니다.
+
+### 이유
+
+- 국가별 구현을 시작하기 전에 제품·법률·Security·Release 경계를 분리하고 후속 Task 순서를 하나의 foundation contract로 고정하기 위해서입니다.
+
+### 다음 작업
+
+- 별도 승인 Task에서 `MYOTT_I18N_LOCALE_FOUNDATION_V1`을 검토합니다.
+
 ## 2026-09-10 - Release Attribution Disclosure
 
 ### 변경 내용

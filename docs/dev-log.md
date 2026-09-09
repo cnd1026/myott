@@ -2,6 +2,20 @@
 
 개발 과정에서의 작업 내용, 결정, 아쉬운 점, 다음 개선 사항을 날짜별로 기록합니다.
 
+## 2026-09-10 - Global-First Public Launch Foundation Contract
+
+### 오늘 작업
+
+- public launch의 global/free/guest-first 원칙, locale·provider-region·jurisdiction resolver, Privacy Center metadata, consent/retention, guest-to-account, SEO와 growth KPI 계약을 docs-only로 정리했습니다.
+
+### 결정한 것
+
+- UI locale은 legal jurisdiction이 아니며, optional account는 사용자가 먼저 가치를 경험한 뒤 선택합니다. 현재 actual metric은 수집·주장하지 않고 Security Seal과 Release/Production/Deployment HOLD를 유지합니다.
+
+### 다음 개선
+
+- `MYOTT_I18N_LOCALE_FOUNDATION_V1`에서 locale foundation을 별도 Gate로 구체화합니다.
+
 ## 2026-09-10 - Release Attribution Minimal Correction
 
 ### 오늘 작업

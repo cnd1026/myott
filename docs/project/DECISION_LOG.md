@@ -167,3 +167,9 @@ Commands that can perform localhost HTTP health checks, including
 Preview validation remains a separate QA layer and must not be silently used to
 close a Network-zero gate. Product behavior, port ownership, and existing
 Founder Preview lifecycle contracts are otherwise unchanged.
+
+## DL-029 Global-First Public Launch Foundation
+
+MyOTT public launch foundation은 `GLOBAL_FIRST / FREE_FIRST / GUEST_FIRST / OPTIONAL_ACCOUNT`를 채택하고 User Growth를 first-class architecture concern으로 관리합니다. UI locale, content-provider region과 legal jurisdiction은 서로 독립된 값이며, UI 언어만으로 관할 또는 compliance를 추론하지 않습니다.
+
+Privacy/legal 정책 metadata와 승인 lifecycle은 Product locale·growth 구현에서 분리합니다. Guest continuity는 최소 pseudonymous first-party 범위로 제한하고 account는 가치 경험 이후 선택 사항으로 유지합니다. 실제 locale, privacy, measurement, Security, Release와 Deployment는 각 후속 Gate 없이는 활성화하지 않습니다.
