@@ -2,6 +2,20 @@
 
 개발 과정에서의 작업 내용, 결정, 아쉬운 점, 다음 개선 사항을 날짜별로 기록합니다.
 
+## 2026-09-10 - I18N Locale Foundation
+
+### 오늘 작업
+
+- pure UI locale registry, normalization, precedence resolver와 focused deterministic tests를 추가했습니다.
+
+### 결정한 것
+
+- resolver는 입력 값만 사용하며 storage, cookie, route, account, analytics, content-provider region 또는 legal jurisdiction을 읽거나 만들지 않습니다.
+
+### 다음 개선
+
+- locale routing과 manual override persistence는 별도 Task에서 product lifecycle과 privacy boundary를 확인한 뒤 연결합니다.
+
 ## 2026-09-10 - Global-First Public Launch Foundation Contract
 
 ### 오늘 작업

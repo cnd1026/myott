@@ -2,6 +2,20 @@
 
 프로젝트의 주요 변경 사항을 날짜별로 기록합니다.
 
+## 2026-09-10 - I18N Locale Resolution Foundation
+
+### 변경 내용
+
+- `ko-KR`과 `en-US`의 bounded UI locale registry 및 pure precedence resolver를 추가했습니다.
+
+### 이유
+
+- future locale route와 manual language override가 UI locale, provider region, legal jurisdiction을 혼동하지 않고 같은 contract를 재사용하도록 하기 위해서입니다.
+
+### 다음 작업
+
+- `MYOTT_I18N_LOCALE_ROUTING_AND_MANUAL_OVERRIDE_V1`에서 별도 Gate로 routing과 persistence wiring을 검토합니다.
+
 ## 2026-09-10 - Global-First Public Launch Foundation
 
 ### 변경 내용
