@@ -173,3 +173,9 @@ Founder Preview lifecycle contracts are otherwise unchanged.
 MyOTT public launch foundation은 `GLOBAL_FIRST / FREE_FIRST / GUEST_FIRST / OPTIONAL_ACCOUNT`를 채택하고 User Growth를 first-class architecture concern으로 관리합니다. UI locale, content-provider region과 legal jurisdiction은 서로 독립된 값이며, UI 언어만으로 관할 또는 compliance를 추론하지 않습니다.
 
 Privacy/legal 정책 metadata와 승인 lifecycle은 Product locale·growth 구현에서 분리합니다. Guest continuity는 최소 pseudonymous first-party 범위로 제한하고 account는 가치 경험 이후 선택 사항으로 유지합니다. 실제 locale, privacy, measurement, Security, Release와 Deployment는 각 후속 Gate 없이는 활성화하지 않습니다.
+
+## DL-030 Guest Continuity And Optional Account Data Boundary
+
+Core recommendation은 account-free로 유지하고 guest continuity는 무작위·비의미적 pseudonymous first-party ID와 목적에 필요한 bounded history만 사용합니다. Product continuity, analytics와 marketing은 별도 목적이며 한 목적의 identity나 consent를 다른 목적에 자동 재사용하지 않습니다.
+
+Guest data를 account에 연결하는 것은 login의 자동 효과가 아닙니다. 이동 범위를 설명하고 사용자가 명시적으로 확인한 뒤 canonical content identity를 dedupe하며, explicit save·feedback·correction을 inferred activity보다 우선합니다. Merge 후 불필요한 guest-account linkage는 retire하거나 최소화하고, 실제 storage/Auth/consent/retention 기간은 별도 Gate 전에는 구현 또는 법률 정책으로 간주하지 않습니다.

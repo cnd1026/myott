@@ -2,6 +2,21 @@
 
 개발 과정에서의 작업 내용, 결정, 아쉬운 점, 다음 개선 사항을 날짜별로 기록합니다.
 
+## 2026-09-10 - Guest Account Data Continuity Architecture
+
+### 오늘 작업
+
+- 기존 Global-first, Data Policy와 User Domain 초안을 대조해 guest identity, continuity purpose, repeat avoidance, optional account와 merge lifecycle을 하나의 Product 운영 계약으로 정리했습니다.
+
+### 결정한 것
+
+- 핵심 추천은 account-free로 유지하며 guest continuity는 최소 pseudonymous identity와 bounded history만 사용합니다.
+- Login은 merge 동의가 아니며, continuity·analytics·marketing은 목적과 consent를 공유하지 않습니다.
+
+### 다음 개선
+
+- 실제 guest storage와 consent는 별도 Privacy/Legal/Product Gate 뒤에 구현하고, 다음 docs-only Product 작업에서는 SEO indexability launch contract를 정리합니다.
+
 ## 2026-09-10 - I18N Page Fallback and Result Presentation
 
 ### 오늘 작업

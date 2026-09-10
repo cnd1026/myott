@@ -2,6 +2,21 @@
 
 프로젝트의 주요 변경 사항을 날짜별로 기록합니다.
 
+## 2026-09-10 - Guest Account Data Continuity Architecture
+
+### 변경 내용
+
+- account-free core recommendation, pseudonymous guest continuity, bounded repeat avoidance와 optional account 경계를 Product architecture로 정본화했습니다.
+- explicit guest-to-account merge, retention class, deletion/export, consent와 privacy-safe measurement 경계를 정의했습니다.
+
+### 이유
+
+- Guest에서 Returning Guest와 Optional Account로 이어지는 데이터 흐름이 draft DB 구조나 analytics 목적과 섞이지 않도록 구현 전 계약을 확정하기 위해서입니다.
+
+### 다음 작업
+
+- `MYOTT_SEO_INDEXABILITY_LAUNCH_CONTRACT_V1`에서 public launch indexability 계약을 별도 docs-only Gate로 정리합니다.
+
 ## 2026-09-10 - I18N Page Fallback and Result Presentation
 
 ### 변경 내용
