@@ -2,6 +2,22 @@
 
 개발 과정에서의 작업 내용, 결정, 아쉬운 점, 다음 개선 사항을 날짜별로 기록합니다.
 
+## 2026-09-11 - Phase 1 Jurisdiction Official-Source Policy Matrix
+
+### 오늘 작업
+
+- KR PIPA/PIPC, JP PPC, EU GDPR/ePrivacy/EDPB, US FTC/California CPPA와 PostHog 공식 자료를 current MyOTT privacy architecture에 대조했습니다.
+- 법률 불확실성을 Product 기능 축소로 관리할 수 있도록 stateless core, Analytics, guest continuity, account, personalization과 signed receipt를 관할별로 분류했습니다.
+
+### 결정한 것
+
+- Founder 결정 전 권고안은 `STATELESS_RECOMMENDATION_ONLY`이며, 네 검토 지역 모두 nonessential Analytics와 persistent features를 끕니다.
+- Country hint는 legal jurisdiction이 아니고 EU Cloud는 compliance PASS가 아닙니다. 유료 전문가 검토는 optional processing이나 material commercial/legal trigger가 실제로 열릴 때 재검토합니다.
+
+### 다음 개선
+
+- `MYOTT_PHASE1_JURISDICTION_POLICY_FOUNDER_DECISION_V1`에서 지원 지역, stateless core 범위, Analytics off 정책과 미래 legal-review trigger를 Founder Product policy로 선택해야 합니다.
+
 ## 2026-09-11 - Privacy Consent Persistence And Jurisdiction Gate
 
 ### 오늘 작업
