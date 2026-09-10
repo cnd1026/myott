@@ -2,6 +2,22 @@
 
 개발 과정에서의 작업 내용, 결정, 아쉬운 점, 다음 개선 사항을 날짜별로 기록합니다.
 
+## 2026-09-10 - I18N Taxonomy and Dynamic Copy Presentation
+
+### 오늘 작업
+
+- canonical option ID와 provider metadata를 바꾸지 않는 taxonomy label layer를 만들고 seed 상태 및 recommendation reason을 `ko-KR`/`en-US`로 표현할 수 있게 했습니다.
+- current page는 `ko-KR` locale을 명시적으로 전달해 기존 한국어 runtime을 유지했습니다.
+
+### 결정한 것
+
+- locale은 표시 문자열에만 영향을 주며 filter, eligibility, evidence selection, ranking, provider request에는 관여하지 않습니다.
+- provider가 준 free-form 데이터는 이 Task에서 임의 번역하지 않습니다.
+
+### 다음 개선
+
+- page-local fallback/result normalization 문구를 별도 focused Task에서 분리한 뒤 public English runtime activation을 검토합니다.
+
 ## 2026-09-10 - Message Catalog Runtime Wiring
 
 ### 오늘 작업

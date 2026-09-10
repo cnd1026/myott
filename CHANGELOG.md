@@ -2,6 +2,21 @@
 
 프로젝트의 주요 변경 사항을 날짜별로 기록합니다.
 
+## 2026-09-10 - I18N Taxonomy and Dynamic Copy Presentation
+
+### 변경 내용
+
+- canonical taxonomy 값은 유지하면서 `ko-KR`/`en-US` 표시 label을 제공하는 locale-aware presentation layer를 추가했습니다.
+- seed 상태와 recommendation reason 생성 함수에 locale 입력을 연결하고 기존 호출자의 한국어 기본 동작을 보존했습니다.
+
+### 이유
+
+- 영어 runtime 활성화 전에 Product가 소유한 taxonomy 및 동적 추천 문구를 의미 변화 없이 독립적으로 검증하기 위해서입니다.
+
+### 다음 작업
+
+- page-local fallback 및 result normalization 문구의 locale presentation을 마친 뒤 English runtime activation Gate를 진행합니다.
+
 ## 2026-09-10 - Message Catalog Runtime Wiring
 
 ### 변경 내용

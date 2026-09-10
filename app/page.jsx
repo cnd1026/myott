@@ -4,13 +4,11 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { getMessage } from "../src/lib/i18n/messageCatalog.js";
 import { calculateRecommendationScore } from "../src/lib/recommendation/scoring/recommendationWeightEngine.js";
 import {
-  GENRE_CONTRACT,
   incompatibleTaxonomyValues,
   isTaxonomySelectionStateCompatible,
   isTaxonomyValueCompatibleWithContentTypes,
   sanitizeCompatibleTaxonomySelections,
   genreIdsForFilters,
-  genreOptionGroups,
   genreValuesForItem,
   prioritizeGenreOptions,
 } from "../src/lib/recommendation/genres/genreContract.js";
@@ -46,13 +44,21 @@ import {
 } from "../src/lib/recommendation/seeds/confirmedSeedState.js";
 import {
   PRIMARY_OTT_OPTIONS,
-  RUNTIME_FILTERS,
   evaluateHardFilters,
   evaluateRuntimeHardFilter,
   normalizeDisplayContentType,
   normalizeProviderMediaType,
   runtimeFilterValuesForItem,
 } from "../src/lib/recommendation/filters/hardFilterContract.js";
+import {
+  CONTENT_TYPE_VALUES,
+  COUNTRY_VALUES,
+  LANGUAGE_VALUES,
+  localizeTaxonomyOptionGroups,
+  taxonomyLabelForValue,
+  taxonomyOptionGroupsForLocale,
+  taxonomyOptions,
+} from "../src/lib/i18n/taxonomyPresentation.js";
 import {
   createInitialPreferenceDraft,
   createRecommendationRequestId,
@@ -271,65 +277,15 @@ const dummyRecommendations = [
 const ottOptions = PRIMARY_OTT_OPTIONS;
 const ottLabelByValue = new Map(ottOptions);
 
-const contentTypeOptions = [
-  ["movie", "영화"],
-  ["drama", "드라마"],
-  ["animation", "애니"],
-];
-
-const expandedCountryOptions = [
-  ["country-kr", "한국"],
-  ["country-us", "미국"],
-  ["country-jp", "일본"],
-  ["country-gb", "영국"],
-  ["country-fr", "프랑스"],
-  ["country-de", "독일"],
-  ["country-cn", "중국"],
-  ["country-hk", "홍콩"],
-  ["country-tw", "대만"],
-  ["country-in", "인도"],
-  ["country-ca", "캐나다"],
-  ["country-au", "호주"],
-  ["country-es", "스페인"],
-  ["country-it", "이탈리아"],
-  ["country-th", "태국"],
-  ["country-br", "브라질"],
-  ["country-mx", "멕시코"],
-];
-
-const quickPickGroups = [
-  {
-    title: "장르",
-    options: GENRE_CONTRACT.map((entry) => [entry.value, entry.label]),
-    optionSections: genreOptionGroups(),
-  },
-  {
-    title: "국가",
-    options: expandedCountryOptions,
-  },
-  {
-    title: "분위기",
-    options: [
-      ["mood-light", "가볍게"],
-      ["mood-moving", "여운 있게"],
-      ["mood-tense", "긴장감"],
-    ],
-  },
-  {
-    title: "러닝타임",
-    options: Object.values(RUNTIME_FILTERS).map(({ value, label }) => [value, label]),
-  },
-];
+const contentTypeOptions = taxonomyOptions(CONTENT_TYPE_VALUES, RUNTIME_UI_LOCALE);
+const expandedCountryOptions = taxonomyOptions(COUNTRY_VALUES, RUNTIME_UI_LOCALE);
+const quickPickGroups = taxonomyOptionGroupsForLocale(RUNTIME_UI_LOCALE);
 
 const quickPickLabelByValue = new Map(quickPickGroups.flatMap((group) => group.options));
 const initialOptionMetadata = {
   genres: [],
   countries: expandedCountryOptions,
-  languages: [
-    ["language-ko", "한국어"],
-    ["language-en", "영어"],
-    ["language-ja", "일본어"],
-  ],
+  languages: taxonomyOptions(LANGUAGE_VALUES, RUNTIME_UI_LOCALE),
 };
 const targetProviderResultCount = 12;
 const relatedPickCount = 12;
@@ -876,7 +832,7 @@ function normalizeProviderResult(
 ) {
   const title = content.title || "제목 없음";
   const type = contentTypeForUi(content);
-  const genres = presentationGenreLabels(content);
+  const genres = presentationGenreLabels(content, RUNTIME_UI_LOCALE);
   const displayGenres = genres.length ? genres : ["장르 확인 필요"];
   const ott = safeOttPlatforms(content);
   const actors = Array.isArray(content.actors) && content.actors.length ? content.actors : ["정보 없음"];
@@ -903,7 +859,7 @@ function normalizeProviderResult(
     seedGenreIds: normalizedIdList(content.seedGenreIds),
     runtimeMinutes: Number.isFinite(runtime) && runtime > 0 ? runtime : content.runtimeMinutes,
     popularity: Number(content.popularity || 0),
-    label: content.label || (type === "animation" ? "애니" : type === "movie" ? "영화" : "드라마"),
+    label: content.label || taxonomyLabelForValue(type, RUNTIME_UI_LOCALE),
     tags: tagsFromProviderContent(content),
     genres: displayGenres,
     genre: displayGenres.join(", "),
@@ -1360,7 +1316,7 @@ function DecisionCard({
       <div className="thumbnail poster" aria-hidden="true"><PosterVisual poster={item.poster} title={item.title} /></div>
       <div className="result-body">
         {badge ? <span className="card-context">{badge}</span> : null}
-        {!firstPick ? <p className="decision-reason">{reasonOverride || buildEvidenceGroundedDecisionReason(item, rationale)}</p> : null}
+        {!firstPick ? <p className="decision-reason">{reasonOverride || buildEvidenceGroundedDecisionReason(item, rationale, RUNTIME_UI_LOCALE)}</p> : null}
         <div className="decision-title-row">
           <h3>{item.title}</h3>
           <span className="type-badge">{item.label}</span>
@@ -1520,7 +1476,7 @@ export default function Home() {
       selectedFilters: submittedFilters,
       selectedTypes: submittedTypes,
       selectedOtt: submittedOtt,
-    }),
+    }, RUNTIME_UI_LOCALE),
     [submittedTitles, submittedConfirmedSeeds, submittedFilters, submittedTypes, submittedOtt],
   );
   const draftConditionLabels = useMemo(
@@ -1535,9 +1491,10 @@ export default function Home() {
   const visibleDecisionReasons = useMemo(() => buildEvidenceGroundedDecisionReasons(
     results,
     rationalePreferences(submittedTitles, submittedConfirmedSeeds, submittedFilters, submittedTypes, submittedOtt),
+    RUNTIME_UI_LOCALE,
   ), [results, submittedTitles, submittedConfirmedSeeds, submittedFilters, submittedTypes, submittedOtt]);
   const relatedRecommendations = relatedStatus === "success" ? relatedItems : [];
-  const seedCoverageMessage = buildSeedCoverageMessage(seedDiagnostics);
+  const seedCoverageMessage = buildSeedCoverageMessage(seedDiagnostics, RUNTIME_UI_LOCALE);
   const visibleProviderStatus = recommendationSession ? providerStatus : environmentProviderStatus;
   const emptyStateMessage = resolveEmptyStateMessage({
     recommendationStatus,
@@ -1547,7 +1504,7 @@ export default function Home() {
     hasSeedInput: submittedPreferences ? submittedTitles.length > 0 : enteredTitles.length > 0,
     processedSeedCount: seedDiagnostics.processedSeedCount,
     unresolvedSeedCount: seedDiagnostics.unresolvedSeedCount,
-  });
+  }, RUNTIME_UI_LOCALE);
   const conditionSummary = [
     selectedOtt.length ? message("conditions.ottCount", { count: selectedOtt.length }) : message("conditions.ottNone"),
     selectedTypes.length ? message("conditions.contentTypeCount", { count: selectedTypes.length }) : message("conditions.contentTypeNone"),
@@ -1661,15 +1618,21 @@ export default function Home() {
         const payload = await response.json();
         if (!isMounted) return;
         if (Array.isArray(payload.groups) && payload.groups.length) {
-          setOptionGroups(payload.groups.map((group) => (
-            group.title === "장르" ? { ...group, options: prioritizeGenreOptions(group.options) } : group
+          setOptionGroups(localizeTaxonomyOptionGroups(payload.groups, RUNTIME_UI_LOCALE).map((group) => (
+            group.options.some(([value]) => String(value).startsWith("genre-"))
+              ? { ...group, options: prioritizeGenreOptions(group.options) }
+              : group
           )));
         }
         if (payload.metadata) {
           setOptionMetadata({
             genres: payload.metadata.genres || [],
-            countries: payload.metadata.countries || initialOptionMetadata.countries,
-            languages: payload.metadata.languages || initialOptionMetadata.languages,
+            countries: payload.metadata.countries
+              ? localizeTaxonomyOptionGroups([{ title: "country", options: payload.metadata.countries }], RUNTIME_UI_LOCALE)[0].options
+              : initialOptionMetadata.countries,
+            languages: payload.metadata.languages
+              ? localizeTaxonomyOptionGroups([{ title: "language", options: payload.metadata.languages }], RUNTIME_UI_LOCALE)[0].options
+              : initialOptionMetadata.languages,
           });
         }
       } catch {
@@ -2662,6 +2625,7 @@ export default function Home() {
                 <p className="detail-reason"><strong>{message("detail.recommendReason")}</strong><br />{buildEvidenceGroundedRecommendationReason(
                   selectedDetail,
                   rationalePreferences(submittedTitles, submittedConfirmedSeeds, submittedFilters, submittedTypes, submittedOtt),
+                  RUNTIME_UI_LOCALE,
                 )}</p>
                 {selectedDetail.recommendationInsight?.length ? (
                   <section className="insight-panel" aria-labelledby="recommendationInsightTitle">
@@ -2760,6 +2724,7 @@ export default function Home() {
                         <small>{buildEvidenceGroundedDecisionReason(
                           item,
                           rationalePreferences(submittedTitles, submittedConfirmedSeeds, submittedFilters, submittedTypes, submittedOtt),
+                          RUNTIME_UI_LOCALE,
                         )}</small>
                       </span>
                     </button>

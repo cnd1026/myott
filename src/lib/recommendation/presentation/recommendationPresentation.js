@@ -10,6 +10,11 @@ import {
   normalizeProviderMediaType,
   selectedRuntimeFilter,
 } from "../filters/hardFilterContract.js";
+import { DEFAULT_UI_LOCALE, normalizeUiLocale } from "../../i18n/localeContract.js";
+import {
+  localizeGenreDisplayLabels,
+  taxonomyLabelForValue,
+} from "../../i18n/taxonomyPresentation.js";
 
 const normalizeTitleKey = (value = "") => String(value)
   .trim()
@@ -81,7 +86,7 @@ export function resolveCanonicalReasonSeed(item = {}, confirmedSeeds = {}) {
   return cleanSeedTitle(item.reasonSeed || item.seedTitle || "");
 }
 
-const reasonByGenre = Object.freeze({
+const KO_REASON_BY_GENRE = Object.freeze({
   "genre-action": "전투와 추격 중심의 액션 요소를 반영한 추천",
   "genre-adventure": "탐험과 여정 중심의 모험 요소를 반영한 추천",
   "genre-action-adventure": "액션·모험 통합 장르와 잘 맞는 추천",
@@ -95,13 +100,36 @@ const reasonByGenre = Object.freeze({
   "genre-thriller": "범죄·미스터리와 긴장 요소를 반영한 추천",
   "genre-horror": "공포와 초자연적 위협 요소를 반영한 추천",
 });
+const EN_REASON_BY_GENRE = Object.freeze({
+  "genre-action": "Recommended for its combat and chase-driven action",
+  "genre-adventure": "Recommended for its exploration and journey-driven adventure",
+  "genre-action-adventure": "A strong match for Action & Adventure",
+  "genre-sf": "Recommended for its future technology and space exploration",
+  "genre-fantasy": "Recommended for its magic and mythic worldbuilding",
+  "genre-sf-fantasy": "A strong match for Sci-Fi & Fantasy",
+  "genre-war": "Recommended for its military and combat themes",
+  "genre-politics": "Recommended for its power struggles and political conflict",
+  "genre-war-politics": "A strong match for War & Politics",
+  "genre-romance": "Recommended for its focus on love and relationships",
+  "genre-thriller": "Recommended for its crime, mystery, and tension",
+  "genre-horror": "Recommended for its horror and supernatural threats",
+});
 
 const defaultContentTypes = Object.freeze(["movie", "drama", "animation"]);
-const contentTypeLabels = Object.freeze({ movie: "영화", drama: "드라마", animation: "애니" });
 const genericProviderReasons = Object.freeze([
   "실제 TMDB 작품 정보입니다.",
   "실제 검색 결과입니다.",
+  "This is actual TMDB title information.",
+  "This is an actual search result.",
 ]);
+
+function resolvedLocale(locale) {
+  return normalizeUiLocale(locale) || DEFAULT_UI_LOCALE;
+}
+
+function isEnglishLocale(locale) {
+  return resolvedLocale(locale) === "en-US";
+}
 
 function normalizeReasonText(value = "") {
   return String(value || "").replace(/\s+/gu, " ").trim();
@@ -114,7 +142,10 @@ function withoutTerminalPunctuation(value = "") {
 function isGenericProviderReason(value = "") {
   const normalized = normalizeReasonText(value);
   if (genericProviderReasons.includes(normalized)) return true;
-  if (normalized === "선택한 OTT에서 볼 수 있는 작품 중 고른 추천") return true;
+  if ([
+    "선택한 OTT에서 볼 수 있는 작품 중 고른 추천",
+    "A pick available on one of your selected streaming services",
+  ].includes(normalized)) return true;
   return /^(?:실제\s+TMDB\s+작품\s+정보|실제\s+검색\s+결과)입니다(?:[.。]\s*입니다)*[.。]*$/u.test(normalized);
 }
 
@@ -186,9 +217,15 @@ export function buildBaselineSessionContext({
   selectedFilters = [],
   selectedTypes = [],
   selectedOtt = [],
-} = {}) {
+} = {}, locale = DEFAULT_UI_LOCALE) {
   if (!isBaselineRecommendationContext({ titles, confirmedSeeds, selectedFilters })) return "";
-  return hasDefaultContentTypes(selectedTypes) && !asStringArray(selectedOtt).length
+  const isDefault = hasDefaultContentTypes(selectedTypes) && !asStringArray(selectedOtt).length;
+  if (isEnglishLocale(locale)) {
+    return isDefault
+      ? "With no extra preferences, we're showing a broad set of recommendations."
+      : "With no extra preferences, we used your selected basic filters.";
+  }
+  return isDefault
     ? "추가 취향 정보가 없어 폭넓은 기본 추천을 보여드려요."
     : "추가 취향 정보가 없어 선택한 기본 조건을 기준으로 추천했어요.";
 }
@@ -207,13 +244,14 @@ function filterUnsupportedPreferenceReason(detail, hasPreferenceEvidence) {
     .trim();
 }
 
-function meaningfulItemReason(item = {}, preferences = {}) {
+function meaningfulItemReason(item = {}, preferences = {}, locale = DEFAULT_UI_LOCALE) {
   const detail = normalizeReasonText(item.reason);
   const hasPreferenceEvidence = hasSubmittedPreferenceEvidence(preferences);
   const safeDetail = !hasPreferenceEvidence && containsProviderGeneratedBoilerplate(detail)
     ? removeProviderGeneratedBoilerplate(detail)
     : detail;
   if (!safeDetail || isGenericProviderReason(safeDetail) || isGenericStructuralReason(safeDetail)) return "";
+  if (isEnglishLocale(locale) && /[가-힣]/u.test(safeDetail)) return "";
   if (isTypeOnlyReason(safeDetail) && (
     presentationGenreLabels(item).length > 0
     || (Number.isFinite(Number(item.rating)) && Number(item.rating) > 0)
@@ -225,8 +263,16 @@ function meaningfulItemReason(item = {}, preferences = {}) {
   ));
 }
 
-function typeLabelForItem(item = {}) {
-  return contentTypeLabels[normalizeDisplayContentType(item)] || "";
+function typeLabelForItem(item = {}, locale = DEFAULT_UI_LOCALE) {
+  const contentType = normalizeDisplayContentType(item);
+  if (isEnglishLocale(locale)) {
+    return ({ movie: "movie", drama: "TV series", animation: "animation" })[contentType] || "";
+  }
+  return taxonomyLabelForValue(contentType, locale);
+}
+
+function sentenceCaseTypeLabel(typeLabel = "") {
+  return typeLabel === "TV series" ? typeLabel : typeLabel.toLowerCase();
 }
 
 function stableReasonIndex(item = {}) {
@@ -234,27 +280,51 @@ function stableReasonIndex(item = {}) {
   return [...identity].reduce((total, character) => total + character.codePointAt(0), 0) % 3;
 }
 
-function runtimeReasonLabel(selectedFilters = []) {
+function runtimeReasonLabel(selectedFilters = [], locale = DEFAULT_UI_LOCALE) {
   const selected = selectedRuntimeFilter(selectedFilters);
   if (!selected) return "";
-  if (selected.value === "runtime-short") return "60분 이하";
-  if (selected.value === "runtime-medium") return "2시간 이하";
-  if (selected.value === "runtime-long") return "2시간 이상";
-  return "";
+  if (selected.value === "runtime-long" && !isEnglishLocale(locale)) return "2시간 이상";
+  return taxonomyLabelForValue(selected.value, locale).replace(/^Long \(|\)$/g, "");
 }
 
-function neutralEvidenceReasons(item = {}, preferences = {}) {
-  const genres = presentationGenreLabels(item);
+function neutralEvidenceReasons(item = {}, preferences = {}, locale = DEFAULT_UI_LOCALE) {
+  const genres = presentationGenreLabels(item, locale);
   const primaryGenre = genres[0] || String(item.genre || "").split(",")[0].trim();
-  const typeLabel = typeLabelForItem(item);
-  const detail = meaningfulItemReason(item, preferences);
+  const typeLabel = typeLabelForItem(item, locale);
+  const detail = meaningfulItemReason(item, preferences, locale);
   const numericRating = Number(item.rating);
   const hasIntrinsicEvidence = genres.length > 0 || (Number.isFinite(numericRating) && numericRating > 0);
   if (detail) return [{ reason: detail, family: "item-specific" }];
 
-  const runtime = runtimeReasonLabel(preferences.selectedFilters);
+  const runtime = runtimeReasonLabel(preferences.selectedFilters, locale);
   const rating = Number.isFinite(numericRating) && numericRating > 0 ? numericRating.toFixed(1) : "";
   const reasons = [];
+  if (isEnglishLocale(locale)) {
+    const sentenceType = sentenceCaseTypeLabel(typeLabel);
+    if (runtime && genres.length >= 2 && typeLabel) {
+      reasons.push({ reason: `A ${sentenceType} with ${genres.slice(0, 2).join(" and ")} themes in the ${runtime} range.`, family: "runtime-genre" });
+    } else if (runtime && typeLabel) {
+      reasons.push({ reason: `A ${sentenceType} in the ${runtime} range.`, family: "runtime" });
+    }
+    if (genres.length >= 4 && typeLabel) {
+      reasons.push({ reason: `A ${sentenceType} spanning ${genres.slice(0, 3).join(", ")}.`, family: "genre-range" });
+    }
+    if (genres.length >= 2 && typeLabel) {
+      reasons.push({ reason: `A ${sentenceType} blending ${genres.slice(0, 2).join(" and ")}.`, family: "multi-genre" });
+    }
+    if (rating && (primaryGenre || typeLabel)) {
+      const ratingSubject = primaryGenre && typeLabel && primaryGenre !== typeLabel
+        ? `${primaryGenre} ${sentenceType}`
+        : (typeLabel ? sentenceType : (primaryGenre || "title").toLowerCase());
+      reasons.push({ reason: `A ${ratingSubject} rated ${rating}.`, family: "rating" });
+    }
+    if (primaryGenre && typeLabel) reasons.push({ reason: `A ${primaryGenre} ${sentenceType}.`, family: "genre" });
+    if (rating) reasons.push({ reason: `A title rated ${rating}.`, family: "rating" });
+    if (typeLabel && !hasIntrinsicEvidence) reasons.push({ reason: `A ${sentenceType} worth considering.`, family: "type" });
+    return reasons.length
+      ? reasons
+      : [{ reason: "A title worth considering based on its available details.", family: "generic" }];
+  }
   if (runtime && genres.length >= 2 && typeLabel) {
     reasons.push({
       reason: `${runtime} 범위에서 ${genres.slice(0, 2).join("·")} 흐름을 담은 ${typeLabel}입니다.`,
@@ -299,20 +369,41 @@ function neutralEvidenceReasons(item = {}, preferences = {}) {
     : [{ reason: "작품의 기본 정보를 바탕으로 살펴볼 만한 선택입니다.", family: "generic" }];
 }
 
-function neutralEvidenceReason(item = {}, preferences = {}) {
-  return neutralEvidenceReasons(item, preferences)[0];
+function neutralEvidenceReason(item = {}, preferences = {}, locale = DEFAULT_UI_LOCALE) {
+  return neutralEvidenceReasons(item, preferences, locale)[0];
 }
 
-function neutralReasonCandidates(item = {}, preferences = {}) {
-  return neutralEvidenceReasons(item, preferences)
+function neutralReasonCandidates(item = {}, preferences = {}, locale = DEFAULT_UI_LOCALE) {
+  return neutralEvidenceReasons(item, preferences, locale)
     .map(({ reason }) => reason)
     .filter(Boolean);
 }
 
-export function buildFirstPickRecommendationReason(item = {}) {
-  const genres = presentationGenreLabels(item);
+export function buildFirstPickRecommendationReason(item = {}, locale = DEFAULT_UI_LOCALE) {
+  const genres = presentationGenreLabels(item, locale);
   const primaryGenre = genres[0] || String(item.genre || "").split(",")[0].trim();
-  const typeLabel = typeLabelForItem(item);
+  const typeLabel = typeLabelForItem(item, locale);
+  if (isEnglishLocale(locale)) {
+    const type = sentenceCaseTypeLabel(typeLabel);
+    const candidates = primaryGenre && typeLabel
+      ? primaryGenre === typeLabel
+        ? [
+          `A ${type} worth checking out first.`,
+          `A standout ${type} to start with.`,
+          `A ${primaryGenre} pick worth a first look.`,
+        ]
+        : [
+          `A ${primaryGenre} ${type} worth checking out first.`,
+          `A ${type} with a strong ${primaryGenre} angle.`,
+          `${primaryGenre} storytelling in a ${type} format.`,
+        ]
+      : primaryGenre
+        ? [`A ${primaryGenre} title worth checking out first.`, `A ${primaryGenre} pick worth a closer look.`]
+        : typeLabel
+          ? [`A ${type} worth checking out first.`]
+          : ["A title worth checking out first based on its available details."];
+    return candidates[stableReasonIndex(item) % candidates.length];
+  }
   const candidates = primaryGenre && typeLabel
     ? primaryGenre === typeLabel
       ? [
@@ -337,12 +428,16 @@ export function buildFirstPickRecommendationReason(item = {}) {
   return candidates[stableReasonIndex(item) % candidates.length];
 }
 
-export function recommendationOptionButtonLabel(selectedCount = 0) {
+export function recommendationOptionButtonLabel(selectedCount = 0, locale = DEFAULT_UI_LOCALE) {
   const count = Number.isInteger(selectedCount) ? selectedCount : Number(selectedCount);
+  if (isEnglishLocale(locale)) return count > 0 ? `${count} additional options selected` : "Choose more options";
   return count > 0 ? `추가 옵션 ${count}개 선택됨` : "더 많은 옵션 선택하기";
 }
 
-export function buildSelectedOptionReason(item = {}, filters = [], { sentence = false } = {}) {
+export function buildSelectedOptionReason(item = {}, filters = [], {
+  sentence = false,
+  locale = DEFAULT_UI_LOCALE,
+} = {}) {
   const selected = selectedTaxonomyFilters(filters);
   if (!selected.length) return "";
   const explicitMatches = Array.isArray(item.matchedTaxonomyValues)
@@ -353,14 +448,27 @@ export function buildSelectedOptionReason(item = {}, filters = [], { sentence = 
 
   let reason;
   if (matched.length === 1) {
-    reason = reasonByGenre[matched[0]] || `${genreLabelForValue(matched[0])} 조건과 잘 맞는 추천`;
+    reason = (isEnglishLocale(locale) ? EN_REASON_BY_GENRE : KO_REASON_BY_GENRE)[matched[0]];
+    if (!reason) {
+      const label = taxonomyLabelForValue(matched[0], locale) || genreLabelForValue(matched[0]);
+      reason = isEnglishLocale(locale) ? `A strong match for ${label}` : `${label} 조건과 잘 맞는 추천`;
+    }
   } else {
-    const labels = matched.slice(0, 2).map(genreLabelForValue).filter(Boolean);
-    reason = labels.length === 2
-      ? `${labels[0]}과 ${labels[1]} 요소를 함께 반영한 추천`
-      : `${labels[0] || "선택한 장르"} 요소를 반영한 추천`;
+    const labels = matched.slice(0, 2)
+      .map((value) => taxonomyLabelForValue(value, locale) || genreLabelForValue(value))
+      .filter(Boolean);
+    if (isEnglishLocale(locale)) {
+      reason = labels.length === 2
+        ? `Recommended for its ${labels[0]} and ${labels[1]} elements`
+        : `Recommended for its ${labels[0] || "selected genre"} elements`;
+    } else {
+      reason = labels.length === 2
+        ? `${labels[0]}과 ${labels[1]} 요소를 함께 반영한 추천`
+        : `${labels[0] || "선택한 장르"} 요소를 반영한 추천`;
+    }
   }
-  return sentence ? `${reason}입니다.` : reason;
+  if (!sentence) return reason;
+  return isEnglishLocale(locale) ? `${reason}.` : `${reason}입니다.`;
 }
 
 export function buildEvidenceGroundedDecisionReason(item = {}, {
@@ -369,36 +477,42 @@ export function buildEvidenceGroundedDecisionReason(item = {}, {
   selectedFilters = [],
   selectedTypes = [],
   selectedOtt = [],
-} = {}) {
-  if (item.firstPick) return buildFirstPickRecommendationReason(item);
+} = {}, locale = DEFAULT_UI_LOCALE) {
+  if (item.firstPick) return buildFirstPickRecommendationReason(item, locale);
 
   const canonicalSeed = resolveCanonicalReasonSeed(item, confirmedSeeds);
-  const genres = presentationGenreLabels(item);
+  const genres = presentationGenreLabels(item, locale);
   const primaryGenre = genres[0] || String(item.genre || "").split(",")[0].trim();
   if (canonicalSeed && primaryGenre) {
+    if (isEnglishLocale(locale)) return `Because you liked ${canonicalSeed}, try another ${primaryGenre} title`;
     return `${seedWithKoreanObjectParticle(canonicalSeed)} 좋아했다면 ${primaryGenre} 작품으로 이어가는 추천`;
   }
+  if (canonicalSeed && isEnglishLocale(locale)) return `A follow-up pick because you liked ${canonicalSeed}`;
   if (canonicalSeed) return `${seedWithKoreanObjectParticle(canonicalSeed)} 좋아했다면 추천`;
 
+  if (titles.length > 1 && isEnglishLocale(locale)) return "Recommended from the preferences you shared";
+  if (titles.length && isEnglishLocale(locale)) return "Recommended from your entered preference";
   if (titles.length > 1) return "여러 취향을 함께 반영한 추천";
   if (titles.length) return "입력한 취향을 바탕으로 추천";
 
-  const selectedReason = buildSelectedOptionReason(item, selectedFilters);
+  const selectedReason = buildSelectedOptionReason(item, selectedFilters, { locale });
   if (selectedReason) return selectedReason;
 
-  const neutralReason = neutralReasonCandidates(item, { titles, confirmedSeeds, selectedFilters })[0];
+  const neutralReason = neutralReasonCandidates(item, { titles, confirmedSeeds, selectedFilters }, locale)[0];
   if (neutralReason) return neutralReason;
 
-  const itemReason = meaningfulItemReason(item, { titles, confirmedSeeds, selectedFilters });
+  const itemReason = meaningfulItemReason(item, { titles, confirmedSeeds, selectedFilters }, locale);
   if (itemReason) return itemReason;
 
   const actualOtt = asStringArray(item.ott).map((value) => value.toLocaleLowerCase("ko-KR"));
   const selectedOttMatch = selectedOtt.some((value) => (
     actualOtt.some((actual) => actual.includes(String(value).split("-")[0].toLocaleLowerCase("ko-KR")))
   ));
-  if (selectedOttMatch) return "선택한 OTT에서 볼 수 있는 작품 중 고른 추천";
+  if (selectedOttMatch) return isEnglishLocale(locale)
+    ? "A pick available on one of your selected streaming services"
+    : "선택한 OTT에서 볼 수 있는 작품 중 고른 추천";
 
-  return "오늘 바로 고르기 좋은 추천";
+  return isEnglishLocale(locale) ? "A good pick to watch today" : "오늘 바로 고르기 좋은 추천";
 }
 
 function uniqueReasonCandidates(candidates = []) {
@@ -411,7 +525,10 @@ function isGenericRecommendationReason(value = "") {
     || isGenericStructuralReason(normalized)
     || normalized === "선택한 OTT에서 볼 수 있는 작품 중 고른 추천"
     || normalized === "작품의 기본 정보를 바탕으로 살펴볼 만한 선택입니다"
-    || normalized === "오늘 바로 고르기 좋은 추천";
+    || normalized === "오늘 바로 고르기 좋은 추천"
+    || normalized === "A pick available on one of your selected streaming services"
+    || normalized === "A title worth considering based on its available details"
+    || normalized === "A good pick to watch today";
 }
 
 function recommendationReasonFamily(value = "") {
@@ -423,6 +540,12 @@ function recommendationReasonFamily(value = "") {
   if (/^평점 /u.test(normalized)) return "rating";
   if (/ 장르의 /u.test(normalized)) return "genre";
   if (/ 형식으로 /u.test(normalized)) return "type";
+  if (/\brange\b/iu.test(normalized)) return "runtime";
+  if (/\bspanning\b/iu.test(normalized)) return "genre-range";
+  if (/\bblending\b/iu.test(normalized)) return "multi-genre";
+  if (/\brated\b/iu.test(normalized)) return "rating";
+  if (/^A .+ (?:movie|tv series|animation)$/iu.test(normalized)) return "genre";
+  if (/worth considering/iu.test(normalized)) return "type";
   return "item-specific";
 }
 
@@ -432,11 +555,11 @@ function buildEvidenceGroundedDecisionReasonCandidates(item = {}, {
   selectedFilters = [],
   selectedTypes = [],
   selectedOtt = [],
-} = {}) {
+} = {}, locale = DEFAULT_UI_LOCALE) {
   const canonicalSeed = resolveCanonicalReasonSeed(item, confirmedSeeds);
-  const genres = presentationGenreLabels(item);
+  const genres = presentationGenreLabels(item, locale);
   const primaryGenre = genres[0] || String(item.genre || "").split(",")[0].trim();
-  const selectedReason = buildSelectedOptionReason(item, selectedFilters);
+  const selectedReason = buildSelectedOptionReason(item, selectedFilters, { locale });
   const actualOtt = asStringArray(item.ott).map((value) => value.toLocaleLowerCase("ko-KR"));
   const selectedOttMatch = selectedOtt.some((value) => (
     actualOtt.some((actual) => actual.includes(String(value).split("-")[0].toLocaleLowerCase("ko-KR")))
@@ -444,38 +567,36 @@ function buildEvidenceGroundedDecisionReasonCandidates(item = {}, {
   const candidates = [];
 
   if (canonicalSeed && primaryGenre) {
-    const seed = seedWithKoreanObjectParticle(canonicalSeed);
-    candidates.push(`${seed} 좋아했다면 ${primaryGenre} 작품으로 이어가는 추천`);
+    candidates.push(isEnglishLocale(locale)
+      ? `Because you liked ${canonicalSeed}, try another ${primaryGenre} title`
+      : `${seedWithKoreanObjectParticle(canonicalSeed)} 좋아했다면 ${primaryGenre} 작품으로 이어가는 추천`);
   }
   if (selectedReason) candidates.push(selectedReason);
   if (canonicalSeed && primaryGenre) {
-    candidates.push(
-      `${canonicalSeed}에서 좋아한 ${primaryGenre} 결을 이어 살펴보는 추천`,
-      `${canonicalSeed}와 맞닿은 ${primaryGenre} 장르에서 고른 추천`,
-    );
+    candidates.push(...(isEnglishLocale(locale)
+      ? [`A ${primaryGenre} follow-up to ${canonicalSeed}`, `A ${primaryGenre} pick connected to ${canonicalSeed}`]
+      : [`${canonicalSeed}에서 좋아한 ${primaryGenre} 결을 이어 살펴보는 추천`, `${canonicalSeed}와 맞닿은 ${primaryGenre} 장르에서 고른 추천`]));
   }
   if (canonicalSeed) {
-    const seed = seedWithKoreanObjectParticle(canonicalSeed);
-    candidates.push(
-      `${seed} 좋아했다면 이어서 살펴볼 추천`,
-      `${canonicalSeed}에서 이어지는 취향을 반영한 추천`,
-    );
+    candidates.push(...(isEnglishLocale(locale)
+      ? [`A follow-up pick because you liked ${canonicalSeed}`, `A recommendation based on what you liked in ${canonicalSeed}`]
+      : [`${seedWithKoreanObjectParticle(canonicalSeed)} 좋아했다면 이어서 살펴볼 추천`, `${canonicalSeed}에서 이어지는 취향을 반영한 추천`]));
   }
-  if (titles.length > 1) candidates.push("여러 취향을 함께 반영한 추천");
-  else if (titles.length) candidates.push("입력한 취향을 바탕으로 추천");
-  candidates.push(...neutralReasonCandidates(item, { titles, confirmedSeeds, selectedFilters }));
-  if (selectedOttMatch) candidates.push("선택한 OTT에서 볼 수 있는 작품 중 고른 추천");
-  candidates.push("오늘 바로 고르기 좋은 추천");
+  if (titles.length > 1) candidates.push(isEnglishLocale(locale) ? "Recommended from the preferences you shared" : "여러 취향을 함께 반영한 추천");
+  else if (titles.length) candidates.push(isEnglishLocale(locale) ? "Recommended from your entered preference" : "입력한 취향을 바탕으로 추천");
+  candidates.push(...neutralReasonCandidates(item, { titles, confirmedSeeds, selectedFilters }, locale));
+  if (selectedOttMatch) candidates.push(isEnglishLocale(locale) ? "A pick available on one of your selected streaming services" : "선택한 OTT에서 볼 수 있는 작품 중 고른 추천");
+  candidates.push(isEnglishLocale(locale) ? "A good pick to watch today" : "오늘 바로 고르기 좋은 추천");
   return uniqueReasonCandidates(candidates);
 }
 
-export function buildEvidenceGroundedDecisionReasons(items = [], preferences = {}) {
+export function buildEvidenceGroundedDecisionReasons(items = [], preferences = {}, locale = DEFAULT_UI_LOCALE) {
   const usedReasons = new Set();
   const usedFamilies = new Map();
   let previousReason = "";
 
   return items.map((item) => {
-    const candidates = buildEvidenceGroundedDecisionReasonCandidates(item, preferences);
+    const candidates = buildEvidenceGroundedDecisionReasonCandidates(item, preferences, locale);
     const reason = candidates.find((candidate) => {
       if (isGenericRecommendationReason(candidate) || usedReasons.has(candidate)) return false;
       return (usedFamilies.get(recommendationReasonFamily(candidate)) || 0) < 2;
@@ -485,7 +606,7 @@ export function buildEvidenceGroundedDecisionReasons(items = [], preferences = {
       || candidates.find((candidate) => candidate !== previousReason && !usedReasons.has(candidate))
       || candidates.find((candidate) => candidate !== previousReason)
       || candidates[0]
-      || "오늘 바로 고르기 좋은 추천";
+      || (isEnglishLocale(locale) ? "A good pick to watch today" : "오늘 바로 고르기 좋은 추천");
     usedReasons.add(reason);
     const family = recommendationReasonFamily(reason);
     usedFamilies.set(family, (usedFamilies.get(family) || 0) + 1);
@@ -494,18 +615,18 @@ export function buildEvidenceGroundedDecisionReasons(items = [], preferences = {
   });
 }
 
-export function buildEvidenceGroundedRecommendationReason(item = {}, preferences = {}) {
-  if (item.firstPick) return buildFirstPickRecommendationReason(item);
+export function buildEvidenceGroundedRecommendationReason(item = {}, preferences = {}, locale = DEFAULT_UI_LOCALE) {
+  if (item.firstPick) return buildFirstPickRecommendationReason(item, locale);
 
-  const decision = buildEvidenceGroundedDecisionReason(item, preferences);
-  const detail = meaningfulItemReason(item, preferences);
+  const decision = buildEvidenceGroundedDecisionReason(item, preferences, locale);
+  const detail = meaningfulItemReason(item, preferences, locale);
   const sentences = [decision, detail]
     .filter(Boolean)
     .filter((value, index, values) => values.findIndex((candidate) => (
       withoutTerminalPunctuation(candidate) === withoutTerminalPunctuation(value)
     )) === index)
     .map((value) => `${withoutTerminalPunctuation(value)}.`);
-  return sentences.join(" ") || "오늘 바로 고르기 좋은 추천.";
+  return sentences.join(" ") || (isEnglishLocale(locale) ? "A good pick to watch today." : "오늘 바로 고르기 좋은 추천.");
 }
 
 export function dedupePrimaryDisplayTitles(items = []) {
@@ -531,7 +652,7 @@ export function contentTypeMatchesSelection(item = {}, selectedTypes = [], selec
 
 export { normalizeDisplayContentType, normalizeProviderMediaType };
 
-export function presentationGenreLabels(item = {}) {
+export function presentationGenreLabels(item = {}, locale = DEFAULT_UI_LOCALE) {
   const labels = localizedGenreLabels(item);
   const displayGenre = typeof item.genre === "string" ? item.genre : "";
   displayGenre.split(",").forEach((value) => {
@@ -540,5 +661,5 @@ export function presentationGenreLabels(item = {}) {
       labels.push(label);
     }
   });
-  return labels;
+  return localizeGenreDisplayLabels(labels, locale);
 }

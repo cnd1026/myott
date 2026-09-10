@@ -6,6 +6,7 @@ import fs from "node:fs";
 import { MESSAGE_CATALOGS, getMessage } from "./messageCatalog.js";
 
 const BASE_COMMIT = "28c5b12d995d2badc6abea8fde0b6e8148313444";
+const PRESENTATION_TASK_BASE = "64508552b31625f6fead3a26f7b4a5b97a2356ab";
 const LAYOUT_KEYS = Object.freeze([
   "attribution.heading", "attribution.justWatch", "attribution.tmdbDisclaimer",
   "attribution.tmdbLogoAlt", "metadata.description", "metadata.title",
@@ -118,18 +119,19 @@ test("supported missing keys remain strict at runtime", () => {
   assert.throws(() => getMessage("en-US", "runtime.missing"), /MISSING_MESSAGE_KEY:en-US:runtime\.missing/);
 });
 
-test("generated status copy is explicitly deferred rather than misclassified as wired", () => {
+test("generated status copy is now catalog-backed while current runtime remains Korean", () => {
   const wired = new Set([...LAYOUT_KEYS, ...PAGE_KEYS]);
   for (const key of DEFERRED_GENERATED_KEYS) {
     assert.equal(wired.has(key), false, key);
     assert.equal(typeof MESSAGE_CATALOGS["ko-KR"][key], "string", key);
   }
-  assert.match(pageSource, /buildSeedCoverageMessage\(seedDiagnostics\)/);
-  assert.match(pageSource, /resolveEmptyStateMessage\(\{/);
+  assert.match(pageSource, /buildSeedCoverageMessage\(seedDiagnostics, RUNTIME_UI_LOCALE\)/);
+  assert.match(pageSource, /resolveEmptyStateMessage\(\{[\s\S]+?\}, RUNTIME_UI_LOCALE\)/);
 });
 
-test("taxonomy and provider data remain outside locale runtime decisions", () => {
-  assert.match(pageSource, /genreOptionGroups/);
+test("taxonomy labels are locale-aware while provider data remains outside locale decisions", () => {
+  assert.match(pageSource, /taxonomyOptionGroupsForLocale\(RUNTIME_UI_LOCALE\)/);
+  assert.match(pageSource, /localizeTaxonomyOptionGroups\(payload\.groups, RUNTIME_UI_LOCALE\)/);
   assert.match(pageSource, /PRIMARY_OTT_OPTIONS/);
   assert.match(pageSource, /content\.title \|\| "제목 없음"/);
   assert.doesNotMatch(runtimeDiff, /^\+.*(?:contentProviderRegion|legalJurisdiction)/m);
@@ -140,13 +142,17 @@ test("runtime wiring adds no persistence, tracking, or external effects", () => 
   assert.doesNotMatch(runtimeDiff, /^\+.*(?:fetch\(|XMLHttpRequest|WebSocket)/m);
 });
 
-test("package, lock, recommendation, provider, and API paths remain untouched", () => {
-  const changed = execFileSync("git", ["diff", "--name-only", BASE_COMMIT], { encoding: "utf8" })
+test("package, lock, provider, API, and recommendation semantics paths remain untouched", () => {
+  const changed = execFileSync("git", ["diff", "--name-only", PRESENTATION_TASK_BASE], { encoding: "utf8" })
     .trim().split(/\r?\n/).filter(Boolean);
   assert.equal(changed.includes("package.json"), false);
   assert.equal(changed.includes("pnpm-lock.yaml"), false);
   assert.equal(changed.some((path) => path.startsWith("app/api/")), false);
-  assert.equal(changed.some((path) => path.startsWith("src/lib/recommendation/")), false);
+  assert.equal(changed.some((path) => path.startsWith("src/lib/recommendation/candidates/")), false);
+  assert.equal(changed.some((path) => path.startsWith("src/lib/recommendation/filters/")), false);
+  assert.equal(changed.some((path) => path.startsWith("src/lib/recommendation/recall/")), false);
+  assert.equal(changed.some((path) => path.startsWith("src/lib/recommendation/requests/")), false);
+  assert.equal(changed.some((path) => path.startsWith("src/lib/recommendation/scoring/")), false);
   assert.equal(changed.some((path) => path.startsWith("src/lib/providers/")), false);
   assert.equal(changed.some((path) => path.startsWith("lib/")), false);
 });

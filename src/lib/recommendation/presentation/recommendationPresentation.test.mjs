@@ -747,6 +747,113 @@ test("display OTT normalization merges only the explicit Netflix aliases", () =>
 test("option button copy exposes idle and selected states", () => {
   assert.equal(recommendationOptionButtonLabel(0), "더 많은 옵션 선택하기");
   assert.equal(recommendationOptionButtonLabel(2), "추가 옵션 2개 선택됨");
+  assert.equal(recommendationOptionButtonLabel(0, "en-US"), "Choose more options");
+  assert.equal(recommendationOptionButtonLabel(2, "en-US"), "2 additional options selected");
+});
+
+test("English presentation realizes first-pick, seed, and selected-genre evidence without Korean particles", () => {
+  const firstPick = buildFirstPickRecommendationReason({
+    providerContentId: "english-first-pick",
+    providerMediaType: "movie",
+    displayContentType: "movie",
+    providerGenreIds: [878],
+  }, "en-US");
+  const seedReason = buildEvidenceGroundedDecisionReason({
+    providerContentId: "english-seed",
+    providerMediaType: "movie",
+    displayContentType: "movie",
+    providerGenreIds: [878],
+    reasonSeed: "Arrival",
+  }, {}, "en-US");
+  const selectedGenre = buildSelectedOptionReason({
+    matchedTaxonomyValues: ["genre-horror"],
+  }, ["genre-horror"], { locale: "en-US" });
+
+  assert.match(firstPick, /Sci-Fi|movie/);
+  assert.equal(seedReason, "Because you liked Arrival, try another Sci-Fi title");
+  assert.equal(selectedGenre, "Recommended for its horror and supernatural threats");
+  assert.doesNotMatch(`${firstPick} ${seedReason} ${selectedGenre}`, /[가-힣]/u);
+});
+
+test("English neutral evidence covers runtime, rating, and multi-genre presentation", () => {
+  const runtime = buildEvidenceGroundedDecisionReason({
+    providerContentId: "english-runtime",
+    providerMediaType: "movie",
+    displayContentType: "movie",
+    providerGenreIds: [],
+  }, { selectedTypes: ["movie"], selectedFilters: ["runtime-short"] }, "en-US");
+  const rating = buildEvidenceGroundedDecisionReason({
+    providerContentId: "english-rating",
+    providerMediaType: "tv",
+    displayContentType: "drama",
+    rating: 8.2,
+  }, { selectedTypes: ["drama"] }, "en-US");
+  const multiGenre = buildEvidenceGroundedDecisionReason({
+    providerContentId: "english-multi-genre",
+    providerMediaType: "tv",
+    displayContentType: "drama",
+    providerGenreIds: [80, 18],
+  }, { selectedTypes: ["drama"] }, "en-US");
+
+  assert.equal(runtime, "A movie in the 60 minutes or less range.");
+  assert.equal(rating, "A TV series rated 8.2.");
+  assert.equal(multiGenre, "A TV series blending Crime and Drama.");
+});
+
+test("baseline context is natural in English and preserves the Korean default", () => {
+  const preferences = { selectedTypes: ["movie", "drama", "animation"] };
+
+  assert.equal(
+    buildBaselineSessionContext(preferences),
+    "추가 취향 정보가 없어 폭넓은 기본 추천을 보여드려요.",
+  );
+  assert.equal(
+    buildBaselineSessionContext(preferences, "en-US"),
+    "With no extra preferences, we're showing a broad set of recommendations.",
+  );
+});
+
+test("locale changes presentation only and preserves canonical item and preference evidence", () => {
+  const item = {
+    providerContentId: "semantic-invariance",
+    providerMediaType: "tv",
+    displayContentType: "drama",
+    providerGenreIds: [10765],
+    matchedTaxonomyValues: ["genre-sf"],
+    score: 81.5,
+    eligible: true,
+  };
+  const preferences = {
+    selectedTypes: ["drama"],
+    selectedFilters: ["genre-sf"],
+  };
+  const itemBefore = structuredClone(item);
+  const preferencesBefore = structuredClone(preferences);
+
+  const koReason = buildEvidenceGroundedDecisionReason(item, preferences, "ko-KR");
+  const enReason = buildEvidenceGroundedDecisionReason(item, preferences, "en-US");
+
+  assert.equal(koReason, "미래 기술과 우주 탐사 요소를 반영한 추천");
+  assert.equal(enReason, "Recommended for its future technology and space exploration");
+  assert.notEqual(koReason, enReason);
+  assert.deepEqual(item, itemBefore);
+  assert.deepEqual(preferences, preferencesBefore);
+  assert.equal(item.providerContentId, itemBefore.providerContentId);
+  assert.equal(item.score, itemBefore.score);
+  assert.equal(item.eligible, itemBefore.eligible);
+  assert.deepEqual(item.matchedTaxonomyValues, itemBefore.matchedTaxonomyValues);
+});
+
+test("English presentation defers Korean provider prose instead of fabricating a translation", () => {
+  const reason = buildEvidenceGroundedRecommendationReason({
+    providerContentId: "provider-prose",
+    providerMediaType: "movie",
+    displayContentType: "movie",
+    reason: "배우들의 섬세한 연기가 돋보이는 작품입니다.",
+  }, { selectedTypes: ["movie"] }, "en-US");
+
+  assert.equal(reason, "A movie worth considering.");
+  assert.doesNotMatch(reason, /[가-힣]/u);
 });
 
 test("confirmed seed state preserves raw input, invalidates on edit, and removes identity only", () => {

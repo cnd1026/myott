@@ -1,3 +1,6 @@
+import { DEFAULT_UI_LOCALE } from "../../i18n/localeContract.js";
+import { getMessage } from "../../i18n/messageCatalog.js";
+
 const normalizeKey = (value) => String(value || "").trim().replace(/\s+/g, " ").toLocaleLowerCase();
 
 function confirmedSeedFromSuggestion(inputTitle, suggestion = {}) {
@@ -65,7 +68,7 @@ export function buildSeedRequestPayload({
   };
 }
 
-export function buildSeedCoverageMessage(metadata = {}) {
+export function buildSeedCoverageMessage(metadata = {}, locale = DEFAULT_UI_LOCALE) {
   const requested = Number(metadata.rawInputCount ?? metadata.requestedSeedCount ?? 0);
   const processed = Number(metadata.processedWorkCount ?? metadata.processedSeedCount ?? 0);
   const unresolved = Number(metadata.unresolvedSeedCount || 0);
@@ -73,14 +76,14 @@ export function buildSeedCoverageMessage(metadata = {}) {
   const uniqueWorks = hasUniqueWorkMetadata ? Number(metadata.uniqueResolvedWorkCount) : processed;
   if (!requested) return "";
   if (hasUniqueWorkMetadata && requested > uniqueWorks && processed === uniqueWorks && unresolved === 0 && uniqueWorks > 0) {
-    return `입력한 ${requested}개 제목을 ${uniqueWorks}개 작품으로 확인해 추천에 반영했습니다.`;
+    return getMessage(locale, "seedCoverage.deduplicated", { requested, unique: uniqueWorks });
   }
   if (unresolved > 0 && processed > 0) {
-    return `입력한 작품 중 ${unresolved}개를 찾지 못해 확인된 작품을 중심으로 추천했습니다.`;
+    return getMessage(locale, "seedCoverage.unresolved", { unresolved });
   }
-  if (processed >= requested) return `입력한 ${requested}개 작품을 모두 추천에 반영했습니다.`;
-  if (processed > 0) return `입력한 ${requested}개 작품 중 ${processed}개를 이번 추천에 반영했습니다.`;
-  return "입력한 작품을 추천에 반영하지 못했습니다.";
+  if (processed >= requested) return getMessage(locale, "seedCoverage.all", { requested });
+  if (processed > 0) return getMessage(locale, "seedCoverage.partial", { requested, processed });
+  return getMessage(locale, "seedCoverage.none");
 }
 
 export function resolveEmptyStateMessage({
@@ -91,18 +94,18 @@ export function resolveEmptyStateMessage({
   hasSeedInput = false,
   processedSeedCount = 0,
   unresolvedSeedCount = 0,
-} = {}) {
+} = {}, locale = DEFAULT_UI_LOCALE) {
   if (resultCount > 0 || recommendationStatus === "loading") return "";
-  if (recommendationStatus === "idle") return "작품을 입력하거나 추천 옵션을 고르면 결과가 여기에 표시됩니다.";
-  if (!selectedTypes.length) return "영화, 드라마, 애니 중 하나 이상 선택해 주세요.";
+  if (recommendationStatus === "idle") return getMessage(locale, "results.idle");
+  if (!selectedTypes.length) return getMessage(locale, "results.selectContentType");
   if (recommendationStatus === "error" || dataSource === "error") {
-    return "추천 정보를 불러오지 못했습니다. 잠시 후 다시 시도해 주세요.";
+    return getMessage(locale, "results.error");
   }
   if (hasSeedInput && processedSeedCount === 0 && unresolvedSeedCount > 0) {
-    return "입력한 작품을 찾지 못했습니다. 작품 제목을 확인하거나 자동완성에서 작품을 선택해 주세요.";
+    return getMessage(locale, "results.seedNotFound");
   }
   if (hasSeedInput && processedSeedCount > 0) {
-    return "확인된 작품을 중심으로 추천했지만 조건에 맞는 결과가 부족합니다.";
+    return getMessage(locale, "results.seedInsufficient");
   }
-  return "선택한 조건에 맞는 작품을 찾지 못했습니다. 장르나 국가 조건을 조금 넓혀 보세요.";
+  return getMessage(locale, "results.filtersTooNarrow");
 }
