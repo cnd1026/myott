@@ -219,3 +219,11 @@ PM LAB/HQ metric-integrity addendum에 따라 `DL-035`의 direct browser transpo
 PostHog Cloud provider와 EU region preference는 유지하고, Phase 1 transport architecture로 `MYOTT_SAME_ORIGIN_PRIVACY_RELAY`를 선택합니다. Browser는 Product-owned consent/eligibility Gate 뒤 same-origin canonical endpoint만 호출하고, relay가 exact five-event/version/property schema를 최종 검증해 server-only token으로 PostHog EU single-event endpoint에 한 번만 전달합니다. Raw browser client IP는 PostHog에 의도적으로 전달하지 않으며 provider payload는 `$process_person_profile: false`와 `$geoip_disable: true`를 사용합니다.
 
 Phase 1은 session-only, no-SDK, no-queue, no-retry, no-background-delivery, no-persistent-identity를 유지합니다. Relay는 schema와 provider provenance를 강화하지만 human authenticity, public-endpoint bots와 cross-instance replay를 완전히 제거하지 않으므로 audited/fraud-proof metric을 주장하지 않습니다. 이 결정은 architecture selection일 뿐 account/project/token, relay implementation, event transmission, Analytics activation, Security, Release 또는 Production을 승인하지 않습니다.
+
+## DL-037 Phase 1 Consent Receipt와 Jurisdiction Signal은 Server에서 검증
+
+Phase 1 privacy-choice persistence의 기술 architecture로 최소 `SERVER_VERIFIABLE_SIGNED_FIRST_PARTY_CONSENT_RECEIPT`를 선택합니다. Receipt는 consent/policy version과 bounded lifecycle만 담고 Product guest/account identity 또는 Analytics identity가 되지 않으며 PostHog로 전송하지 않습니다. 별도 signing secret, exact expiry, cookie 속성, stale allow-receipt rollback/replay와 withdrawal 처리는 후속 Security/Policy Gate가 필요합니다.
+
+Jurisdiction input은 지원된 hosting request의 `SERVER_SIDE_TRANSIENT_COARSE_COUNTRY_HINT`만 기술 후보로 사용하고 raw IP, country hint, locale 또는 provider region을 Analytics eligibility나 법적 결론으로 직접 취급하지 않습니다. Country hint는 versioned provider-neutral policy registry를 거치며, 실제 country/legal mapping은 아직 0개입니다. Unknown, unsupported 또는 legal-review-required 상태는 nonessential Analytics를 fail-closed로 억제합니다.
+
+Privacy Center는 계속 unmounted이고 Analytics는 inactive입니다. 현재 relay는 receipt와 jurisdiction policy를 최종 재검증하지 않으므로 runtime implementation, Legal review, Security review, browser/network proof, Release와 Deployment는 모두 별도 Gate입니다.

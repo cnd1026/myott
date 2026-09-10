@@ -2,6 +2,18 @@
 
 프로젝트의 주요 변경 사항을 날짜별로 기록합니다.
 
+## 2026-09-11 - Privacy Consent Persistence And Jurisdiction Gate
+
+### 변경 내용
+
+- Phase 1 durable privacy choice 후보를 비교하고, 최소 server-verifiable signed first-party consent receipt를 기술 architecture로 선택했습니다.
+- Vercel의 IP-derived country header는 transient coarse signal로만 사용하고, 실제 country/legal mapping이 없는 초기 policy registry에서는 nonessential Analytics를 fail-closed로 억제하도록 정리했습니다.
+- Current relay의 future receipt/jurisdiction revalidation, withdrawal rollback/replay Security blocker, expiry와 Legal review 질문을 명시했습니다.
+
+### 불변 범위
+
+- cookie/storage/secret/jurisdiction runtime, Privacy Center mount, Product event wiring, live Analytics, source/dependency/build, Private Continuity, Main/Release/Production/Deployment 변경은 없습니다.
+
 ## 2026-09-10 - Privacy Center And Analytics Consent UI Foundation
 
 ### 변경 내용

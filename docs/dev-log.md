@@ -2,6 +2,23 @@
 
 개발 과정에서의 작업 내용, 결정, 아쉬운 점, 다음 개선 사항을 날짜별로 기록합니다.
 
+## 2026-09-11 - Privacy Consent Persistence And Jurisdiction Gate
+
+### 오늘 작업
+
+- memory-only, localStorage, unsigned cookie, signed first-party receipt와 database consent record를 server verification, withdrawal, identity, privacy, cost와 운영 복잡성으로 비교했습니다.
+- Vercel 공식 request-header 근거를 확인해 coarse country hint의 기술적 가용성과 IP-derived/approximate 한계를 분리하고, provider-neutral fail-closed jurisdiction policy registry를 설계했습니다.
+
+### 결정한 것
+
+- Phase 1 technical candidate는 dedicated signing secret을 사용하는 minimal signed receipt입니다. Receipt는 Analytics/guest/account identity가 아니며 PostHog payload에 들어가지 않습니다.
+- Country hint는 legal jurisdiction이 아니며 실제 approved mapping은 아직 없습니다. Unknown, unsupported와 review-required 상태에서는 Analytics를 보내지 않습니다.
+- Stateless receipt의 copied old-allow rollback/replay, exact expiry, country policy와 legal treatment가 해결되기 전에는 Privacy Center를 mount하거나 Analytics를 활성화하지 않습니다.
+
+### 다음 개선
+
+- `MYOTT_ANALYTICS_JURISDICTION_POLICY_LEGAL_REVIEW_PACKET_V1`에서 launch-country scope, consent requirement, storage/expiry, PostHog disclosure와 cross-border questions를 qualified review 가능한 packet으로 준비해야 합니다.
+
 ## 2026-09-10 - Privacy Center And Analytics Consent UI Foundation
 
 ### 오늘 작업
