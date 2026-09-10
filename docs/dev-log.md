@@ -2,6 +2,22 @@
 
 개발 과정에서의 작업 내용, 결정, 아쉬운 점, 다음 개선 사항을 날짜별로 기록합니다.
 
+## 2026-09-10 - PostHog Account And Project Activation Preparation
+
+### 오늘 작업
+
+- PostHog의 현재 signup region, Cloud EU, free plan, project/token, IP discard, anonymous-event 계약과 Vercel server environment 경계를 공식 자료로 대조했습니다.
+- account/project 생성과 Analytics activation을 분리하고, EU·free-first·zero-event 조건을 지키는 Founder manual action packet 및 redacted evidence template을 작성했습니다.
+
+### 결정한 것
+
+- 가입 전에 EU를 선택하고 instrumentation을 모두 defer하면 Founder-controlled empty project 생성 경로는 준비됐습니다. 현재 로그인 없는 조사에서 알 수 없는 UI label과 project별 기본값은 생성 후 readback 없이는 PASS로 간주하지 않습니다.
+- project token은 PostHog public capture용 write-only routing token이지만 MyOTT에서는 same-origin relay 뒤 server-only Production Secret으로 제한하며 Preview/Development에는 제공하지 않습니다.
+
+### 다음 개선
+
+- `MYOTT_POSTHOG_ACCOUNT_PROJECT_CREATION_FOUNDER_ACTION_V1`은 별도 명시적 Founder action으로 empty EU project만 생성하고, event/SDK/token configuration 없이 exact settings receipt를 반환해야 합니다.
+
 ## 2026-09-10 - PostHog Same-Origin Privacy Relay Architecture
 
 ### 오늘 작업

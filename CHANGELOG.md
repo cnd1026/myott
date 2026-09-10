@@ -2,6 +2,17 @@
 
 프로젝트의 주요 변경 사항을 날짜별로 기록합니다.
 
+## 2026-09-10 - PostHog Account And Project Activation Preparation
+
+### 변경 내용
+
+- PostHog Cloud EU account/project를 event 0 상태로 수동 생성하기 위한 Founder 절차, 사후 settings readback, token redaction과 server-only Vercel environment 경계를 정리했습니다.
+- 현재 공식 가격과 project/IP/Capture API 근거를 재검증하고, 로그인 전 확인할 수 없는 dashboard 기본값은 `POST_CREATION_READBACK_REQUIRED` 또는 `NOT_PROVEN_WITHOUT_PROJECT`로 분리했습니다.
+
+### 불변 범위
+
+- PostHog account/project/token 생성, 로그인, 결제, SDK/relay/consent runtime, event 전송, Vercel 환경, Product source, Private Continuity, Main/Release/Production/Deployment 변경은 없습니다.
+
 ## 2026-09-10 - PostHog Same-Origin Privacy Relay Architecture
 
 ### 변경 내용

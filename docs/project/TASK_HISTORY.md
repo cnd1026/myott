@@ -6,6 +6,7 @@
 
 | Task ID | Task | Commit | Review | 상태 |
 | --- | --- | --- | --- | --- |
+| MYOTT_POSTHOG_ACCOUNT_PROJECT_ACTIVATION_PREPARATION_V1 | PostHog account/project activation preparation | `this commit` | Official PostHog/Vercel 근거로 EU·free-first·zero-event creation, privacy settings readback, server-only token과 Founder manual evidence packet을 검증. | preparation ready / account·project·token·event 0 / explicit Founder action 필요 |
 | MYOTT_POSTHOG_SAME_ORIGIN_PRIVACY_RELAY_ARCHITECTURE_V1 | PostHog same-origin privacy relay architecture | `this commit` | Direct browser 대비 raw-IP containment, server schema/token enforcement, spoofing·replay·bot 한계, FREE_FIRST cost와 20개 hard Gate를 검증. | relay Phase 1 architecture selected / activation NO / runtime 없음 |
 | MYOTT_POSTHOG_WITHDRAWAL_SAFE_DIRECT_INGESTION_TRANSPORT_ARCHITECTURE_V1 | PostHog withdrawal-safe direct ingestion transport architecture | `this commit` | Official Capture API와 pinned IP/GeoIP source를 canonical Event/Privacy 계약에 대조해 no-SDK/no-queue/no-retry single-event transport, AbortController withdrawal과 future proof Gate를 정본화. | docs-only architecture ready / activation NO / runtime 없음 |
 | MYOTT_POSTHOG_BROWSER_SDK_WITHDRAWAL_PENDING_QUEUE_PROOF_V1 | PostHog Browser SDK withdrawal pending-queue proof | `this commit` | Pinned SDK `1.428.10` source/test에서 RequestQueue·RetryQueue·opt-out·shutdown·retry/lifecycle 경로와 public API 부재를 검증. | Browser SDK strict withdrawal FAIL / activation blocker proven / runtime 없음 |
