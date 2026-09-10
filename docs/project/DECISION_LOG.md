@@ -197,3 +197,9 @@ Product continuity, Analytics, account와 marketing identity는 서로 자동 �
 Growth Analytics는 strictly necessary Product processing과 분리하며, jurisdiction/privacy 또는 consent eligibility가 unresolved·denied·withdrawn·unsupported이면 nonessential event를 dispatch 전에 억제합니다. Pre-consent event replay와 fingerprint 기반 identity 보충은 금지하고, persistent retention metric은 separately eligible한 cross-session measurement identity가 없으면 `NOT_MEASURABLE`로 유지합니다.
 
 Product continuity ID를 Analytics ID로, Analytics ID를 Product continuity ID로 자동 재사용하지 않습니다. Withdrawal은 future nonessential collection과 persistent Analytics identity refresh를 중지하며, Marketing identity/tracking은 current baseline 밖입니다. 실제 retention/deletion과 관할별 consent 처리는 별도 Policy/Legal/Implementation Gate를 요구합니다.
+
+## DL-034 PostHog Cloud Session-Only Measurement Architecture
+
+Founder가 Analytics provider로 `POSTHOG_CLOUD`, data region preference로 `EU_CLOUD_PREFERRED`를 선택했습니다. 이 결정은 provider selection과 docs-only architecture에 한정되며 account/project 생성, SDK 설치, runtime load, event transmission 또는 legal compliance를 승인하지 않습니다. Phase 1은 현재 loaded Product runtime에 한정된 session-only measurement이고 persistent Analytics ID, identify/person profiles, Product guest/account identity 재사용과 pre-consent SDK load/transmission을 금지합니다.
+
+MyOTT canonical event taxonomy와 KPI가 provider보다 우선하며 PostHog는 exact 5-event projection만 담당합니다. Automatic capture와 `/flags`, remote refresh, replay/survey/heatmap/error/performance capture는 명시적으로 차단하고 EU Cloud 선택을 legal PASS로 해석하지 않습니다. 현재 browser SDK에서 withdrawal 시 ordinary/retry pending request를 지원된 public API로 폐기하는 계약이 입증되지 않았으므로 account/project activation과 SDK/runtime implementation은 `MYOTT_POSTHOG_BROWSER_SDK_WITHDRAWAL_PENDING_QUEUE_PROOF_V1` 전까지 차단합니다.

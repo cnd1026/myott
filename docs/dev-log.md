@@ -2,6 +2,22 @@
 
 개발 과정에서의 작업 내용, 결정, 아쉬운 점, 다음 개선 사항을 날짜별로 기록합니다.
 
+## 2026-09-10 - PostHog Session-Only Measurement Architecture
+
+### 오늘 작업
+
+- PostHog 공식 JavaScript configuration/privacy 문서와 current browser SDK source를 읽어 MyOTT Phase 1의 no-preconsent import, session identity, flags/remote config, before-send와 storage 경계를 구현 가능한 수준으로 정리했습니다.
+- Canonical 5-event별 property schema, provider auto-property rejection, Product-owned eligibility/consent authority, future EU project checklist와 25개 deterministic test Gate를 추가했습니다.
+
+### 결정한 것
+
+- `disable_persistence: true`, exact five-event adapter allowlist, `before_send` fail-closed guard와 명시적으로 비활성화한 automatic feature 구성을 future candidate로 사용합니다. Actual SDK version, project token, runtime은 아직 선택/설치/활성화하지 않습니다.
+- `request_batching: false`여도 retry queue가 남을 수 있고 current public API가 withdrawal 시 pending ordinary/retry request 폐기를 보장하지 않으므로 Analytics activation은 별도 pinned-SDK proof 전까지 차단합니다.
+
+### 다음 개선
+
+- `MYOTT_POSTHOG_BROWSER_SDK_WITHDRAWAL_PENDING_QUEUE_PROOF_V1`에서 exact SDK version의 pending/retry cancellation contract를 source와 deterministic PoC로 확인한 뒤에만 account/project activation preparation을 검토합니다.
+
 ## 2026-09-10 - Free-First Analytics Provider Decision Packet
 
 ### 오늘 작업

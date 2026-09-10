@@ -6,6 +6,7 @@
 
 | Task ID | Task | Commit | Review | 상태 |
 | --- | --- | --- | --- | --- |
+| MYOTT_POSTHOG_SESSION_ONLY_MEASUREMENT_IMPLEMENTATION_ARCHITECTURE_V1 | PostHog session-only measurement implementation architecture | `this commit` | Official current config/source를 canonical Event/Privacy 계약과 대조해 no-preconsent import, session-only identity, exact 5-event/property allowlist, safe config, withdrawal와 future test Gate를 정본화. | docs-only 완료 / runtime 없음 / withdrawal pending-queue proof 필요 |
 | MYOTT_FREE_FIRST_ANALYTICS_PROVIDER_DECISION_PACKET_V1 | Free-first Analytics provider decision packet | `this commit` | 8개 후보를 canonical Event/Privacy hard gate, 비용, identity, export와 운영 부담으로 공식 자료 기반 비교. | PostHog 조건부 1순위 / first-party fallback / Founder 선택 필요 / runtime 없음 |
 | MYOTT_PRIVACY_CONSENT_MEASUREMENT_ELIGIBILITY_MATRIX_V1 | Growth measurement privacy/consent eligibility | `this commit` | 12 canonical events, 19 property classes, 30 KPI identity requirements, withdrawal/suppression과 vendor-neutral implementation Gate를 docs-only로 검증. | 정본화 완료 / Measurement·Consent runtime 없음 |
 | MYOTT_GROWTH_MEASUREMENT_EVENT_TAXONOMY_V1 | Vendor-neutral growth event and KPI taxonomy | `this commit` | 5 core/7 future events, identity/property privacy boundary, 30 KPI formulas, quality states와 instrumentation Gate를 docs-only로 검증. | 정본화 완료 / Analytics 구현·provider 선택 없음 |

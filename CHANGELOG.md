@@ -2,6 +2,18 @@
 
 프로젝트의 주요 변경 사항을 날짜별로 기록합니다.
 
+## 2026-09-10 - PostHog Session-Only Measurement Architecture
+
+### 변경 내용
+
+- Founder가 선택한 PostHog Cloud를 MyOTT provider-neutral Event/Privacy contract에 연결하는 docs-only implementation architecture를 추가했습니다.
+- eligibility 전 SDK import/init/network를 금지하고, runtime-scoped ephemeral identity, exact 5-event/property allowlist, explicit safe config와 EU Cloud activation checklist를 고정했습니다.
+- 현재 browser SDK에서 withdrawal 시 pending/retry request를 안전하게 폐기하는 supported public contract가 입증되지 않아 activation blocker와 별도 proof Task를 명시했습니다.
+
+### 불변 범위
+
+- PostHog account/project 생성, SDK 설치, runtime/event 전송, Product source, dependency, Private Continuity, Main/Release/Production/Deployment 변경은 없습니다.
+
 ## 2026-09-10 - Free-First Analytics Provider Decision Packet
 
 ### 변경 내용
