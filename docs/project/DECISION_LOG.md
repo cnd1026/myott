@@ -203,3 +203,11 @@ Product continuity ID를 Analytics ID로, Analytics ID를 Product continuity ID�
 Founder가 Analytics provider로 `POSTHOG_CLOUD`, data region preference로 `EU_CLOUD_PREFERRED`를 선택했습니다. 이 결정은 provider selection과 docs-only architecture에 한정되며 account/project 생성, SDK 설치, runtime load, event transmission 또는 legal compliance를 승인하지 않습니다. Phase 1은 현재 loaded Product runtime에 한정된 session-only measurement이고 persistent Analytics ID, identify/person profiles, Product guest/account identity 재사용과 pre-consent SDK load/transmission을 금지합니다.
 
 MyOTT canonical event taxonomy와 KPI가 provider보다 우선하며 PostHog는 exact 5-event projection만 담당합니다. Automatic capture와 `/flags`, remote refresh, replay/survey/heatmap/error/performance capture는 명시적으로 차단하고 EU Cloud 선택을 legal PASS로 해석하지 않습니다. 현재 browser SDK에서 withdrawal 시 ordinary/retry pending request를 지원된 public API로 폐기하는 계약이 입증되지 않았으므로 account/project activation과 SDK/runtime implementation은 `MYOTT_POSTHOG_BROWSER_SDK_WITHDRAWAL_PENDING_QUEUE_PROOF_V1` 전까지 차단합니다.
+
+## DL-035 Phase 1 PostHog Transport는 MyOTT Direct Single-Event Capture를 사용
+
+PostHog Cloud provider 선택은 유지하지만 Browser SDK는 supported public queue/retry discard가 없어 Phase 1 strict withdrawal contract에 사용할 수 없습니다. Phase 1 transport architecture는 `MYOTT_DIRECT_SINGLE_EVENT_CAPTURE`로 정하고, MyOTT가 exact EU Capture endpoint에 한 event씩 직접 전송하며 SDK, internal queue, retry, persistence, keepalive, sendBeacon과 unload flush를 사용하지 않습니다.
+
+Eligibility는 identity/payload/network 전에 fail-closed로 확인하고, identity는 loaded runtime에만 존재하는 무작위 session ID로 제한합니다. 모든 event는 exact canonical five-event/property allowlist, `$process_person_profile: false`, `$geoip_disable: true`를 적용합니다. Withdrawal은 future dispatch를 차단한 뒤 MyOTT-owned active AbortController를 중단하지만 이미 dispatch된 bytes를 회수한다고 주장하지 않습니다.
+
+이 결정은 docs-level architecture 선택이며 Analytics activation은 아닙니다. Account/project/token, exact EU project의 IP discard 설정, source-IP 및 send commit point legal review, deterministic implementation test, isolated CORS/browser proof와 bounded live ingestion proof가 별도 Gate를 통과하기 전에는 SDK 설치, runtime load, event transmission, Release 또는 Production을 허용하지 않습니다.

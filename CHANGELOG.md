@@ -2,6 +2,18 @@
 
 프로젝트의 주요 변경 사항을 날짜별로 기록합니다.
 
+## 2026-09-10 - PostHog Withdrawal-Safe Direct Ingestion Architecture
+
+### 변경 내용
+
+- Browser SDK queue/retry를 사용하지 않는 MyOTT-owned EU single-event Capture API transport architecture를 정리했습니다.
+- eligibility 이중 확인, runtime-only ephemeral identity, exact five-event projection, no queue/retry/unload send, AbortController withdrawal과 IP/GeoIP 경계를 고정했습니다.
+- Browser CORS, exact project IP-discard 설정, 법률 검토와 live ingestion은 별도 activation Gate로 유지했습니다.
+
+### 불변 범위
+
+- PostHog account/project/token, SDK, Analytics runtime/event, dependency, Product source, Private Continuity, Main/Release/Production/Deployment 변경은 없습니다.
+
 ## 2026-09-10 - PostHog Browser SDK Withdrawal Queue Proof
 
 ### 변경 내용

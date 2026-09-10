@@ -6,6 +6,7 @@
 
 | Task ID | Task | Commit | Review | 상태 |
 | --- | --- | --- | --- | --- |
+| MYOTT_POSTHOG_WITHDRAWAL_SAFE_DIRECT_INGESTION_TRANSPORT_ARCHITECTURE_V1 | PostHog withdrawal-safe direct ingestion transport architecture | `this commit` | Official Capture API와 pinned IP/GeoIP source를 canonical Event/Privacy 계약에 대조해 no-SDK/no-queue/no-retry single-event transport, AbortController withdrawal과 future proof Gate를 정본화. | docs-only architecture ready / activation NO / runtime 없음 |
 | MYOTT_POSTHOG_BROWSER_SDK_WITHDRAWAL_PENDING_QUEUE_PROOF_V1 | PostHog Browser SDK withdrawal pending-queue proof | `this commit` | Pinned SDK `1.428.10` source/test에서 RequestQueue·RetryQueue·opt-out·shutdown·retry/lifecycle 경로와 public API 부재를 검증. | Browser SDK strict withdrawal FAIL / activation blocker proven / runtime 없음 |
 | MYOTT_POSTHOG_SESSION_ONLY_MEASUREMENT_IMPLEMENTATION_ARCHITECTURE_V1 | PostHog session-only measurement implementation architecture | `this commit` | Official current config/source를 canonical Event/Privacy 계약과 대조해 no-preconsent import, session-only identity, exact 5-event/property allowlist, safe config, withdrawal와 future test Gate를 정본화. | docs-only 완료 / runtime 없음 / withdrawal pending-queue proof 필요 |
 | MYOTT_FREE_FIRST_ANALYTICS_PROVIDER_DECISION_PACKET_V1 | Free-first Analytics provider decision packet | `this commit` | 8개 후보를 canonical Event/Privacy hard gate, 비용, identity, export와 운영 부담으로 공식 자료 기반 비교. | PostHog 조건부 1순위 / first-party fallback / Founder 선택 필요 / runtime 없음 |

@@ -2,6 +2,22 @@
 
 개발 과정에서의 작업 내용, 결정, 아쉬운 점, 다음 개선 사항을 날짜별로 기록합니다.
 
+## 2026-09-10 - PostHog Withdrawal-Safe Direct Ingestion Architecture
+
+### 오늘 작업
+
+- PostHog 공식 Capture API와 current pinned server/source behavior를 MyOTT Event/Privacy contract에 대조했습니다.
+- Browser SDK 대신 direct single-event `fetch`를 사용하고 queue, retry, keepalive, sendBeacon, lifecycle flush와 persistent identity를 모두 배제하는 docs-only architecture를 설계했습니다.
+
+### 결정한 것
+
+- `MYOTT_DIRECT_SINGLE_EVENT_CAPTURE`를 Phase 1 PostHog transport architecture로 선택합니다. 모든 event는 `$process_person_profile: false`와 `$geoip_disable: true`를 사용하며 exact EU project에서 IP discard 설정을 별도 검증해야 합니다.
+- AbortController는 active request를 중단하지만 이미 전송된 bytes의 회수를 보장하지 않으므로 send commit point와 source-IP 처리는 Legal/Privacy activation Gate로 남깁니다.
+
+### 다음 개선
+
+- `MYOTT_POSTHOG_ACCOUNT_PROJECT_ACTIVATION_PREPARATION_V1`에서 EU project, public ingestion token boundary, IP-discard 설정과 legal/browser/live proof의 실행 전 조건을 준비합니다.
+
 ## 2026-09-10 - PostHog Browser SDK Withdrawal Queue Proof
 
 ### 오늘 작업
