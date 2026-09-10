@@ -140,4 +140,35 @@ const koKRMessages = Object.freeze({
   "common.ottCheckRequired": "OTT 정보 확인 필요",
 });
 
+export const privacyCenterMessages = Object.freeze({
+  "privacyCenter.title": "개인정보 설정",
+  "privacyCenter.description": "MyOTT의 선택 기능과 분석 사용 여부를 확인하고 선택할 수 있습니다.",
+  "privacyCenter.close": "개인정보 설정 닫기",
+  "privacyCenter.necessary.title": "필수 기능",
+  "privacyCenter.necessary.description": "추천 서비스를 제공하는 데 필요한 핵심 기능입니다. 분석 기능은 여기에 포함되지 않습니다.",
+  "privacyCenter.necessary.required": "핵심 서비스에 필요",
+  "privacyCenter.preferences.title": "환경설정",
+  "privacyCenter.preferences.description": "언어처럼 사용자가 선택하는 설정을 위한 항목입니다.",
+  "privacyCenter.preferences.notImplemented": "설정 저장은 아직 제공되지 않습니다.",
+  "privacyCenter.analytics.title": "제품 분석",
+  "privacyCenter.analytics.description": "서비스가 어떻게 사용되는지 이해하기 위한 선택 기능입니다. 거절해도 핵심 추천 기능을 사용할 수 있습니다.",
+  "privacyCenter.analytics.allow": "제품 분석 허용",
+  "privacyCenter.analytics.deny": "제품 분석 거절",
+  "privacyCenter.analytics.withdraw": "제품 분석 동의 철회",
+  "privacyCenter.analytics.pendingPolicy": "사용자 선택 외의 제품 정책과 적용 상태가 허용될 때만 분석이 작동합니다.",
+  "privacyCenter.analytics.sessionOnly": "분석을 허용해도 현재 실행 중인 세션에서만 임시 식별자를 사용하며 지속 식별자는 사용하지 않습니다.",
+  "privacyCenter.marketing.title": "마케팅",
+  "privacyCenter.marketing.description": "광고, 재타기팅 또는 마케팅 추적 기능입니다.",
+  "privacyCenter.marketing.notInUse": "현재 사용하지 않음",
+  "privacyCenter.persistenceNotice": "이 설정 화면은 기반 단계이며 선택 내용은 아직 영구 저장되지 않습니다.",
+  "privacyCenter.currentChoice": "현재 선택: {choice}",
+  "privacyCenter.effectiveState": "현재 적용 상태: {state}",
+  "privacyCenter.choice.unresolved": "선택 전",
+  "privacyCenter.choice.allowed": "허용",
+  "privacyCenter.choice.denied": "거절",
+  "privacyCenter.choice.withdrawn": "철회",
+  "privacyCenter.effective.eligible": "제품 분석 사용 가능",
+  "privacyCenter.effective.suppressed": "제품 분석 꺼짐",
+});
+
 export default koKRMessages;

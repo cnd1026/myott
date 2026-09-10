@@ -1,10 +1,15 @@
 import { DEFAULT_UI_LOCALE, normalizeUiLocale } from "./localeContract.js";
-import enUSMessages from "./messages/en-US.js";
-import koKRMessages from "./messages/ko-KR.js";
+import enUSMessages, { privacyCenterMessages as enUSPrivacyCenterMessages } from "./messages/en-US.js";
+import koKRMessages, { privacyCenterMessages as koKRPrivacyCenterMessages } from "./messages/ko-KR.js";
 
 export const MESSAGE_CATALOGS = Object.freeze({
   "ko-KR": koKRMessages,
   "en-US": enUSMessages,
+});
+
+export const PRIVACY_CENTER_MESSAGE_CATALOGS = Object.freeze({
+  "ko-KR": koKRPrivacyCenterMessages,
+  "en-US": enUSPrivacyCenterMessages,
 });
 
 const PLACEHOLDER_PATTERN = /\{([A-Za-z][A-Za-z0-9_]*)\}/g;
@@ -61,6 +66,26 @@ export function getMessage(locale, key, values = {}) {
 
   return catalog[key].replace(PLACEHOLDER_PATTERN, (_, name) => {
     if (!Object.hasOwn(values, name)) throw new Error(`MISSING_MESSAGE_VALUE:${key}:${name}`);
+    return String(values[name]);
+  });
+}
+
+export function getPrivacyCenterMessageCatalog(locale) {
+  const normalizedLocale = normalizeUiLocale(locale) || DEFAULT_UI_LOCALE;
+  return PRIVACY_CENTER_MESSAGE_CATALOGS[normalizedLocale];
+}
+
+export function getPrivacyCenterMessage(locale, key, values = {}) {
+  const normalizedLocale = normalizeUiLocale(locale) || DEFAULT_UI_LOCALE;
+  const catalog = PRIVACY_CENTER_MESSAGE_CATALOGS[normalizedLocale];
+  if (!Object.hasOwn(catalog, key)) {
+    throw new Error(`MISSING_PRIVACY_CENTER_MESSAGE_KEY:${normalizedLocale}:${key}`);
+  }
+
+  return catalog[key].replace(PLACEHOLDER_PATTERN, (_, name) => {
+    if (!Object.hasOwn(values, name)) {
+      throw new Error(`MISSING_PRIVACY_CENTER_MESSAGE_VALUE:${key}:${name}`);
+    }
     return String(values[name]);
   });
 }

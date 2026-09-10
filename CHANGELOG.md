@@ -2,6 +2,17 @@
 
 프로젝트의 주요 변경 사항을 날짜별로 기록합니다.
 
+## 2026-09-10 - Privacy Center And Analytics Consent UI Foundation
+
+### 변경 내용
+
+- strictly necessary, preferences, Analytics와 Marketing을 구분하는 provider-neutral Privacy Center view model 및 ko/en copy contract를 추가했습니다.
+- allow, deny, withdraw action이 consent state만 바꾸고 최종 Analytics eligibility는 기존 runtime policy/jurisdiction/environment Gate가 별도로 결정하도록 고정했습니다.
+
+### 불변 범위
+
+- Privacy Center public mount, consent persistence, jurisdiction mapping, Product event wiring, live Analytics, Product UI, dependency/build, deployment, Private Continuity, Main/Release/Production 변경은 없습니다.
+
 ## 2026-09-10 - Analytics Consent Eligibility Runtime Foundation
 
 ### 변경 내용

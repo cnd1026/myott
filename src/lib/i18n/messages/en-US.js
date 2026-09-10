@@ -140,4 +140,35 @@ const enUSMessages = Object.freeze({
   "common.ottCheckRequired": "Streaming information unavailable",
 });
 
+export const privacyCenterMessages = Object.freeze({
+  "privacyCenter.title": "Privacy settings",
+  "privacyCenter.description": "Review and choose how MyOTT uses optional settings and product analytics.",
+  "privacyCenter.close": "Close privacy settings",
+  "privacyCenter.necessary.title": "Essential features",
+  "privacyCenter.necessary.description": "Core features needed to provide recommendations. Product analytics is not included.",
+  "privacyCenter.necessary.required": "Required for the core service",
+  "privacyCenter.preferences.title": "Preferences",
+  "privacyCenter.preferences.description": "Settings you choose, such as your language preference.",
+  "privacyCenter.preferences.notImplemented": "Saving preferences is not available yet.",
+  "privacyCenter.analytics.title": "Product analytics",
+  "privacyCenter.analytics.description": "An optional feature that helps us understand how the service is used. You can decline it and still use core recommendations.",
+  "privacyCenter.analytics.allow": "Allow product analytics",
+  "privacyCenter.analytics.deny": "Decline product analytics",
+  "privacyCenter.analytics.withdraw": "Withdraw analytics consent",
+  "privacyCenter.analytics.pendingPolicy": "Analytics works only when your choice and the applicable Product privacy requirements allow it.",
+  "privacyCenter.analytics.sessionOnly": "If allowed, analytics uses a temporary ID only for the current session and does not use a persistent analytics ID.",
+  "privacyCenter.marketing.title": "Marketing",
+  "privacyCenter.marketing.description": "Advertising, retargeting, or marketing tracking features.",
+  "privacyCenter.marketing.notInUse": "Not in use",
+  "privacyCenter.persistenceNotice": "This settings view is still a foundation, so your choice is not saved permanently yet.",
+  "privacyCenter.currentChoice": "Current choice: {choice}",
+  "privacyCenter.effectiveState": "Current effective state: {state}",
+  "privacyCenter.choice.unresolved": "Not selected",
+  "privacyCenter.choice.allowed": "Allowed",
+  "privacyCenter.choice.denied": "Declined",
+  "privacyCenter.choice.withdrawn": "Withdrawn",
+  "privacyCenter.effective.eligible": "Product analytics available",
+  "privacyCenter.effective.suppressed": "Product analytics off",
+});
+
 export default enUSMessages;

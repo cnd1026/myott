@@ -2,6 +2,22 @@
 
 개발 과정에서의 작업 내용, 결정, 아쉬운 점, 다음 개선 사항을 날짜별로 기록합니다.
 
+## 2026-09-10 - Privacy Center And Analytics Consent UI Foundation
+
+### 오늘 작업
+
+- 일반 Product catalog와 분리된 unmounted Privacy Center ko/en peer catalog와 pure view model을 구현했습니다.
+- 네 privacy category, allow/deny/withdraw transition, choice와 effective eligibility의 분리, accessibility copy와 no-storage/no-network 경계를 deterministic test로 검증했습니다.
+
+### 결정한 것
+
+- 사용자 Analytics 선택은 consent dimension만 갱신하며 runtime environment, Product policy, legal-jurisdiction 및 identity Gate를 우회하지 않습니다.
+- persistence와 jurisdiction runtime이 아직 없으므로 반쪽짜리 consent 화면을 일반 사용자 UI에 mount하지 않습니다. Marketing은 계속 사용하지 않고 Analytics는 strictly necessary에 포함하지 않습니다.
+
+### 다음 개선
+
+- `MYOTT_PRIVACY_CONSENT_PERSISTENCE_AND_JURISDICTION_GATE_V1`에서 durable consent와 jurisdiction-policy source를 먼저 정의한 뒤에만 public Privacy Center mounting을 검토해야 합니다.
+
 ## 2026-09-10 - Analytics Consent Eligibility Runtime Foundation
 
 ### 오늘 작업
