@@ -2,6 +2,17 @@
 
 프로젝트의 주요 변경 사항을 날짜별로 기록합니다.
 
+## 2026-09-10 - Analytics Consent Eligibility Runtime Foundation
+
+### 변경 내용
+
+- provider-neutral runtime environment, Product policy, legal-jurisdiction, Analytics consent와 session-only identity를 분리한 memory-only eligibility controller를 추가했습니다.
+- fail-closed 초기 상태, 즉시 deny/withdraw suppression, active same-origin request abort, ephemeral identity retirement와 future-only re-consent를 deterministic QA로 고정했습니다.
+
+### 불변 범위
+
+- consent/privacy UI, country-to-law mapping, persistent consent/storage, Product event call site, live PostHog request, dependency/build, deployment, Private Continuity, Main/Release/Production 변경은 없습니다.
+
 ## 2026-09-10 - PostHog Same-Origin Privacy Relay Implementation
 
 ### 변경 내용

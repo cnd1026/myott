@@ -2,6 +2,22 @@
 
 개발 과정에서의 작업 내용, 결정, 아쉬운 점, 다음 개선 사항을 날짜별로 기록합니다.
 
+## 2026-09-10 - Analytics Consent Eligibility Runtime Foundation
+
+### 오늘 작업
+
+- 기존 relay eligibility와 client cancellation을 재사용해 Product-owned privacy/consent runtime controller를 구현했습니다.
+- unresolved, policy, jurisdiction, denied, withdrawn, unsupported와 non-production 억제 사유를 분리하고 허용·철회·재동의·runtime reset을 외부 Network 없이 검증했습니다.
+
+### 결정한 것
+
+- runtime authority는 PostHog나 token presence가 아니라 injected environment, Product policy, legal-jurisdiction, Analytics consent 상태입니다.
+- 철회 또는 억제 전이는 active client request를 best-effort abort하고 session-only ID를 폐기합니다. 재동의는 이벤트나 ID를 만들지 않으며 미래의 첫 eligible event만 새 ID를 만듭니다.
+
+### 다음 개선
+
+- `MYOTT_PRIVACY_CENTER_AND_ANALYTICS_CONSENT_UI_FOUNDATION_V1`에서 이 runtime authority를 사용할 사용자 privacy surface를 별도 설계하되 Product Analytics event wiring과 activation은 계속 분리해야 합니다.
+
 ## 2026-09-10 - PostHog Same-Origin Privacy Relay Implementation
 
 ### 오늘 작업

@@ -1,5 +1,8 @@
 import { canonicalEventDefinition } from "./canonicalEvents.js";
-import { isAnalyticsEligible } from "./eligibility.js";
+import {
+  ANALYTICS_ELIGIBILITY,
+  resolveAnalyticsEligibility,
+} from "./eligibility.js";
 import { validateCanonicalEvent } from "./propertyPolicy.js";
 
 export const ANALYTICS_RELAY_PATH = "/api/analytics/event";
@@ -26,7 +29,10 @@ export function createAnalyticsClient({
   }
 
   async function capture({ eventName, properties = {}, context = {}, eligibility } = {}) {
-    if (withdrawn || !isAnalyticsEligible(eligibility)) return suppress("INELIGIBLE");
+    const eligibilityResult = resolveAnalyticsEligibility(eligibility);
+    if (withdrawn || eligibilityResult !== ANALYTICS_ELIGIBILITY.ELIGIBLE) {
+      return suppress(withdrawn ? "WITHDRAWN" : eligibilityResult);
+    }
 
     const definition = canonicalEventDefinition(eventName);
     if (!definition) return Object.freeze({ status: "REJECTED", reason: "INVALID_EVENT" });
@@ -48,7 +54,9 @@ export function createAnalyticsClient({
     const validation = validateCanonicalEvent(candidate);
     if (!validation.ok) return Object.freeze({ status: "REJECTED", reason: "INVALID_EVENT" });
 
-    if (withdrawn || !isAnalyticsEligible(eligibility)) return suppress("INELIGIBLE");
+    if (withdrawn || resolveAnalyticsEligibility(eligibility) !== ANALYTICS_ELIGIBILITY.ELIGIBLE) {
+      return suppress(withdrawn ? "WITHDRAWN" : resolveAnalyticsEligibility(eligibility));
+    }
 
     measurementSessionId = nextSessionId;
     const controller = abortControllerFactory();
@@ -83,5 +91,17 @@ export function createAnalyticsClient({
     activeRequests.clear();
   }
 
-  return Object.freeze({ capture, withdraw });
+  function resume() {
+    withdrawn = false;
+  }
+
+  function getRuntimeState() {
+    return Object.freeze({
+      withdrawn,
+      hasMeasurementSessionId: measurementSessionId !== null,
+      activeRequestCount: activeRequests.size,
+    });
+  }
+
+  return Object.freeze({ capture, withdraw, resume, getRuntimeState });
 }
