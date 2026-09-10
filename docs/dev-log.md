@@ -2,6 +2,21 @@
 
 개발 과정에서의 작업 내용, 결정, 아쉬운 점, 다음 개선 사항을 날짜별로 기록합니다.
 
+## 2026-09-10 - I18N Page Fallback and Result Presentation
+
+### 오늘 작업
+
+- provider-result normalization이 만드는 missing-data/reason/runtime 표현과 legacy time-slot/hero copy를 locale-aware pure helper로 옮겼습니다.
+
+### 결정한 것
+
+- locale helper는 Product-owned display fallback만 반환하며 provider/source/fallback identity, taxonomy, eligibility와 ranking에는 관여하지 않습니다.
+- 현재 호출은 계속 고정된 `ko-KR`를 사용하고 provider가 준 비영어 데이터는 번역하지 않습니다.
+
+### 다음 개선
+
+- `MYOTT_I18N_EN_RUNTIME_ACTIVATION_AND_LANGUAGE_SWITCH_V1`에서 준비된 locale presentation을 실제 route/switch에 연결합니다.
+
 ## 2026-09-10 - I18N Taxonomy and Dynamic Copy Presentation
 
 ### 오늘 작업

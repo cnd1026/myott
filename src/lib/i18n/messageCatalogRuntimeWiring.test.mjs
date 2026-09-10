@@ -6,7 +6,7 @@ import fs from "node:fs";
 import { MESSAGE_CATALOGS, getMessage } from "./messageCatalog.js";
 
 const BASE_COMMIT = "28c5b12d995d2badc6abea8fde0b6e8148313444";
-const PRESENTATION_TASK_BASE = "64508552b31625f6fead3a26f7b4a5b97a2356ab";
+const PAGE_PRESENTATION_TASK_BASE = "a99da68937c64fcd4a4508346ff4bee4ccea4472";
 const LAYOUT_KEYS = Object.freeze([
   "attribution.heading", "attribution.justWatch", "attribution.tmdbDisclaimer",
   "attribution.tmdbLogoAlt", "metadata.description", "metadata.title",
@@ -132,8 +132,9 @@ test("generated status copy is now catalog-backed while current runtime remains 
 test("taxonomy labels are locale-aware while provider data remains outside locale decisions", () => {
   assert.match(pageSource, /taxonomyOptionGroupsForLocale\(RUNTIME_UI_LOCALE\)/);
   assert.match(pageSource, /localizeTaxonomyOptionGroups\(payload\.groups, RUNTIME_UI_LOCALE\)/);
+  assert.match(pageSource, /pageResultFallbackPresentation\(\{/);
   assert.match(pageSource, /PRIMARY_OTT_OPTIONS/);
-  assert.match(pageSource, /content\.title \|\| "제목 없음"/);
+  assert.doesNotMatch(pageSource, /content\.title \|\| "제목 없음"/);
   assert.doesNotMatch(runtimeDiff, /^\+.*(?:contentProviderRegion|legalJurisdiction)/m);
 });
 
@@ -143,7 +144,7 @@ test("runtime wiring adds no persistence, tracking, or external effects", () => 
 });
 
 test("package, lock, provider, API, and recommendation semantics paths remain untouched", () => {
-  const changed = execFileSync("git", ["diff", "--name-only", PRESENTATION_TASK_BASE], { encoding: "utf8" })
+  const changed = execFileSync("git", ["diff", "--name-only", PAGE_PRESENTATION_TASK_BASE], { encoding: "utf8" })
     .trim().split(/\r?\n/).filter(Boolean);
   assert.equal(changed.includes("package.json"), false);
   assert.equal(changed.includes("pnpm-lock.yaml"), false);

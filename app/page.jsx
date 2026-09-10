@@ -55,10 +55,14 @@ import {
   COUNTRY_VALUES,
   LANGUAGE_VALUES,
   localizeTaxonomyOptionGroups,
-  taxonomyLabelForValue,
   taxonomyOptionGroupsForLocale,
   taxonomyOptions,
 } from "../src/lib/i18n/taxonomyPresentation.js";
+import {
+  firstPickFallbackPresentation,
+  heroFallbackPresentation,
+  pageResultFallbackPresentation,
+} from "../src/lib/i18n/pageFallbackPresentation.js";
 import {
   createInitialPreferenceDraft,
   createRecommendationRequestId,
@@ -374,22 +378,10 @@ function loadFirstPicksOnce() {
 }
 
 const timeSlotContent = {
-  morning: {
-    title: "더 베어",
-    reason: "짧게 몰입하고 싶을 때 좋아요",
-  },
-  afternoon: {
-    title: "마션",
-    reason: "가볍게 시작하기 좋은 SF예요",
-  },
-  evening: {
-    title: "라라랜드",
-    reason: "하루 끝에 여운을 남기기 좋아요",
-  },
-  late: {
-    title: "세븐",
-    reason: "늦은 밤 몰입하기 좋은 스릴러예요",
-  },
+  morning: { title: "더 베어" },
+  afternoon: { title: "마션" },
+  evening: { title: "라라랜드" },
+  late: { title: "세븐" },
 };
 
 function thumbnailText(title) {
@@ -468,22 +460,25 @@ function getTimeSlot(date) {
 
 function buildHeroRecommendations(timeSlot) {
   const timePick = timeSlotContent[timeSlot] || timeSlotContent.evening;
+  const primaryCopy = heroFallbackPresentation("primary", {}, RUNTIME_UI_LOCALE);
+  const trendingCopy = heroFallbackPresentation("trending", {}, RUNTIME_UI_LOCALE);
+  const timeCopy = heroFallbackPresentation("time", { timeSlot }, RUNTIME_UI_LOCALE);
 
   return [
     {
-      badge: "오늘 바로 보기 좋은 작품",
+      badge: primaryCopy.badge,
       item: findRecommendation("인터스텔라"),
-      reason: "고민 없이 시작하기 좋은 대표 추천",
+      reason: primaryCopy.reason,
     },
     {
-      badge: "요즘 많이 고르는 작품",
+      badge: trendingCopy.badge,
       item: findRecommendation("오징어 게임"),
-      reason: "지금 대화에 바로 끼기 좋아요",
+      reason: trendingCopy.reason,
     },
     {
-      badge: "지금 시간에 어울리는 작품",
+      badge: timeCopy.badge,
       item: findRecommendation(timePick.title),
-      reason: timePick.reason,
+      reason: timeCopy.reason,
     },
   ].filter(({ item }) => Boolean(item));
 }
@@ -830,17 +825,22 @@ function normalizeProviderResult(
   selectedOtt = [],
   confirmedSeeds = {},
 ) {
-  const title = content.title || "제목 없음";
   const type = contentTypeForUi(content);
-  const genres = presentationGenreLabels(content, RUNTIME_UI_LOCALE);
-  const displayGenres = genres.length ? genres : ["장르 확인 필요"];
-  const ott = safeOttPlatforms(content);
-  const actors = Array.isArray(content.actors) && content.actors.length ? content.actors : ["정보 없음"];
   const runtime = Number(content.runtime);
   const rating = Number(content.rating);
-  const poster = content.backdrop || content.poster || thumbnailText(title);
   const optionSummary = quickPickSummary(quickPicks, labelByValue);
-  const reason = content.reason || (optionSummary ? `${optionSummary} 옵션까지 함께 참고한 실제 검색 결과입니다.` : "입력한 작품과 연결해 확인해볼 만한 실제 검색 결과입니다.");
+  const fallbackPresentation = pageResultFallbackPresentation({
+    contentType: type,
+    optionSummary,
+    runtimeMinutes: runtime,
+  }, RUNTIME_UI_LOCALE);
+  const title = content.title || fallbackPresentation.title;
+  const genres = presentationGenreLabels(content, RUNTIME_UI_LOCALE);
+  const displayGenres = genres.length ? genres : fallbackPresentation.genres;
+  const ott = safeOttPlatforms(content);
+  const actors = Array.isArray(content.actors) && content.actors.length ? content.actors : fallbackPresentation.actors;
+  const poster = content.backdrop || content.poster || thumbnailText(title);
+  const reason = content.reason || fallbackPresentation.reason;
 
   return {
     ...content,
@@ -859,17 +859,17 @@ function normalizeProviderResult(
     seedGenreIds: normalizedIdList(content.seedGenreIds),
     runtimeMinutes: Number.isFinite(runtime) && runtime > 0 ? runtime : content.runtimeMinutes,
     popularity: Number(content.popularity || 0),
-    label: content.label || taxonomyLabelForValue(type, RUNTIME_UI_LOCALE),
+    label: content.label || fallbackPresentation.label,
     tags: tagsFromProviderContent(content),
     genres: displayGenres,
     genre: displayGenres.join(", "),
-    director: content.director || "정보 없음",
+    director: content.director || fallbackPresentation.director,
     actors,
-    rating: Number.isFinite(rating) && rating > 0 ? rating.toFixed(1) : "정보 없음",
-    runtime: Number.isFinite(runtime) && runtime > 0 ? `${runtime}분` : "정보 확인 필요",
+    rating: Number.isFinite(rating) && rating > 0 ? rating.toFixed(1) : fallbackPresentation.rating,
+    runtime: fallbackPresentation.runtime,
     ott,
     reason,
-    synopsis: content.synopsis || content.overview || "줄거리 정보가 아직 없습니다.",
+    synopsis: content.synopsis || content.overview || fallbackPresentation.synopsis,
     poster,
     detailPoster: content.poster || content.backdrop || thumbnailText(title),
     backdrop: content.backdrop || "",
@@ -883,21 +883,25 @@ function normalizeFirstPickResult(content = {}) {
   const runtime = Number(content.runtime);
   const rating = Number(content.rating);
   const platforms = Array.isArray(content.platforms) ? content.platforms.filter(Boolean) : [];
+  const fallbackPresentation = firstPickFallbackPresentation({
+    contentType: item.type,
+    runtimeMinutes: runtime,
+  }, RUNTIME_UI_LOCALE);
   return {
     ...item,
     firstPick: true,
     tags: [],
     genre: genres.join(", "),
     genres,
-    runtime: Number.isFinite(runtime) && runtime > 0 ? `${runtime}분` : "",
+    runtime: fallbackPresentation.runtime,
     rating: Number.isFinite(rating) && rating > 0 ? rating.toFixed(1) : "",
     ott: platforms,
-    director: content.director || "정보 확인 필요",
+    director: content.director || fallbackPresentation.director,
     actors: Array.isArray(content.actors) ? content.actors : [],
-    reason: "실제 TMDB 작품 정보입니다.",
+    reason: fallbackPresentation.reason,
     poster: content.poster || "",
     detailPoster: content.poster || content.backdrop || "",
-    synopsis: content.synopsis || "줄거리 정보는 아직 확인되지 않았습니다.",
+    synopsis: content.synopsis || fallbackPresentation.synopsis,
   };
 }
 

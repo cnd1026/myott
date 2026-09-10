@@ -2,6 +2,21 @@
 
 프로젝트의 주요 변경 사항을 날짜별로 기록합니다.
 
+## 2026-09-10 - I18N Page Fallback and Result Presentation
+
+### 변경 내용
+
+- page-local result/first-pick fallback, time-slot 및 legacy hero 문구를 `ko-KR`/`en-US` pure presentation module로 분리했습니다.
+- 실제 provider title, cast, director, synopsis와 canonical result identity는 locale 처리 밖에 유지했습니다.
+
+### 이유
+
+- public English activation 전에 ordinary Product-owned page fallback에서 혼합 언어가 생길 수 있는 마지막 presentation gap을 닫기 위해서입니다.
+
+### 다음 작업
+
+- 별도 Gate에서 en-US runtime과 사용자 language switch를 활성화합니다.
+
 ## 2026-09-10 - I18N Taxonomy and Dynamic Copy Presentation
 
 ### 변경 내용
