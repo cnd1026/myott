@@ -2,6 +2,21 @@
 
 프로젝트의 주요 변경 사항을 날짜별로 기록합니다.
 
+## 2026-09-10 - Korean and English Message Catalog Foundation
+
+### 변경 내용
+
+- 현재 추천 화면의 일반 사용자 정적 문구를 semantic key 기반 `ko-KR`/`en-US` catalog로 정리했습니다.
+- locale별 key·placeholder 대칭성과 missing-key strict failure를 검증하는 pure catalog API 및 focused test를 추가했습니다.
+
+### 이유
+
+- runtime wiring 전에 한국어 의미를 보존한 완전한 정적 copy contract와 자연스러운 영어 copy를 독립적으로 검증하기 위해서입니다.
+
+### 다음 작업
+
+- 별도 Task에서 catalog를 runtime에 연결하며, 그 전까지 public language switch와 English runtime은 활성화하지 않습니다.
+
 ## 2026-09-10 - I18N Locale Routing Foundation
 
 ### 변경 내용

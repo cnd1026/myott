@@ -6,6 +6,7 @@
 
 | Task ID | Task | Commit | Review | 상태 |
 | --- | --- | --- | --- | --- |
+| MYOTT_I18N_KO_EN_MESSAGE_CATALOG_FOUNDATION_V1 | Korean and English static message catalog foundation | `this commit` | Independent key fixture, locale parity, strict missing-key, placeholders, English copy와 UI-only separation을 focused test로 검증. | 로컬 catalog foundation 완료 / runtime wiring·public switch 별도 Gate |
 | MYOTT_I18N_LOCALE_ROUTING_AND_MANUAL_OVERRIDE_V1 | Locale prefix and manual navigation foundation | `this commit` | Prefix parsing/replacement, query/hash preservation, unsupported fallback과 UI-only separation을 focused test로 검증. | 로컬 routing foundation 완료 / public switch·route activation 별도 Gate |
 | MYOTT_I18N_LOCALE_FOUNDATION_V1 | Bounded UI locale contract foundation | `this commit` | Pure resolver precedence, normalization, malformed input과 UI locale independence를 focused test로 검증. | 로컬 foundation 완료 / routing·storage 별도 Gate |
 | MYOTT_GLOBAL_FIRST_PUBLIC_LAUNCH_FOUNDATION_CONTRACT_V1 | Global-first public launch foundation contract | `this commit` | Global/free/guest-first, locale-region-jurisdiction, privacy, growth, SEO readiness와 후속 Gate를 docs-only로 정본화. | 로컬 정본화 완료 / 구현·Release 별도 Gate |

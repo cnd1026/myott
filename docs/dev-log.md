@@ -2,6 +2,20 @@
 
 개발 과정에서의 작업 내용, 결정, 아쉬운 점, 다음 개선 사항을 날짜별로 기록합니다.
 
+## 2026-09-10 - Korean and English Message Catalog Foundation
+
+### 오늘 작업
+
+- metadata, hero, 조건, 작품 입력, 결과, 상세, 연관 추천, attribution과 accessibility copy를 locale별 pure catalog로 만들고 strict validation을 추가했습니다.
+
+### 결정한 것
+
+- supported catalog의 missing key는 한국어로 조용히 대체하지 않으며, 동적 provider 데이터와 개발 전용 QA 진단은 V1 정적 catalog 범위에서 분리합니다.
+
+### 다음 개선
+
+- `MYOTT_I18N_MESSAGE_CATALOG_RUNTIME_WIRING_V1`에서 완성된 catalog를 Product runtime에 연결하고 public activation Gate를 별도로 검증합니다.
+
 ## 2026-09-10 - I18N Locale Routing Foundation
 
 ### 오늘 작업
