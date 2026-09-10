@@ -6,6 +6,7 @@
 
 | Task ID | Task | Commit | Review | 상태 |
 | --- | --- | --- | --- | --- |
+| MYOTT_PRIVACY_CONSENT_MEASUREMENT_ELIGIBILITY_MATRIX_V1 | Growth measurement privacy/consent eligibility | `this commit` | 12 canonical events, 19 property classes, 30 KPI identity requirements, withdrawal/suppression과 vendor-neutral implementation Gate를 docs-only로 검증. | 정본화 완료 / Measurement·Consent runtime 없음 |
 | MYOTT_GROWTH_MEASUREMENT_EVENT_TAXONOMY_V1 | Vendor-neutral growth event and KPI taxonomy | `this commit` | 5 core/7 future events, identity/property privacy boundary, 30 KPI formulas, quality states와 instrumentation Gate를 docs-only로 검증. | 정본화 완료 / Analytics 구현·provider 선택 없음 |
 | MYOTT_SEO_INDEXABILITY_LAUNCH_CONTRACT_V1 | SEO indexability launch architecture | `this commit` | Canonical host, preview isolation, locale URL/hreflang, robots/sitemap, noindex-origin proof, activation Gate와 rollback을 docs-only로 검증. | `INDEXABILITY_HOLD` 정본화 / runtime·Release 별도 Gate |
 | MYOTT_GUEST_CONTINUITY_OPTIONAL_ACCOUNT_DATA_BOUNDARY_V1 | Guest continuity and optional-account data boundary | `this commit` | Account-free core, pseudonymous minimum identity, purpose/retention separation, explicit merge, deletion/export와 measurement boundary를 docs-only로 검증. | 로컬 Product architecture 정본화 / 구현·법률·Release 별도 Gate |

@@ -2,6 +2,21 @@
 
 프로젝트의 주요 변경 사항을 날짜별로 기록합니다.
 
+## 2026-09-10 - Privacy And Consent Measurement Eligibility Matrix
+
+### 변경 내용
+
+- 5개 core와 7개 future Growth event의 session, persistent, account-linked identity 및 consent/jurisdiction eligibility를 정본화했습니다.
+- 19개 property class와 30개 KPI를 allowed/conditional/prohibited, minimum identity, withdrawal 및 fail-safe 상태에 연결했습니다.
+
+### 이유
+
+- Guest continuity를 Analytics consent로 오인하거나, unresolved jurisdiction에서 먼저 수집한 뒤 나중에 consent를 적용하는 흐름을 방지하기 위해서입니다.
+
+### 다음 작업
+
+- `MYOTT_FREE_FIRST_ANALYTICS_PROVIDER_DECISION_PACKET_V1`에서 이 contract를 기준으로 first-party minimal collector와 free-tier provider 후보를 비교합니다.
+
 ## 2026-09-10 - Growth Measurement Event Taxonomy
 
 ### 변경 내용

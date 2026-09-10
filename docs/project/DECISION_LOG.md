@@ -191,3 +191,9 @@ Indexable public host는 하나만 허용하며 preview와 noncanonical deployme
 Growth KPI의 목적, numerator, denominator, eligible population, identity와 UTC window를 Analytics vendor 선택 전에 Product contract로 고정합니다. Dashboard나 vendor default는 같은 KPI의 denominator를 조용히 바꿀 수 없으며 semantic/schema change는 versioned comparison boundary를 남깁니다.
 
 Product continuity, Analytics, account와 marketing identity는 서로 자동 호환되지 않습니다. Raw user free text, direct/sensitive identifiers, precise location, raw IP와 fingerprint는 baseline Growth event에서 제외하고, persistent identity가 승인되지 않은 retention metric은 fingerprint로 보충하지 않고 `NOT_MEASURABLE`로 분류합니다. 실제 instrumentation은 별도 Privacy/Consent/Legal/Product Gate를 요구합니다.
+
+## DL-033 Measurement Eligibility Is Resolved Before Dispatch
+
+Growth Analytics는 strictly necessary Product processing과 분리하며, jurisdiction/privacy 또는 consent eligibility가 unresolved·denied·withdrawn·unsupported이면 nonessential event를 dispatch 전에 억제합니다. Pre-consent event replay와 fingerprint 기반 identity 보충은 금지하고, persistent retention metric은 separately eligible한 cross-session measurement identity가 없으면 `NOT_MEASURABLE`로 유지합니다.
+
+Product continuity ID를 Analytics ID로, Analytics ID를 Product continuity ID로 자동 재사용하지 않습니다. Withdrawal은 future nonessential collection과 persistent Analytics identity refresh를 중지하며, Marketing identity/tracking은 current baseline 밖입니다. 실제 retention/deletion과 관할별 consent 처리는 별도 Policy/Legal/Implementation Gate를 요구합니다.

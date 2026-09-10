@@ -2,6 +2,22 @@
 
 개발 과정에서의 작업 내용, 결정, 아쉬운 점, 다음 개선 사항을 날짜별로 기록합니다.
 
+## 2026-09-10 - Privacy And Consent Measurement Eligibility Matrix
+
+### 오늘 작업
+
+- Growth event, property와 30개 KPI를 consent, jurisdiction, identity와 retention eligibility에 연결했습니다.
+- Unknown/denied/withdrawn 상태의 pre-dispatch suppression, no replay, identity backflow 방지와 fail-safe 동작을 정리했습니다.
+
+### 결정한 것
+
+- Analytics는 strictly necessary가 아니며 session-only도 approved Product/privacy policy 없이 자동 허용되지 않습니다.
+- Product continuity ID, Analytics ID, account ID와 Marketing ID를 분리하고 raw free text, direct identifiers와 fingerprint를 baseline에서 금지합니다.
+
+### 다음 개선
+
+- 별도 Provider Decision Packet에서 first-party minimal collector와 free-tier 후보를 기능, privacy control, exportability와 장기 비용으로 비교합니다.
+
 ## 2026-09-10 - Growth Measurement Event Taxonomy
 
 ### 오늘 작업
