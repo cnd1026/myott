@@ -2,6 +2,17 @@
 
 프로젝트의 주요 변경 사항을 날짜별로 기록합니다.
 
+## 2026-09-10 - PostHog Same-Origin Privacy Relay Architecture
+
+### 변경 내용
+
+- Direct browser capture의 기술적 feasibility와 event authenticity 한계를 분리하고, exact five-event server enforcement와 server-only token을 사용하는 same-origin Phase 1 relay architecture를 정리했습니다.
+- raw browser IP non-forwarding, no queue/retry, session-only identity, withdrawal commit point, replay/bot limitation과 buyer evidence 등급을 고정했습니다.
+
+### 불변 범위
+
+- PostHog account/project/token, SDK, relay/runtime/event, dependency, Product source, Private Continuity, Main/Release/Production/Deployment 변경은 없습니다.
+
 ## 2026-09-10 - PostHog Withdrawal-Safe Direct Ingestion Architecture
 
 ### 변경 내용

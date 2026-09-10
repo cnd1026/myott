@@ -211,3 +211,11 @@ PostHog Cloud provider 선택은 유지하지만 Browser SDK는 supported public
 Eligibility는 identity/payload/network 전에 fail-closed로 확인하고, identity는 loaded runtime에만 존재하는 무작위 session ID로 제한합니다. 모든 event는 exact canonical five-event/property allowlist, `$process_person_profile: false`, `$geoip_disable: true`를 적용합니다. Withdrawal은 future dispatch를 차단한 뒤 MyOTT-owned active AbortController를 중단하지만 이미 dispatch된 bytes를 회수한다고 주장하지 않습니다.
 
 이 결정은 docs-level architecture 선택이며 Analytics activation은 아닙니다. Account/project/token, exact EU project의 IP discard 설정, source-IP 및 send commit point legal review, deterministic implementation test, isolated CORS/browser proof와 bounded live ingestion proof가 별도 Gate를 통과하기 전에는 SDK 설치, runtime load, event transmission, Release 또는 Production을 허용하지 않습니다.
+
+## DL-036 Phase 1 PostHog Transport는 MyOTT Same-Origin Privacy Relay를 사용
+
+PM LAB/HQ metric-integrity addendum에 따라 `DL-035`의 direct browser transport는 기술적으로 feasible한 역사적 후보로 보존하되 Phase 1 current selection에서는 supersede합니다. Public project token suitability는 event authenticity가 아니며 client validation만으로 arbitrary direct Capture submission, property fabrication 또는 metric poisoning을 통제할 수 없습니다.
+
+PostHog Cloud provider와 EU region preference는 유지하고, Phase 1 transport architecture로 `MYOTT_SAME_ORIGIN_PRIVACY_RELAY`를 선택합니다. Browser는 Product-owned consent/eligibility Gate 뒤 same-origin canonical endpoint만 호출하고, relay가 exact five-event/version/property schema를 최종 검증해 server-only token으로 PostHog EU single-event endpoint에 한 번만 전달합니다. Raw browser client IP는 PostHog에 의도적으로 전달하지 않으며 provider payload는 `$process_person_profile: false`와 `$geoip_disable: true`를 사용합니다.
+
+Phase 1은 session-only, no-SDK, no-queue, no-retry, no-background-delivery, no-persistent-identity를 유지합니다. Relay는 schema와 provider provenance를 강화하지만 human authenticity, public-endpoint bots와 cross-instance replay를 완전히 제거하지 않으므로 audited/fraud-proof metric을 주장하지 않습니다. 이 결정은 architecture selection일 뿐 account/project/token, relay implementation, event transmission, Analytics activation, Security, Release 또는 Production을 승인하지 않습니다.

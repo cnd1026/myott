@@ -2,6 +2,22 @@
 
 개발 과정에서의 작업 내용, 결정, 아쉬운 점, 다음 개선 사항을 날짜별로 기록합니다.
 
+## 2026-09-10 - PostHog Same-Origin Privacy Relay Architecture
+
+### 오늘 작업
+
+- 기존 Browser SDK rejection과 direct Capture architecture를 event spoofing, raw IP, property enforcement, withdrawal, provider portability, FREE_FIRST 및 buyer diligence 관점에서 재평가했습니다.
+- Next.js App Router 관례에 맞는 future `/api/analytics/event` boundary, server schema, provider adapter, token/IP isolation과 30개 deterministic test 계획을 설계했습니다.
+
+### 결정한 것
+
+- Direct browser는 technically feasible하지만 Phase 1에서는 선택하지 않습니다. `MYOTT_SAME_ORIGIN_PRIVACY_RELAY`를 selected architecture로 두고 PostHog Cloud provider와 session-only/no-queue/no-retry 원칙을 유지합니다.
+- Relay는 server-schema 및 provider provenance를 강화하지만 human authenticity, cross-instance replay와 bot abuse를 완전히 증명하지 않으므로 외부 diligence에는 limitation disclosure와 추가 runtime evidence가 필요합니다.
+
+### 다음 개선
+
+- `MYOTT_POSTHOG_ACCOUNT_PROJECT_ACTIVATION_PREPARATION_V1`에서 EU project, server-only token, IP-discard, current free allowance와 legal/Security/runtime proof 전제조건을 준비합니다.
+
 ## 2026-09-10 - PostHog Withdrawal-Safe Direct Ingestion Architecture
 
 ### 오늘 작업
