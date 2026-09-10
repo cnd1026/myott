@@ -2,6 +2,21 @@
 
 프로젝트의 주요 변경 사항을 날짜별로 기록합니다.
 
+## 2026-09-10 - Free-First Analytics Provider Decision Packet
+
+### 변경 내용
+
+- First-party, Vercel, Cloudflare, PostHog, Umami Cloud/Self-hosted, GA4와 Plausible를 canonical Event/Privacy hard gate로 비교했습니다.
+- PostHog Cloud를 strict no-load/session-only 구성의 조건부 1순위로, first-party minimal collector를 별도 architecture Gate가 필요한 fallback으로 제안했습니다.
+
+### 이유
+
+- 무료 allowance나 익명성 마케팅 문구가 MyOTT의 no-send, no-request-hash, canonical five-event 계약을 대신하지 못하게 하기 위해서입니다.
+
+### 다음 작업
+
+- `MYOTT_ANALYTICS_PROVIDER_FOUNDER_DECISION_V1`에서 provider와 data region을 선택하거나 hold합니다. 이 문서만으로 Analytics를 설치하거나 활성화하지 않습니다.
+
 ## 2026-09-10 - Privacy And Consent Measurement Eligibility Matrix
 
 ### 변경 내용

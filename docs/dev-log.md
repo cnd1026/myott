@@ -2,6 +2,22 @@
 
 개발 과정에서의 작업 내용, 결정, 아쉬운 점, 다음 개선 사항을 날짜별로 기록합니다.
 
+## 2026-09-10 - Free-First Analytics Provider Decision Packet
+
+### 오늘 작업
+
+- 8개 후보의 공식 기능, 가격, consent suppression, identity, export, region/retention 근거를 현재 Event/Privacy 정본과 대조했습니다.
+- hard gate를 통과한 후보만 weighted ranking에 포함하고, 근거가 부족한 plan limit과 retention은 `NOT_PROVEN`으로 유지했습니다.
+
+### 결정한 것
+
+- PostHog Cloud는 strict non-default profile에서만 조건부 1순위이며 Founder의 최종 provider/region 선택 전에는 canonical 선택이 아닙니다.
+- First-party minimal collector는 schema-control fallback이지만 DB, retention, backup, security와 운영 비용이 별도 Gate를 통과하기 전에는 구현 후보가 아닙니다.
+
+### 다음 개선
+
+- Founder Decision 뒤 별도 architecture/implementation Task에서만 adapter, consent Gate, property allowlist와 disable/exit path를 구체화합니다.
+
 ## 2026-09-10 - Privacy And Consent Measurement Eligibility Matrix
 
 ### 오늘 작업
