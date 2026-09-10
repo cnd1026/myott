@@ -6,6 +6,7 @@
 
 | Task ID | Task | Commit | Review | 상태 |
 | --- | --- | --- | --- | --- |
+| MYOTT_POSTHOG_SAME_ORIGIN_PRIVACY_RELAY_IMPLEMENTATION_V1 | PostHog same-origin privacy relay implementation | `this commit` | Exact five-event/property schema, fail-closed eligibility, 8192-byte same-origin route, server-only EU projection과 no-queue/no-retry behavior를 deterministic injected-fetch QA로 검증. | local implementation ready / live Analytics·Product event wiring 0 |
 | MYOTT_POSTHOG_SERVER_ONLY_TOKEN_CONFIGURATION_GATE_V1 | PostHog server-only token configuration gate | `this commit` | Founder zero-event EU project receipt와 official Vercel environment scope를 relay/privacy 계약에 대조해 Production-only Secret, fail-closed, redaction과 no-deploy action packet을 검증. | configuration Gate ready / token write·deployment·event 0 / explicit Founder action 필요 |
 | MYOTT_POSTHOG_ACCOUNT_PROJECT_ACTIVATION_PREPARATION_V1 | PostHog account/project activation preparation | `this commit` | Official PostHog/Vercel 근거로 EU·free-first·zero-event creation, privacy settings readback, server-only token과 Founder manual evidence packet을 검증. | preparation ready / account·project·token·event 0 / explicit Founder action 필요 |
 | MYOTT_POSTHOG_SAME_ORIGIN_PRIVACY_RELAY_ARCHITECTURE_V1 | PostHog same-origin privacy relay architecture | `this commit` | Direct browser 대비 raw-IP containment, server schema/token enforcement, spoofing·replay·bot 한계, FREE_FIRST cost와 20개 hard Gate를 검증. | relay Phase 1 architecture selected / activation NO / runtime 없음 |

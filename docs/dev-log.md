@@ -2,6 +2,22 @@
 
 개발 과정에서의 작업 내용, 결정, 아쉬운 점, 다음 개선 사항을 날짜별로 기록합니다.
 
+## 2026-09-10 - PostHog Same-Origin Privacy Relay Implementation
+
+### 오늘 작업
+
+- canonical Analytics event registry, eligibility resolver, client adapter, server schema와 PostHog EU provider adapter를 구현했습니다.
+- route와 provider transport를 외부 Network 없이 injected fetch로 검증하고, malformed/oversized/privacy-sensitive payload와 missing token을 provider 호출 전에 실패 폐쇄하도록 만들었습니다.
+
+### 결정한 것
+
+- client는 Product-owned eligibility가 완전히 `ELIGIBLE`일 때만 memory-only UUID를 만들고 same-origin route를 한 번 호출합니다. route는 browser payload를 spread하지 않고 검증된 필드만 새 provider payload로 투영합니다.
+- provider 실패는 event를 drop하는 비치명적 Analytics 상태이며 retry, queue, background delivery 또는 Product error로 승격하지 않습니다. 이미 server/provider가 수락한 work는 client abort로 소급 취소됐다고 표현하지 않습니다.
+
+### 다음 개선
+
+- `MYOTT_ANALYTICS_CONSENT_ELIGIBILITY_RUNTIME_FOUNDATION_V1`에서 실제 Product-owned consent/jurisdiction state contract를 구현하되, canonical Product event call site와 live event는 계속 별도 Gate로 유지해야 합니다.
+
 ## 2026-09-10 - PostHog Server-Only Token Configuration Gate
 
 ### 오늘 작업

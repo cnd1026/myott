@@ -2,6 +2,18 @@
 
 프로젝트의 주요 변경 사항을 날짜별로 기록합니다.
 
+## 2026-09-10 - PostHog Same-Origin Privacy Relay Implementation
+
+### 변경 내용
+
+- exact five-event registry, fail-closed eligibility, event별 property policy와 memory-only client adapter를 추가했습니다.
+- `POST /api/analytics/event`가 8192-byte JSON/same-origin/schema를 검증하고 server-only token으로 PostHog EU single-event endpoint에 한 번만 전달하도록 구현했습니다.
+- provider payload는 person profile과 GeoIP 처리를 server에서 끄며, raw browser IP header, queue, retry, storage, SDK 의존성을 전달하거나 추가하지 않습니다.
+
+### 불변 범위
+
+- Product event call site와 consent UI는 연결하지 않았습니다. 실제 token read, live PostHog request, dependency/build, deployment, Private Continuity, Main/Release/Production 변경은 없습니다.
+
 ## 2026-09-10 - PostHog Server-Only Token Configuration Gate
 
 ### 변경 내용
