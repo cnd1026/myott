@@ -2,6 +2,21 @@
 
 개발 과정에서의 작업 내용, 결정, 아쉬운 점, 다음 개선 사항을 날짜별로 기록합니다.
 
+## 2026-09-10 - SEO Indexability Launch Architecture
+
+### 오늘 작업
+
+- Global-first SEO 방향을 current evidence, locale activation, canonical host, preview isolation, noindex origin과 release rollback을 포함한 launch contract로 구체화했습니다.
+
+### 결정한 것
+
+- 현재 상태는 `INDEXABILITY_HOLD`이며, 하나의 canonical public host와 complete active locale만 sitemap/hreflang에 노출합니다.
+- Product 또는 platform 중 exact noindex source를 증명하기 전에는 현재 header를 제거하거나 충돌하는 index metadata를 추가하지 않습니다.
+
+### 다음 개선
+
+- HQ 검토 뒤 누적 Global/i18n/guest/SEO 정본을 Private Continuity에 batch sync하고, runtime activation은 Build/Security/Release Gate가 준비될 때 별도로 진행합니다.
+
 ## 2026-09-10 - Guest Account Data Continuity Architecture
 
 ### 오늘 작업

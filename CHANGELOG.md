@@ -2,6 +2,21 @@
 
 프로젝트의 주요 변경 사항을 날짜별로 기록합니다.
 
+## 2026-09-10 - SEO Indexability Launch Architecture
+
+### 변경 내용
+
+- search indexability state machine, canonical host, locale URL, robots/sitemap, hreflang와 rollback 계약을 정본화했습니다.
+- 현재 noindex를 launch hold로 유지하고 exact origin과 Release prerequisite가 모두 증명된 뒤에만 제거하도록 Gate를 정의했습니다.
+
+### 이유
+
+- local candidate, remote Main과 Production identity가 다른 상태에서 SEO signal이나 inactive locale route가 먼저 노출되는 것을 막기 위해서입니다.
+
+### 다음 작업
+
+- Global/i18n/guest/SEO 정본 상태를 Private Continuity에 한 번의 bounded batch로 동기화합니다.
+
 ## 2026-09-10 - Guest Account Data Continuity Architecture
 
 ### 변경 내용

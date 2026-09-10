@@ -179,3 +179,9 @@ Privacy/legal 정책 metadata와 승인 lifecycle은 Product locale·growth 구�
 Core recommendation은 account-free로 유지하고 guest continuity는 무작위·비의미적 pseudonymous first-party ID와 목적에 필요한 bounded history만 사용합니다. Product continuity, analytics와 marketing은 별도 목적이며 한 목적의 identity나 consent를 다른 목적에 자동 재사용하지 않습니다.
 
 Guest data를 account에 연결하는 것은 login의 자동 효과가 아닙니다. 이동 범위를 설명하고 사용자가 명시적으로 확인한 뒤 canonical content identity를 dedupe하며, explicit save·feedback·correction을 inferred activity보다 우선합니다. Merge 후 불필요한 guest-account linkage는 retire하거나 최소화하고, 실제 storage/Auth/consent/retention 기간은 별도 Gate 전에는 구현 또는 법률 정책으로 간주하지 않습니다.
+
+## DL-031 SEO Indexability Launch Gate
+
+Search indexability는 canonical host, production parity, exact build/runtime, metadata, robots, sitemap, active-locale hreflang, noindex origin, Security/Release와 Founder approval이 모두 검증될 때까지 `INDEXABILITY_HOLD`를 유지합니다. 현재 Production의 `x-robots-tag: noindex`는 source가 정확히 증명되기 전에는 제거하지 않습니다.
+
+Indexable public host는 하나만 허용하며 preview와 noncanonical deployment는 duplicate index 대상이 되어서는 안 됩니다. Sitemap과 hreflang은 active, public, content-complete canonical locale만 광고하고, inactive English runtime이나 존재하지 않는 alternate를 노출하지 않습니다. 실제 activation과 rollback은 별도 Release/Production authority를 요구합니다.

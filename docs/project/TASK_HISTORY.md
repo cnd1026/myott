@@ -6,6 +6,7 @@
 
 | Task ID | Task | Commit | Review | 상태 |
 | --- | --- | --- | --- | --- |
+| MYOTT_SEO_INDEXABILITY_LAUNCH_CONTRACT_V1 | SEO indexability launch architecture | `this commit` | Canonical host, preview isolation, locale URL/hreflang, robots/sitemap, noindex-origin proof, activation Gate와 rollback을 docs-only로 검증. | `INDEXABILITY_HOLD` 정본화 / runtime·Release 별도 Gate |
 | MYOTT_GUEST_CONTINUITY_OPTIONAL_ACCOUNT_DATA_BOUNDARY_V1 | Guest continuity and optional-account data boundary | `this commit` | Account-free core, pseudonymous minimum identity, purpose/retention separation, explicit merge, deletion/export와 measurement boundary를 docs-only로 검증. | 로컬 Product architecture 정본화 / 구현·법률·Release 별도 Gate |
 | MYOTT_I18N_PAGE_FALLBACK_AND_RESULT_NORMALIZATION_COPY_PRESENTATION_V1 | Page fallback and result normalization presentation | `this commit` | ko/en page fallback, first-pick, time-slot/hero copy와 provider/semantic identity separation을 focused test로 검증. | 로컬 presentation 완료 / English runtime activation 별도 Gate |
 | MYOTT_I18N_TAXONOMY_AND_DYNAMIC_COPY_PRESENTATION_V1 | Locale-aware taxonomy and generated recommendation presentation | `this commit` | Canonical IDs, hard filters, evidence selection과 provider behavior를 유지하며 ko/en taxonomy, seed status, recommendation reason을 focused test로 검증. | 로컬 presentation 완료 / page-local fallback localization 별도 Gate |
