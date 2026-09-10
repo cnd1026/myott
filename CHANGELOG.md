@@ -2,6 +2,21 @@
 
 프로젝트의 주요 변경 사항을 날짜별로 기록합니다.
 
+## 2026-09-10 - Message Catalog Runtime Wiring
+
+### 변경 내용
+
+- 현재 `ko-KR` runtime의 layout과 recommendation 화면 정적 문구를 accepted message catalog API에 연결했습니다.
+- metadata, attribution, controls, status, detail, related UI와 접근성 이름의 기존 한국어 출력을 유지했습니다.
+
+### 이유
+
+- public English activation 전에 current Korean runtime이 검증된 catalog contract를 실제로 사용하도록 만들기 위해서입니다.
+
+### 다음 작업
+
+- taxonomy presentation과 recommendation helper가 생성하는 동적 문구는 별도 i18n Task에서 다룹니다.
+
 ## 2026-09-10 - Korean and English Message Catalog Foundation
 
 ### 변경 내용

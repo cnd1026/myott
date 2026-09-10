@@ -2,6 +2,20 @@
 
 개발 과정에서의 작업 내용, 결정, 아쉬운 점, 다음 개선 사항을 날짜별로 기록합니다.
 
+## 2026-09-10 - Message Catalog Runtime Wiring
+
+### 오늘 작업
+
+- `app/layout.jsx`와 `app/page.jsx`의 ordinary-user static copy를 `ko-KR` catalog lookup으로 교체하고 deterministic source-contract test를 추가했습니다.
+
+### 결정한 것
+
+- runtime locale은 계속 `ko-KR`로 고정하며, locale route·manual switch·English UI는 활성화하지 않습니다.
+
+### 다음 개선
+
+- taxonomy label과 runtime-generated recommendation/status narrative의 locale presentation을 별도 Task에서 연결합니다.
+
 ## 2026-09-10 - Korean and English Message Catalog Foundation
 
 ### 오늘 작업
