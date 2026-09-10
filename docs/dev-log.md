@@ -2,6 +2,22 @@
 
 개발 과정에서의 작업 내용, 결정, 아쉬운 점, 다음 개선 사항을 날짜별로 기록합니다.
 
+## 2026-09-10 - PostHog Server-Only Token Configuration Gate
+
+### 오늘 작업
+
+- Founder가 생성한 PostHog EU empty project receipt를 수용하고 account/project lifecycle을 재개방하지 않은 채 server-only token configuration Gate를 정리했습니다.
+- Vercel의 Production/Preview/Development scope와 Next.js public-prefix 계약을 기존 공식 evidence에 대조해 Production-only Secret, no-deploy action, redacted receipt를 정의했습니다.
+
+### 결정한 것
+
+- `POSTHOG_PROJECT_TOKEN`은 provider의 public capture routing token이지만 MyOTT에서는 server-only operational credential로 다룹니다. token presence만으로 Analytics를 켜지 않으며 Preview/Development/QA에는 token을 두지 않습니다.
+- retention readback은 token configuration blocker가 아니라 첫 live Analytics activation prerequisite입니다. 환경변수 저장 후 기존 deployment가 값을 소비하려면 별도 redeployment Gate가 필요합니다.
+
+### 다음 개선
+
+- `MYOTT_POSTHOG_SERVER_ONLY_TOKEN_CONFIGURATION_FOUNDER_ACTION_V1`에서 Founder가 token을 채팅이나 파일을 거치지 않고 Vercel Production Secret에 직접 입력하고, 배포·event 없이 redacted receipt만 반환해야 합니다.
+
 ## 2026-09-10 - PostHog Account And Project Activation Preparation
 
 ### 오늘 작업

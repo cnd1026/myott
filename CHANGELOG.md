@@ -2,6 +2,17 @@
 
 프로젝트의 주요 변경 사항을 날짜별로 기록합니다.
 
+## 2026-09-10 - PostHog Server-Only Token Configuration Gate
+
+### 변경 내용
+
+- Founder의 zero-event EU project receipt를 기존 relay/privacy 계약에 대조하고, PostHog project token의 Production-only Vercel Secret 경계와 redacted manual action packet을 정의했습니다.
+- token presence와 deployment consumption 및 Analytics activation을 분리하고, missing-token fail-closed, browser/log exposure 방지, incident rotation 경계를 고정했습니다.
+
+### 불변 범위
+
+- 실제 token 또는 Vercel environment write, deployment, SDK/relay/consent runtime, event 전송, Product source, Private Continuity, Main/Release/Production 변경은 없습니다.
+
 ## 2026-09-10 - PostHog Account And Project Activation Preparation
 
 ### 변경 내용
