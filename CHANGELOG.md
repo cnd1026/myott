@@ -2,6 +2,17 @@
 
 프로젝트의 주요 변경 사항을 날짜별로 기록합니다.
 
+## 2026-09-10 - PostHog Browser SDK Withdrawal Queue Proof
+
+### 변경 내용
+
+- PostHog Browser SDK `1.428.10`의 pinned source와 공식 테스트를 대조해 RequestQueue, RetryQueue, `before_send`, opt-out, reset, shutdown, in-flight cancellation과 unload/BFCache 동작을 증명했습니다.
+- supported public API에는 withdrawal 시 ordinary pending/retry event를 전송 없이 모두 폐기하는 계약이 없으며, shutdown/unload는 대기 항목을 flush/send하므로 Browser SDK Phase 1 activation blocker를 확정했습니다.
+
+### 불변 범위
+
+- PostHog Cloud provider 선택은 유지합니다. SDK 설치, account/project 생성, event 전송, Product runtime, dependency, Decision Log, Private Continuity, Main/Release/Production/Deployment 변경은 없습니다.
+
 ## 2026-09-10 - PostHog Session-Only Measurement Architecture
 
 ### 변경 내용

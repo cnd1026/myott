@@ -2,6 +2,22 @@
 
 개발 과정에서의 작업 내용, 결정, 아쉬운 점, 다음 개선 사항을 날짜별로 기록합니다.
 
+## 2026-09-10 - PostHog Browser SDK Withdrawal Queue Proof
+
+### 오늘 작업
+
+- PostHog Browser SDK `1.428.10` / Git `412c97c`의 capture-to-transport 경로와 public type surface를 공식 source/test에서 확인했습니다.
+- unbatched/instant capture도 실패 시 RetryQueue에 남고, `before_send`는 retry에서 재평가되지 않으며, opt-out/reset은 ordinary queues를 폐기하지 않는다는 증거를 정리했습니다.
+
+### 결정한 것
+
+- `shutdown()`과 queue unload는 discard가 아니라 sendBeacon 기반 flush/send이므로 strict mid-session withdrawal 해결책으로 사용할 수 없습니다.
+- PostHog Cloud 선택은 유지하되 Browser SDK Phase 1은 현재 Founder withdrawal contract에서 부적격으로 분류합니다.
+
+### 다음 개선
+
+- `MYOTT_POSTHOG_WITHDRAWAL_SAFE_DIRECT_INGESTION_TRANSPORT_ARCHITECTURE_V1`에서 hidden SDK queue/retry 없이 MyOTT가 소유하는 최소 ingestion transport 계약을 docs-first로 검토합니다.
+
 ## 2026-09-10 - PostHog Session-Only Measurement Architecture
 
 ### 오늘 작업
