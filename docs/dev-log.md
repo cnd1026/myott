@@ -2,6 +2,22 @@
 
 개발 과정에서의 작업 내용, 결정, 아쉬운 점, 다음 개선 사항을 날짜별로 기록합니다.
 
+## 2026-09-11 - Phase 1 Jurisdiction Scope Reconciliation
+
+### 오늘 작업
+
+- completed policy matrix의 교정 전 scope 표기 `EU/EEA`를 latest recovery scope인 `KR / JP / EU / US`와 대조했습니다.
+- EU official source rows를 EU policy evidence로 재분류하고 non-EU EEA를 별도 미검토 범위로 명시했습니다.
+
+### 결정한 것
+
+- 이 correction은 새 관할 정책이나 법률 결론을 만들지 않습니다. EU member-state scope만 현재 검토 대상으로 유지합니다.
+- Norway, Iceland와 Liechtenstein은 non-target fail-closed policy를 따르며 별도 검토 전 optional features를 활성화하지 않습니다.
+
+### 다음 개선
+
+- `MYOTT_PHASE1_JURISDICTION_POLICY_FOUNDER_DECISION_V1`에서 KR/JP/EU/US의 stateless operating policy를 결정해야 합니다.
+
 ## 2026-09-11 - Phase 1 Jurisdiction Official-Source Policy Matrix
 
 ### 오늘 작업

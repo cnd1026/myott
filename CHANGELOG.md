@@ -2,11 +2,23 @@
 
 프로젝트의 주요 변경 사항을 날짜별로 기록합니다.
 
+## 2026-09-11 - Phase 1 Jurisdiction Scope Reconciliation
+
+### 변경 내용
+
+- Current Phase 1 jurisdiction scope를 `KR / JP / EU / US`로 정합화하고, EU를 EU member-state policy scope로 한정했습니다.
+- non-EU EEA 국가는 `OUT_OF_SCOPE / NOT_REVIEWED`로 분류하고 optional data features를 fail-closed로 유지했습니다.
+- 기존 EU official-source evidence, stateless-core recommendation과 Founder decision pending 상태는 보존했습니다.
+
+### 불변 범위
+
+- 새 법률 조사, runtime/source/dependency, Analytics activation, Local Continuity, Push/Main/Release/Production/Deployment 변경은 없습니다.
+
 ## 2026-09-11 - Phase 1 Jurisdiction Official-Source Policy Matrix
 
 ### 변경 내용
 
-- 한국, 일본, EU/EEA, 미국 공통 baseline과 California overlay를 공식 법령·규제기관 자료로 대조한 Founder decision packet을 추가했습니다.
+- 한국, 일본, EU, 미국 공통 baseline과 California overlay를 공식 법령·규제기관 자료로 대조한 Founder decision packet을 추가했습니다.
 - Free-first 전략에 따라 stateless recommendation core를 우선하고 Analytics, guest continuity, account와 persistent personalization을 불확실성 아래에서 비활성화하는 feature-reduction matrix를 정리했습니다.
 - PostHog EU Cloud/DPA/subprocessor/IP-discard 근거를 Product compliance와 분리하고, paid-counsel future trigger와 관할별 알려지지 않은 사실을 명시했습니다.
 

@@ -230,6 +230,6 @@ Privacy Center는 계속 unmounted이고 Analytics는 inactive입니다. 현재 
 
 ## DL-038 Phase 1 Legal Strategy는 Stateless Core와 Feature Reduction을 우선
 
-한국, 일본, EU/EEA와 미국의 공식 법령·규제기관 자료를 Product architecture에 대조한 Founder decision packet의 meta-strategy로 `FREE_FIRST_FEATURE_REDUCTION_BEFORE_PAID_COUNSEL`을 채택 후보로 기록합니다. 불확실성이 있으면 nonessential Analytics, persistent guest continuity, account와 persistent personalization을 순서대로 활성화하지 않고, 필요하면 region을 제한합니다. Core recommendation은 data minimization, 정확한 notice와 security control을 전제로 `STATELESS_RECOMMENDATION_ONLY` mode를 우선합니다.
+한국, 일본, EU 회원국과 미국의 공식 법령·규제기관 자료를 Product architecture에 대조한 Founder decision packet의 meta-strategy로 `FREE_FIRST_FEATURE_REDUCTION_BEFORE_PAID_COUNSEL`을 채택 후보로 기록합니다. Phase 1 scope는 `KR / JP / EU / US`이며 non-EU EEA 국가는 검토 범위 밖입니다. 불확실성이 있으면 nonessential Analytics, persistent guest continuity, account와 persistent personalization을 순서대로 활성화하지 않고, 필요하면 region을 제한합니다. Core recommendation은 data minimization, 정확한 notice와 security control을 전제로 `STATELESS_RECOMMENDATION_ONLY` mode를 우선합니다.
 
 이 기록은 개별 관할 compliance 결정이나 법률 인증이 아닙니다. 관할별 Analytics minimum, signed receipt 처리, PostHog processor/transfer, US state applicability와 Privacy Center notice는 계속 Legal/Founder Gate 대상이며, 다른 국가의 optional feature는 `REGION_DEFERRED`입니다. 유료 전문가 검토는 Analytics activation, persistent identity/account, profiling, 민감정보·아동·광고, regulator/acquisition/enterprise trigger 등 material scope가 생길 때 다시 엽니다. 실제 관할별 Product policy는 `MYOTT_PHASE1_JURISDICTION_POLICY_FOUNDER_DECISION_V1` 전까지 미선택입니다.

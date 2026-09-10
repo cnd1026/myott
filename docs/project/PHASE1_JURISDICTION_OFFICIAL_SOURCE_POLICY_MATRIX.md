@@ -4,7 +4,7 @@ Research snapshot: 2026-09-11 KST
 
 ## Executive Summary
 
-MyOTT Phase 1의 가장 낮은 법률·비용·운영 위험 launch mode는 계정, 지속 Guest continuity, 지속 personalization과 nonessential Analytics를 끈 `STATELESS_RECOMMENDATION_ONLY`입니다. 한국, 일본, EU/EEA와 미국에 대해 이 mode는 현재 공식 자료상 core recommendation을 유지할 수 있는 보수적 Product 정책 후보이지만, 법률 자문이나 관할별 compliance 인증은 아닙니다.
+MyOTT Phase 1의 가장 낮은 법률·비용·운영 위험 launch mode는 계정, 지속 Guest continuity, 지속 personalization과 nonessential Analytics를 끈 `STATELESS_RECOMMENDATION_ONLY`입니다. 한국, 일본, EU 회원국과 미국에 대해 이 mode는 현재 공식 자료상 core recommendation을 유지할 수 있는 보수적 Product 정책 후보이지만, 법률 자문이나 관할별 compliance 인증은 아닙니다.
 
 Founder 결정을 기다리는 동안 네 검토 지역 모두에서 Analytics는 `ANALYTICS_OFF`로 유지합니다. Country hint는 legal jurisdiction이 아니며, 승인되지 않은 국가나 불명확한 신호는 optional data features를 활성화하지 않습니다.
 
@@ -19,7 +19,8 @@ Founder 결정을 기다리는 동안 네 검토 지역 모두에서 Analytics�
 
 ## Scope / Non-Certification Boundary
 
-- 검토 범위: South Korea, Japan, EU/EEA, United States common baseline, California overlay.
+- 검토 범위: South Korea, Japan, EU member states, United States common baseline, California overlay.
+- `PHASE1_SCOPE = KR / JP / EU / US`. Norway, Iceland, Liechtenstein 등 non-EU EEA 국가는 이번 Phase 1에서 검토하지 않습니다.
 - 조사 대상: core stateless recommendation, guest continuity, Analytics, account, persistent personalization, consent receipt와 PostHog processor boundary.
 - 이 문서는 법률 의견, 전세계 compliance 인증, GDPR/PIPA/APPI/CCPA PASS 또는 Production 승인 문서가 아닙니다.
 - 적용 가능성은 실제 사용자 위치, 사업자 지위, 처리 목적, 데이터 흐름, 계약과 출시 사실에 따라 달라질 수 있습니다.
@@ -47,6 +48,7 @@ Founder 결정을 기다리는 동안 네 검토 지역 모두에서 Analytics�
 - Search-result summaries were not treated as authority when an official page was available.
 - A version or hosting-region statement was not converted into a compliance conclusion.
 - Facts not provable without account-specific, business-specific or legal analysis remain `NOT_PROVEN` or `LEGAL_REVIEW_REQUIRED`.
+- EU official instruments may have broader EEA applicability through separate mechanisms, but source applicability does not expand the current Product scope beyond EU member states.
 - No account login, live Product request, PostHog event, deployment or paid legal contact occurred.
 
 ## Official Primary Sources
@@ -63,10 +65,10 @@ Founder 결정을 기다리는 동안 네 검토 지역 모두에서 Analytics�
 | JP | Personal Information Protection Commission | [Foreign Third Party Guidelines](https://www.ppc.go.jp/personalinfo/legal/guidelines_offshore/) | Partially revised 2025-12 | 2026-09-11 | Foreign transfer consent or an applicable alternative requires country/system/recipient safeguard information and ongoing measures where relevant. | High | Exact transfer role and route need legal review. |
 | JP | Personal Information Protection Commission | [APPI FAQ](https://www.ppc.go.jp/personalinfo/faq/APPI_QA/) | Current regulator FAQ | 2026-09-11 | Cookie identifiers can be personal-related information; retention should follow necessity rather than an assumed universal period. | High | FAQ answers are scenario-dependent. |
 | JP | Personal Information Protection Commission | [Foreign-transfer consent FAQ](https://www.ppc.go.jp/all_faq_index/faq2-q5-8/) | Current regulator FAQ | 2026-09-11 | Information provision before foreign-transfer consent is a distinct requirement. | High | Does not select a MyOTT transfer basis. |
-| EU/EEA | European Union | [General Data Protection Regulation](https://eur-lex.europa.eu/legal-content/EN/TXT/?uri=CELEX:32016R0679) | Applicable since 2018-05-25 | 2026-09-11 | Lawfulness, transparency, purpose limitation, minimization, consent withdrawal, processor contracts and Chapter V transfers are separate duties. | High | ePrivacy and Member State rules also matter. |
-| EU/EEA | European Union | [ePrivacy Directive](https://eur-lex.europa.eu/eli/dir/2002/58/oj?locale=en) | Consolidated official text | 2026-09-11 | Terminal storage/access generally requires clear information and consent unless strictly necessary. | High | National implementation varies. |
-| EU/EEA | European Data Protection Board | [Guidelines 05/2020 on consent](https://www.edpb.europa.eu/sites/default/files/files/file1/edpb_guidelines_202005_consent_en.pdf) | Adopted 2020-05-04 | 2026-09-11 | Valid consent must be freely given, specific, informed and unambiguous; withdrawal must be available. | High | Guidance is not MyOTT-specific legal advice. |
-| EU/EEA | European Data Protection Board | [Guidelines 2/2023 on ePrivacy Article 5(3)](https://www.edpb.europa.eu/our-work-tools/our-documents/guidelines/guidelines-22023-technical-scope-art-53-eprivacy-directive_en) | Final 2024-10-16 | 2026-09-11 | Article 5(3) applies across storage/access techniques, not only traditional cookies. | High | Member State enforcement details differ. |
+| EU | European Union | [General Data Protection Regulation](https://eur-lex.europa.eu/legal-content/EN/TXT/?uri=CELEX:32016R0679) | Applicable since 2018-05-25 | 2026-09-11 | Lawfulness, transparency, purpose limitation, minimization, consent withdrawal, processor contracts and Chapter V transfers are separate duties. | High | Current Product scope is EU member states; non-EU EEA applicability is not reviewed. |
+| EU | European Union | [ePrivacy Directive](https://eur-lex.europa.eu/eli/dir/2002/58/oj?locale=en) | Consolidated official text | 2026-09-11 | Terminal storage/access generally requires clear information and consent unless strictly necessary. | High | EU Member State implementation varies; non-EU EEA scope is not reviewed. |
+| EU | European Data Protection Board | [Guidelines 05/2020 on consent](https://www.edpb.europa.eu/sites/default/files/files/file1/edpb_guidelines_202005_consent_en.pdf) | Adopted 2020-05-04 | 2026-09-11 | Valid consent must be freely given, specific, informed and unambiguous; withdrawal must be available. | High | Guidance supports the EU row and is not MyOTT-specific legal advice. |
+| EU | European Data Protection Board | [Guidelines 2/2023 on ePrivacy Article 5(3)](https://www.edpb.europa.eu/our-work-tools/our-documents/guidelines/guidelines-22023-technical-scope-art-53-eprivacy-directive_en) | Final 2024-10-16 | 2026-09-11 | Article 5(3) applies across storage/access techniques, not only traditional cookies. | High | EU Member State enforcement details differ; non-EU EEA scope is not reviewed. |
 | US | Federal Trade Commission | [Privacy and Security](https://www.ftc.gov/business-guidance/privacy-security) | Current federal regulator hub | 2026-09-11 | Companies should honor privacy promises, minimize data and secure what they retain. | High | The United States has no single omnibus federal private-sector privacy regime equivalent to GDPR. |
 | US | Federal Trade Commission | [Start with Security](https://www.ftc.gov/business-guidance/resources/start-security-guide-business) | Current business guidance | 2026-09-11 | Collect only necessary data and restrict access according to need. | High | General enforcement guidance. |
 | US | Federal Trade Commission | [Privacy and Security Enforcement](https://www.ftc.gov/news-events/topics/protecting-consumer-privacy-security/privacy-security-enforcement) | Current enforcement hub | 2026-09-11 | Misleading privacy promises and inadequate safeguards can create enforcement exposure. | High | Does not replace state-law analysis. |
@@ -154,7 +156,7 @@ These are Product policy classifications, not statements that a statute affirmat
 
 `JP_ANALYTICS_LEGAL_MINIMUM = NOT_PROVEN`; `JP_ANALYTICS_POLICY_STATE = ANALYTICS_OFF`; `JP_PHASE1_PRODUCT_POLICY = ANALYTICS_OFF`.
 
-## EU / EEA
+## EU
 
 `SUPPORTED_MODE = STATELESS_RECOMMENDATION_ONLY`
 `CORE_STATELESS_RECOMMENDATION = SUPPORTED_WITH_REQUIREMENTS`
@@ -172,7 +174,7 @@ These are Product policy classifications, not statements that a statute affirmat
 | PostHog processor disclosure | `LEGAL_REVIEW_REQUIRED` | Article 28 role/DPA, subprocessors and public notice require activated-flow review. |
 | Cross-border / transfer review | `LEGAL_REVIEW_REQUIRED` | Chapter V mechanism and actual subprocessor/transit path are not finally verified. |
 
-`EU_EEA_NONESSENTIAL_TERMINAL_ACCESS = EXPLICIT_OPT_IN_REQUIRED`; `EU_EEA_ANALYTICS_POLICY_STATE = ANALYTICS_OFF`; `EU_EEA_PHASE1_PRODUCT_POLICY = ANALYTICS_OFF`. GDPR and ePrivacy are distinct layers, and Member State implementation can add variation.
+`EU_NONESSENTIAL_TERMINAL_ACCESS = EXPLICIT_OPT_IN_REQUIRED`; `EU_ANALYTICS_POLICY_STATE = ANALYTICS_OFF`; `EU_PHASE1_PRODUCT_POLICY = ANALYTICS_OFF`. GDPR and ePrivacy are distinct layers, and EU Member State implementation can add variation.
 
 ## United States Common Baseline
 
@@ -208,13 +210,15 @@ This means optional data features are disabled while mapping is incomplete. It d
 
 Non-target countries are `REGION_DEFERRED` for optional data features. Analytics, guest persistence, account and persistent personalization remain off. A future country signal may map to a reviewed stateless policy only after Founder approval; unknown, unsupported or review-required results remain fail-closed.
 
+`NON_EU_EEA_PHASE1_POLICY = UNSUPPORTED / NOT_REVIEWED`. Norway, Iceland and Liechtenstein are classified under this non-target policy. Their nonessential Analytics, Marketing, persistent Analytics ID, persistent guest tracking, account creation and persistent personalization remain off. Core stateless/minimal recommendation requires separate supporting evidence; otherwise it is `REGION_DEFERRED`.
+
 ## Core Stateless Recommendation Matrix
 
 | Region | Status | Required Product controls |
 | --- | --- | --- |
 | KR | `ALLOWED_BY_CURRENT_PRODUCT_POLICY` | Data minimization, accurate notice, bounded retention, security |
 | JP | `ALLOWED_BY_CURRENT_PRODUCT_POLICY` | Purpose specification/publication, minimization, security |
-| EU/EEA | `ALLOWED_BY_CURRENT_PRODUCT_POLICY` | Lawful-basis documentation, transparency, minimization, security |
+| EU | `ALLOWED_BY_CURRENT_PRODUCT_POLICY` | Lawful-basis documentation, transparency, minimization, security |
 | US | `ALLOWED_BY_CURRENT_PRODUCT_POLICY` | Accurate representations, minimization, reasonable safeguards |
 | Other | `REGION_DEFERRED` | No optional feature activation; explicit future review |
 
@@ -224,7 +228,7 @@ Non-target countries are `REGION_DEFERRED` for optional data features. Analytics
 | --- | --- | --- |
 | KR | `FEATURE_DISABLED` | Identity, purpose, retention, rights and transfer review |
 | JP | `FEATURE_DISABLED` | Data classification, purpose, retention, transfer review |
-| EU/EEA | `FEATURE_DISABLED` | Lawful basis, storage, rights, retention and ePrivacy review |
+| EU | `FEATURE_DISABLED` | Lawful basis, storage, rights, retention and ePrivacy review |
 | US | `FEATURE_DISABLED` | State mapping, notice, rights and retention review |
 
 ## Analytics Matrix
@@ -233,7 +237,7 @@ Non-target countries are `REGION_DEFERRED` for optional data features. Analytics
 | --- | --- | --- |
 | KR | `NOT_PROVEN` | `FEATURE_DISABLED` |
 | JP | `NOT_PROVEN` | `FEATURE_DISABLED` |
-| EU/EEA | `OPT_IN_REQUIRED` for conservative nonessential terminal-access baseline, plus GDPR Gates | `FEATURE_DISABLED` |
+| EU | `OPT_IN_REQUIRED` for conservative nonessential terminal-access baseline, plus GDPR Gates | `FEATURE_DISABLED` |
 | US | `NOT_PROVEN`; federal representations/security plus state overlays | `FEATURE_DISABLED` |
 
 The relay implementation, EU project and token configuration do not activate Analytics or establish compliance.
@@ -308,7 +312,7 @@ The following are unresolved and must not be guessed:
 | --- | --- | --- | --- | --- |
 | KR | Yes | Yes, only under a future exact storage contract | No | No |
 | JP | Yes | Yes, only under a future exact storage contract | No | No |
-| EU/EEA | Yes | Yes, only under a future exact storage/ePrivacy contract | No | No |
+| EU | Yes | Yes, only under a future exact storage/ePrivacy contract | No | No |
 | US | Yes | Yes, only under a future state-aware contract | No | No |
 
 The table records a Product risk-reduction recommendation, not statutory permission.
@@ -352,7 +356,8 @@ This recommendation preserves Product usefulness while deferring optional proces
 - MyOTT operating entity, establishment, revenue, user-volume and exact launch-country facts.
 - Whether California or another US state threshold applies.
 - Exact Korean/Japanese transfer basis and notices for the activated PostHog flow.
-- EU/EEA Member State ePrivacy variations and precise lawful basis by processing step.
+- EU Member State ePrivacy variations and precise lawful basis by processing step.
+- Non-EU EEA country policy, which is outside the current Phase 1 review scope.
 - DPA execution, subprocessor/transfer readback and project retention at activation time.
 - Server/hosting log fields and retention in the deployed architecture.
 - Signed consent receipt legal classification, expiry, deletion and replay protection.
