@@ -2,6 +2,21 @@
 
 프로젝트의 주요 변경 사항을 날짜별로 기록합니다.
 
+## 2026-09-10 - Growth Measurement Event Taxonomy
+
+### 변경 내용
+
+- acquisition부터 data-network-effect까지 이어지는 vendor-neutral event registry와 privacy-safe identity/property 경계를 정본화했습니다.
+- 30개 first-class KPI의 numerator, denominator, eligible population, identity, UTC window와 current measurability를 고정했습니다.
+
+### 이유
+
+- Analytics vendor나 dashboard가 Product metric 의미를 먼저 결정하거나, continuity identity와 미수집 상태를 실제 growth evidence로 오인하지 않게 하기 위해서입니다.
+
+### 다음 작업
+
+- `MYOTT_PRIVACY_CONSENT_MEASUREMENT_ELIGIBILITY_MATRIX_V1`에서 event/metric class별 실제 enablement eligibility를 별도 Gate로 판정합니다.
+
 ## 2026-09-10 - SEO Indexability Launch Architecture
 
 ### 변경 내용

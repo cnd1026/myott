@@ -2,6 +2,22 @@
 
 개발 과정에서의 작업 내용, 결정, 아쉬운 점, 다음 개선 사항을 날짜별로 기록합니다.
 
+## 2026-09-10 - Growth Measurement Event Taxonomy
+
+### 오늘 작업
+
+- 현재 Product surface와 Global/Guest/SEO 정본을 대조해 5개 core event, 7개 future capability event와 derived cohort state를 분리했습니다.
+- activation, retention, referral, duplicate avoidance와 organic growth KPI 공식을 vendor-neutral contract로 작성했습니다.
+
+### 결정한 것
+
+- Product continuity identity는 Analytics identity가 아니며, cross-session identity가 승인되지 않으면 retention은 0이 아니라 `NOT_MEASURABLE`입니다.
+- Raw user text와 fingerprint를 baseline measurement에서 제외하고 metric denominator를 dashboard별로 변경하지 않습니다.
+
+### 다음 개선
+
+- 별도 Privacy/Consent Task에서 session-only, persistent identity와 jurisdiction별 measurement eligibility를 확정한 뒤에만 instrumentation을 검토합니다.
+
 ## 2026-09-10 - SEO Indexability Launch Architecture
 
 ### 오늘 작업

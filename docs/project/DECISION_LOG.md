@@ -185,3 +185,9 @@ Guest data를 account에 연결하는 것은 login의 자동 효과가 아닙니
 Search indexability는 canonical host, production parity, exact build/runtime, metadata, robots, sitemap, active-locale hreflang, noindex origin, Security/Release와 Founder approval이 모두 검증될 때까지 `INDEXABILITY_HOLD`를 유지합니다. 현재 Production의 `x-robots-tag: noindex`는 source가 정확히 증명되기 전에는 제거하지 않습니다.
 
 Indexable public host는 하나만 허용하며 preview와 noncanonical deployment는 duplicate index 대상이 되어서는 안 됩니다. Sitemap과 hreflang은 active, public, content-complete canonical locale만 광고하고, inactive English runtime이나 존재하지 않는 alternate를 노출하지 않습니다. 실제 activation과 rollback은 별도 Release/Production authority를 요구합니다.
+
+## DL-032 Vendor-Neutral Growth Measurement Contract
+
+Growth KPI의 목적, numerator, denominator, eligible population, identity와 UTC window를 Analytics vendor 선택 전에 Product contract로 고정합니다. Dashboard나 vendor default는 같은 KPI의 denominator를 조용히 바꿀 수 없으며 semantic/schema change는 versioned comparison boundary를 남깁니다.
+
+Product continuity, Analytics, account와 marketing identity는 서로 자동 호환되지 않습니다. Raw user free text, direct/sensitive identifiers, precise location, raw IP와 fingerprint는 baseline Growth event에서 제외하고, persistent identity가 승인되지 않은 retention metric은 fingerprint로 보충하지 않고 `NOT_MEASURABLE`로 분류합니다. 실제 instrumentation은 별도 Privacy/Consent/Legal/Product Gate를 요구합니다.
