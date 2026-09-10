@@ -116,18 +116,28 @@ These are Product policy classifications, not statements that a statute affirmat
 
 ## South Korea
 
+`SUPPORTED_MODE = STATELESS_RECOMMENDATION_ONLY`
+`CORE_STATELESS_RECOMMENDATION = SUPPORTED_WITH_REQUIREMENTS`
+
 | Feature | Status | Basis / condition |
 | --- | --- | --- |
 | Core stateless recommendation | `ALLOWED_BY_CURRENT_PRODUCT_POLICY` | Keep request data bounded, publish accurate purposes/notices and apply security controls. |
 | Guest continuity | `FEATURE_DISABLED` | Identity, retention, rights and consent/legal-basis details are not implemented. |
 | Analytics | `FEATURE_DISABLED` | Overseas-transfer basis/notice, processor terms, consent and withdrawal implementation require review. |
 | Account | `FEATURE_DISABLED` | Optional-account legal and operational controls are deferred. |
+| Guest-to-account merge | `FEATURE_DISABLED` | Account and continuity remain off. |
 | Persistent personalization | `FEATURE_DISABLED` | Retention, rights and purpose limitation contract absent. |
-| Signed consent receipt | `LEGAL_REVIEW_REQUIRED` | Cookie/storage classification, expiry, withdrawal and replay lifecycle unresolved. |
+| Consent / signed receipt | `LEGAL_REVIEW_REQUIRED` | Cookie/storage classification, expiry, withdrawal and replay lifecycle unresolved. |
+| Privacy Center requirements | `LEGAL_REVIEW_REQUIRED` | Purpose, categories, transfer, retention, rights/contact and change/withdraw controls need final drafting. |
+| PostHog processor disclosure | `LEGAL_REVIEW_REQUIRED` | Entrustment/processor role and exact public disclosure require activated-flow review. |
+| Cross-border / transfer review | `LEGAL_REVIEW_REQUIRED` | Exact Article 28-8 basis and notice path are not selected. |
 
-`KR_ANALYTICS_LEGAL_MINIMUM = NOT_PROVEN`; `KR_PHASE1_PRODUCT_POLICY = ANALYTICS_OFF`.
+`KR_ANALYTICS_LEGAL_MINIMUM = NOT_PROVEN`; `KR_ANALYTICS_POLICY_STATE = ANALYTICS_OFF`; `KR_PHASE1_PRODUCT_POLICY = ANALYTICS_OFF`.
 
 ## Japan
+
+`SUPPORTED_MODE = STATELESS_RECOMMENDATION_ONLY`
+`CORE_STATELESS_RECOMMENDATION = SUPPORTED_WITH_REQUIREMENTS`
 
 | Feature | Status | Basis / condition |
 | --- | --- | --- |
@@ -135,12 +145,19 @@ These are Product policy classifications, not statements that a statute affirmat
 | Guest continuity | `FEATURE_DISABLED` | Personal-related/personal-data classification and retention/right handling remain unresolved. |
 | Analytics | `FEATURE_DISABLED` | Foreign-transfer role, information provision, consent/alternative basis and provider safeguards require review. |
 | Account | `FEATURE_DISABLED` | Account-linked data and cross-border processing are not approved. |
+| Guest-to-account merge | `FEATURE_DISABLED` | Account and continuity remain off. |
 | Persistent personalization | `FEATURE_DISABLED` | Purpose, retention and user-right mechanics are not implemented. |
-| Signed consent receipt | `LEGAL_REVIEW_REQUIRED` | Receipt classification, duration, integrity and deletion treatment unresolved. |
+| Consent / signed receipt | `LEGAL_REVIEW_REQUIRED` | Receipt classification, duration, integrity and deletion treatment unresolved. |
+| Privacy Center requirements | `LEGAL_REVIEW_REQUIRED` | Purpose, categories, foreign transfer, retention, rights/contact and consent controls need final drafting. |
+| PostHog processor disclosure | `LEGAL_REVIEW_REQUIRED` | Provider role and disclosed safeguards require activated-flow review. |
+| Cross-border / transfer review | `LEGAL_REVIEW_REQUIRED` | Exact APPI foreign-transfer condition and information path are not selected. |
 
-`JP_ANALYTICS_LEGAL_MINIMUM = NOT_PROVEN`; `JP_PHASE1_PRODUCT_POLICY = ANALYTICS_OFF`.
+`JP_ANALYTICS_LEGAL_MINIMUM = NOT_PROVEN`; `JP_ANALYTICS_POLICY_STATE = ANALYTICS_OFF`; `JP_PHASE1_PRODUCT_POLICY = ANALYTICS_OFF`.
 
 ## EU / EEA
+
+`SUPPORTED_MODE = STATELESS_RECOMMENDATION_ONLY`
+`CORE_STATELESS_RECOMMENDATION = SUPPORTED_WITH_REQUIREMENTS`
 
 | Feature | Status | Basis / condition |
 | --- | --- | --- |
@@ -148,12 +165,19 @@ These are Product policy classifications, not statements that a statute affirmat
 | Guest continuity | `FEATURE_DISABLED` | Persistent identifier/storage and lawful-basis/rights details are deferred. |
 | Analytics | `FEATURE_DISABLED` | Nonessential terminal storage/access uses explicit opt-in as the conservative minimum; GDPR lawful basis, withdrawal, processor and transfer controls also remain. |
 | Account | `FEATURE_DISABLED` | Account processing, rights and retention implementation are deferred. |
+| Guest-to-account merge | `FEATURE_DISABLED` | Account and continuity remain off. |
 | Persistent personalization | `FEATURE_DISABLED` | Profiling/lawful basis/minimization and rights require a separate Gate. |
-| Signed consent receipt | `LEGAL_REVIEW_REQUIRED` | Proof, expiry, integrity, cookie/storage status and withdrawal propagation unresolved. |
+| Consent / signed receipt | `LEGAL_REVIEW_REQUIRED` | Proof, expiry, integrity, cookie/storage status and withdrawal propagation unresolved. |
+| Privacy Center requirements | `LEGAL_REVIEW_REQUIRED` | Controller identity, purposes, bases, recipients/transfers, retention, rights and withdrawal need final drafting. |
+| PostHog processor disclosure | `LEGAL_REVIEW_REQUIRED` | Article 28 role/DPA, subprocessors and public notice require activated-flow review. |
+| Cross-border / transfer review | `LEGAL_REVIEW_REQUIRED` | Chapter V mechanism and actual subprocessor/transit path are not finally verified. |
 
-`EU_EEA_NONESSENTIAL_TERMINAL_ACCESS = EXPLICIT_OPT_IN_REQUIRED`; `EU_EEA_PHASE1_PRODUCT_POLICY = ANALYTICS_OFF`. GDPR and ePrivacy are distinct layers, and Member State implementation can add variation.
+`EU_EEA_NONESSENTIAL_TERMINAL_ACCESS = EXPLICIT_OPT_IN_REQUIRED`; `EU_EEA_ANALYTICS_POLICY_STATE = ANALYTICS_OFF`; `EU_EEA_PHASE1_PRODUCT_POLICY = ANALYTICS_OFF`. GDPR and ePrivacy are distinct layers, and Member State implementation can add variation.
 
 ## United States Common Baseline
+
+`SUPPORTED_MODE = STATELESS_RECOMMENDATION_ONLY`
+`CORE_STATELESS_RECOMMENDATION = SUPPORTED_WITH_REQUIREMENTS`
 
 | Feature | Status | Basis / condition |
 | --- | --- | --- |
@@ -161,10 +185,14 @@ These are Product policy classifications, not statements that a statute affirmat
 | Guest continuity | `FEATURE_DISABLED` | State-law coverage and rights/notice details have not been mapped. |
 | Analytics | `FEATURE_DISABLED` | State applicability, notice, opt-out/consent and sensitive-data boundaries are incomplete. |
 | Account | `FEATURE_DISABLED` | State coverage, rights and retention mechanics are deferred. |
+| Guest-to-account merge | `FEATURE_DISABLED` | Account and continuity remain off. |
 | Persistent personalization | `FEATURE_DISABLED` | Profiling/targeted-advertising classifications are not reviewed. |
-| Signed consent receipt | `LEGAL_REVIEW_REQUIRED` | State-specific treatment and retention have not been mapped. |
+| Consent / signed receipt | `LEGAL_REVIEW_REQUIRED` | State-specific treatment and retention have not been mapped. |
+| Privacy Center requirements | `LEGAL_REVIEW_REQUIRED` | Notice, rights, state applicability, retention and opt-out/consent content need final drafting. |
+| PostHog processor disclosure | `LEGAL_REVIEW_REQUIRED` | Service-provider/contractor role and contract/disclosure facts require review if a state law applies. |
+| Cross-border / transfer review | `NOT_PROVEN` | No uniform US transfer rule is asserted; federal, state, contract and provider facts remain separate. |
 
-`US_COMMON_ANALYTICS_LEGAL_MINIMUM = NOT_PROVEN`; `US_PHASE1_PRODUCT_POLICY = ANALYTICS_OFF`.
+`US_COMMON_ANALYTICS_LEGAL_MINIMUM = NOT_PROVEN`; `US_ANALYTICS_POLICY_STATE = ANALYTICS_OFF`; `US_PHASE1_PRODUCT_POLICY = ANALYTICS_OFF`.
 
 ## California Overlay
 
@@ -252,6 +280,16 @@ All reviewed regions: `FEATURE_DISABLED`. MyOTT must not infer that Product valu
 ## Privacy Center Route Requirements
 
 Before public mount, a Privacy Center must provide jurisdiction-appropriate, accessible, equal-status allow/deny/withdraw controls where Analytics can be offered; explain session-only/no-persistent-Analytics-ID behavior; expose effective policy state separately from the user's choice; provide current provider/transfer disclosures as required; and remain useful when Analytics is unavailable. The current unmounted copy/model foundation is not proof of a compliant public notice.
+
+| Future route | Current status | Required content categories |
+| --- | --- | --- |
+| `/privacy/kr` | `LEGAL_REVIEW_REQUIRED` | Product purpose/data, stateless mode, receipt, Analytics/provider, overseas transfer, retention, choice change, rights/contact |
+| `/privacy/jp` | `LEGAL_REVIEW_REQUIRED` | Use purpose/data, stateless mode, receipt, Analytics/provider, foreign transfer, retention, choice change, rights/contact |
+| `/privacy/eu` | `LEGAL_REVIEW_REQUIRED` | Controller, purposes/bases, data, terminal access, receipt, processor/transfers, retention, withdrawal and rights/contact |
+| `/privacy/us` | `LEGAL_REVIEW_REQUIRED` | Notice categories, use/disclosure, state applicability, provider role, retention, choices and rights/contact |
+| `/privacy/global` | `LEGAL_REVIEW_REQUIRED` | Reviewed scopes, unreviewed-region limitations, intentionally disabled collection/storage, expansion policy and authority links |
+
+`PRIVACY_CENTER_ROUTE_IMPLEMENTATION = 0`; `PRIVACY_CENTER_PUBLIC_MOUNT = 0`.
 
 ## Retention / Deletion Questions
 
