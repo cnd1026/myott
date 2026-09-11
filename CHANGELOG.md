@@ -2,6 +2,18 @@
 
 프로젝트의 주요 변경 사항을 날짜별로 기록합니다.
 
+## 2026-09-11 - Codex Mode V2 UI Semantic Reconciliation
+
+### 변경 내용
+
+- Founder-observed Astra/Daybreak Blue six-option UI snapshot을 dated volatile evidence로 기록했습니다.
+- OpenAI 공식 자료에 맞춰 Ultra를 maximum reasoning과 eligible-user additional-agent 가능성을 가진 Product reasoning choice로 교정했습니다.
+- Daybreak Blue를 general capability ladder와 분리된 defensive-security specialist access track으로 명확히 했습니다.
+
+### 불변 범위
+
+- Luna/Terra/Sol/Astra routing ladder, lowest-sufficient rules, runtime, Nd_core, Local Continuity, Main, Push, Release, Production과 Deployment 변경은 없습니다.
+
 ## 2026-09-11 - Stateless Phase 1 Product Canon Sync
 
 ### 변경 내용

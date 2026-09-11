@@ -6,6 +6,7 @@
 
 | Task ID | Task | Commit | Review | 상태 |
 | --- | --- | --- | --- | --- |
+| MYOTT_CODEX_MODE_V2_UI_SEMANTIC_RECONCILIATION_V1 | Codex Mode V2 UI semantic reconciliation | `this commit` | Founder UI snapshot과 official Ultra/Daybreak semantics를 대조해 Ultra reasoning choice와 Daybreak defensive access track을 교정. Runtime/Nd_core/Continuity 변경 없음. | local policy reconciliation complete |
 | MYOTT_GIT_CANON_SYNC_V1 | Stateless Phase 1 Product canon sync | `this commit` | Founder Option A, Free-first cost policy, current Status/Context와 matrix post-research disposition을 동기화. Product runtime/Main/Push/Release 변경 없음. | local canonical sync complete |
 | MYOTT_PHASE1_JURISDICTION_OFFICIAL_SOURCE_POLICY_MATRIX_V1_SCOPE_RECONCILIATION | Phase 1 jurisdiction matrix scope reconciliation | `this commit` | Current scope를 KR/JP/EU/US로 좁히고 non-EU EEA를 out-of-scope/not-reviewed로 분류. EU official evidence와 Founder policy recommendation은 보존. | local docs correction complete / Founder jurisdiction decision required |
 | MYOTT_PHASE1_JURISDICTION_OFFICIAL_SOURCE_POLICY_MATRIX_V1 | Phase 1 jurisdiction official-source policy matrix | `this commit` | KR/JP/EU/US official primary sources를 current privacy architecture에 대조하고 stateless core, optional-feature reduction, paid-counsel future triggers와 Founder policy options를 정리. | local docs packet complete / jurisdiction policy Founder decision required |

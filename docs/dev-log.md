@@ -2,6 +2,22 @@
 
 개발 과정에서의 작업 내용, 결정, 아쉬운 점, 다음 개선 사항을 날짜별로 기록합니다.
 
+## 2026-09-11 - Codex Mode V2 UI Semantic Reconciliation
+
+### 오늘 작업
+
+- Founder direct UI observation을 current account UI snapshot으로 분류하고 OpenAI 공식 Ultra/Daybreak 자료와 기존 V2 정책을 대조했습니다.
+- 기존 orchestration-only Ultra 해석을 역사로 보존하면서 current Product semantics로 supersede했습니다.
+
+### 결정한 것
+
+- Ultra는 maximum reasoning을 사용하는 Product reasoning choice이며 eligible user에게 additional agents를 사용할 수 있지만, 내부적으로 Max와 완전히 동일하다고 추론하지 않습니다.
+- Daybreak Blue는 GPT-5.6 Sol 기반 defensive-security access track이며 general model ladder의 상하 tier가 아닙니다.
+
+### 다음 개선
+
+- HQ와 CTO가 이 local policy commit을 검토한 뒤에만 별도한 `ND_CORE_GIT_CANON_AUDIT_V1` 순서를 결정합니다.
+
 ## 2026-09-11 - Stateless Phase 1 Product Canon Sync
 
 ### 오늘 작업
