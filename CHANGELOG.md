@@ -2,6 +2,18 @@
 
 프로젝트의 주요 변경 사항을 날짜별로 기록합니다.
 
+## 2026-09-11 - Stateless Phase 1 Product Canon Sync
+
+### 변경 내용
+
+- Founder 승인 `OPTION_A_STATELESS_GLOBAL_FIRST_CORE`와 `KR / JP / EU / US` 범위를 Product decision, memory와 jurisdiction matrix에 지속 기록했습니다.
+- Free-first revenue-triggered expansion 원칙과 `DOMAIN_ONLY` paid baseline을 Product memory에 추가했습니다.
+- 오래된 Sprint 5/9 current 표기를 historical snapshot과 현재 Phase 1 status pointer로 정합화했습니다.
+
+### 불변 범위
+
+- Product runtime, package/lock/env, Private Continuity, Main, Push, Release, Production과 Deployment 변경은 없습니다.
+
 ## 2026-09-11 - Phase 1 Jurisdiction Scope Reconciliation
 
 ### 변경 내용

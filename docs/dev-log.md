@@ -2,6 +2,22 @@
 
 개발 과정에서의 작업 내용, 결정, 아쉬운 점, 다음 개선 사항을 날짜별로 기록합니다.
 
+## 2026-09-11 - Stateless Phase 1 Product Canon Sync
+
+### 오늘 작업
+
+- Post-research Founder Option A disposition과 Free-first Product cost policy를 canonical owner에 반영했습니다.
+- Project Status와 Context의 오래된 Sprint current 표기를 역사로 보존하면서 현재 authority pointer를 세웠습니다.
+
+### 결정한 것
+
+- Phase 1 core는 `KR / JP / EU / US`의 stateless recommendation이며 optional persistent capability와 Analytics는 현재 OFF입니다.
+- 이 OFF 상태는 future architecture 삭제가 아니라 material evidence 뒤 재검토 가능한 Phase 1 정책입니다.
+
+### 다음 개선
+
+- Codex Mode의 current UI option ordering과 Ultra 의미는 별도 `MYOTT_CODEX_MODE_V2_UI_SEMANTIC_RECONCILIATION_V1`에서 대조해야 합니다.
+
 ## 2026-09-11 - Phase 1 Jurisdiction Scope Reconciliation
 
 ### 오늘 작업

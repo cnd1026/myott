@@ -6,7 +6,7 @@ Research snapshot: 2026-09-11 KST
 
 MyOTT Phase 1의 가장 낮은 법률·비용·운영 위험 launch mode는 계정, 지속 Guest continuity, 지속 personalization과 nonessential Analytics를 끈 `STATELESS_RECOMMENDATION_ONLY`입니다. 한국, 일본, EU 회원국과 미국에 대해 이 mode는 현재 공식 자료상 core recommendation을 유지할 수 있는 보수적 Product 정책 후보이지만, 법률 자문이나 관할별 compliance 인증은 아닙니다.
 
-Founder 결정을 기다리는 동안 네 검토 지역 모두에서 Analytics는 `ANALYTICS_OFF`로 유지합니다. Country hint는 legal jurisdiction이 아니며, 승인되지 않은 국가나 불명확한 신호는 optional data features를 활성화하지 않습니다.
+Research 당시 Founder 결정을 기다리는 동안 네 검토 지역 모두에서 Analytics는 `ANALYTICS_OFF`로 유지했습니다. 현재 Founder disposition은 아래 `Founder Disposition / Post-Research Product Decision`에서 확인합니다. Country hint는 legal jurisdiction이 아니며, 승인되지 않은 국가나 불명확한 신호는 optional data features를 활성화하지 않습니다.
 
 ## Founder Free-First Legal Strategy
 
@@ -350,6 +350,29 @@ The table records a Product risk-reduction recommendation, not statutory permiss
 - Paid counsel: not required now for this deliberately reduced operating mode, but future triggers above remain binding.
 
 This recommendation preserves Product usefulness while deferring optional processing. Founder approval is required before it becomes binding Product policy.
+
+## Founder Disposition / Post-Research Product Decision
+
+Decision date: 2026-09-11
+
+Founder approved `OPTION_A_STATELESS_GLOBAL_FIRST_CORE` after completion of the research and recommendation above.
+
+- `PHASE1_SCOPE = KR / JP / EU / US`
+- `NON_EU_EEA = OUT_OF_SCOPE / NOT_REVIEWED`
+- `KR = STATELESS_RECOMMENDATION_ONLY`
+- `JP = STATELESS_RECOMMENDATION_ONLY`
+- `EU = STATELESS_RECOMMENDATION_ONLY`
+- `US = STATELESS_RECOMMENDATION_ONLY`
+- `CORE_STATELESS_RECOMMENDATION = ON`
+- `ANALYTICS = OFF`
+- `PERSISTENT_GUEST_CONTINUITY = OFF`
+- `ACCOUNT = OFF`
+- `GUEST_TO_ACCOUNT_MERGE = OFF`
+- `PERSISTENT_PERSONALIZATION = OFF`
+- `MARKETING = OFF`
+- `OPTIONAL_PERSISTENT_CAPABILITIES = OFF`
+
+The earlier Founder-pending language remains the historical research-time state and is superseded only as the current decision status. This Phase 1 disposition is reopenable after material evidence or an approved business trigger and is not worldwide compliance certification.
 
 ## Known Unknowns
 
