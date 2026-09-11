@@ -2,6 +2,18 @@
 
 프로젝트의 주요 변경 사항을 날짜별로 기록합니다.
 
+## 2026-09-11 - Phase 1 Analytics Server Hard-Off
+
+### 변경 내용
+
+- `/api/analytics/event` 진입점에 server-owned Phase 1 Analytics OFF 정책을 추가했습니다.
+- 유효·무효·사용 불가능 요청과 fake token이 있어도 body 처리나 provider dispatch 전에 HTTP 404 `ANALYTICS_DISABLED`로 종료하도록 고정했습니다.
+- 기존 same-origin relay, canonical event validation과 PostHog provider architecture는 future activation 기반으로 보존했습니다.
+
+### 불변 범위
+
+- Product event wiring, Analytics identity, jurisdiction/geofence, Account, persistence, Marketing, package/lock/env, live provider Network, Main, Push, Release, Production과 Deployment 변경은 없습니다.
+
 ## 2026-09-11 - Codex Mode V2 UI Semantic Reconciliation
 
 ### 변경 내용

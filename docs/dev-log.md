@@ -2,6 +2,22 @@
 
 개발 과정에서의 작업 내용, 결정, 아쉬운 점, 다음 개선 사항을 날짜별로 기록합니다.
 
+## 2026-09-11 - Phase 1 Analytics Server Hard-Off
+
+### 오늘 작업
+
+- 유일한 deployed Analytics dispatch entry인 `/api/analytics/event`의 call graph를 확인하고 route 진입점에 Phase 1 hard-off를 적용했습니다.
+- fake token과 mocked fetch를 사용해 valid, invalid와 unusable 요청이 모두 provider fetch 0으로 종료되는지 검증했습니다.
+
+### 결정한 것
+
+- 환경변수나 token 존재는 Analytics를 활성화할 수 없으며, future activation에는 별도 승인된 source policy 변경이 필요합니다.
+- hard-off는 relay architecture 삭제가 아니라 현재 운영 정책의 server-side enforcement입니다.
+
+### 다음 개선
+
+- HQ와 CTO가 local commit evidence를 검토한 뒤 Product-value sequencing을 다시 결정합니다.
+
 ## 2026-09-11 - Codex Mode V2 UI Semantic Reconciliation
 
 ### 오늘 작업

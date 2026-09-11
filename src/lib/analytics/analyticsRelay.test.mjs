@@ -102,6 +102,26 @@ function relayRequest(body, {
   return new Request("https://myott.example/api/analytics/event", init);
 }
 
+async function invokePhase1AnalyticsRoute(request) {
+  const route = await import("../../../app/api/analytics/event/route.js");
+  const originalFetch = globalThis.fetch;
+  let providerFetchCount = 0;
+
+  process.env.POSTHOG_PROJECT_TOKEN = TEST_TOKEN;
+  globalThis.fetch = async () => {
+    providerFetchCount += 1;
+    return { ok: true };
+  };
+
+  try {
+    const response = await route.POST(request);
+    return { response, providerFetchCount, route };
+  } finally {
+    delete process.env.POSTHOG_PROJECT_TOKEN;
+    globalThis.fetch = originalFetch;
+  }
+}
+
 test("registry contains exactly the five approved canonical events", () => {
   assert.deepEqual(CANONICAL_EVENT_NAMES, [
     "product_session_started",
@@ -394,8 +414,50 @@ test("provider token never appears in relay response", async () => {
 test("route surface exports POST and no alternate method", async () => {
   const route = await import("../../../app/api/analytics/event/route.js");
   assert.equal(typeof route.POST, "function");
+  assert.deepEqual(route.PHASE1_ANALYTICS_SERVER_POLICY, {
+    enabled: false,
+    reason: "ANALYTICS_DISABLED",
+  });
   assert.equal("GET" in route, false);
   assert.equal("PUT" in route, false);
+});
+
+test("Phase 1 hard-off rejects a valid direct request before provider dispatch", async () => {
+  const { response, providerFetchCount } = await invokePhase1AnalyticsRoute(relayRequest(canonicalEvent()));
+
+  assert.equal(response.status, 404);
+  assert.equal(response.headers.get("cache-control"), "no-store");
+  assert.deepEqual(await response.json(), { status: "DISABLED", reason: "ANALYTICS_DISABLED" });
+  assert.equal(providerFetchCount, 0);
+});
+
+test("Phase 1 hard-off dominates invalid canonical input with a configured token", async () => {
+  const { response, providerFetchCount } = await invokePhase1AnalyticsRoute(relayRequest({ event_name: "unknown_event" }));
+
+  assert.equal(response.status, 404);
+  assert.deepEqual(await response.json(), { status: "DISABLED", reason: "ANALYTICS_DISABLED" });
+  assert.equal(providerFetchCount, 0);
+});
+
+test("Phase 1 hard-off does not inspect an unusable request", async () => {
+  const unusableRequest = new Proxy({}, {
+    get() {
+      throw new Error("REQUEST_MUST_NOT_BE_INSPECTED_WHILE_ANALYTICS_IS_DISABLED");
+    },
+  });
+  const { response, providerFetchCount } = await invokePhase1AnalyticsRoute(unusableRequest);
+
+  assert.equal(response.status, 404);
+  assert.deepEqual(await response.json(), { status: "DISABLED", reason: "ANALYTICS_DISABLED" });
+  assert.equal(providerFetchCount, 0);
+});
+
+test("Phase 1 hard-off adds no Product event wiring or jurisdiction runtime", () => {
+  const pageSource = readFileSync(new URL("../../../app/page.jsx", import.meta.url), "utf8");
+  const routeSource = readFileSync(new URL("../../../app/api/analytics/event/route.js", import.meta.url), "utf8");
+
+  assert.doesNotMatch(pageSource, /createAnalyticsClient|createAnalyticsConsentEligibilityRuntime|\/api\/analytics\/event/);
+  assert.doesNotMatch(routeSource, /country|jurisdiction|geofence|locale/i);
 });
 
 test("implementation contains no queue, retry, delayed, beacon, or storage mechanism", () => {
