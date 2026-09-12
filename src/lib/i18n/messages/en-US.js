@@ -59,6 +59,8 @@ const enUSMessages = Object.freeze({
   "results.eyebrow": "Recommendations",
   "results.title": "Your recommendations",
   "results.count": "{count} results",
+  "results.showMore": "Show {remainingCount} more recommendations",
+  "results.showFirstThree": "Show the first 3 only",
   "results.appliedConditions": "Applied recommendation filters",
   "results.appliedConditionsTitle": "Applied filters",
   "results.dirtyTitle": "Your filters changed. Get updated recommendations.",

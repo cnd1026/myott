@@ -6,7 +6,7 @@ import fs from "node:fs";
 import { MESSAGE_CATALOGS, getMessage } from "./messageCatalog.js";
 
 const BASE_COMMIT = "28c5b12d995d2badc6abea8fde0b6e8148313444";
-const PAGE_PRESENTATION_TASK_BASE = "a99da68937c64fcd4a4508346ff4bee4ccea4472";
+const CURRENT_TASK_BASE = "9e6483100879c6e1bca4cbfbccb4953405f0097e";
 const LAYOUT_KEYS = Object.freeze([
   "attribution.heading", "attribution.justWatch", "attribution.tmdbDisclaimer",
   "attribution.tmdbLogoAlt", "metadata.description", "metadata.title",
@@ -42,7 +42,8 @@ const PAGE_KEYS = Object.freeze([
   "related.loadingLabel", "related.next", "related.previous", "related.retryHint", "related.title",
   "results.appliedConditions", "results.appliedConditionsTitle", "results.count",
   "results.dirtyDescription", "results.dirtyTitle", "results.empty", "results.eyebrow",
-  "results.loading", "results.rerun", "results.title", "trust.contentType", "trust.firstLook",
+  "results.loading", "results.rerun", "results.showFirstThree", "results.showMore", "results.title",
+  "trust.contentType", "trust.firstLook",
   "trust.inputTitles", "trust.primaryGenre", "trust.runtime", "trust.selectedOptions",
   "trust.tasteConnection",
 ]);
@@ -55,6 +56,7 @@ const DEFERRED_GENERATED_KEYS = Object.freeze([
 
 const layoutSource = fs.readFileSync("app/layout.jsx", "utf8");
 const pageSource = fs.readFileSync("app/page.jsx", "utf8");
+const globalStyleSource = fs.readFileSync("app/globals.css", "utf8");
 const runtimeDiff = execFileSync("git", ["diff", BASE_COMMIT, "--", "app/layout.jsx", "app/page.jsx"], { encoding: "utf8" });
 const baseSource = [
   "app/layout.jsx",
@@ -73,6 +75,15 @@ test("layout and page use the accepted runtime catalog API", () => {
   assert.deepEqual(messageKeys(pageSource), [...PAGE_KEYS].sort());
 });
 
+test("shortlist wiring is mobile-only, accessible, and visually scoped", () => {
+  assert.match(pageSource, /shortlistEnabled:\s*isMobileViewport/);
+  assert.match(pageSource, /aria-controls="resultGrid"/);
+  assert.match(pageSource, /aria-expanded=\{resultShortlistState\.expanded\}/);
+  assert.match(globalStyleSource, /\.result-shortlist-actions\s*\{[^}]*justify-content:\s*center/s);
+  assert.match(globalStyleSource, /\.result-shortlist-actions \.secondary-button\s*\{[^}]*background:\s*var\(--accent\)/s);
+  assert.match(globalStyleSource, /\.attribution-tmdb img\s*\{[^}]*width:\s*64px/s);
+});
+
 test("runtime binding is Korean-only and public English activation stays absent", () => {
   assert.match(layoutSource, /const RUNTIME_UI_LOCALE = "ko-KR"/);
   assert.match(pageSource, /const RUNTIME_UI_LOCALE = "ko-KR"/);
@@ -89,6 +100,10 @@ test("every wired key exists in the accepted Korean catalog", () => {
 });
 
 test("wired Korean copy is source-equivalent to the accepted base", () => {
+  const taskMessages = new Map([
+    ["results.showFirstThree", "처음 3개만 보기"],
+    ["results.showMore", "추천 {remainingCount}개 더 보기"],
+  ]);
   const interpolatedBaseSnippets = new Map([
     ["conditions.additionalOptionsSelected", "`추가 옵션 ${count}개 선택됨`"],
     ["conditions.ottCount", "`OTT ${selectedOtt.length}`"],
@@ -106,6 +121,10 @@ test("wired Korean copy is source-equivalent to the accepted base", () => {
 
   for (const key of [...LAYOUT_KEYS, ...PAGE_KEYS]) {
     const catalogValue = MESSAGE_CATALOGS["ko-KR"][key];
+    if (taskMessages.has(key)) {
+      assert.equal(catalogValue, taskMessages.get(key), key);
+      continue;
+    }
     if (!catalogValue.includes("{")) {
       assert.ok(baseSource.includes(catalogValue), `${key}: ${catalogValue}`);
       continue;
@@ -144,7 +163,7 @@ test("runtime wiring adds no persistence, tracking, or external effects", () => 
 });
 
 test("package, lock, provider, API, and recommendation semantics paths remain untouched", () => {
-  const changed = execFileSync("git", ["diff", "--name-only", PAGE_PRESENTATION_TASK_BASE], { encoding: "utf8" })
+  const changed = execFileSync("git", ["diff", "--name-only", CURRENT_TASK_BASE], { encoding: "utf8" })
     .trim().split(/\r?\n/).filter(Boolean);
   assert.equal(changed.includes("package.json"), false);
   assert.equal(changed.includes("pnpm-lock.yaml"), false);

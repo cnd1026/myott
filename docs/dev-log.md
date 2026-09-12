@@ -2,6 +2,22 @@
 
 개발 과정에서의 작업 내용, 결정, 아쉬운 점, 다음 개선 사항을 날짜별로 기록합니다.
 
+## 2026-09-12 - Phase 1 Result Shortlist Decision Focus
+
+### 오늘 작업
+
+- 모바일 결과를 상위 3개 중심으로 시작하고 비모바일 결과는 전체를 즉시 보여주는 반응형 presentation 상태를 추가했습니다.
+- Founder QA를 반영해 모바일 CTA와 TMDB attribution의 시각적 위계를 다듬고 focused QA 81/81을 통과했습니다.
+
+### 결정한 것
+
+- 상위 3개 shortlist는 Phase 1 모바일 presentation 기본값이며 전체 ranked result와 순서는 그대로 유지합니다.
+- reveal/collapse는 추천 재요청이나 Provider 호출을 만들지 않으며 비모바일에서는 표시하지 않습니다.
+
+### 다음 개선
+
+- 이 local commit의 Product evidence를 HQ/CTO가 검토한 뒤 다음 Product-value 순서를 결정합니다.
+
 ## 2026-09-11 - Phase 1 Analytics Server Hard-Off
 
 ### 오늘 작업

@@ -45,7 +45,7 @@
 .attribution-tmdb img {
   display: block;
   flex: 0 0 auto;
-  width: 112px;
+  width: 64px;
   height: auto;
 }
 
@@ -644,6 +644,21 @@ input[type="text"]:focus {
   gap: 10px;
   justify-content: flex-start;
   padding-top: 2px;
+}
+
+.result-shortlist-actions {
+  justify-content: center;
+  padding-top: 24px;
+}
+
+.result-shortlist-actions .secondary-button {
+  border-color: var(--accent);
+  background: var(--accent);
+  color: #fff;
+}
+
+.result-shortlist-actions .secondary-button:hover {
+  background: var(--accent-strong);
 }
 
 .section-heading {
@@ -1910,6 +1925,10 @@ input[type="text"]:focus {
   .form-actions {
     flex-direction: column;
     padding-top: 0;
+  }
+
+  .result-shortlist-actions {
+    padding-top: 20px;
   }
 
   .form-actions .primary-button {

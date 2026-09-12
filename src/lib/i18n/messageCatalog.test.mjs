@@ -8,6 +8,12 @@ import {
   getMessagePlaceholders,
   validateMessageCatalogs,
 } from "./messageCatalog.js";
+import {
+  RESULT_SHORTLIST_ACTIONS,
+  createResultShortlistState,
+  presentResultShortlist,
+  reduceResultShortlist,
+} from "../recommendation/presentation/resultShortlistPresentation.js";
 
 const EXPECTED_MESSAGE_KEYS = Object.freeze([
   "actions.resetAll", "actions.submit", "attribution.heading", "attribution.justWatch",
@@ -42,7 +48,7 @@ const EXPECTED_MESSAGE_KEYS = Object.freeze([
   "results.appliedConditions", "results.appliedConditionsTitle", "results.count",
   "results.dirtyDescription", "results.dirtyTitle", "results.empty", "results.error", "results.eyebrow",
   "results.filtersTooNarrow", "results.idle", "results.loading", "results.rerun", "results.seedInsufficient",
-  "results.seedNotFound", "results.selectContentType", "results.title",
+  "results.seedNotFound", "results.selectContentType", "results.showFirstThree", "results.showMore", "results.title",
   "seedCoverage.all", "seedCoverage.deduplicated", "seedCoverage.none", "seedCoverage.partial",
   "seedCoverage.unresolved", "trust.contentType", "trust.firstLook", "trust.inputTitles",
   "trust.primaryGenre", "trust.runtime", "trust.selectedOptions", "trust.tasteConnection",
@@ -150,4 +156,101 @@ test("catalog carries UI copy only, without region or jurisdiction decisions", (
 test("catalog foundation requires no package dependency", () => {
   assert.equal(typeof getMessage, "function");
   assert.equal(typeof validateMessageCatalogs, "function");
+});
+
+function rankedResults(count) {
+  return Array.from({ length: count }, (_, index) => Object.freeze({
+    id: `rank-${index + 1}`,
+    rank: index + 1,
+  }));
+}
+
+test("shortlist presents all results through rank 3 without a reveal control", () => {
+  for (const count of [0, 1, 2, 3]) {
+    const results = rankedResults(count);
+    const presentation = presentResultShortlist(results, createResultShortlistState(), {
+      shortlistEnabled: true,
+    });
+
+    assert.deepEqual(presentation.visibleResults, results, `count ${count}`);
+    assert.equal(presentation.showReveal, false, `count ${count}`);
+    assert.equal(presentation.showCollapse, false, `count ${count}`);
+    assert.equal(presentation.remainingCount, 0, `count ${count}`);
+  }
+});
+
+test("shortlist initially presents exact ranks 1-3 and reports the remaining count", () => {
+  for (const [count, remaining] of [[4, 1], [12, 9]]) {
+    const results = rankedResults(count);
+    const presentation = presentResultShortlist(results, createResultShortlistState(), {
+      shortlistEnabled: true,
+    });
+
+    assert.deepEqual(presentation.visibleResults.map(({ id }) => id), ["rank-1", "rank-2", "rank-3"]);
+    assert.equal(presentation.totalCount, count);
+    assert.equal(presentation.remainingCount, remaining);
+    assert.equal(presentation.showReveal, true);
+    assert.equal(presentation.showCollapse, false);
+  }
+});
+
+test("reveal and collapse preserve the complete ranked result set and its order", () => {
+  const results = rankedResults(12);
+  const before = [...results];
+  const expandedState = reduceResultShortlist(
+    createResultShortlistState(),
+    { type: RESULT_SHORTLIST_ACTIONS.REVEAL },
+  );
+  const expanded = presentResultShortlist(results, expandedState, { shortlistEnabled: true });
+
+  assert.equal(expanded.visibleResults, results);
+  assert.deepEqual(expanded.visibleResults.map(({ id }) => id), before.map(({ id }) => id));
+  assert.deepEqual(results, before);
+  assert.equal(expanded.showReveal, false);
+  assert.equal(expanded.showCollapse, true);
+
+  const collapsed = presentResultShortlist(
+    results,
+    reduceResultShortlist(expandedState, { type: RESULT_SHORTLIST_ACTIONS.COLLAPSE }),
+    { shortlistEnabled: true },
+  );
+  assert.deepEqual(collapsed.visibleResults.map(({ id }) => id), ["rank-1", "rank-2", "rank-3"]);
+});
+
+test("non-mobile presentation exposes the full ranked result set without shortlist controls", () => {
+  for (const count of [0, 1, 2, 3, 4, 12]) {
+    const results = rankedResults(count);
+    const presentation = presentResultShortlist(results, createResultShortlistState(), {
+      shortlistEnabled: false,
+    });
+
+    assert.equal(presentation.visibleResults, results, `count ${count}`);
+    assert.deepEqual(presentation.visibleResults.map(({ id }) => id), results.map(({ id }) => id));
+    assert.equal(presentation.showReveal, false, `count ${count}`);
+    assert.equal(presentation.showCollapse, false, `count ${count}`);
+    assert.equal(presentation.hasAdditionalResults, false, `count ${count}`);
+    assert.equal(presentation.remainingCount, 0, `count ${count}`);
+  }
+});
+
+test("detail and draft interactions preserve state while a new successful set resets it", () => {
+  const expandedState = reduceResultShortlist(
+    createResultShortlistState(),
+    { type: RESULT_SHORTLIST_ACTIONS.REVEAL },
+  );
+
+  assert.equal(reduceResultShortlist(expandedState, { type: "DETAIL_OPENED" }), expandedState);
+  assert.equal(reduceResultShortlist(expandedState, { type: "DETAIL_CLOSED" }), expandedState);
+  assert.equal(reduceResultShortlist(expandedState, { type: "DRAFT_CRITERIA_CHANGED" }), expandedState);
+  assert.deepEqual(
+    reduceResultShortlist(expandedState, { type: RESULT_SHORTLIST_ACTIONS.RESULTS_COMMITTED }),
+    { expanded: false },
+  );
+});
+
+test("shortlist controls resolve equivalent dynamic Korean and English copy", () => {
+  assert.equal(getMessage("ko-KR", "results.showMore", { remainingCount: 9 }), "추천 9개 더 보기");
+  assert.equal(getMessage("en-US", "results.showMore", { remainingCount: 9 }), "Show 9 more recommendations");
+  assert.equal(getMessage("ko-KR", "results.showFirstThree"), "처음 3개만 보기");
+  assert.equal(getMessage("en-US", "results.showFirstThree"), "Show the first 3 only");
 });

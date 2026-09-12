@@ -2,6 +2,18 @@
 
 프로젝트의 주요 변경 사항을 날짜별로 기록합니다.
 
+## 2026-09-12 - Phase 1 Result Shortlist Decision Focus
+
+### 변경 내용
+
+- 기존 반응형 경계를 재사용해 모바일에서는 상위 3개와 접근 가능한 전체 보기/접기 동작을 제공하고, 비모바일에서는 전체 순위를 바로 표시하도록 정리했습니다.
+- Founder QA에 따라 모바일 CTA의 정렬·간격·강조를 다듬고 TMDB 고지와 문구를 유지하면서 로고의 시각적 비중을 낮췄습니다.
+
+### 검증 및 불변 범위
+
+- focused deterministic QA 81/81과 Founder Manual Re-QA PASS를 확인했습니다.
+- 결과 수·순서·데이터, 추천 ranking/scoring/retrieval, Provider 요청과 계약은 변경하지 않았습니다.
+
 ## 2026-09-11 - Phase 1 Analytics Server Hard-Off
 
 ### 변경 내용

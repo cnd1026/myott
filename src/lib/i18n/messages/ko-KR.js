@@ -59,6 +59,8 @@ const koKRMessages = Object.freeze({
   "results.eyebrow": "추천",
   "results.title": "추천 결과",
   "results.count": "{count}개",
+  "results.showMore": "추천 {remainingCount}개 더 보기",
+  "results.showFirstThree": "처음 3개만 보기",
   "results.appliedConditions": "적용된 추천 조건",
   "results.appliedConditionsTitle": "적용된 조건",
   "results.dirtyTitle": "조건이 바뀌었습니다. 다시 추천받아 주세요.",

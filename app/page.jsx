@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useReducer, useRef, useState } from "react";
 import { getMessage } from "../src/lib/i18n/messageCatalog.js";
 import { calculateRecommendationScore } from "../src/lib/recommendation/scoring/recommendationWeightEngine.js";
 import {
@@ -23,6 +23,12 @@ import {
   presentationGenreLabels,
   resolveCanonicalReasonSeed,
 } from "../src/lib/recommendation/presentation/recommendationPresentation.js";
+import {
+  RESULT_SHORTLIST_ACTIONS,
+  createResultShortlistState,
+  presentResultShortlist,
+  reduceResultShortlist,
+} from "../src/lib/recommendation/presentation/resultShortlistPresentation.js";
 import {
   applySuggestionSelection,
   buildSeedCoverageMessage,
@@ -1385,6 +1391,11 @@ export default function Home() {
   const [firstPicks, setFirstPicks] = useState([]);
   const [firstPickStatus, setFirstPickStatus] = useState("loading");
   const [results, setResults] = useState([]);
+  const [resultShortlistState, dispatchResultShortlist] = useReducer(
+    reduceResultShortlist,
+    undefined,
+    createResultShortlistState,
+  );
   const [recommendationStatus, setRecommendationStatus] = useState("idle");
   const [selectedDetail, setSelectedDetail] = useState(null);
   const [detailScrolled, setDetailScrolled] = useState(false);
@@ -1497,6 +1508,12 @@ export default function Home() {
     rationalePreferences(submittedTitles, submittedConfirmedSeeds, submittedFilters, submittedTypes, submittedOtt),
     RUNTIME_UI_LOCALE,
   ), [results, submittedTitles, submittedConfirmedSeeds, submittedFilters, submittedTypes, submittedOtt]);
+  const resultShortlist = useMemo(
+    () => presentResultShortlist(results, resultShortlistState, {
+      shortlistEnabled: isMobileViewport,
+    }),
+    [isMobileViewport, results, resultShortlistState],
+  );
   const relatedRecommendations = relatedStatus === "success" ? relatedItems : [];
   const seedCoverageMessage = buildSeedCoverageMessage(seedDiagnostics, RUNTIME_UI_LOCALE);
   const visibleProviderStatus = recommendationSession ? providerStatus : environmentProviderStatus;
@@ -1793,6 +1810,9 @@ export default function Home() {
         );
         if (!recommendationRequestGateRef.current.canCommit(request.sequence)) return;
         setResults(optionResults);
+        if (optionResults.length) {
+          dispatchResultShortlist({ type: RESULT_SHORTLIST_ACTIONS.RESULTS_COMMITTED });
+        }
         setRecommendationStatus(optionResults.length ? "success" : "empty");
         setProviderStatus(nextProviderStatus || initialProviderStatus);
         setRecommendationSession(createRecommendationSession({
@@ -1844,6 +1864,9 @@ export default function Home() {
       );
       if (!recommendationRequestGateRef.current.canCommit(request.sequence)) return;
       setResults(providerResults);
+      if (providerResults.length) {
+        dispatchResultShortlist({ type: RESULT_SHORTLIST_ACTIONS.RESULTS_COMMITTED });
+      }
       setSeedDiagnostics(nextSeedDiagnostics || initialSeedDiagnostics);
       setRecommendationStatus(providerResults.length ? "success" : "empty");
       setProviderStatus(nextProviderStatus || initialProviderStatus);
@@ -2158,6 +2181,7 @@ export default function Home() {
     setShowQuickPick(false);
     setShowConditions(false);
     setResults([]);
+    dispatchResultShortlist({ type: RESULT_SHORTLIST_ACTIONS.COLLAPSE });
     setRecommendationStatus("idle");
     setSelectedDetail(null);
     setRelatedItems([]);
@@ -2468,7 +2492,7 @@ export default function Home() {
           </div>
         ) : null}
         <div className="result-grid" id="resultGrid">
-          {results.map((item, index) => (
+          {resultShortlist.visibleResults.map((item, index) => (
             <DecisionCard
               item={item}
               enteredTitles={submittedTitles}
@@ -2483,6 +2507,27 @@ export default function Home() {
             />
           ))}
         </div>
+        {resultShortlist.hasAdditionalResults ? (
+          <div className="form-actions result-shortlist-actions">
+            <button
+              className="secondary-button"
+              type="button"
+              aria-controls="resultGrid"
+              aria-expanded={resultShortlistState.expanded}
+              onClick={() => dispatchResultShortlist({
+                type: resultShortlistState.expanded
+                  ? RESULT_SHORTLIST_ACTIONS.COLLAPSE
+                  : RESULT_SHORTLIST_ACTIONS.REVEAL,
+              })}
+            >
+              {resultShortlistState.expanded
+                ? message("results.showFirstThree")
+                : message("results.showMore", {
+                  remainingCount: resultShortlist.remainingCount,
+                })}
+            </button>
+          </div>
+        ) : null}
       </section>
 
       {showQuickPick ? (
