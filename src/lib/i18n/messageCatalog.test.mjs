@@ -11,6 +11,7 @@ import {
 import {
   RESULT_SHORTLIST_ACTIONS,
   createResultShortlistState,
+  presentResultNextAction,
   presentResultShortlist,
   reduceResultShortlist,
 } from "../recommendation/presentation/resultShortlistPresentation.js";
@@ -47,6 +48,7 @@ const EXPECTED_MESSAGE_KEYS = Object.freeze([
   "recommendationInsight.relaxedFallback", "recommendationInsight.runtimeMatch",
   "results.appliedConditions", "results.appliedConditionsTitle", "results.count",
   "results.dirtyDescription", "results.dirtyTitle", "results.empty", "results.error", "results.eyebrow",
+  "results.adjustCriteria", "results.refineDescription", "results.refineEmptyDescription", "results.refineTitle",
   "results.filtersTooNarrow", "results.idle", "results.loading", "results.rerun", "results.seedInsufficient",
   "results.seedNotFound", "results.selectContentType", "results.showFirstThree", "results.showMore", "results.title",
   "seedCoverage.all", "seedCoverage.deduplicated", "seedCoverage.none", "seedCoverage.partial",
@@ -253,4 +255,60 @@ test("shortlist controls resolve equivalent dynamic Korean and English copy", ()
   assert.equal(getMessage("en-US", "results.showMore", { remainingCount: 9 }), "Show 9 more recommendations");
   assert.equal(getMessage("ko-KR", "results.showFirstThree"), "처음 3개만 보기");
   assert.equal(getMessage("en-US", "results.showFirstThree"), "Show the first 3 only");
+});
+
+test("result refinement appears only after the complete set or an empty result", () => {
+  for (const count of [4, 12]) {
+    const mobileCollapsed = presentResultShortlist(
+      rankedResults(count),
+      createResultShortlistState(),
+      { shortlistEnabled: true },
+    );
+    assert.equal(presentResultNextAction("success", mobileCollapsed).show, false, `collapsed ${count}`);
+
+    const mobileExpanded = presentResultShortlist(
+      rankedResults(count),
+      { expanded: true },
+      { shortlistEnabled: true },
+    );
+    assert.deepEqual(presentResultNextAction("success", mobileExpanded), {
+      recovery: false,
+      show: true,
+    }, `expanded ${count}`);
+  }
+
+  for (const count of [1, 3]) {
+    const complete = presentResultShortlist(
+      rankedResults(count),
+      createResultShortlistState(),
+      { shortlistEnabled: true },
+    );
+    assert.equal(presentResultNextAction("success", complete).show, true, `mobile count ${count}`);
+  }
+
+  for (const count of [4, 12]) {
+    const complete = presentResultShortlist(
+      rankedResults(count),
+      createResultShortlistState(),
+      { shortlistEnabled: false },
+    );
+    assert.equal(presentResultNextAction("success", complete).show, true, `non-mobile count ${count}`);
+  }
+
+  assert.deepEqual(presentResultNextAction("empty", { totalCount: 0 }), {
+    recovery: true,
+    show: true,
+  });
+  assert.equal(presentResultNextAction("idle", { totalCount: 0 }).show, false);
+  assert.equal(presentResultNextAction("error", { totalCount: 0 }).show, false);
+});
+
+test("result refinement copy is paired and does not imply automatic recommendation retrieval", () => {
+  assert.equal(getMessage("ko-KR", "results.adjustCriteria"), "조건 다시 고르기");
+  assert.equal(getMessage("en-US", "results.adjustCriteria"), "Adjust criteria");
+  for (const locale of ["ko-KR", "en-US"]) {
+    for (const key of ["results.refineTitle", "results.refineDescription", "results.refineEmptyDescription"]) {
+      assert.doesNotMatch(getMessage(locale, key), /next 12|더 추천받기|same criteria/i);
+    }
+  }
 });

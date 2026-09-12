@@ -2,6 +2,19 @@
 
 프로젝트의 주요 변경 사항을 날짜별로 기록합니다.
 
+## 2026-09-12 - Phase 1 Result Next Actions
+
+### 변경 내용
+
+- 전체 결과와 결과 없음 상태에 기존 조건 영역으로 돌아가는 후속 조건 조정 CTA를 추가했습니다.
+- 모바일 접힘 상태에서는 전체 보기 CTA만 유지하고, 모바일 펼침 상태와 비모바일 전체 결과 뒤에는 조건 조정 CTA를 표시합니다.
+
+### 검증 및 불변 범위
+
+- CTA는 기존 조건 영역으로 스크롤하고 입력에 포커스하며 자동 추천 또는 Provider 요청을 만들지 않습니다.
+- focused deterministic QA 84/84와 Founder Manual QA PASS를 확인했습니다.
+- 결과 데이터, 추천 엔진, 순위와 Provider 계약은 변경하지 않았습니다.
+
 ## 2026-09-12 - Phase 1 Result Shortlist Decision Focus
 
 ### 변경 내용

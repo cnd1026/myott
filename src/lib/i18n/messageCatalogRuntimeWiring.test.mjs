@@ -41,6 +41,7 @@ const PAGE_KEYS = Object.freeze([
   "related.description", "related.empty", "related.error", "related.listLabel", "related.loading",
   "related.loadingLabel", "related.next", "related.previous", "related.retryHint", "related.title",
   "results.appliedConditions", "results.appliedConditionsTitle", "results.count",
+  "results.adjustCriteria", "results.refineDescription", "results.refineEmptyDescription", "results.refineTitle",
   "results.dirtyDescription", "results.dirtyTitle", "results.empty", "results.eyebrow",
   "results.loading", "results.rerun", "results.showFirstThree", "results.showMore", "results.title",
   "trust.contentType", "trust.firstLook",
@@ -84,6 +85,14 @@ test("shortlist wiring is mobile-only, accessible, and visually scoped", () => {
   assert.match(globalStyleSource, /\.attribution-tmdb img\s*\{[^}]*width:\s*64px/s);
 });
 
+test("post-result action reuses the criteria focus owner without requesting recommendations", () => {
+  assert.match(pageSource, /resultNextAction\.show/);
+  assert.match(pageSource, /type="button" onClick=\{focusPersonalization\}/);
+  assert.match(pageSource, /personalizationRef\.current\?\.scrollIntoView/);
+  assert.match(pageSource, /seedInputRefs\.current\.get\(seedRows\[0\]\?\.id\)\?\.focus/);
+  assert.doesNotMatch(pageSource, /onClick=\{handleSubmit\}[^>]*>\s*\{message\("results\.adjustCriteria"\)/s);
+});
+
 test("runtime binding is Korean-only and public English activation stays absent", () => {
   assert.match(layoutSource, /const RUNTIME_UI_LOCALE = "ko-KR"/);
   assert.match(pageSource, /const RUNTIME_UI_LOCALE = "ko-KR"/);
@@ -103,6 +112,10 @@ test("wired Korean copy is source-equivalent to the accepted base", () => {
   const taskMessages = new Map([
     ["results.showFirstThree", "처음 3개만 보기"],
     ["results.showMore", "추천 {remainingCount}개 더 보기"],
+    ["results.refineTitle", "원하는 작품이 아직 없나요?"],
+    ["results.refineDescription", "조건을 바꾸면 다른 추천을 받을 수 있어요."],
+    ["results.refineEmptyDescription", "조건을 조금 바꾸면 추천 범위를 넓힐 수 있어요."],
+    ["results.adjustCriteria", "조건 다시 고르기"],
   ]);
   const interpolatedBaseSnippets = new Map([
     ["conditions.additionalOptionsSelected", "`추가 옵션 ${count}개 선택됨`"],

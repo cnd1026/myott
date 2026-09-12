@@ -26,6 +26,7 @@ import {
 import {
   RESULT_SHORTLIST_ACTIONS,
   createResultShortlistState,
+  presentResultNextAction,
   presentResultShortlist,
   reduceResultShortlist,
 } from "../src/lib/recommendation/presentation/resultShortlistPresentation.js";
@@ -1514,6 +1515,7 @@ export default function Home() {
     }),
     [isMobileViewport, results, resultShortlistState],
   );
+  const resultNextAction = presentResultNextAction(recommendationStatus, resultShortlist);
   const relatedRecommendations = relatedStatus === "success" ? relatedItems : [];
   const seedCoverageMessage = buildSeedCoverageMessage(seedDiagnostics, RUNTIME_UI_LOCALE);
   const visibleProviderStatus = recommendationSession ? providerStatus : environmentProviderStatus;
@@ -2525,6 +2527,21 @@ export default function Home() {
                 : message("results.showMore", {
                   remainingCount: resultShortlist.remainingCount,
                 })}
+            </button>
+          </div>
+        ) : null}
+        {resultNextAction.show ? (
+          <div className="result-next-action">
+            <div>
+              {resultNextAction.recovery ? null : <h3>{message("results.refineTitle")}</h3>}
+              <p>
+                {resultNextAction.recovery
+                  ? message("results.refineEmptyDescription")
+                  : message("results.refineDescription")}
+              </p>
+            </div>
+            <button className="secondary-button" type="button" onClick={focusPersonalization}>
+              {message("results.adjustCriteria")}
             </button>
           </div>
         ) : null}

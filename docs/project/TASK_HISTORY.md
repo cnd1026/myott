@@ -6,6 +6,7 @@
 
 | Task ID | Task | Commit | Review | 상태 |
 | --- | --- | --- | --- | --- |
+| MYOTT_PHASE1_RESULT_NEXT_ACTIONS_V1 | Phase 1 post-result refinement action | `this commit` | 모바일 접힘 reveal-only 위계, 모바일 펼침·비모바일 전체 결과와 zero-result 조건 조정 CTA를 84/84 focused QA와 Founder Manual QA로 검증. 자동 추천·Provider 요청과 결과/엔진 변경 없음. | local Product UX complete / Founder QA PASS |
 | MYOTT_PHASE1_RESULT_SHORTLIST_DECISION_FOCUS_V1 | Phase 1 result shortlist decision focus | `this commit` | 모바일 상위 3개와 접근 가능한 reveal/collapse, 비모바일 전체 결과, Founder QA CTA·TMDB 고지 보정을 81/81 focused QA와 Founder Manual Re-QA로 검증. 결과 데이터·순위·Provider 의미 변경 없음. | local Product UX complete / Founder Re-QA PASS |
 | MYOTT_PHASE1_ANALYTICS_SERVER_HARD_OFF_V1 | Phase 1 Analytics server hard-off | `this commit` | Analytics route가 request/token/provider 처리 전에 HTTP 404 `ANALYTICS_DISABLED`로 종료되고 fake token 아래 provider fetch 0임을 focused QA로 검증. Product event wiring·jurisdiction·live Network 변경 없음. | local server hard-off complete / Analytics inactive |
 | MYOTT_CODEX_MODE_V2_UI_SEMANTIC_RECONCILIATION_V1 | Codex Mode V2 UI semantic reconciliation | `this commit` | Founder UI snapshot과 official Ultra/Daybreak semantics를 대조해 Ultra reasoning choice와 Daybreak defensive access track을 교정. Runtime/Nd_core/Continuity 변경 없음. | local policy reconciliation complete |

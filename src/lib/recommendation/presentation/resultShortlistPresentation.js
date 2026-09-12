@@ -45,3 +45,15 @@ export function presentResultShortlist(results, state, { shortlistEnabled = true
     visibleResults,
   };
 }
+
+export function presentResultNextAction(recommendationStatus, shortlistPresentation) {
+  const totalCount = shortlistPresentation?.totalCount || 0;
+  const fullResultSetVisible = totalCount > 0
+    && (!shortlistPresentation?.hasAdditionalResults || shortlistPresentation?.expanded === true);
+  const recovery = recommendationStatus === "empty";
+
+  return {
+    recovery,
+    show: recovery || (recommendationStatus === "success" && fullResultSetVisible),
+  };
+}
