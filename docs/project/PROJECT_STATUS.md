@@ -12,6 +12,18 @@ Founder approved `OPTION_A_STATELESS_GLOBAL_FIRST_CORE` on 2026-09-11. The revie
 
 `0.1.0`
 
+## Current Accepted Local Checkpoint
+
+- Branch: `qa/phase1-stale-expectation-baseline-v1`
+- Commit: `b2feb128f79b941319c40d24494245cbfdd78696`
+- Recommendation regression QA: `274 / 274 PASS / 0 FAIL`
+- Input Optionality Founder QA: `PASS / CLOSED`
+- Error Recovery Founder QA: `PASS / CLOSED`
+- Live TMDB at this checkpoint: `NOT_RUN / NOT_VALIDATED`; current Product QA is mock-based
+- Current port 3000 provenance: `NOT_CURRENTLY_ACTIVE / NOT_REPROVEN`
+
+This local checkpoint is not Remote Main or Production.
+
 ## Current App State
 
 - Next.js recommendation web app
@@ -35,6 +47,27 @@ Founder approved `OPTION_A_STATELESS_GLOBAL_FIRST_CORE` on 2026-09-11. The revie
 - Known Production source: `70bb4c13aa253d3e02e3736fa784d8d5be89a227`
 
 Local Product work, Remote Main and Production are separate identities.
+
+## Release-Candidate Readiness
+
+`READY_WITH_EXPLICIT_PRE_RC_BLOCKERS`
+
+The Product surface is mature enough to begin bounded Phase 1 RC preparation. An RC has not been declared, and Release, Production and Deployment are not authorized.
+
+Current pre-RC blockers:
+
+- Current-HEAD build and dependency proof: `NOT_YET_PROVEN`
+- Current-HEAD Live TMDB validation: `NOT_RUN / NOT_VALIDATED`
+- Current-source Browser provenance, including a dedicated error-state fixture: `NOT_AVAILABLE / NOT_RUN`
+- Exact RC source integration identity: `NOT_YET_FROZEN / NOT_ESTABLISHED`
+
+Current pre-release and Release blockers remain separate:
+
+- Security Seal: `BLOCKED / SAFE_HOLD`
+- Build and Release authorization: `NOT_GRANTED`
+- Production parity: `NOT_PROVEN`
+- Public indexability: `NOT_CURRENTLY_AUTHORIZED`
+- Release and Deployment: `NOT_AUTHORIZED`
 
 ## Current Authority
 

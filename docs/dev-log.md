@@ -2,6 +2,19 @@
 
 개발 과정에서의 작업 내용, 결정, 아쉬운 점, 다음 개선 사항을 날짜별로 기록합니다.
 
+## 2026-09-13 - Phase 1 RC Current-State Documentation Sync
+
+### 오늘 작업
+
+- 현재 accepted local checkpoint `b2feb128f79b941319c40d24494245cbfdd78696`과 추천 회귀 `274/274 PASS`를 Product 상태 문서에 반영했습니다.
+- 누락된 Input Optionality 이력과 Error Recovery Founder QA PASS/CLOSED 상태를 정확한 체크포인트로 복구했습니다.
+
+### 결정한 것
+
+- 현재 상태는 bounded RC preparation을 시작할 수 있지만 RC 자체는 아직 성립하지 않은 `READY_WITH_EXPLICIT_PRE_RC_BLOCKERS`입니다.
+- current-HEAD Build, Live TMDB, Browser provenance와 exact RC source identity는 pre-RC 증거로 남고, Security Seal과 Production parity는 별도 Release 차단 상태를 유지합니다.
+- 현재 포트 3000은 활성 provenance가 재증명되지 않았으며 과거 실행 증거를 현재 상태로 승격하지 않습니다.
+
 ## 2026-09-13 - Phase 1 Recommendation Error Recovery
 
 ### 오늘 작업

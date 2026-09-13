@@ -2,6 +2,19 @@
 
 프로젝트의 주요 변경 사항을 날짜별로 기록합니다.
 
+## 2026-09-13 - Phase 1 RC Current-State Documentation Sync
+
+### 변경 내용
+
+- Input Optionality와 Error Recovery를 정확한 로컬 체크포인트 및 Founder QA PASS/CLOSED 상태로 정합화했습니다.
+- stale QA 기대값 교정 이후의 현재 추천 회귀 기준을 `274/274 PASS / 0 FAIL`로 기록했습니다. 이전 `272/274`는 교정 전 역사적 증거입니다.
+- RC 준비 상태를 `READY_WITH_EXPLICIT_PRE_RC_BLOCKERS`로 기록하고 current-HEAD Build, Live TMDB, Browser provenance와 RC source identity를 pre-RC 차단 항목으로 분리했습니다.
+
+### 불변 범위
+
+- Product runtime, test, package, lockfile, env, Provider와 추천 의미 변경은 없습니다.
+- RC, Release, Production 또는 Deployment를 선언하거나 승인하지 않았습니다.
+
 ## 2026-09-13 - Phase 1 Recommendation Error Recovery
 
 ### 변경 내용
