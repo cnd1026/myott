@@ -1646,12 +1646,12 @@ test("final Product candidate path closes all seven content-type combinations", 
   }
 });
 
-test("Production render path uses calm copy and cannot reach static First Pick demos", async () => {
+test("Production render path uses catalog-backed calm copy and cannot reach static First Pick demos", async () => {
   const source = await readFile(new URL("../../../app/page.jsx", import.meta.url), "utf8");
   const renderSource = source.slice(source.indexOf("  return (", source.indexOf("export default function Home")));
   for (const required of [
-    "먼저 살펴볼 작품", "취향 알려주기", "내 취향으로 추천받기", "작품을 불러오는 중입니다.",
-    "추천 근거", "선택 기준", "비슷한 작품", "OTT 제공 정보는 아직 확인되지 않았습니다.",
+    'message("hero.title")', 'message("hero.nextAction")', 'message("actions.submit")', 'message("hero.loading")',
+    'message("detail.evidence")', 'message("detail.criteria")', 'message("related.title")', 'message("card.ottUnavailable")',
   ]) assert.equal(renderSource.includes(required), true, required);
   for (const prohibited of ["더미 결과", "이후 실제 지표로 교체됩니다", "요즘 많이 고르는 작품", "대표 추천", "heroRecommendations"])
     assert.equal(renderSource.includes(prohibited), false, prohibited);
@@ -1733,6 +1733,6 @@ test("condition sheet and First Pick retry source preserve the bounded interacti
     'conditionCloseButtonRef.current?.focus',
     'conditionOpenerRef.current?.isConnected',
     'firstPickInFlightRef.current',
-    '다시 불러오기',
+    'message("hero.retry")',
   ]) assert.equal(source.includes(required), true, required);
 });
