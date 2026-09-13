@@ -41,7 +41,7 @@ const PAGE_KEYS = Object.freeze([
   "related.description", "related.empty", "related.error", "related.listLabel", "related.loading",
   "related.loadingLabel", "related.next", "related.previous", "related.retryHint", "related.title",
   "results.appliedConditions", "results.appliedConditionsTitle", "results.count",
-  "results.adjustCriteria", "results.refineDescription", "results.refineEmptyDescription", "results.refineTitle",
+  "results.adjustCriteria", "results.errorRecoveryDescription", "results.refineDescription", "results.refineEmptyDescription", "results.refineTitle", "results.reviewCriteria",
   "results.dirtyDescription", "results.dirtyTitle", "results.empty", "results.eyebrow",
   "results.loading", "results.rerun", "results.showFirstThree", "results.showMore", "results.title",
   "trust.contentType", "trust.firstLook",
@@ -91,6 +91,8 @@ test("post-result action reuses the criteria focus owner without requesting reco
   assert.match(pageSource, /personalizationRef\.current\?\.scrollIntoView/);
   assert.match(pageSource, /seedInputRefs\.current\.get\(seedRows\[0\]\?\.id\)\?\.focus/);
   assert.doesNotMatch(pageSource, /onClick=\{handleSubmit\}[^>]*>\s*\{message\("results\.adjustCriteria"\)/s);
+  assert.match(pageSource, /recommendationStatus === "error"[\s\S]*message\("results\.reviewCriteria"\)/);
+  assert.doesNotMatch(pageSource, /onClick=\{handleSubmit\}[^>]*>\s*\{message\("results\.reviewCriteria"\)/s);
 });
 
 test("input optionality guidance is visible without changing submission validation", () => {
@@ -123,6 +125,8 @@ test("wired Korean copy is source-equivalent to the accepted base", () => {
     ["results.refineDescription", "조건을 바꾸면 다른 추천을 받을 수 있어요."],
     ["results.refineEmptyDescription", "조건을 조금 바꾸면 추천 범위를 넓힐 수 있어요."],
     ["results.adjustCriteria", "조건 다시 고르기"],
+    ["results.errorRecoveryDescription", "입력한 조건은 그대로 유지됩니다. 확인한 뒤 다시 시도해 주세요."],
+    ["results.reviewCriteria", "조건 다시 확인하기"],
   ]);
   const interpolatedBaseSnippets = new Map([
     ["conditions.additionalOptionsSelected", "`추가 옵션 ${count}개 선택됨`"],

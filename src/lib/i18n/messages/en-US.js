@@ -66,6 +66,8 @@ const enUSMessages = Object.freeze({
   "results.refineDescription": "Adjust your criteria to get a different recommendation set.",
   "results.refineEmptyDescription": "Try adjusting your criteria to broaden the recommendations.",
   "results.adjustCriteria": "Adjust criteria",
+  "results.errorRecoveryDescription": "Your criteria are still here. Review them before trying again.",
+  "results.reviewCriteria": "Review criteria",
   "results.appliedConditions": "Applied recommendation filters",
   "results.appliedConditionsTitle": "Applied filters",
   "results.dirtyTitle": "Your filters changed. Get updated recommendations.",

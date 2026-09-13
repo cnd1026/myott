@@ -2536,13 +2536,17 @@ export default function Home() {
             <div>
               {resultNextAction.recovery ? null : <h3>{message("results.refineTitle")}</h3>}
               <p>
-                {resultNextAction.recovery
+                {recommendationStatus === "error"
+                  ? message("results.errorRecoveryDescription")
+                  : resultNextAction.recovery
                   ? message("results.refineEmptyDescription")
                   : message("results.refineDescription")}
               </p>
             </div>
             <button className="secondary-button" type="button" onClick={focusPersonalization}>
-              {message("results.adjustCriteria")}
+              {recommendationStatus === "error"
+                ? message("results.reviewCriteria")
+                : message("results.adjustCriteria")}
             </button>
           </div>
         ) : null}

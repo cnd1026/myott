@@ -66,6 +66,8 @@ const koKRMessages = Object.freeze({
   "results.refineDescription": "조건을 바꾸면 다른 추천을 받을 수 있어요.",
   "results.refineEmptyDescription": "조건을 조금 바꾸면 추천 범위를 넓힐 수 있어요.",
   "results.adjustCriteria": "조건 다시 고르기",
+  "results.errorRecoveryDescription": "입력한 조건은 그대로 유지됩니다. 확인한 뒤 다시 시도해 주세요.",
+  "results.reviewCriteria": "조건 다시 확인하기",
   "results.appliedConditions": "적용된 추천 조건",
   "results.appliedConditionsTitle": "적용된 조건",
   "results.dirtyTitle": "조건이 바뀌었습니다. 다시 추천받아 주세요.",

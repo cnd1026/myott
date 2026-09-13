@@ -2,6 +2,18 @@
 
 개발 과정에서의 작업 내용, 결정, 아쉬운 점, 다음 개선 사항을 날짜별로 기록합니다.
 
+## 2026-09-13 - Phase 1 Recommendation Error Recovery
+
+### 오늘 작업
+
+- 추천 오류 메시지 아래에 기존 조건 영역으로 돌아가는 오류 전용 복구 CTA를 연결하고 ko/en copy parity를 추가했습니다.
+- 기존 `focusPersonalization` 동작을 재사용해 조건과 결과를 바꾸거나 자동 요청을 보내지 않도록 유지했습니다.
+
+### 결정한 것
+
+- 빈 결과와 성공 후 refinement 계약은 그대로 두고 오류 상태의 누락된 문맥 내 복구 경로만 보완했습니다.
+- focused QA는 89/89 PASS였고 추천 회귀는 272/274 PASS로 알려진 stale 문구 2건과 동일했습니다. 오류 상태 Browser fixture는 없어 Browser 검증으로 승격하지 않았습니다.
+
 ## 2026-09-12 - Phase 1 Result Next Actions
 
 ### 오늘 작업

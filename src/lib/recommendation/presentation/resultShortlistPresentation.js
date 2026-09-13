@@ -50,7 +50,7 @@ export function presentResultNextAction(recommendationStatus, shortlistPresentat
   const totalCount = shortlistPresentation?.totalCount || 0;
   const fullResultSetVisible = totalCount > 0
     && (!shortlistPresentation?.hasAdditionalResults || shortlistPresentation?.expanded === true);
-  const recovery = recommendationStatus === "empty";
+  const recovery = recommendationStatus === "empty" || recommendationStatus === "error";
 
   return {
     recovery,

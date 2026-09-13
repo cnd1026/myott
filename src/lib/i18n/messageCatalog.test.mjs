@@ -47,8 +47,8 @@ const EXPECTED_MESSAGE_KEYS = Object.freeze([
   "recommendationInsight.multipleSeed", "recommendationInsight.optionMatch", "recommendationInsight.ottMatch",
   "recommendationInsight.relaxedFallback", "recommendationInsight.runtimeMatch",
   "results.appliedConditions", "results.appliedConditionsTitle", "results.count",
-  "results.dirtyDescription", "results.dirtyTitle", "results.empty", "results.error", "results.eyebrow",
-  "results.adjustCriteria", "results.refineDescription", "results.refineEmptyDescription", "results.refineTitle",
+  "results.dirtyDescription", "results.dirtyTitle", "results.empty", "results.error", "results.errorRecoveryDescription", "results.eyebrow",
+  "results.adjustCriteria", "results.refineDescription", "results.refineEmptyDescription", "results.refineTitle", "results.reviewCriteria",
   "results.filtersTooNarrow", "results.idle", "results.loading", "results.rerun", "results.seedInsufficient",
   "results.seedNotFound", "results.selectContentType", "results.showFirstThree", "results.showMore", "results.title",
   "seedCoverage.all", "seedCoverage.deduplicated", "seedCoverage.none", "seedCoverage.partial",
@@ -264,7 +264,7 @@ test("shortlist controls resolve equivalent dynamic Korean and English copy", ()
   assert.equal(getMessage("en-US", "results.showFirstThree"), "Show the first 3 only");
 });
 
-test("result refinement appears only after the complete set or an empty result", () => {
+test("result refinement appears after the complete set and recovery appears for empty or error states", () => {
   for (const count of [4, 12]) {
     const mobileCollapsed = presentResultShortlist(
       rankedResults(count),
@@ -307,14 +307,19 @@ test("result refinement appears only after the complete set or an empty result",
     show: true,
   });
   assert.equal(presentResultNextAction("idle", { totalCount: 0 }).show, false);
-  assert.equal(presentResultNextAction("error", { totalCount: 0 }).show, false);
+  assert.deepEqual(presentResultNextAction("error", { totalCount: 0 }), {
+    recovery: true,
+    show: true,
+  });
 });
 
 test("result refinement copy is paired and does not imply automatic recommendation retrieval", () => {
   assert.equal(getMessage("ko-KR", "results.adjustCriteria"), "조건 다시 고르기");
   assert.equal(getMessage("en-US", "results.adjustCriteria"), "Adjust criteria");
+  assert.equal(getMessage("ko-KR", "results.reviewCriteria"), "조건 다시 확인하기");
+  assert.equal(getMessage("en-US", "results.reviewCriteria"), "Review criteria");
   for (const locale of ["ko-KR", "en-US"]) {
-    for (const key of ["results.refineTitle", "results.refineDescription", "results.refineEmptyDescription"]) {
+    for (const key of ["results.refineTitle", "results.refineDescription", "results.refineEmptyDescription", "results.errorRecoveryDescription"]) {
       assert.doesNotMatch(getMessage(locale, key), /next 12|더 추천받기|same criteria/i);
     }
   }
