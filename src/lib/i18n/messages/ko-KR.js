@@ -18,6 +18,7 @@ const koKRMessages = Object.freeze({
   "personalization.eyebrow": "나만의 추천",
   "personalization.title": "취향을 알려주세요",
   "personalization.description": "이용 중인 OTT와 콘텐츠 종류, 좋아했던 작품을 바탕으로 추천합니다.",
+  "personalization.optionalityHint": "원하는 조건만 골라도 됩니다. 모든 항목을 채울 필요는 없어요.",
   "conditions.current": "현재 조건",
   "conditions.change": "조건 바꾸기",
   "conditions.backdropClose": "조건 선택 닫기",

@@ -37,7 +37,7 @@ const EXPECTED_MESSAGE_KEYS = Object.freeze([
   "hero.browseCue", "hero.description", "hero.empty", "hero.eyebrow", "hero.listLabel",
   "hero.loading", "hero.nextAction", "hero.retry", "hero.title", "hero.unavailable",
   "metadata.description", "metadata.title", "personalization.description", "personalization.eyebrow",
-  "personalization.title", "quickPick.clearSearch", "quickPick.close", "quickPick.collapse",
+  "personalization.optionalityHint", "personalization.title", "quickPick.clearSearch", "quickPick.close", "quickPick.collapse",
   "quickPick.eyebrow", "quickPick.more", "quickPick.noResults", "quickPick.noneSelected",
   "quickPick.reset", "quickPick.searchLabel", "quickPick.searchPlaceholder", "quickPick.selected",
   "quickPick.selectedCount", "quickPick.title", "related.changeCardHint", "related.controls",
@@ -133,6 +133,13 @@ test("metadata, activation, action, and accessibility contracts are present", ()
     assert.equal(typeof MESSAGE_CATALOGS["ko-KR"][key], "string", key);
     assert.equal(typeof MESSAGE_CATALOGS["en-US"][key], "string", key);
   }
+});
+
+test("input optionality guidance is paired and does not claim that an empty submission is valid", () => {
+  assert.match(MESSAGE_CATALOGS["ko-KR"]["personalization.optionalityHint"], /모든 항목을 채울 필요는 없/);
+  assert.match(MESSAGE_CATALOGS["en-US"]["personalization.optionalityHint"], /don't need to fill in every field/i);
+  assert.doesNotMatch(MESSAGE_CATALOGS["ko-KR"]["personalization.optionalityHint"], /아무것도|모두 비워/);
+  assert.doesNotMatch(MESSAGE_CATALOGS["en-US"]["personalization.optionalityHint"], /leave everything blank|no input required/i);
 });
 
 test("English ordinary-user messages contain no Korean leftovers", () => {

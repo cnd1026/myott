@@ -2240,6 +2240,7 @@ export default function Home() {
           <p className="eyebrow">{message("personalization.eyebrow")}</p>
           <h1 id="pageTitle">{message("personalization.title")}</h1>
           <p>{message("personalization.description")}</p>
+          <p className="section-copy">{message("personalization.optionalityHint")}</p>
           {showDevProviderStatus ? (
             <div className="provider-status" id="providerStatus" aria-label="Provider status" title={visibleProviderStatus.message}>
               <span>Data Source</span>

@@ -18,6 +18,7 @@ const enUSMessages = Object.freeze({
   "personalization.eyebrow": "For you",
   "personalization.title": "Tell us what you like",
   "personalization.description": "We'll recommend titles based on your streaming services, content types, and favorites.",
+  "personalization.optionalityHint": "Choose only the criteria that matter to you. You don't need to fill in every field.",
   "conditions.current": "Current filters",
   "conditions.change": "Change filters",
   "conditions.backdropClose": "Close filter selection",

@@ -30,7 +30,7 @@ const PAGE_KEYS = Object.freeze([
   "favorite.title", "favorite.yearUnknown", "hero.browseCue", "hero.description", "hero.empty",
   "hero.eyebrow", "hero.listLabel", "hero.loading", "hero.nextAction", "hero.retry", "hero.title",
   "hero.unavailable", "personalization.description", "personalization.eyebrow",
-  "personalization.title", "quickPick.clearSearch", "quickPick.close", "quickPick.collapse",
+  "personalization.optionalityHint", "personalization.title", "quickPick.clearSearch", "quickPick.close", "quickPick.collapse",
   "quickPick.eyebrow", "quickPick.more", "quickPick.noResults", "quickPick.noneSelected",
   "quickPick.reset", "quickPick.searchLabel", "quickPick.searchPlaceholder", "quickPick.selected",
   "quickPick.selectedCount", "quickPick.title", "recommendationInsight.contentType",
@@ -93,6 +93,12 @@ test("post-result action reuses the criteria focus owner without requesting reco
   assert.doesNotMatch(pageSource, /onClick=\{handleSubmit\}[^>]*>\s*\{message\("results\.adjustCriteria"\)/s);
 });
 
+test("input optionality guidance is visible without changing submission validation", () => {
+  assert.match(pageSource, /message\("personalization\.optionalityHint"\)/);
+  assert.match(pageSource, /const canRecommend = \(enteredTitles\.length > 0 \|\| hasOptionPreference\)/);
+  assert.match(pageSource, /const canSubmit = currentTitles\.length > 0 \|\| hasOptionPreference/);
+});
+
 test("runtime binding is Korean-only and public English activation stays absent", () => {
   assert.match(layoutSource, /const RUNTIME_UI_LOCALE = "ko-KR"/);
   assert.match(pageSource, /const RUNTIME_UI_LOCALE = "ko-KR"/);
@@ -110,6 +116,7 @@ test("every wired key exists in the accepted Korean catalog", () => {
 
 test("wired Korean copy is source-equivalent to the accepted base", () => {
   const taskMessages = new Map([
+    ["personalization.optionalityHint", "원하는 조건만 골라도 됩니다. 모든 항목을 채울 필요는 없어요."],
     ["results.showFirstThree", "처음 3개만 보기"],
     ["results.showMore", "추천 {remainingCount}개 더 보기"],
     ["results.refineTitle", "원하는 작품이 아직 없나요?"],
