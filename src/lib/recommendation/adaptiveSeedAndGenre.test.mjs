@@ -1736,3 +1736,25 @@ test("condition sheet and First Pick retry source preserve the bounded interacti
     'message("hero.retry")',
   ]) assert.equal(source.includes(required), true, required);
 });
+
+test("Fantasy TV focused recall adds one bounded 10765 page without changing request ceilings", async () => {
+  const requestLog = [];
+  const run = await withCurrentProductRuntime(
+    () => discoverTmdb({ filters: ["country-jp", "genre-fantasy"], contentTypes: ["drama"], limit: 12 }),
+    { fixtureOptions: { count: 72, requestLog } },
+  );
+  const discoverRequests = requestLog.filter((request) => request.path === "/3/discover/tv");
+  assert.deepEqual(discoverRequests.map((request) => request.withGenres), ["10765", "10765", "10765", "10765"]);
+  assert.deepEqual(discoverRequests.map((request) => request.page), [1, 1, 2, 3]);
+  assert.equal(run.payload.diagnostics.listRequestsUsed, 4);
+  assert.ok(run.payload.diagnostics.detailRequestsUsed <= 16);
+  assert.ok(run.payload.diagnostics.requestsUsed <= 24);
+
+  const mixedLog = [];
+  await withCurrentProductRuntime(
+    () => discoverTmdb({ filters: ["country-jp", "genre-fantasy", "genre-sf"], contentTypes: ["drama"], limit: 12 }),
+    { fixtureOptions: { count: 72, requestLog: mixedLog } },
+  );
+  const mixedDiscover = mixedLog.filter((request) => request.path === "/3/discover/tv");
+  assert.deepEqual(mixedDiscover.map((request) => request.page), [1, 1, 2]);
+});
