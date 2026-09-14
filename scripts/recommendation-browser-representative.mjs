@@ -20,8 +20,8 @@ import { tmpdir } from "node:os";
 import { basename, dirname, join, relative, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
-export const EXACT_BASE_SHA = "67a403c2a0156a6eba9ce908d621522c2f119b22";
-export const EXPECTED_BRANCH = "qa/recommendation-browser-representative-v1";
+export const EXACT_BASE_SHA = "03e671fb5d2ae408a00a743c2070902da337d858";
+export const EXPECTED_BRANCH = "work/phase1-pre-rc-package-b-20260914";
 export const QA_PORT_MIN = 3001;
 export const QA_PORT_MAX = 3100;
 export const FOUNDER_PORT = 3000;
@@ -39,6 +39,8 @@ export const SCENARIOS = Object.freeze([
   Object.freeze({ id: "S4", name: "Japan + Horror + Drama/TV", route: "/api/recommend/options" }),
   Object.freeze({ id: "S5", name: "draft/submitted change + reset", route: "/api/recommend/seeds" }),
   Object.freeze({ id: "S6", name: "deterministic latest-request-wins", route: "/api/recommend/options" }),
+  Object.freeze({ id: "S7", name: "controlled option error recovery", route: "/api/recommend/options", fixture: "error" }),
+  Object.freeze({ id: "S8", name: "controlled zero-result recovery", route: "/api/recommend/options", fixture: "zero" }),
 ]);
 export const ALLOWED_CHANGED_PATHS = Object.freeze([
   "app/api/recommend/first-picks/route.js",
@@ -106,8 +108,8 @@ function parseStatusPath(line) {
 export function validateRepositoryState({ branch, head, originMain, staged, statusPaths }) {
   const unexpected = statusPaths.filter((path) => !ALLOWED_CHANGED_PATHS.includes(path));
   if (branch !== EXPECTED_BRANCH) throw new HarnessError("BRANCH_MISMATCH", `Expected ${EXPECTED_BRANCH}, found ${branch}.`);
-  if (head !== EXACT_BASE_SHA || originMain !== EXACT_BASE_SHA) {
-    throw new HarnessError("BASE_MISMATCH", "HEAD and origin/main must match the approved base.");
+  if (head !== EXACT_BASE_SHA) {
+    throw new HarnessError("BASE_MISMATCH", "HEAD must match the approved frozen Pre-RC base.");
   }
   if (staged.length) throw new HarnessError("STAGED_PRESENT", "Browser QA requires an empty staged index.");
   if (unexpected.length) {
@@ -477,16 +479,22 @@ function domState() {
     emptyVisible: Boolean(document.querySelector("#emptyState")),
     dirtyVisible: Boolean(document.querySelector(".preferences-dirty-banner")),
     appliedVisible: Boolean(document.querySelector(".applied-preferences")),
+    resultNextActionVisible: Boolean(document.querySelector(".result-next-action")),
+    resultNextActionButtonVisible: Boolean(document.querySelector(".result-next-action button.secondary-button")),
     resultCount,
     diagnostics: fields,
     inputValue: document.querySelector("#titleInput1")?.value || "",
   };
 }
 
-function installResponseController(expectedCount) {
+function installResponseController(config) {
+  const { expectedCount, fixture = "none" } = typeof config === "number"
+    ? { expectedCount: config }
+    : config || {};
   const originalFetch = window.fetch.bind(window);
   const state = {
     expectedCount,
+    fixture,
     ready: [],
     released: [],
     routePayloads: [],
@@ -497,7 +505,25 @@ function installResponseController(expectedCount) {
     const requestUrl = typeof args[0] === "string" ? args[0] : args[0]?.url || "";
     const parsed = new URL(requestUrl, location.origin);
     const isRecommendation = ["/api/recommend/options", "/api/recommend/seeds"].includes(parsed.pathname);
-    const response = await originalFetch(...args);
+    const controlledOptionFixture = parsed.pathname === "/api/recommend/options" && ["error", "zero"].includes(fixture);
+    const response = controlledOptionFixture
+      ? fixture === "error"
+        ? new Response(JSON.stringify({
+          providerId: "mock",
+          source: "mock",
+          fallbackUsed: false,
+          diagnostics: { requestsUsed: 0 },
+          error: { code: "BROWSER_QA_CONTROLLED_503" },
+        }), { status: 503, headers: { "content-type": "application/json", "cache-control": "no-store" } })
+        : new Response(JSON.stringify({
+          source: "empty",
+          dataSource: "empty",
+          providerId: "mock",
+          fallbackUsed: false,
+          diagnostics: { requestsUsed: 0 },
+          results: [],
+        }), { status: 200, headers: { "content-type": "application/json", "cache-control": "no-store" } })
+      : await originalFetch(...args);
     if (!isRecommendation || state.ready.length >= state.expectedCount) return response;
     let body = {};
     try { body = await response.clone().json(); } catch {}
@@ -509,6 +535,7 @@ function installResponseController(expectedCount) {
       path: parsed.pathname,
       method: String(args[1]?.method || "GET").toUpperCase(),
       status: response.status,
+      fixture,
       filters: parsed.pathname.endsWith("/options")
         ? (parsed.searchParams.get("filters") || "").split(",").filter(Boolean)
         : Array.isArray(requestBody.filters) ? requestBody.filters : [],
@@ -536,6 +563,7 @@ function responseControlState() {
   if (!state) return null;
   return {
     expectedCount: state.expectedCount,
+    fixture: state.fixture,
     ready: [...state.ready],
     released: [...state.released],
     routePayloads: state.routePayloads.map((item) => ({ ...item })),
@@ -646,6 +674,8 @@ function caseExpected(scenarioId) {
   if (scenarioId === "S4") return { routeCount: 1, path: "/api/recommend/options", filters: ["country-jp", "genre-horror"], types: ["drama"] };
   if (scenarioId === "S5") return { routeCount: 1, path: "/api/recommend/seeds", filters: [], types: [], titles: ["인터스텔라"] };
   if (scenarioId === "S6") return { routeCount: 2, path: "/api/recommend/options", finalTypes: ["drama"] };
+  if (scenarioId === "S7") return { routeCount: 1, path: "/api/recommend/options", filters: ["netflix"], status: 503, fixture: "error" };
+  if (scenarioId === "S8") return { routeCount: 1, path: "/api/recommend/options", filters: ["netflix"], status: 200, fixture: "zero" };
   throw new HarnessError("UNKNOWN_SCENARIO", scenarioId);
 }
 
@@ -660,7 +690,8 @@ export function evaluateCaseEvidence(caseEvidence) {
   if (caseEvidence.finalState.horizontalOverflow) failures.push("horizontal-overflow");
   if (caseEvidence.routes.length !== expected.routeCount) failures.push("route-count");
   if (expected.path && caseEvidence.routes.some((route) => route.path !== expected.path)) failures.push("route-path");
-  if (caseEvidence.routes.some((route) => route.status !== 200)) failures.push("route-status");
+  if (caseEvidence.routes.some((route) => route.status !== (expected.status || 200))) failures.push("route-status");
+  if (expected.fixture && caseEvidence.routes.some((route) => route.fixture !== expected.fixture)) failures.push("fixture-contract");
   if (caseEvidence.routes.some((route) => route.providerId !== "mock" || route.requestsUsed !== 0)) failures.push("provider-network-contract");
   if (caseEvidence.routes.some((route) => !route.requestIdPresent)) failures.push("request-id");
   if (caseEvidence.routes.some((route) => route.method !== (route.path.endsWith("/seeds") ? "POST" : "GET"))) failures.push("route-method");
@@ -675,9 +706,14 @@ export function evaluateCaseEvidence(caseEvidence) {
     if (caseEvidence.finalState.recommendDisabled || caseEvidence.finalState.resultCount !== 0 || !caseEvidence.finalState.emptyVisible
       || !["movie", "drama", "animation"].every((value) => defaults.has(value))) failures.push("default-state");
   }
-  if (["S2", "S3", "S4", "S6"].includes(caseEvidence.scenarioId) && !caseEvidence.finalState.appliedVisible) failures.push("submitted-state");
-  if (["S2", "S3", "S4", "S6"].includes(caseEvidence.scenarioId)
+  if (["S2", "S3", "S4", "S6", "S8"].includes(caseEvidence.scenarioId) && !caseEvidence.finalState.appliedVisible) failures.push("submitted-state");
+  if (["S7", "S8"].includes(caseEvidence.scenarioId)
+    && !(caseEvidence.finalState.checked || []).some((item) => item.name === "ott" && item.value === "netflix")) failures.push("submitted-criteria-preserved");
+  if (["S2", "S3", "S4", "S6", "S8"].includes(caseEvidence.scenarioId)
     && caseEvidence.finalState.resultCount === 0 && !caseEvidence.finalState.emptyVisible) failures.push("result-or-empty-state");
+  if (["S7", "S8"].includes(caseEvidence.scenarioId)
+    && (!caseEvidence.finalState.resultNextActionVisible || !caseEvidence.finalState.resultNextActionButtonVisible)) failures.push("recovery-cta");
+  if (["S7", "S8"].includes(caseEvidence.scenarioId) && caseEvidence.finalState.resultCount !== 0) failures.push("stale-result-cards");
   if (caseEvidence.scenarioId === "S5" && (!caseEvidence.dirtyObserved || !caseEvidence.resetObserved)) failures.push("draft-reset-state");
   if (caseEvidence.scenarioId === "S6" && (!caseEvidence.latestRequestWins || !caseEvidence.routes[1]?.types.includes("drama"))) failures.push("latest-request-wins");
   return { pass: failures.length === 0, failures };
@@ -789,7 +825,7 @@ async function waitRecommendationSettled(page) {
   return waitFor(
     async () => {
       const state = await evalValue(page, callExpression(domState));
-      return !state.loadingVisible && state.diagnostics.Endpoint ? state : false;
+      return !state.loadingVisible && (state.diagnostics.Endpoint || state.resultNextActionVisible) ? state : false;
     },
     { timeoutMs: 20_000, intervalMs: 50, description: "recommendation UI settlement" },
   );
@@ -803,6 +839,16 @@ async function submitControlled(page, expectedCount = 1) {
   await release(page, 0);
   const finalState = await waitRecommendationSettled(page);
   return { loadingObserved: loading.loadingVisible, control, finalState, submitControl };
+}
+
+async function submitFixture(page, fixture) {
+  await evalValue(page, callExpression(installResponseController, { expectedCount: 1, fixture }));
+  const submitControl = await clickVisibleSubmit(page);
+  const loading = await evalValue(page, callExpression(domState));
+  await waitControlled(page, 1);
+  await release(page, 0);
+  const finalState = await waitRecommendationSettled(page);
+  return { loadingObserved: loading.loadingVisible, finalState, submitControl };
 }
 
 function newCaseEvidence(scenarioId, viewport) {
@@ -893,6 +939,14 @@ async function executeScenario(page, scenarioId) {
       submitControl,
       latestRequestWins: finalSequence === 2 && secondState.diagnostics["Content Types"]?.includes("drama") && finalState.diagnostics.Sequence === secondState.diagnostics.Sequence,
     };
+  }
+  if (scenarioId === "S7") {
+    await configureOptions(page, { ott: ["netflix"] });
+    return submitFixture(page, "error");
+  }
+  if (scenarioId === "S8") {
+    await configureOptions(page, { ott: ["netflix"] });
+    return submitFixture(page, "zero");
   }
   throw new HarnessError("UNKNOWN_SCENARIO", scenarioId);
 }
@@ -1157,7 +1211,8 @@ async function launchBrowser(runtimeRoot, origin, founderPid) {
 }
 
 function finalCounts(cases) {
-  const result = { generated: 18, executed: cases.length, asserted: cases.length, pass: 0, fail: 0, skipped: 0, blocked: 0, notRun: 18 - cases.length };
+  const generated = SCENARIOS.length * VIEWPORTS.length;
+  const result = { generated, executed: cases.length, asserted: cases.length, pass: 0, fail: 0, skipped: 0, blocked: 0, notRun: generated - cases.length };
   for (const item of cases) item.pass ? result.pass++ : result.fail++;
   return result;
 }
@@ -1293,7 +1348,7 @@ async function run() {
     summary.network.browserExternal = browserRuntime.eventState.network.filter((item) => item.external).length;
     summary.network.thirdParty = summary.network.browserExternal;
     summary.network.productServerProvider = summary.cases.some((item) => item.routes.some((route) => route.providerId !== "mock" || route.requestsUsed !== 0)) ? 1 : 0;
-    summary.pass = summary.counts.pass === 18
+    summary.pass = summary.counts.pass === SCENARIOS.length * VIEWPORTS.length
       && summary.counts.fail === 0
       && summary.knownBadControl.detected
       && summary.unownedErrors.length === 0

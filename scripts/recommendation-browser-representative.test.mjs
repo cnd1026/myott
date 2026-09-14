@@ -59,9 +59,11 @@ function passingCase(scenarioId = "S2") {
             status: 200,
             providerId: "mock",
             requestsUsed: 0,
-            filters: scenarioId === "S2" ? ["netflix"] : ["country-jp", scenarioId === "S3" ? "genre-sf" : "genre-horror"],
+            filters: ["S2", "S7", "S8"].includes(scenarioId) ? ["netflix"] : ["country-jp", scenarioId === "S3" ? "genre-sf" : "genre-horror"],
             types: scenarioId === "S2" ? [] : ["drama"],
           }];
+  if (scenarioId === "S7") Object.assign(routes[0], { status: 503, fixture: "error" });
+  if (scenarioId === "S8") Object.assign(routes[0], { fixture: "zero" });
   return {
     scenarioId,
     viewport: { id: "desktop", width: 1440, height: 900 },
@@ -88,16 +90,19 @@ function passingCase(scenarioId = "S2") {
         { name: "contentType", value: "movie" },
         { name: "contentType", value: "drama" },
         { name: "contentType", value: "animation" },
+        ...(["S7", "S8"].includes(scenarioId) ? [{ name: "ott", value: "netflix" }] : []),
       ],
-      appliedVisible: ["S2", "S3", "S4", "S6"].includes(scenarioId),
+      appliedVisible: ["S2", "S3", "S4", "S6", "S8"].includes(scenarioId),
+      resultNextActionVisible: ["S7", "S8"].includes(scenarioId),
+      resultNextActionButtonVisible: ["S7", "S8"].includes(scenarioId),
     },
   };
 }
 
-test("matrix is exactly six scenarios by three required viewports", () => {
-  assert.deepEqual(SCENARIOS.map((item) => item.id), ["S1", "S2", "S3", "S4", "S5", "S6"]);
+test("matrix is exactly eight scenarios by three required viewports", () => {
+  assert.deepEqual(SCENARIOS.map((item) => item.id), ["S1", "S2", "S3", "S4", "S5", "S6", "S7", "S8"]);
   assert.deepEqual(VIEWPORTS.map(({ width, height }) => [width, height]), [[1440, 900], [768, 1024], [390, 844]]);
-  assert.equal(SCENARIOS.length * VIEWPORTS.length, 18);
+  assert.equal(SCENARIOS.length * VIEWPORTS.length, 24);
 });
 
 test("QA port selection never uses Founder or forbidden ports", () => {
@@ -129,6 +134,13 @@ test("repository preflight allows only the two Browser-QA paths", () => {
     staged: [],
     statusPaths: [...ALLOWED_CHANGED_PATHS, "app/page.jsx"],
   }), /Unexpected changed paths/);
+  assert.throws(() => validateRepositoryState({
+    branch: EXPECTED_BRANCH,
+    head: "0000000000000000000000000000000000000000",
+    originMain: EXACT_BASE_SHA,
+    staged: [],
+    statusPaths: [],
+  }), /frozen Pre-RC base/);
 });
 
 for (const scenario of SCENARIOS) {
@@ -141,6 +153,21 @@ test("known-bad route status is actually detected", () => {
   const result = detectKnownBadControl(passingCase("S2"));
   assert.equal(result.detected, true);
   assert.equal(result.failures.includes("route-status"), true);
+});
+
+test("controlled error and zero fixtures require recovery UI with no stale cards", () => {
+  for (const scenarioId of ["S7", "S8"]) {
+    const evidence = passingCase(scenarioId);
+    evidence.routes[0].status = scenarioId === "S7" ? 503 : 200;
+    evidence.routes[0].fixture = scenarioId === "S7" ? "error" : "zero";
+    evidence.finalState.appliedVisible = true;
+    evidence.finalState.resultNextActionVisible = true;
+    evidence.finalState.resultNextActionButtonVisible = true;
+    evidence.finalState.checked.push({ name: "ott", value: "netflix" });
+    assert.deepEqual(evaluateCaseEvidence(evidence), { pass: true, failures: [] });
+    evidence.finalState.resultCount = 1;
+    assert.equal(evaluateCaseEvidence(evidence).failures.includes("stale-result-cards"), true);
+  }
 });
 
 test("request ownership remains bound to the case that initiated it", () => {
