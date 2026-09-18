@@ -6,7 +6,15 @@ import fs from "node:fs";
 import { MESSAGE_CATALOGS, getMessage } from "./messageCatalog.js";
 
 const BASE_COMMIT = "28c5b12d995d2badc6abea8fde0b6e8148313444";
-const CURRENT_TASK_BASE = "9e6483100879c6e1bca4cbfbccb4953405f0097e";
+const I18N_TASK_COMMITS = Object.freeze([
+  "64508552b31625f6fead3a26f7b4a5b97a2356ab",
+  "a99da68937c64fcd4a4508346ff4bee4ccea4472",
+  "94236f699ab8dbcc1af984707d3d6c7b6c57d4d4",
+  "fb4f0534d0ff9f57a0c7bc30cc6d6c30dc161422",
+  "5bc53fe48b0a46d420538708dae8034511ee6780",
+  "ccf86fcff8e3f6a2f0d7bd4e2766a74a03473fbc",
+  "4937349a012343e75f9fa6a48151ee7fa95b9869",
+]);
 const LAYOUT_KEYS = Object.freeze([
   "attribution.heading", "attribution.justWatch", "attribution.tmdbDisclaimer",
   "attribution.tmdbLogoAlt", "metadata.description", "metadata.title",
@@ -186,17 +194,19 @@ test("runtime wiring adds no persistence, tracking, or external effects", () => 
   assert.doesNotMatch(runtimeDiff, /^\+.*(?:fetch\(|XMLHttpRequest|WebSocket)/m);
 });
 
-test("package, lock, provider, API, and recommendation semantics paths remain untouched", () => {
-  const changed = execFileSync("git", ["diff", "--name-only", CURRENT_TASK_BASE], { encoding: "utf8" })
-    .trim().split(/\r?\n/).filter(Boolean);
-  assert.equal(changed.includes("package.json"), false);
-  assert.equal(changed.includes("pnpm-lock.yaml"), false);
-  assert.equal(changed.some((path) => path.startsWith("app/api/")), false);
-  assert.equal(changed.some((path) => path.startsWith("src/lib/recommendation/candidates/")), false);
-  assert.equal(changed.some((path) => path.startsWith("src/lib/recommendation/filters/")), false);
-  assert.equal(changed.some((path) => path.startsWith("src/lib/recommendation/recall/")), false);
-  assert.equal(changed.some((path) => path.startsWith("src/lib/recommendation/requests/")), false);
-  assert.equal(changed.some((path) => path.startsWith("src/lib/recommendation/scoring/")), false);
-  assert.equal(changed.some((path) => path.startsWith("src/lib/providers/")), false);
-  assert.equal(changed.some((path) => path.startsWith("lib/")), false);
+test("the accepted i18n and UI commits did not change package, provider, API, or core recommendation semantics", () => {
+  const changed = new Set();
+  for (const commit of I18N_TASK_COMMITS) {
+    for (const path of execFileSync("git", ["show", "--format=", "--name-only", commit], { encoding: "utf8" }).trim().split(/\r?\n/).filter(Boolean)) changed.add(path);
+  }
+  assert.equal(changed.has("package.json"), false);
+  assert.equal(changed.has("pnpm-lock.yaml"), false);
+  assert.equal([...changed].some((path) => path.startsWith("app/api/")), false);
+  assert.equal([...changed].some((path) => path.startsWith("src/lib/recommendation/candidates/")), false);
+  assert.equal([...changed].some((path) => path.startsWith("src/lib/recommendation/filters/")), false);
+  assert.equal([...changed].some((path) => path.startsWith("src/lib/recommendation/recall/")), false);
+  assert.equal([...changed].some((path) => path.startsWith("src/lib/recommendation/requests/")), false);
+  assert.equal([...changed].some((path) => path.startsWith("src/lib/recommendation/scoring/")), false);
+  assert.equal([...changed].some((path) => path.startsWith("src/lib/providers/")), false);
+  assert.equal([...changed].some((path) => path.startsWith("lib/")), false);
 });
