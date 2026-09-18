@@ -4,84 +4,56 @@
 
 ## Current Product Phase
 
-`PRE-PUBLIC-LAUNCH / STATELESS GLOBAL-FIRST PHASE 1`
+`PRE-RC / STATELESS GLOBAL-FIRST PHASE 1`
 
-Founder approved `OPTION_A_STATELESS_GLOBAL_FIRST_CORE` on 2026-09-11. The reviewed Phase 1 scope is `KR / JP / EU / US`; non-EU EEA is `OUT_OF_SCOPE / NOT_REVIEWED`.
+Reviewed Phase 1 scope: `KR / JP / EU / US`. Non-EU EEA remains out of the reviewed Phase 1 jurisdiction scope.
 
-## Current Version
+## Current Accepted Pre-RC Checkpoint
 
-`0.1.0`
+- Branch: `work/phase1-pre-rc-package-b-20260914`
+- Commit: `5cc0eaf19bb411f7f6de52ef1917fccf4af781f3`
+- Pull request: `#4` — open / unmerged
+- Unit: `275 / 275 PASS`
+- Deterministic Recommendation QA: `107 / 107 PASS`
+- Focused Security: `82 / 82 PASS`
+- Live TMDB cold: `66 / 66 PASS` at this checkpoint; maximum aggregate requests 24
+- Browser: `24 / 24 PASS` OFFLINE/MOCK; external/provider network 0
+- `pnpm audit --prod`: no known vulnerabilities
+- Managed build: PASS
+- Founder Preview at checkpoint: `/` 200, `/api/status` 200, analytics remains 404 `ANALYTICS_DISABLED`
 
-## Current Accepted Local Checkpoint
-
-- Branch: `qa/phase1-stale-expectation-baseline-v1`
-- Commit: `b2feb128f79b941319c40d24494245cbfdd78696`
-- Recommendation regression QA: `274 / 274 PASS / 0 FAIL`
-- Input Optionality Founder QA: `PASS / CLOSED`
-- Error Recovery Founder QA: `PASS / CLOSED`
-- Live TMDB at this checkpoint: `NOT_RUN / NOT_VALIDATED`; current Product QA is mock-based
-- Current port 3000 provenance: `NOT_CURRENTLY_ACTIVE / NOT_REPROVEN`
-
-This local checkpoint is not Remote Main or Production.
-
+This feature checkpoint is not Remote Main or Production.
 ## Current App State
 
 - Next.js recommendation web app
 - TMDB / Mock provider architecture
-- Stateless core recommendation: ON
+- Stateless recommendation core: ON
 - Analytics and live event send: OFF / 0
 - Persistent guest continuity, account, guest-to-account merge and persistent personalization: OFF
 - Marketing: OFF
-- Public-safe progress log is available in [DEVELOPMENT_STATUS.md](../../DEVELOPMENT_STATUS.md)
 
-## Current Development Status
+## Current RC Readiness
 
-`Ordinary Product work may continue within approved Gates.`
+`PRE-RC EVIDENCE CONVERGED / REMOTE RC VERIFICATION PARTIAL`
 
-- Security Seal: `BLOCKED / SAFE_HOLD`
-- Security blocks Release: `YES`
-- Build: `BLOCKED / EXACT_LOCAL_DEPENDENCY_GRAPH_NOT_AVAILABLE`
-- Release ready: `NO`
-- Production parity: `NOT_PROVEN`
-- Remote Main: `620496c637510327f6616937c5e292f302a0fbf7`
-- Known Production source: `70bb4c13aa253d3e02e3736fa784d8d5be89a227`
+The current feature checkpoint has local recommendation, security, Live TMDB and Browser evidence. The remaining RC work is about exact remote Preview/source/authentication provenance and final Product/Release gates, not permission to relax existing provider budgets or QA contracts.
 
-Local Product work, Remote Main and Production are separate identities.
+Current boundaries:
 
-## Release-Candidate Readiness
+- PR #4: open / not merged
+- Remote Main: separate from the current feature branch
+- Remote Preview / credential-bound verification: not fully closed
+- Main merge: not authorized by this status document
+- Production / Release: not authorized
+- Public indexability: not authorized
+- Provider budget, hard filters, ranking and QA contracts remain unchanged
 
-`READY_WITH_EXPLICIT_PRE_RC_BLOCKERS`
+## Source Identity Rule
 
-The Product surface is mature enough to begin bounded Phase 1 RC preparation. An RC has not been declared, and Release, Production and Deployment are not authorized.
-
-Current pre-RC blockers:
-
-- Current-HEAD build and dependency proof: `NOT_YET_PROVEN`
-- Current-HEAD Live TMDB validation: `NOT_RUN / NOT_VALIDATED`
-- Current-source Browser provenance, including a dedicated error-state fixture: `NOT_AVAILABLE / NOT_RUN`
-- Exact RC source integration identity: `NOT_YET_FROZEN / NOT_ESTABLISHED`
-
-Current pre-release and Release blockers remain separate:
-
-- Security Seal: `BLOCKED / SAFE_HOLD`
-- Build and Release authorization: `NOT_GRANTED`
-- Production parity: `NOT_PROVEN`
-- Public indexability: `NOT_CURRENTLY_AUTHORIZED`
-- Release and Deployment: `NOT_AUTHORIZED`
-
-## Current Authority
-
-- [Decision Log](DECISION_LOG.md)
-- [Project Memory](PROJECT_MEMORY.md)
-- [Phase 1 Jurisdiction Official-Source Policy Matrix](PHASE1_JURISDICTION_OFFICIAL_SOURCE_POLICY_MATRIX.md)
-- [Global-First Public Launch Architecture](PUBLIC_LAUNCH_GLOBAL_FIRST_ARCHITECTURE.md)
-
-The current OFF states are Phase 1 scope controls, not deletion of future guest, account, personalization or Analytics architecture.
+Local Product work, feature PR, Remote Main, Preview artifact and Production are separate identities. A successful local or feature-branch result must not be described as Main, Production or Release without matching evidence.
 
 ## Public Maintenance Policy
 
-의미 있는 개발이 계속되지만 기능 release가 늦어질 경우 public-safe status, documentation, issue 또는 review activity를 통해 프로젝트 진행을 알립니다.
+Meaningful development should be reflected through reviewed code, documentation, issues or PR activity at real task/batch closure. Empty commits, backdating and fabricated activity are prohibited.
 
-Empty commit이나 fabricated activity는 사용하지 않습니다.
-
-공개 문서에는 credential, private diagnostic evidence, 내부 운영 세부사항을 기록하지 않습니다.
+Public documents must not contain credentials, private Continuity, raw local diagnostic evidence, environment values or internal account information.
