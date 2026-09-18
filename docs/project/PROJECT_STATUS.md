@@ -57,3 +57,7 @@ Local Product work, feature PR, Remote Main, Preview artifact and Production are
 Meaningful development should be reflected through reviewed code, documentation, issues or PR activity at real task/batch closure. Empty commits, backdating and fabricated activity are prohibited.
 
 Public documents must not contain credentials, private Continuity, raw local diagnostic evidence, environment values or internal account information.
+
+## Readiness review — 2026-09-18
+
+The [current Pre-RC readiness register](PRE_RC_READINESS_20260918.md) distinguishes authenticated app-status evidence, exact Preview artifact provenance, unknown credential readiness and the separately protected Remote Live gate. Fresh deployment metadata still carries `gitDirty=1`; it is not exact artifact-source proof. No Product or provider tests were rerun by this documentation review.
