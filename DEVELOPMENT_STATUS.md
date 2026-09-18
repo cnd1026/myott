@@ -166,3 +166,9 @@ MyOTT is under active development. This public log summarizes externally safe mi
 When meaningful development continues but a public product commit is delayed by QA, security, or release gates, MyOTT will publish a small public-safe maintenance signal when useful. That signal may be a status update, documentation commit, issue, or review artifact. Empty commits and fabricated activity are not part of this policy.
 
 The goal is to keep public maintenance activity visible without weakening QA gates or publishing private diagnostic material.
+
+## 2026-09-19 — Git·CI 검증 진행 업데이트
+- 기존 Pre-RC PR에 범위가 제한된 offline CI를 추가하고 실제 GitHub Actions 2개 작업의 성공을 확인했습니다.
+- 추천 단위 275/275, 결정론 QA 107/107, 별도 변경 테스트 244/244와 격리 build를 통과했습니다.
+- 서비스 배포와 Product main 통합은 수행하지 않았습니다.
+- 남은 Pre-RC 확인은 인증 앱 응답과 정확한 artifact/source 결속입니다.

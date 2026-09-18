@@ -2980,3 +2980,9 @@ Codex 환경의 TMDB 요청은 여전히 실패해 명시적 Mock fallback으로
 - TMDb 키를 설정하고 `/api/status`, `/api/search`를 로컬에서 먼저 검증합니다.
 - Vercel에 환경변수를 등록하고 production 배포를 확인합니다.
 - TMDb 결과의 장르, 키워드, OTT 제공처 정보를 추천 알고리즘에 더 정교하게 반영합니다.
+
+## 2026-09-19 — Git·CI 검증 진행 업데이트
+- 기존 Pre-RC PR에 범위가 제한된 offline CI를 추가하고 실제 GitHub Actions 2개 작업의 성공을 확인했습니다.
+- 추천 단위 275/275, 결정론 QA 107/107, 별도 변경 테스트 244/244와 격리 build를 통과했습니다.
+- 서비스 배포와 Product main 통합은 수행하지 않았습니다.
+- 남은 Pre-RC 확인은 인증 앱 응답과 정확한 artifact/source 결속입니다.
