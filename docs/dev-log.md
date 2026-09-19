@@ -2986,3 +2986,10 @@ Codex 환경의 TMDB 요청은 여전히 실패해 명시적 Mock fallback으로
 - 추천 단위 275/275, 결정론 QA 107/107, 별도 변경 테스트 244/244와 격리 build를 통과했습니다.
 - 서비스 배포와 Product main 통합은 수행하지 않았습니다.
 - 남은 Pre-RC 확인은 인증 앱 응답과 정확한 artifact/source 결속입니다.
+
+
+## 2026-09-19 — 배포 연결 상태 확인
+- 내부 Monitor 마감과 별개로 MyOTT의 최신 hosting metadata를 다시 확인했습니다.
+- production 대상은 `READY`이나 Git source metadata가 없어 current main과의 정확한 배포 결속은 아직 입증하지 않았습니다.
+- Preview는 기존 Pre-RC feature source에 연결된 별도 `READY` 배포로 확인했습니다.
+- 이번 기록은 문서 가시성만 보완하며 Product 기능·Release·Production·Provider 상태를 변경하지 않습니다.

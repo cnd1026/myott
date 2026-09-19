@@ -172,3 +172,10 @@ The goal is to keep public maintenance activity visible without weakening QA gat
 - 추천 단위 275/275, 결정론 QA 107/107, 별도 변경 테스트 244/244와 격리 build를 통과했습니다.
 - 서비스 배포와 Product main 통합은 수행하지 않았습니다.
 - 남은 Pre-RC 확인은 인증 앱 응답과 정확한 artifact/source 결속입니다.
+
+
+## 2026-09-19 — 배포 연결·개발 가시성 재확인
+- 이번 Monitor 마감 작업은 내부 개발도구 교정이며 MyOTT Product 코드·추천 동작·Provider·Production을 변경하지 않았습니다.
+- 최신 호스팅 메타데이터에서 production 대상 배포는 `READY`였지만 Git source 메타데이터가 반환되지 않아 현재 Product main과 Production의 정확한 source parity는 계속 `NOT_PROVEN`입니다.
+- 최신 Preview 배포는 기존 Pre-RC feature source에 연결된 `READY` 상태로 확인됐으며 current main과는 별도입니다.
+- 따라서 문서 가시성만 최신 사실로 갱신하며 Product main 통합·Release·Production 재배포 권한을 생성하지 않습니다.
