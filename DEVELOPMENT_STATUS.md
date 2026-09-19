@@ -1,16 +1,18 @@
-## 최근 개발 현황 — 2026-09-19 03:12 KST
+## 최근 개발 현황 — 2026-09-19 21:00 KST
 
-추천 품질과 다국어 화면 개선안을 검토 브랜치에 보존하고 공개 전 검증을 진행하고 있습니다.
-최근 점검에서는 개발 지원 도구의 상태 표시·검증 규칙과 자동 테스트 포함 범위를 보완할 항목을 확인했습니다.
-**현재 진행:** 기존 개선안 교정과 자동 검사 연결. **남은 확인:** 인증된 Preview 응답과 배포 소스의 정확한 일치 검증.
-일부 자동화의 실행 검토가 남아 있지만, 독립적으로 가능한 코드 교정·검증·문서 작업은 계속 진행합니다.
-이번 main 갱신은 개발 현황 문서만 반영합니다. 새 서비스 배포나 제품 코드의 main 통합을 의미하지 않습니다.
-
-이번 기록은 9월 18~19일의 실제 검토 결과와 현재 작업 착수를 공개하는 문서 갱신입니다. 자동 검사 통과·전체 기능 완료·새 배포를 아직 주장하지 않습니다.
-
-다음 기록에는 실제 수정 결과, 검사 결과, 지연 사유와 다음 단계를 구분해 남깁니다. 작업 없는 날짜나 같은 내용을 반복해서 채우지 않습니다.
+현재 추천·다국어 Product 후보의 CI와 Preview 증거를 다시 대조해 Pre-RC 상태를 갱신했습니다.
+GitHub Actions run `35400294943`의 core/targeted 작업은 성공했지만, 실제 checkout integration SHA와 Product head를 별도로 기록합니다.
+최신 READY Preview의 metadata source는 현재 Product PR4 head보다 뒤처져 있고, authenticated app response와 exact artifact binding은 아직 입증되지 않았습니다.
+따라서 Product RC는 `BLOCKED`를 유지하며, 이번 main 반영은 public-safe 진행 문서만 갱신합니다. Product code main 통합·Provider Live·Production·Release는 수행하지 않았습니다.
 
 ---
+
+## 2026-09-19 — Pre-RC source·CI·Preview 증거 갱신
+- Product PR4 head `503797075a4180fc342999ce8961f702386bb0e0`의 기존 GitHub Actions run `35400294943`에서 core/targeted 두 job success를 확인했고, checkout integration SHA `7500fb6e85ec2612b8e37cb85e33dcddf3c2eff6`를 run head와 분리해 기록했습니다.
+- 이후 main 변화는 공개 진행 문서 3개뿐으로 확인했으며 Product behavior를 변경하지 않았습니다.
+- 최신 Preview `dpl_CxmPxQmcvoWJj2jPhr4951WS6nsW`는 READY지만 metadata source `5cc0eaf19bb411f7f6de52ef1917fccf4af781f3`가 현재 Product head와 불일치합니다.
+- authenticated app response와 exact artifact/source binding은 `NOT_OBTAINED / NOT_PROVEN`; Founder Product Gate와 HQ evidence review도 pending입니다.
+- 기존 PR6 readiness 문서는 이 분리를 반영해 `d6f901806fa85f081e77ebe8afd3a5e9a573bf7b`로 갱신했습니다. Product code main merge·Provider Live·Production/Release는 실행하지 않았습니다.
 
 # Development Status
 

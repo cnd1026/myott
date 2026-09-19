@@ -1,11 +1,11 @@
 <!-- ND_PROGRESS_START -->
-## 최근 개발 현황 — 2026-09-19 07:18 KST
+## 최근 개발 현황 — 2026-09-19 21:00 KST
 
-추천·다국어 개선 브랜치의 검증 자동화를 보강했습니다.
-**이번 확인:** 추천 단위 275/275, 결정론 QA 107/107, 추가 변경 테스트 244/244, 격리 Production build와 GitHub Actions 2개 작업이 모두 통과했습니다.
-**현재 상태:** 개선안은 기존 PR에서 계속 검토 중이며 제품 코드의 main 통합이나 서비스 배포는 수행하지 않았습니다.
-**남은 확인:** 인증된 Preview 앱 응답과 배포 산출물의 정확한 소스 결속은 별도 Pre-RC 단계로 남아 있습니다.
-이번 main 갱신은 검증 진행상황 문서만 반영합니다.
+현재 Product 후보의 검증 근거와 Pre-RC 차단 조건을 다시 분리해 기록했습니다.
+**검증 근거:** GitHub Actions run `35400294943`의 core/targeted 두 작업은 성공했고, Product PR4 head는 `5037970...`입니다.
+**현재 Preview:** 최신 READY Preview 메타데이터 source는 `5cc0eaf...`로 현재 Product head보다 뒤처져 있어 동일 산출물로 보지 않습니다.
+**남은 Gate:** 인증된 앱 응답, exact artifact/source binding, Founder Product Gate, HQ evidence review가 남아 있어 RC는 아직 `BLOCKED`입니다.
+Product main 기능 병합·Provider Live·Production/Release 재배포는 수행하지 않았습니다.
 
 [상세 개발 현황](DEVELOPMENT_STATUS.md) · [개발 일지](docs/dev-log.md)
 <!-- ND_PROGRESS_END -->
