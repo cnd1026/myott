@@ -2312,6 +2312,27 @@ test("F2 related route blocks production Mock fallback and preserves other envir
   const request = relatedRouteRequest("id=10&type=drama&mediaType=tv&title=Alien");
 
   await withNodeEnvironment("production", async () => {
+    let providerCalls = 0;
+    const { GET } = await importRelatedRoute({
+      getActiveProvider: () => ({
+        id: "tmdb",
+        name: "TMDB Provider",
+        async getRelated() {
+          providerCalls += 1;
+          return [];
+        },
+      }),
+      getFallbackProvider: () => ({ id: "mock", name: "Mock Provider" }),
+      isTmdbProviderEnabled: () => true,
+    });
+    const response = await GET(relatedRouteRequest("id=..%2F..%2Faccount&type=movie"));
+    const body = await response.json();
+    assert.equal(response.status, 400);
+    assert.equal(body.error.code, "INVALID_PROVIDER_CONTENT_ID");
+    assert.equal(providerCalls, 0);
+  });
+
+  await withNodeEnvironment("production", async () => {
     let mockCalls = 0;
     const mockProvider = {
       id: "mock",

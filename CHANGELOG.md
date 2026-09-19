@@ -1,6 +1,421 @@
 # Changelog
 
 프로젝트의 주요 변경 사항을 날짜별로 기록합니다.
+
+## 2026-09-13 - Phase 1 RC Current-State Documentation Sync
+
+### 변경 내용
+
+- Input Optionality와 Error Recovery를 정확한 로컬 체크포인트 및 Founder QA PASS/CLOSED 상태로 정합화했습니다.
+- stale QA 기대값 교정 이후의 현재 추천 회귀 기준을 `274/274 PASS / 0 FAIL`로 기록했습니다. 이전 `272/274`는 교정 전 역사적 증거입니다.
+- RC 준비 상태를 `READY_WITH_EXPLICIT_PRE_RC_BLOCKERS`로 기록하고 current-HEAD Build, Live TMDB, Browser provenance와 RC source identity를 pre-RC 차단 항목으로 분리했습니다.
+
+### 불변 범위
+
+- Product runtime, test, package, lockfile, env, Provider와 추천 의미 변경은 없습니다.
+- RC, Release, Production 또는 Deployment를 선언하거나 승인하지 않았습니다.
+
+## 2026-09-13 - Phase 1 Recommendation Error Recovery
+
+### 변경 내용
+
+- 추천 요청 오류 상태에 기존 조건 영역으로 돌아가는 문맥 내 복구 CTA를 추가했습니다.
+- 오류 전용 ko/en 안내 문구를 추가하고 기존 빈 결과 및 성공 후 조건 조정 동작은 유지했습니다.
+
+### 검증 및 불변 범위
+
+- CTA는 기존 조건을 보존한 채 조건 영역으로 스크롤하고 첫 제목 입력에 포커스하며 자동 추천이나 Provider 요청을 만들지 않습니다.
+- focused QA 89/89 PASS와 추천 회귀 274개 중 기존 stale 2건만 동일하게 실패함을 확인했습니다. 추천 엔진, 요청 계약, Provider와 순위 의미는 변경하지 않았습니다.
+
+## 2026-09-12 - Phase 1 Result Next Actions
+
+### 변경 내용
+
+- 전체 결과와 결과 없음 상태에 기존 조건 영역으로 돌아가는 후속 조건 조정 CTA를 추가했습니다.
+- 모바일 접힘 상태에서는 전체 보기 CTA만 유지하고, 모바일 펼침 상태와 비모바일 전체 결과 뒤에는 조건 조정 CTA를 표시합니다.
+
+### 검증 및 불변 범위
+
+- CTA는 기존 조건 영역으로 스크롤하고 입력에 포커스하며 자동 추천 또는 Provider 요청을 만들지 않습니다.
+- focused deterministic QA 84/84와 Founder Manual QA PASS를 확인했습니다.
+- 결과 데이터, 추천 엔진, 순위와 Provider 계약은 변경하지 않았습니다.
+
+## 2026-09-12 - Phase 1 Result Shortlist Decision Focus
+
+### 변경 내용
+
+- 기존 반응형 경계를 재사용해 모바일에서는 상위 3개와 접근 가능한 전체 보기/접기 동작을 제공하고, 비모바일에서는 전체 순위를 바로 표시하도록 정리했습니다.
+- Founder QA에 따라 모바일 CTA의 정렬·간격·강조를 다듬고 TMDB 고지와 문구를 유지하면서 로고의 시각적 비중을 낮췄습니다.
+
+### 검증 및 불변 범위
+
+- focused deterministic QA 81/81과 Founder Manual Re-QA PASS를 확인했습니다.
+- 결과 수·순서·데이터, 추천 ranking/scoring/retrieval, Provider 요청과 계약은 변경하지 않았습니다.
+
+## 2026-09-11 - Phase 1 Analytics Server Hard-Off
+
+### 변경 내용
+
+- `/api/analytics/event` 진입점에 server-owned Phase 1 Analytics OFF 정책을 추가했습니다.
+- 유효·무효·사용 불가능 요청과 fake token이 있어도 body 처리나 provider dispatch 전에 HTTP 404 `ANALYTICS_DISABLED`로 종료하도록 고정했습니다.
+- 기존 same-origin relay, canonical event validation과 PostHog provider architecture는 future activation 기반으로 보존했습니다.
+
+### 불변 범위
+
+- Product event wiring, Analytics identity, jurisdiction/geofence, Account, persistence, Marketing, package/lock/env, live provider Network, Main, Push, Release, Production과 Deployment 변경은 없습니다.
+
+## 2026-09-11 - Codex Mode V2 UI Semantic Reconciliation
+
+### 변경 내용
+
+- Founder-observed Astra/Daybreak Blue six-option UI snapshot을 dated volatile evidence로 기록했습니다.
+- OpenAI 공식 자료에 맞춰 Ultra를 maximum reasoning과 eligible-user additional-agent 가능성을 가진 Product reasoning choice로 교정했습니다.
+- Daybreak Blue를 general capability ladder와 분리된 defensive-security specialist access track으로 명확히 했습니다.
+
+### 불변 범위
+
+- Luna/Terra/Sol/Astra routing ladder, lowest-sufficient rules, runtime, Nd_core, Local Continuity, Main, Push, Release, Production과 Deployment 변경은 없습니다.
+
+## 2026-09-11 - Stateless Phase 1 Product Canon Sync
+
+### 변경 내용
+
+- Founder 승인 `OPTION_A_STATELESS_GLOBAL_FIRST_CORE`와 `KR / JP / EU / US` 범위를 Product decision, memory와 jurisdiction matrix에 지속 기록했습니다.
+- Free-first revenue-triggered expansion 원칙과 `DOMAIN_ONLY` paid baseline을 Product memory에 추가했습니다.
+- 오래된 Sprint 5/9 current 표기를 historical snapshot과 현재 Phase 1 status pointer로 정합화했습니다.
+
+### 불변 범위
+
+- Product runtime, package/lock/env, Private Continuity, Main, Push, Release, Production과 Deployment 변경은 없습니다.
+
+## 2026-09-11 - Phase 1 Jurisdiction Scope Reconciliation
+
+### 변경 내용
+
+- Current Phase 1 jurisdiction scope를 `KR / JP / EU / US`로 정합화하고, EU를 EU member-state policy scope로 한정했습니다.
+- non-EU EEA 국가는 `OUT_OF_SCOPE / NOT_REVIEWED`로 분류하고 optional data features를 fail-closed로 유지했습니다.
+- 기존 EU official-source evidence, stateless-core recommendation과 Founder decision pending 상태는 보존했습니다.
+
+### 불변 범위
+
+- 새 법률 조사, runtime/source/dependency, Analytics activation, Local Continuity, Push/Main/Release/Production/Deployment 변경은 없습니다.
+
+## 2026-09-11 - Phase 1 Jurisdiction Official-Source Policy Matrix
+
+### 변경 내용
+
+- 한국, 일본, EU, 미국 공통 baseline과 California overlay를 공식 법령·규제기관 자료로 대조한 Founder decision packet을 추가했습니다.
+- Free-first 전략에 따라 stateless recommendation core를 우선하고 Analytics, guest continuity, account와 persistent personalization을 불확실성 아래에서 비활성화하는 feature-reduction matrix를 정리했습니다.
+- PostHog EU Cloud/DPA/subprocessor/IP-discard 근거를 Product compliance와 분리하고, paid-counsel future trigger와 관할별 알려지지 않은 사실을 명시했습니다.
+
+### 불변 범위
+
+- 법률 인증, runtime/source/test/dependency, Analytics activation, Privacy Center mount, Network write, Private Continuity, Push/Main/Release/Production/Deployment 변경은 없습니다.
+
+## 2026-09-11 - Privacy Consent Persistence And Jurisdiction Gate
+
+### 변경 내용
+
+- Phase 1 durable privacy choice 후보를 비교하고, 최소 server-verifiable signed first-party consent receipt를 기술 architecture로 선택했습니다.
+- Vercel의 IP-derived country header는 transient coarse signal로만 사용하고, 실제 country/legal mapping이 없는 초기 policy registry에서는 nonessential Analytics를 fail-closed로 억제하도록 정리했습니다.
+- Current relay의 future receipt/jurisdiction revalidation, withdrawal rollback/replay Security blocker, expiry와 Legal review 질문을 명시했습니다.
+
+### 불변 범위
+
+- cookie/storage/secret/jurisdiction runtime, Privacy Center mount, Product event wiring, live Analytics, source/dependency/build, Private Continuity, Main/Release/Production/Deployment 변경은 없습니다.
+
+## 2026-09-10 - Privacy Center And Analytics Consent UI Foundation
+
+### 변경 내용
+
+- strictly necessary, preferences, Analytics와 Marketing을 구분하는 provider-neutral Privacy Center view model 및 ko/en copy contract를 추가했습니다.
+- allow, deny, withdraw action이 consent state만 바꾸고 최종 Analytics eligibility는 기존 runtime policy/jurisdiction/environment Gate가 별도로 결정하도록 고정했습니다.
+
+### 불변 범위
+
+- Privacy Center public mount, consent persistence, jurisdiction mapping, Product event wiring, live Analytics, Product UI, dependency/build, deployment, Private Continuity, Main/Release/Production 변경은 없습니다.
+
+## 2026-09-10 - Analytics Consent Eligibility Runtime Foundation
+
+### 변경 내용
+
+- provider-neutral runtime environment, Product policy, legal-jurisdiction, Analytics consent와 session-only identity를 분리한 memory-only eligibility controller를 추가했습니다.
+- fail-closed 초기 상태, 즉시 deny/withdraw suppression, active same-origin request abort, ephemeral identity retirement와 future-only re-consent를 deterministic QA로 고정했습니다.
+
+### 불변 범위
+
+- consent/privacy UI, country-to-law mapping, persistent consent/storage, Product event call site, live PostHog request, dependency/build, deployment, Private Continuity, Main/Release/Production 변경은 없습니다.
+
+## 2026-09-10 - PostHog Same-Origin Privacy Relay Implementation
+
+### 변경 내용
+
+- exact five-event registry, fail-closed eligibility, event별 property policy와 memory-only client adapter를 추가했습니다.
+- `POST /api/analytics/event`가 8192-byte JSON/same-origin/schema를 검증하고 server-only token으로 PostHog EU single-event endpoint에 한 번만 전달하도록 구현했습니다.
+- provider payload는 person profile과 GeoIP 처리를 server에서 끄며, raw browser IP header, queue, retry, storage, SDK 의존성을 전달하거나 추가하지 않습니다.
+
+### 불변 범위
+
+- Product event call site와 consent UI는 연결하지 않았습니다. 실제 token read, live PostHog request, dependency/build, deployment, Private Continuity, Main/Release/Production 변경은 없습니다.
+
+## 2026-09-10 - PostHog Server-Only Token Configuration Gate
+
+### 변경 내용
+
+- Founder의 zero-event EU project receipt를 기존 relay/privacy 계약에 대조하고, PostHog project token의 Production-only Vercel Secret 경계와 redacted manual action packet을 정의했습니다.
+- token presence와 deployment consumption 및 Analytics activation을 분리하고, missing-token fail-closed, browser/log exposure 방지, incident rotation 경계를 고정했습니다.
+
+### 불변 범위
+
+- 실제 token 또는 Vercel environment write, deployment, SDK/relay/consent runtime, event 전송, Product source, Private Continuity, Main/Release/Production 변경은 없습니다.
+
+## 2026-09-10 - PostHog Account And Project Activation Preparation
+
+### 변경 내용
+
+- PostHog Cloud EU account/project를 event 0 상태로 수동 생성하기 위한 Founder 절차, 사후 settings readback, token redaction과 server-only Vercel environment 경계를 정리했습니다.
+- 현재 공식 가격과 project/IP/Capture API 근거를 재검증하고, 로그인 전 확인할 수 없는 dashboard 기본값은 `POST_CREATION_READBACK_REQUIRED` 또는 `NOT_PROVEN_WITHOUT_PROJECT`로 분리했습니다.
+
+### 불변 범위
+
+- PostHog account/project/token 생성, 로그인, 결제, SDK/relay/consent runtime, event 전송, Vercel 환경, Product source, Private Continuity, Main/Release/Production/Deployment 변경은 없습니다.
+
+## 2026-09-10 - PostHog Same-Origin Privacy Relay Architecture
+
+### 변경 내용
+
+- Direct browser capture의 기술적 feasibility와 event authenticity 한계를 분리하고, exact five-event server enforcement와 server-only token을 사용하는 same-origin Phase 1 relay architecture를 정리했습니다.
+- raw browser IP non-forwarding, no queue/retry, session-only identity, withdrawal commit point, replay/bot limitation과 buyer evidence 등급을 고정했습니다.
+
+### 불변 범위
+
+- PostHog account/project/token, SDK, relay/runtime/event, dependency, Product source, Private Continuity, Main/Release/Production/Deployment 변경은 없습니다.
+
+## 2026-09-10 - PostHog Withdrawal-Safe Direct Ingestion Architecture
+
+### 변경 내용
+
+- Browser SDK queue/retry를 사용하지 않는 MyOTT-owned EU single-event Capture API transport architecture를 정리했습니다.
+- eligibility 이중 확인, runtime-only ephemeral identity, exact five-event projection, no queue/retry/unload send, AbortController withdrawal과 IP/GeoIP 경계를 고정했습니다.
+- Browser CORS, exact project IP-discard 설정, 법률 검토와 live ingestion은 별도 activation Gate로 유지했습니다.
+
+### 불변 범위
+
+- PostHog account/project/token, SDK, Analytics runtime/event, dependency, Product source, Private Continuity, Main/Release/Production/Deployment 변경은 없습니다.
+
+## 2026-09-10 - PostHog Browser SDK Withdrawal Queue Proof
+
+### 변경 내용
+
+- PostHog Browser SDK `1.428.10`의 pinned source와 공식 테스트를 대조해 RequestQueue, RetryQueue, `before_send`, opt-out, reset, shutdown, in-flight cancellation과 unload/BFCache 동작을 증명했습니다.
+- supported public API에는 withdrawal 시 ordinary pending/retry event를 전송 없이 모두 폐기하는 계약이 없으며, shutdown/unload는 대기 항목을 flush/send하므로 Browser SDK Phase 1 activation blocker를 확정했습니다.
+
+### 불변 범위
+
+- PostHog Cloud provider 선택은 유지합니다. SDK 설치, account/project 생성, event 전송, Product runtime, dependency, Decision Log, Private Continuity, Main/Release/Production/Deployment 변경은 없습니다.
+
+## 2026-09-10 - PostHog Session-Only Measurement Architecture
+
+### 변경 내용
+
+- Founder가 선택한 PostHog Cloud를 MyOTT provider-neutral Event/Privacy contract에 연결하는 docs-only implementation architecture를 추가했습니다.
+- eligibility 전 SDK import/init/network를 금지하고, runtime-scoped ephemeral identity, exact 5-event/property allowlist, explicit safe config와 EU Cloud activation checklist를 고정했습니다.
+- 현재 browser SDK에서 withdrawal 시 pending/retry request를 안전하게 폐기하는 supported public contract가 입증되지 않아 activation blocker와 별도 proof Task를 명시했습니다.
+
+### 불변 범위
+
+- PostHog account/project 생성, SDK 설치, runtime/event 전송, Product source, dependency, Private Continuity, Main/Release/Production/Deployment 변경은 없습니다.
+
+## 2026-09-10 - Free-First Analytics Provider Decision Packet
+
+### 변경 내용
+
+- First-party, Vercel, Cloudflare, PostHog, Umami Cloud/Self-hosted, GA4와 Plausible를 canonical Event/Privacy hard gate로 비교했습니다.
+- PostHog Cloud를 strict no-load/session-only 구성의 조건부 1순위로, first-party minimal collector를 별도 architecture Gate가 필요한 fallback으로 제안했습니다.
+
+### 이유
+
+- 무료 allowance나 익명성 마케팅 문구가 MyOTT의 no-send, no-request-hash, canonical five-event 계약을 대신하지 못하게 하기 위해서입니다.
+
+### 다음 작업
+
+- `MYOTT_ANALYTICS_PROVIDER_FOUNDER_DECISION_V1`에서 provider와 data region을 선택하거나 hold합니다. 이 문서만으로 Analytics를 설치하거나 활성화하지 않습니다.
+
+## 2026-09-10 - Privacy And Consent Measurement Eligibility Matrix
+
+### 변경 내용
+
+- 5개 core와 7개 future Growth event의 session, persistent, account-linked identity 및 consent/jurisdiction eligibility를 정본화했습니다.
+- 19개 property class와 30개 KPI를 allowed/conditional/prohibited, minimum identity, withdrawal 및 fail-safe 상태에 연결했습니다.
+
+### 이유
+
+- Guest continuity를 Analytics consent로 오인하거나, unresolved jurisdiction에서 먼저 수집한 뒤 나중에 consent를 적용하는 흐름을 방지하기 위해서입니다.
+
+### 다음 작업
+
+- `MYOTT_FREE_FIRST_ANALYTICS_PROVIDER_DECISION_PACKET_V1`에서 이 contract를 기준으로 first-party minimal collector와 free-tier provider 후보를 비교합니다.
+
+## 2026-09-10 - Growth Measurement Event Taxonomy
+
+### 변경 내용
+
+- acquisition부터 data-network-effect까지 이어지는 vendor-neutral event registry와 privacy-safe identity/property 경계를 정본화했습니다.
+- 30개 first-class KPI의 numerator, denominator, eligible population, identity, UTC window와 current measurability를 고정했습니다.
+
+### 이유
+
+- Analytics vendor나 dashboard가 Product metric 의미를 먼저 결정하거나, continuity identity와 미수집 상태를 실제 growth evidence로 오인하지 않게 하기 위해서입니다.
+
+### 다음 작업
+
+- `MYOTT_PRIVACY_CONSENT_MEASUREMENT_ELIGIBILITY_MATRIX_V1`에서 event/metric class별 실제 enablement eligibility를 별도 Gate로 판정합니다.
+
+## 2026-09-10 - SEO Indexability Launch Architecture
+
+### 변경 내용
+
+- search indexability state machine, canonical host, locale URL, robots/sitemap, hreflang와 rollback 계약을 정본화했습니다.
+- 현재 noindex를 launch hold로 유지하고 exact origin과 Release prerequisite가 모두 증명된 뒤에만 제거하도록 Gate를 정의했습니다.
+
+### 이유
+
+- local candidate, remote Main과 Production identity가 다른 상태에서 SEO signal이나 inactive locale route가 먼저 노출되는 것을 막기 위해서입니다.
+
+### 다음 작업
+
+- Global/i18n/guest/SEO 정본 상태를 Private Continuity에 한 번의 bounded batch로 동기화합니다.
+
+## 2026-09-10 - Guest Account Data Continuity Architecture
+
+### 변경 내용
+
+- account-free core recommendation, pseudonymous guest continuity, bounded repeat avoidance와 optional account 경계를 Product architecture로 정본화했습니다.
+- explicit guest-to-account merge, retention class, deletion/export, consent와 privacy-safe measurement 경계를 정의했습니다.
+
+### 이유
+
+- Guest에서 Returning Guest와 Optional Account로 이어지는 데이터 흐름이 draft DB 구조나 analytics 목적과 섞이지 않도록 구현 전 계약을 확정하기 위해서입니다.
+
+### 다음 작업
+
+- `MYOTT_SEO_INDEXABILITY_LAUNCH_CONTRACT_V1`에서 public launch indexability 계약을 별도 docs-only Gate로 정리합니다.
+
+## 2026-09-10 - I18N Page Fallback and Result Presentation
+
+### 변경 내용
+
+- page-local result/first-pick fallback, time-slot 및 legacy hero 문구를 `ko-KR`/`en-US` pure presentation module로 분리했습니다.
+- 실제 provider title, cast, director, synopsis와 canonical result identity는 locale 처리 밖에 유지했습니다.
+
+### 이유
+
+- public English activation 전에 ordinary Product-owned page fallback에서 혼합 언어가 생길 수 있는 마지막 presentation gap을 닫기 위해서입니다.
+
+### 다음 작업
+
+- 별도 Gate에서 en-US runtime과 사용자 language switch를 활성화합니다.
+
+## 2026-09-10 - I18N Taxonomy and Dynamic Copy Presentation
+
+### 변경 내용
+
+- canonical taxonomy 값은 유지하면서 `ko-KR`/`en-US` 표시 label을 제공하는 locale-aware presentation layer를 추가했습니다.
+- seed 상태와 recommendation reason 생성 함수에 locale 입력을 연결하고 기존 호출자의 한국어 기본 동작을 보존했습니다.
+
+### 이유
+
+- 영어 runtime 활성화 전에 Product가 소유한 taxonomy 및 동적 추천 문구를 의미 변화 없이 독립적으로 검증하기 위해서입니다.
+
+### 다음 작업
+
+- page-local fallback 및 result normalization 문구의 locale presentation을 마친 뒤 English runtime activation Gate를 진행합니다.
+
+## 2026-09-10 - Message Catalog Runtime Wiring
+
+### 변경 내용
+
+- 현재 `ko-KR` runtime의 layout과 recommendation 화면 정적 문구를 accepted message catalog API에 연결했습니다.
+- metadata, attribution, controls, status, detail, related UI와 접근성 이름의 기존 한국어 출력을 유지했습니다.
+
+### 이유
+
+- public English activation 전에 current Korean runtime이 검증된 catalog contract를 실제로 사용하도록 만들기 위해서입니다.
+
+### 다음 작업
+
+- taxonomy presentation과 recommendation helper가 생성하는 동적 문구는 별도 i18n Task에서 다룹니다.
+
+## 2026-09-10 - Korean and English Message Catalog Foundation
+
+### 변경 내용
+
+- 현재 추천 화면의 일반 사용자 정적 문구를 semantic key 기반 `ko-KR`/`en-US` catalog로 정리했습니다.
+- locale별 key·placeholder 대칭성과 missing-key strict failure를 검증하는 pure catalog API 및 focused test를 추가했습니다.
+
+### 이유
+
+- runtime wiring 전에 한국어 의미를 보존한 완전한 정적 copy contract와 자연스러운 영어 copy를 독립적으로 검증하기 위해서입니다.
+
+### 다음 작업
+
+- 별도 Task에서 catalog를 runtime에 연결하며, 그 전까지 public language switch와 English runtime은 활성화하지 않습니다.
+
+## 2026-09-10 - I18N Locale Routing Foundation
+
+### 변경 내용
+
+- canonical locale prefix parsing, replacement, query/hash-preserving navigation helper를 추가했습니다.
+
+### 이유
+
+- 향후 locale route와 manual override가 legacy root를 바꾸거나 provider region·legal jurisdiction을 혼동하지 않고 같은 navigation contract를 사용하도록 하기 위해서입니다.
+
+### 다음 작업
+
+- message catalog가 준비되기 전까지 public English language switch는 노출하지 않습니다.
+
+## 2026-09-10 - I18N Locale Resolution Foundation
+
+### 변경 내용
+
+- `ko-KR`과 `en-US`의 bounded UI locale registry 및 pure precedence resolver를 추가했습니다.
+
+### 이유
+
+- future locale route와 manual language override가 UI locale, provider region, legal jurisdiction을 혼동하지 않고 같은 contract를 재사용하도록 하기 위해서입니다.
+
+### 다음 작업
+
+- `MYOTT_I18N_LOCALE_ROUTING_AND_MANUAL_OVERRIDE_V1`에서 별도 Gate로 routing과 persistence wiring을 검토합니다.
+
+## 2026-09-10 - Global-First Public Launch Foundation
+
+### 변경 내용
+
+- Global/free/guest-first public launch 원칙과 optional account, locale·content region·legal jurisdiction 분리, privacy/consent, SEO readiness, growth KPI 계약을 문서화했습니다.
+
+### 이유
+
+- 국가별 구현을 시작하기 전에 제품·법률·Security·Release 경계를 분리하고 후속 Task 순서를 하나의 foundation contract로 고정하기 위해서입니다.
+
+### 다음 작업
+
+- 별도 승인 Task에서 `MYOTT_I18N_LOCALE_FOUNDATION_V1`을 검토합니다.
+
+## 2026-09-10 - Release Attribution Disclosure
+
+### 변경 내용
+
+- 일반 화면 하단에 TMDB approved logo, TMDB API 비보증 고지, JustWatch watch-provider 출처를 포함한 데이터 출처·고지 영역을 추가했습니다.
+
+### 이유
+
+- TMDB 데이터·이미지와 watch-provider 정보를 사용하는 화면에서 사용자 접근 가능한 attribution을 제공하기 위해서입니다.
+
+### 다음 작업
+
+- Release 경로, Security coverage, 상업 사용 관련 후속 Gate를 별도로 판단합니다.
 ## 2026-08-21 - Founder Preview Worktree Runtime Support
 
 - Git linked worktree에 독립 `node_modules`가 없어도 같은 Git common repository와 origin, 호환 `next/react/react-dom` 계약이 확인되면 primary worktree의 기존 runtime을 안전하게 재사용합니다.

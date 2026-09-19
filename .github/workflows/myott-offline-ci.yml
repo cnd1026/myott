@@ -1,0 +1,78 @@
+name: myott-offline-ci
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
+
+permissions:
+  contents: read
+
+jobs:
+  myott-core-offline:
+    runs-on: windows-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout exact PR source
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          fetch-depth: 0
+      - name: Setup Node 24.18.0
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: 24.18.0
+      - name: Install pnpm 11.9.0
+        shell: pwsh
+        run: npm install --global pnpm@11.9.0 --ignore-scripts
+      - name: Install exact lockfile dependencies
+        shell: pwsh
+        run: pnpm install --frozen-lockfile
+      - name: Recommendation unit suite
+        shell: pwsh
+        run: pnpm test:recommendation
+      - name: Deterministic recommendation QA
+        shell: pwsh
+        run: pnpm qa:recommendation
+      - name: Production build without provider secrets
+        shell: pwsh
+        run: pnpm build
+
+  myott-targeted-offline:
+    runs-on: windows-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout exact PR source
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          fetch-depth: 0
+      - name: Setup Node 24.18.0
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: 24.18.0
+      - name: Install pnpm 11.9.0
+        shell: pwsh
+        run: npm install --global pnpm@11.9.0 --ignore-scripts
+      - name: Install exact lockfile dependencies
+        shell: pwsh
+        run: pnpm install --frozen-lockfile
+      - name: Explicit changed-test matrix
+        shell: pwsh
+        run: |
+          node --test `
+            scripts/recommendation-browser-representative.test.mjs `
+            scripts/release-attribution-minimal.test.mjs `
+            src/lib/analytics/analyticsRelay.test.mjs `
+            src/lib/analytics/consentEligibilityRuntime.test.mjs `
+            src/lib/i18n/localeContract.test.mjs `
+            src/lib/i18n/localeRouting.test.mjs `
+            src/lib/i18n/messageCatalog.test.mjs `
+            src/lib/i18n/messageCatalogRuntimeWiring.test.mjs `
+            src/lib/i18n/pageFallbackPresentation.test.mjs `
+            src/lib/i18n/taxonomyPresentation.test.mjs `
+            src/lib/privacy/privacyCenterModel.test.mjs `
+            src/lib/providers/tmdb/providerContentId.test.mjs `
+            src/lib/recommendation/seeds/seedPresentationLocalization.test.mjs
+      - name: Offline scope assertion
+        shell: pwsh
+        run: |
+          if(Test-Path .env.local){ throw 'ENV_FILE_MUST_NOT_EXIST_IN_CI' }
+          git diff --check

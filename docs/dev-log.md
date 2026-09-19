@@ -18,6 +18,493 @@ GitHub Actions run `35400294943`의 core/targeted 작업은 성공했지만, 실
 
 개발 과정에서의 작업 내용, 결정, 아쉬운 점, 다음 개선 사항을 날짜별로 기록합니다.
 
+## 2026-09-13 - Phase 1 RC Current-State Documentation Sync
+
+### 오늘 작업
+
+- 현재 accepted local checkpoint `b2feb128f79b941319c40d24494245cbfdd78696`과 추천 회귀 `274/274 PASS`를 Product 상태 문서에 반영했습니다.
+- 누락된 Input Optionality 이력과 Error Recovery Founder QA PASS/CLOSED 상태를 정확한 체크포인트로 복구했습니다.
+
+### 결정한 것
+
+- 현재 상태는 bounded RC preparation을 시작할 수 있지만 RC 자체는 아직 성립하지 않은 `READY_WITH_EXPLICIT_PRE_RC_BLOCKERS`입니다.
+- current-HEAD Build, Live TMDB, Browser provenance와 exact RC source identity는 pre-RC 증거로 남고, Security Seal과 Production parity는 별도 Release 차단 상태를 유지합니다.
+- 현재 포트 3000은 활성 provenance가 재증명되지 않았으며 과거 실행 증거를 현재 상태로 승격하지 않습니다.
+
+## 2026-09-13 - Phase 1 Recommendation Error Recovery
+
+### 오늘 작업
+
+- 추천 오류 메시지 아래에 기존 조건 영역으로 돌아가는 오류 전용 복구 CTA를 연결하고 ko/en copy parity를 추가했습니다.
+- 기존 `focusPersonalization` 동작을 재사용해 조건과 결과를 바꾸거나 자동 요청을 보내지 않도록 유지했습니다.
+
+### 결정한 것
+
+- 빈 결과와 성공 후 refinement 계약은 그대로 두고 오류 상태의 누락된 문맥 내 복구 경로만 보완했습니다.
+- focused QA는 89/89 PASS였고 추천 회귀는 272/274 PASS로 알려진 stale 문구 2건과 동일했습니다. 오류 상태 Browser fixture는 없어 Browser 검증으로 승격하지 않았습니다.
+
+## 2026-09-12 - Phase 1 Result Next Actions
+
+### 오늘 작업
+
+- 전체 결과와 결과 없음 상태에서 기존 조건 영역으로 돌아가 입력에 포커스하는 조건 조정 CTA를 추가했습니다.
+- 모바일 접힘 상태의 reveal-only 위계와 모바일 펼침/비모바일 전체 결과의 후속 refinement 동작을 함께 검증했습니다.
+
+### 결정한 것
+
+- CTA는 결과를 지우거나 자동 제출하지 않으며 추천 또는 Provider 요청을 만들지 않습니다.
+- focused QA 84/84와 Founder Manual QA가 PASS했고 추천 엔진, 결과 데이터와 Provider 의미는 그대로 유지됩니다.
+
+## 2026-09-12 - Phase 1 Result Shortlist Decision Focus
+
+### 오늘 작업
+
+- 모바일 결과를 상위 3개 중심으로 시작하고 비모바일 결과는 전체를 즉시 보여주는 반응형 presentation 상태를 추가했습니다.
+- Founder QA를 반영해 모바일 CTA와 TMDB attribution의 시각적 위계를 다듬고 focused QA 81/81을 통과했습니다.
+
+### 결정한 것
+
+- 상위 3개 shortlist는 Phase 1 모바일 presentation 기본값이며 전체 ranked result와 순서는 그대로 유지합니다.
+- reveal/collapse는 추천 재요청이나 Provider 호출을 만들지 않으며 비모바일에서는 표시하지 않습니다.
+
+### 다음 개선
+
+- 이 local commit의 Product evidence를 HQ/CTO가 검토한 뒤 다음 Product-value 순서를 결정합니다.
+
+## 2026-09-11 - Phase 1 Analytics Server Hard-Off
+
+### 오늘 작업
+
+- 유일한 deployed Analytics dispatch entry인 `/api/analytics/event`의 call graph를 확인하고 route 진입점에 Phase 1 hard-off를 적용했습니다.
+- fake token과 mocked fetch를 사용해 valid, invalid와 unusable 요청이 모두 provider fetch 0으로 종료되는지 검증했습니다.
+
+### 결정한 것
+
+- 환경변수나 token 존재는 Analytics를 활성화할 수 없으며, future activation에는 별도 승인된 source policy 변경이 필요합니다.
+- hard-off는 relay architecture 삭제가 아니라 현재 운영 정책의 server-side enforcement입니다.
+
+### 다음 개선
+
+- HQ와 CTO가 local commit evidence를 검토한 뒤 Product-value sequencing을 다시 결정합니다.
+
+## 2026-09-11 - Codex Mode V2 UI Semantic Reconciliation
+
+### 오늘 작업
+
+- Founder direct UI observation을 current account UI snapshot으로 분류하고 OpenAI 공식 Ultra/Daybreak 자료와 기존 V2 정책을 대조했습니다.
+- 기존 orchestration-only Ultra 해석을 역사로 보존하면서 current Product semantics로 supersede했습니다.
+
+### 결정한 것
+
+- Ultra는 maximum reasoning을 사용하는 Product reasoning choice이며 eligible user에게 additional agents를 사용할 수 있지만, 내부적으로 Max와 완전히 동일하다고 추론하지 않습니다.
+- Daybreak Blue는 GPT-5.6 Sol 기반 defensive-security access track이며 general model ladder의 상하 tier가 아닙니다.
+
+### 다음 개선
+
+- HQ와 CTO가 이 local policy commit을 검토한 뒤에만 별도한 `ND_CORE_GIT_CANON_AUDIT_V1` 순서를 결정합니다.
+
+## 2026-09-11 - Stateless Phase 1 Product Canon Sync
+
+### 오늘 작업
+
+- Post-research Founder Option A disposition과 Free-first Product cost policy를 canonical owner에 반영했습니다.
+- Project Status와 Context의 오래된 Sprint current 표기를 역사로 보존하면서 현재 authority pointer를 세웠습니다.
+
+### 결정한 것
+
+- Phase 1 core는 `KR / JP / EU / US`의 stateless recommendation이며 optional persistent capability와 Analytics는 현재 OFF입니다.
+- 이 OFF 상태는 future architecture 삭제가 아니라 material evidence 뒤 재검토 가능한 Phase 1 정책입니다.
+
+### 다음 개선
+
+- Codex Mode의 current UI option ordering과 Ultra 의미는 별도 `MYOTT_CODEX_MODE_V2_UI_SEMANTIC_RECONCILIATION_V1`에서 대조해야 합니다.
+
+## 2026-09-11 - Phase 1 Jurisdiction Scope Reconciliation
+
+### 오늘 작업
+
+- completed policy matrix의 교정 전 scope 표기 `EU/EEA`를 latest recovery scope인 `KR / JP / EU / US`와 대조했습니다.
+- EU official source rows를 EU policy evidence로 재분류하고 non-EU EEA를 별도 미검토 범위로 명시했습니다.
+
+### 결정한 것
+
+- 이 correction은 새 관할 정책이나 법률 결론을 만들지 않습니다. EU member-state scope만 현재 검토 대상으로 유지합니다.
+- Norway, Iceland와 Liechtenstein은 non-target fail-closed policy를 따르며 별도 검토 전 optional features를 활성화하지 않습니다.
+
+### 다음 개선
+
+- `MYOTT_PHASE1_JURISDICTION_POLICY_FOUNDER_DECISION_V1`에서 KR/JP/EU/US의 stateless operating policy를 결정해야 합니다.
+
+## 2026-09-11 - Phase 1 Jurisdiction Official-Source Policy Matrix
+
+### 오늘 작업
+
+- KR PIPA/PIPC, JP PPC, EU GDPR/ePrivacy/EDPB, US FTC/California CPPA와 PostHog 공식 자료를 current MyOTT privacy architecture에 대조했습니다.
+- 법률 불확실성을 Product 기능 축소로 관리할 수 있도록 stateless core, Analytics, guest continuity, account, personalization과 signed receipt를 관할별로 분류했습니다.
+
+### 결정한 것
+
+- Founder 결정 전 권고안은 `STATELESS_RECOMMENDATION_ONLY`이며, 네 검토 지역 모두 nonessential Analytics와 persistent features를 끕니다.
+- Country hint는 legal jurisdiction이 아니고 EU Cloud는 compliance PASS가 아닙니다. 유료 전문가 검토는 optional processing이나 material commercial/legal trigger가 실제로 열릴 때 재검토합니다.
+
+### 다음 개선
+
+- `MYOTT_PHASE1_JURISDICTION_POLICY_FOUNDER_DECISION_V1`에서 지원 지역, stateless core 범위, Analytics off 정책과 미래 legal-review trigger를 Founder Product policy로 선택해야 합니다.
+
+## 2026-09-11 - Privacy Consent Persistence And Jurisdiction Gate
+
+### 오늘 작업
+
+- memory-only, localStorage, unsigned cookie, signed first-party receipt와 database consent record를 server verification, withdrawal, identity, privacy, cost와 운영 복잡성으로 비교했습니다.
+- Vercel 공식 request-header 근거를 확인해 coarse country hint의 기술적 가용성과 IP-derived/approximate 한계를 분리하고, provider-neutral fail-closed jurisdiction policy registry를 설계했습니다.
+
+### 결정한 것
+
+- Phase 1 technical candidate는 dedicated signing secret을 사용하는 minimal signed receipt입니다. Receipt는 Analytics/guest/account identity가 아니며 PostHog payload에 들어가지 않습니다.
+- Country hint는 legal jurisdiction이 아니며 실제 approved mapping은 아직 없습니다. Unknown, unsupported와 review-required 상태에서는 Analytics를 보내지 않습니다.
+- Stateless receipt의 copied old-allow rollback/replay, exact expiry, country policy와 legal treatment가 해결되기 전에는 Privacy Center를 mount하거나 Analytics를 활성화하지 않습니다.
+
+### 다음 개선
+
+- `MYOTT_ANALYTICS_JURISDICTION_POLICY_LEGAL_REVIEW_PACKET_V1`에서 launch-country scope, consent requirement, storage/expiry, PostHog disclosure와 cross-border questions를 qualified review 가능한 packet으로 준비해야 합니다.
+
+## 2026-09-10 - Privacy Center And Analytics Consent UI Foundation
+
+### 오늘 작업
+
+- 일반 Product catalog와 분리된 unmounted Privacy Center ko/en peer catalog와 pure view model을 구현했습니다.
+- 네 privacy category, allow/deny/withdraw transition, choice와 effective eligibility의 분리, accessibility copy와 no-storage/no-network 경계를 deterministic test로 검증했습니다.
+
+### 결정한 것
+
+- 사용자 Analytics 선택은 consent dimension만 갱신하며 runtime environment, Product policy, legal-jurisdiction 및 identity Gate를 우회하지 않습니다.
+- persistence와 jurisdiction runtime이 아직 없으므로 반쪽짜리 consent 화면을 일반 사용자 UI에 mount하지 않습니다. Marketing은 계속 사용하지 않고 Analytics는 strictly necessary에 포함하지 않습니다.
+
+### 다음 개선
+
+- `MYOTT_PRIVACY_CONSENT_PERSISTENCE_AND_JURISDICTION_GATE_V1`에서 durable consent와 jurisdiction-policy source를 먼저 정의한 뒤에만 public Privacy Center mounting을 검토해야 합니다.
+
+## 2026-09-10 - Analytics Consent Eligibility Runtime Foundation
+
+### 오늘 작업
+
+- 기존 relay eligibility와 client cancellation을 재사용해 Product-owned privacy/consent runtime controller를 구현했습니다.
+- unresolved, policy, jurisdiction, denied, withdrawn, unsupported와 non-production 억제 사유를 분리하고 허용·철회·재동의·runtime reset을 외부 Network 없이 검증했습니다.
+
+### 결정한 것
+
+- runtime authority는 PostHog나 token presence가 아니라 injected environment, Product policy, legal-jurisdiction, Analytics consent 상태입니다.
+- 철회 또는 억제 전이는 active client request를 best-effort abort하고 session-only ID를 폐기합니다. 재동의는 이벤트나 ID를 만들지 않으며 미래의 첫 eligible event만 새 ID를 만듭니다.
+
+### 다음 개선
+
+- `MYOTT_PRIVACY_CENTER_AND_ANALYTICS_CONSENT_UI_FOUNDATION_V1`에서 이 runtime authority를 사용할 사용자 privacy surface를 별도 설계하되 Product Analytics event wiring과 activation은 계속 분리해야 합니다.
+
+## 2026-09-10 - PostHog Same-Origin Privacy Relay Implementation
+
+### 오늘 작업
+
+- canonical Analytics event registry, eligibility resolver, client adapter, server schema와 PostHog EU provider adapter를 구현했습니다.
+- route와 provider transport를 외부 Network 없이 injected fetch로 검증하고, malformed/oversized/privacy-sensitive payload와 missing token을 provider 호출 전에 실패 폐쇄하도록 만들었습니다.
+
+### 결정한 것
+
+- client는 Product-owned eligibility가 완전히 `ELIGIBLE`일 때만 memory-only UUID를 만들고 same-origin route를 한 번 호출합니다. route는 browser payload를 spread하지 않고 검증된 필드만 새 provider payload로 투영합니다.
+- provider 실패는 event를 drop하는 비치명적 Analytics 상태이며 retry, queue, background delivery 또는 Product error로 승격하지 않습니다. 이미 server/provider가 수락한 work는 client abort로 소급 취소됐다고 표현하지 않습니다.
+
+### 다음 개선
+
+- `MYOTT_ANALYTICS_CONSENT_ELIGIBILITY_RUNTIME_FOUNDATION_V1`에서 실제 Product-owned consent/jurisdiction state contract를 구현하되, canonical Product event call site와 live event는 계속 별도 Gate로 유지해야 합니다.
+
+## 2026-09-10 - PostHog Server-Only Token Configuration Gate
+
+### 오늘 작업
+
+- Founder가 생성한 PostHog EU empty project receipt를 수용하고 account/project lifecycle을 재개방하지 않은 채 server-only token configuration Gate를 정리했습니다.
+- Vercel의 Production/Preview/Development scope와 Next.js public-prefix 계약을 기존 공식 evidence에 대조해 Production-only Secret, no-deploy action, redacted receipt를 정의했습니다.
+
+### 결정한 것
+
+- `POSTHOG_PROJECT_TOKEN`은 provider의 public capture routing token이지만 MyOTT에서는 server-only operational credential로 다룹니다. token presence만으로 Analytics를 켜지 않으며 Preview/Development/QA에는 token을 두지 않습니다.
+- retention readback은 token configuration blocker가 아니라 첫 live Analytics activation prerequisite입니다. 환경변수 저장 후 기존 deployment가 값을 소비하려면 별도 redeployment Gate가 필요합니다.
+
+### 다음 개선
+
+- `MYOTT_POSTHOG_SERVER_ONLY_TOKEN_CONFIGURATION_FOUNDER_ACTION_V1`에서 Founder가 token을 채팅이나 파일을 거치지 않고 Vercel Production Secret에 직접 입력하고, 배포·event 없이 redacted receipt만 반환해야 합니다.
+
+## 2026-09-10 - PostHog Account And Project Activation Preparation
+
+### 오늘 작업
+
+- PostHog의 현재 signup region, Cloud EU, free plan, project/token, IP discard, anonymous-event 계약과 Vercel server environment 경계를 공식 자료로 대조했습니다.
+- account/project 생성과 Analytics activation을 분리하고, EU·free-first·zero-event 조건을 지키는 Founder manual action packet 및 redacted evidence template을 작성했습니다.
+
+### 결정한 것
+
+- 가입 전에 EU를 선택하고 instrumentation을 모두 defer하면 Founder-controlled empty project 생성 경로는 준비됐습니다. 현재 로그인 없는 조사에서 알 수 없는 UI label과 project별 기본값은 생성 후 readback 없이는 PASS로 간주하지 않습니다.
+- project token은 PostHog public capture용 write-only routing token이지만 MyOTT에서는 same-origin relay 뒤 server-only Production Secret으로 제한하며 Preview/Development에는 제공하지 않습니다.
+
+### 다음 개선
+
+- `MYOTT_POSTHOG_ACCOUNT_PROJECT_CREATION_FOUNDER_ACTION_V1`은 별도 명시적 Founder action으로 empty EU project만 생성하고, event/SDK/token configuration 없이 exact settings receipt를 반환해야 합니다.
+
+## 2026-09-10 - PostHog Same-Origin Privacy Relay Architecture
+
+### 오늘 작업
+
+- 기존 Browser SDK rejection과 direct Capture architecture를 event spoofing, raw IP, property enforcement, withdrawal, provider portability, FREE_FIRST 및 buyer diligence 관점에서 재평가했습니다.
+- Next.js App Router 관례에 맞는 future `/api/analytics/event` boundary, server schema, provider adapter, token/IP isolation과 30개 deterministic test 계획을 설계했습니다.
+
+### 결정한 것
+
+- Direct browser는 technically feasible하지만 Phase 1에서는 선택하지 않습니다. `MYOTT_SAME_ORIGIN_PRIVACY_RELAY`를 selected architecture로 두고 PostHog Cloud provider와 session-only/no-queue/no-retry 원칙을 유지합니다.
+- Relay는 server-schema 및 provider provenance를 강화하지만 human authenticity, cross-instance replay와 bot abuse를 완전히 증명하지 않으므로 외부 diligence에는 limitation disclosure와 추가 runtime evidence가 필요합니다.
+
+### 다음 개선
+
+- `MYOTT_POSTHOG_ACCOUNT_PROJECT_ACTIVATION_PREPARATION_V1`에서 EU project, server-only token, IP-discard, current free allowance와 legal/Security/runtime proof 전제조건을 준비합니다.
+
+## 2026-09-10 - PostHog Withdrawal-Safe Direct Ingestion Architecture
+
+### 오늘 작업
+
+- PostHog 공식 Capture API와 current pinned server/source behavior를 MyOTT Event/Privacy contract에 대조했습니다.
+- Browser SDK 대신 direct single-event `fetch`를 사용하고 queue, retry, keepalive, sendBeacon, lifecycle flush와 persistent identity를 모두 배제하는 docs-only architecture를 설계했습니다.
+
+### 결정한 것
+
+- `MYOTT_DIRECT_SINGLE_EVENT_CAPTURE`를 Phase 1 PostHog transport architecture로 선택합니다. 모든 event는 `$process_person_profile: false`와 `$geoip_disable: true`를 사용하며 exact EU project에서 IP discard 설정을 별도 검증해야 합니다.
+- AbortController는 active request를 중단하지만 이미 전송된 bytes의 회수를 보장하지 않으므로 send commit point와 source-IP 처리는 Legal/Privacy activation Gate로 남깁니다.
+
+### 다음 개선
+
+- `MYOTT_POSTHOG_ACCOUNT_PROJECT_ACTIVATION_PREPARATION_V1`에서 EU project, public ingestion token boundary, IP-discard 설정과 legal/browser/live proof의 실행 전 조건을 준비합니다.
+
+## 2026-09-10 - PostHog Browser SDK Withdrawal Queue Proof
+
+### 오늘 작업
+
+- PostHog Browser SDK `1.428.10` / Git `412c97c`의 capture-to-transport 경로와 public type surface를 공식 source/test에서 확인했습니다.
+- unbatched/instant capture도 실패 시 RetryQueue에 남고, `before_send`는 retry에서 재평가되지 않으며, opt-out/reset은 ordinary queues를 폐기하지 않는다는 증거를 정리했습니다.
+
+### 결정한 것
+
+- `shutdown()`과 queue unload는 discard가 아니라 sendBeacon 기반 flush/send이므로 strict mid-session withdrawal 해결책으로 사용할 수 없습니다.
+- PostHog Cloud 선택은 유지하되 Browser SDK Phase 1은 현재 Founder withdrawal contract에서 부적격으로 분류합니다.
+
+### 다음 개선
+
+- `MYOTT_POSTHOG_WITHDRAWAL_SAFE_DIRECT_INGESTION_TRANSPORT_ARCHITECTURE_V1`에서 hidden SDK queue/retry 없이 MyOTT가 소유하는 최소 ingestion transport 계약을 docs-first로 검토합니다.
+
+## 2026-09-10 - PostHog Session-Only Measurement Architecture
+
+### 오늘 작업
+
+- PostHog 공식 JavaScript configuration/privacy 문서와 current browser SDK source를 읽어 MyOTT Phase 1의 no-preconsent import, session identity, flags/remote config, before-send와 storage 경계를 구현 가능한 수준으로 정리했습니다.
+- Canonical 5-event별 property schema, provider auto-property rejection, Product-owned eligibility/consent authority, future EU project checklist와 25개 deterministic test Gate를 추가했습니다.
+
+### 결정한 것
+
+- `disable_persistence: true`, exact five-event adapter allowlist, `before_send` fail-closed guard와 명시적으로 비활성화한 automatic feature 구성을 future candidate로 사용합니다. Actual SDK version, project token, runtime은 아직 선택/설치/활성화하지 않습니다.
+- `request_batching: false`여도 retry queue가 남을 수 있고 current public API가 withdrawal 시 pending ordinary/retry request 폐기를 보장하지 않으므로 Analytics activation은 별도 pinned-SDK proof 전까지 차단합니다.
+
+### 다음 개선
+
+- `MYOTT_POSTHOG_BROWSER_SDK_WITHDRAWAL_PENDING_QUEUE_PROOF_V1`에서 exact SDK version의 pending/retry cancellation contract를 source와 deterministic PoC로 확인한 뒤에만 account/project activation preparation을 검토합니다.
+
+## 2026-09-10 - Free-First Analytics Provider Decision Packet
+
+### 오늘 작업
+
+- 8개 후보의 공식 기능, 가격, consent suppression, identity, export, region/retention 근거를 현재 Event/Privacy 정본과 대조했습니다.
+- hard gate를 통과한 후보만 weighted ranking에 포함하고, 근거가 부족한 plan limit과 retention은 `NOT_PROVEN`으로 유지했습니다.
+
+### 결정한 것
+
+- PostHog Cloud는 strict non-default profile에서만 조건부 1순위이며 Founder의 최종 provider/region 선택 전에는 canonical 선택이 아닙니다.
+- First-party minimal collector는 schema-control fallback이지만 DB, retention, backup, security와 운영 비용이 별도 Gate를 통과하기 전에는 구현 후보가 아닙니다.
+
+### 다음 개선
+
+- Founder Decision 뒤 별도 architecture/implementation Task에서만 adapter, consent Gate, property allowlist와 disable/exit path를 구체화합니다.
+
+## 2026-09-10 - Privacy And Consent Measurement Eligibility Matrix
+
+### 오늘 작업
+
+- Growth event, property와 30개 KPI를 consent, jurisdiction, identity와 retention eligibility에 연결했습니다.
+- Unknown/denied/withdrawn 상태의 pre-dispatch suppression, no replay, identity backflow 방지와 fail-safe 동작을 정리했습니다.
+
+### 결정한 것
+
+- Analytics는 strictly necessary가 아니며 session-only도 approved Product/privacy policy 없이 자동 허용되지 않습니다.
+- Product continuity ID, Analytics ID, account ID와 Marketing ID를 분리하고 raw free text, direct identifiers와 fingerprint를 baseline에서 금지합니다.
+
+### 다음 개선
+
+- 별도 Provider Decision Packet에서 first-party minimal collector와 free-tier 후보를 기능, privacy control, exportability와 장기 비용으로 비교합니다.
+
+## 2026-09-10 - Growth Measurement Event Taxonomy
+
+### 오늘 작업
+
+- 현재 Product surface와 Global/Guest/SEO 정본을 대조해 5개 core event, 7개 future capability event와 derived cohort state를 분리했습니다.
+- activation, retention, referral, duplicate avoidance와 organic growth KPI 공식을 vendor-neutral contract로 작성했습니다.
+
+### 결정한 것
+
+- Product continuity identity는 Analytics identity가 아니며, cross-session identity가 승인되지 않으면 retention은 0이 아니라 `NOT_MEASURABLE`입니다.
+- Raw user text와 fingerprint를 baseline measurement에서 제외하고 metric denominator를 dashboard별로 변경하지 않습니다.
+
+### 다음 개선
+
+- 별도 Privacy/Consent Task에서 session-only, persistent identity와 jurisdiction별 measurement eligibility를 확정한 뒤에만 instrumentation을 검토합니다.
+
+## 2026-09-10 - SEO Indexability Launch Architecture
+
+### 오늘 작업
+
+- Global-first SEO 방향을 current evidence, locale activation, canonical host, preview isolation, noindex origin과 release rollback을 포함한 launch contract로 구체화했습니다.
+
+### 결정한 것
+
+- 현재 상태는 `INDEXABILITY_HOLD`이며, 하나의 canonical public host와 complete active locale만 sitemap/hreflang에 노출합니다.
+- Product 또는 platform 중 exact noindex source를 증명하기 전에는 현재 header를 제거하거나 충돌하는 index metadata를 추가하지 않습니다.
+
+### 다음 개선
+
+- HQ 검토 뒤 누적 Global/i18n/guest/SEO 정본을 Private Continuity에 batch sync하고, runtime activation은 Build/Security/Release Gate가 준비될 때 별도로 진행합니다.
+
+## 2026-09-10 - Guest Account Data Continuity Architecture
+
+### 오늘 작업
+
+- 기존 Global-first, Data Policy와 User Domain 초안을 대조해 guest identity, continuity purpose, repeat avoidance, optional account와 merge lifecycle을 하나의 Product 운영 계약으로 정리했습니다.
+
+### 결정한 것
+
+- 핵심 추천은 account-free로 유지하며 guest continuity는 최소 pseudonymous identity와 bounded history만 사용합니다.
+- Login은 merge 동의가 아니며, continuity·analytics·marketing은 목적과 consent를 공유하지 않습니다.
+
+### 다음 개선
+
+- 실제 guest storage와 consent는 별도 Privacy/Legal/Product Gate 뒤에 구현하고, 다음 docs-only Product 작업에서는 SEO indexability launch contract를 정리합니다.
+
+## 2026-09-10 - I18N Page Fallback and Result Presentation
+
+### 오늘 작업
+
+- provider-result normalization이 만드는 missing-data/reason/runtime 표현과 legacy time-slot/hero copy를 locale-aware pure helper로 옮겼습니다.
+
+### 결정한 것
+
+- locale helper는 Product-owned display fallback만 반환하며 provider/source/fallback identity, taxonomy, eligibility와 ranking에는 관여하지 않습니다.
+- 현재 호출은 계속 고정된 `ko-KR`를 사용하고 provider가 준 비영어 데이터는 번역하지 않습니다.
+
+### 다음 개선
+
+- `MYOTT_I18N_EN_RUNTIME_ACTIVATION_AND_LANGUAGE_SWITCH_V1`에서 준비된 locale presentation을 실제 route/switch에 연결합니다.
+
+## 2026-09-10 - I18N Taxonomy and Dynamic Copy Presentation
+
+### 오늘 작업
+
+- canonical option ID와 provider metadata를 바꾸지 않는 taxonomy label layer를 만들고 seed 상태 및 recommendation reason을 `ko-KR`/`en-US`로 표현할 수 있게 했습니다.
+- current page는 `ko-KR` locale을 명시적으로 전달해 기존 한국어 runtime을 유지했습니다.
+
+### 결정한 것
+
+- locale은 표시 문자열에만 영향을 주며 filter, eligibility, evidence selection, ranking, provider request에는 관여하지 않습니다.
+- provider가 준 free-form 데이터는 이 Task에서 임의 번역하지 않습니다.
+
+### 다음 개선
+
+- page-local fallback/result normalization 문구를 별도 focused Task에서 분리한 뒤 public English runtime activation을 검토합니다.
+
+## 2026-09-10 - Message Catalog Runtime Wiring
+
+### 오늘 작업
+
+- `app/layout.jsx`와 `app/page.jsx`의 ordinary-user static copy를 `ko-KR` catalog lookup으로 교체하고 deterministic source-contract test를 추가했습니다.
+
+### 결정한 것
+
+- runtime locale은 계속 `ko-KR`로 고정하며, locale route·manual switch·English UI는 활성화하지 않습니다.
+
+### 다음 개선
+
+- taxonomy label과 runtime-generated recommendation/status narrative의 locale presentation을 별도 Task에서 연결합니다.
+
+## 2026-09-10 - Korean and English Message Catalog Foundation
+
+### 오늘 작업
+
+- metadata, hero, 조건, 작품 입력, 결과, 상세, 연관 추천, attribution과 accessibility copy를 locale별 pure catalog로 만들고 strict validation을 추가했습니다.
+
+### 결정한 것
+
+- supported catalog의 missing key는 한국어로 조용히 대체하지 않으며, 동적 provider 데이터와 개발 전용 QA 진단은 V1 정적 catalog 범위에서 분리합니다.
+
+### 다음 개선
+
+- `MYOTT_I18N_MESSAGE_CATALOG_RUNTIME_WIRING_V1`에서 완성된 catalog를 Product runtime에 연결하고 public activation Gate를 별도로 검증합니다.
+
+## 2026-09-10 - I18N Locale Routing Foundation
+
+### 오늘 작업
+
+- locale route prefix와 manual navigation target을 만드는 pure helper 및 focused tests를 추가했습니다.
+
+### 결정한 것
+
+- `/`은 계속 legacy Korean root이며, message catalog 없이 public English UI switch나 runtime route activation을 하지 않습니다.
+
+### 다음 개선
+
+- `MYOTT_I18N_KO_EN_MESSAGE_CATALOG_FOUNDATION_V1`에서 complete visible copy contract를 먼저 준비합니다.
+
+## 2026-09-10 - I18N Locale Foundation
+
+### 오늘 작업
+
+- pure UI locale registry, normalization, precedence resolver와 focused deterministic tests를 추가했습니다.
+
+### 결정한 것
+
+- resolver는 입력 값만 사용하며 storage, cookie, route, account, analytics, content-provider region 또는 legal jurisdiction을 읽거나 만들지 않습니다.
+
+### 다음 개선
+
+- locale routing과 manual override persistence는 별도 Task에서 product lifecycle과 privacy boundary를 확인한 뒤 연결합니다.
+
+## 2026-09-10 - Global-First Public Launch Foundation Contract
+
+### 오늘 작업
+
+- public launch의 global/free/guest-first 원칙, locale·provider-region·jurisdiction resolver, Privacy Center metadata, consent/retention, guest-to-account, SEO와 growth KPI 계약을 docs-only로 정리했습니다.
+
+### 결정한 것
+
+- UI locale은 legal jurisdiction이 아니며, optional account는 사용자가 먼저 가치를 경험한 뒤 선택합니다. 현재 actual metric은 수집·주장하지 않고 Security Seal과 Release/Production/Deployment HOLD를 유지합니다.
+
+### 다음 개선
+
+- `MYOTT_I18N_LOCALE_FOUNDATION_V1`에서 locale foundation을 별도 Gate로 구체화합니다.
+
+## 2026-09-10 - Release Attribution Minimal Correction
+
+### 오늘 작업
+
+- root layout의 일반 사용자 footer에 TMDB approved logo, 필수 비보증 문구, JustWatch 출처를 추가했습니다.
+
+### 결정한 것
+
+- 추천·Provider·Hard Filter·request budget은 변경하지 않고 attribution만 독립된 layout 영역으로 유지합니다.
+
+### 다음 개선
+
+- Security Seal coverage와 Release path는 이 feature와 분리된 Gate에서 판단합니다.
+
 ## 2026-08-31 - Founder Re-QA Rationale and Preview Finalization
 
 ### 최종 Product 계약
