@@ -68,3 +68,14 @@ Status: `TECHNICAL_EVIDENCE_COMPLETE / FOUNDER_AND_HQ_DECISIONS_PENDING`.
 - Artifact binding is accepted for this RC evidence layer as equivalent provenance: exact clean source + bounded upload-input manifest + same-session CLI Preview deployment + source metadata + inspected remote build-output digests. This is not an independent re-download/byte-hash of every remote object and is not Release authority.
 - The bounded RC evidence classifier now returns `technicalEvidenceComplete=true`. The only blockers are `FOUNDER_PRODUCT_GATE_PENDING` and `HQ_EVIDENCE_GATE_PENDING`.
 - Main feature merge, Provider Live, Production and Release remain separately protected and are not authorized by this evidence refresh.
+
+## 2026-09-20 19:08 KST authentication freshness reconciliation
+
+- Deployment `dpl_7235TybXTe8RBEuchcsSYUkQ4fUA` remains READY and metadata-bound to Product head `0bd7ae25596a3a02da156056890073d90fad2674`.
+- Equivalent artifact provenance remains verified from the clean 175-file input manifest, same-session Preview deployment and inspected output digests.
+- The earlier connected-account root fetch returned application HTTP 200 and is retained as historical evidence.
+- A fresh connected Vercel fetch around 19:07 KST returned the Vercel SSO 302 again for the protected Preview root. This is an authentication-evidence freshness limitation, not proof of Product runtime failure.
+- `vercel curl` was not used because its documented automatic protection-bypass behavior overlaps the explicit no-bypass evidence boundary.
+- The fresh bounded RC classifier therefore returns `technicalEvidenceComplete=false` with exactly `PREVIEW_AUTHENTICATED_APP_RESPONSE_MISSING`, `FOUNDER_PRODUCT_GATE_PENDING`, and `HQ_EVIDENCE_GATE_PENDING`.
+- Preview source alignment and artifact provenance remain closed; only authenticated app-response freshness regressed.
+- Main merge, Provider Live, Production and Release remain separately protected.
