@@ -1,0 +1,81 @@
+# Pre-RC readiness — refreshed 2026-09-19
+
+Status: `PARTIAL / CURRENT_PR_CI_GREEN_PREVIEW_SOURCE_BEHIND_AND_AUTH_ARTIFACT_OPEN`.
+Scope: public-safe documentation plus read-only GitHub/Vercel metadata. No Product implementation, provider execution, secret read, deployment, Main merge, Production or Release action occurred in this refresh.
+
+## Source identities
+- Product behavior checkpoint: `5cc0eaf19bb411f7f6de52ef1917fccf4af781f3` on open PR #4. The later PR head does not by itself mean Product behavior changed.
+- Current PR #4 head / offline-CI source: `503797075a4180fc342999ce8961f702386bb0e0`. The current head adds bounded CI/test portability evidence and is open / unmerged.
+- Status/mode documentation checkpoint: `7c631f6e6ac8c8fbb2e9d924ce5b7cf55fb4bd72`, open PR #5, stacked on the feature branch.
+- Current readiness-document checkpoint before this refresh: `0bcb77c4cb304159ce222b639e3e4090c5c41893`, open PR #6, stacked on PR #5.
+- Operating ND Studio engine identity is separate from Product source and remains outside this Product readiness document.
+
+## Current remote CI evidence
+GitHub Actions run `35400294943` reports PR #4 head `503797075a4180fc342999ce8961f702386bb0e0` and concluded `success`.
+The `myott-core-offline` job `105778411964` and `myott-targeted-offline` job `105778412196` both concluded `success`. Checkout logs show the jobs actually checked out `refs/pull/4/merge` at integration SHA `7500fb6e85ec2612b8e37cb85e33dcddf3c2eff6`, recorded as merging head `503797...` into then-main `5467e9a2f8ed05202bfd70d14490c51c808c34e2`.
+Current default main is now `1097fe5f9638c8ef2176a5f8d6b6faa4971781d1`; the reviewed `5467e9a...` → `1097fe5...` delta is limited to `README.md`, `DEVELOPMENT_STATUS.md`, and `docs/dev-log.md`. The existing CI is therefore preserved as exact historical integration evidence, not relabeled as a new run against the later main ref.
+This is offline CI evidence for the current PR head plus that recorded integration ref. It is not a fresh provider-Live run, Founder Product QA, Preview artifact proof, current-main integration proof or Release approval.
+
+## Current Preview metadata
+Fresh read-only Vercel metadata on 2026-09-19 reports latest Preview `dpl_CxmPxQmcvoWJj2jPhr4951WS6nsW` as `READY`, source `cli`, with metadata source `5cc0eaf19bb411f7f6de52ef1917fccf4af781f3`.
+That Preview metadata source is behind the current PR #4 head `503797...`; therefore it cannot be treated as the current PR-head Preview.
+Metadata identifies a source label, not exact deployed bytes. No authenticated application `/api/status` response or exact artifact/source binding was obtained in this metadata-only refresh.
+
+## Evidence retained, not rerun
+The existing exact-checkpoint receipts for Unit `275/275`, deterministic recommendation QA `107/107`, focused security `82/82`, Live TMDB cold `66/66`, Browser `24/24 OFFLINE/MOCK` and managed build remain historical evidence for their recorded source.
+They were not rerun in this documentation refresh and are not relabeled as current remote-Live or current Preview evidence.
+
+## Remaining gates and concrete closure evidence
+| Gate | Current finding | Evidence required to close |
+| --- | --- | --- |
+| Current PR-head Preview | Latest Preview metadata is on `5cc0eaf...`, while PR #4 head is `503797...`. | A reviewed Preview tied to the exact intended RC candidate source. |
+| Authenticated Preview app response | Not obtained in this refresh. | Authorized app response such as `/api/status`, bound to the exact Preview and excluding sensitive data. |
+| Exact artifact/source provenance | Not proven. Source metadata alone is insufficient. | Reviewed clean build/source manifest and deployment artifact binding, or verified equivalent provenance. |
+| Credential readiness | Unknown; no secret value was read. | Non-secret capability/configuration evidence through an approved path. |
+| Remote provider validation | Not executed. | Separate bounded Remote Live authorization after preceding gates; preserve existing budgets. |
+| Founder / HQ / Main / Production / Release | No new approval or action. | Separate protected decisions with current-source evidence. |
+
+## Next bounded step
+Establish an exact intended RC candidate and close Preview source alignment, authenticated app-response evidence and artifact/source provenance without weakening authentication, reading secret values, redeploying automatically or repeating completed tests for activity.
+
+
+## 2026-09-20 current-head evidence refresh
+
+Status: `PARTIAL / CURRENT_HEAD_BUILD_CI_BROWSER_PROVEN_PREVIEW_SOURCE_AUTH_ARTIFACT_OPEN`.
+
+- Product PR #4 current head is `0bd7ae25596a3a02da156056890073d90fad2674`.
+- Current-head local isolated evidence passed recommendation `275/275`, deterministic QA `107/107`, Next build, and Browser representative `24/24`.
+- Browser evidence includes controlled 503 error recovery and zero-result recovery across desktop/tablet/mobile; external/provider network calls were zero and Founder Preview PID remained unchanged.
+- GitHub Actions run `35486498441` completed successfully for current head. Jobs `106013746135` (`myott-core-offline`) and `106013747018` (`myott-targeted-offline`) both succeeded.
+- The run checked out PR merge ref `2d83bc1995a9223f2bff7fb5a53399c61e391ef3`, recorded as merging `0bd7ae2...` into current main `3e4fd50...`.
+- Founder Preview control-plane identity reporting was corrected without restarting the healthy :3000 runtime. Two-source executable-path consensus now tolerates one relocated native image path while PID, parent, command line and creation identity remain fail-closed. The patch added two passing self-tests; the same two environment-dependent baseline failures remained unchanged.
+- Latest Vercel Preview is still `dpl_CxmPxQmcvoWJj2jPhr4951WS6nsW`, READY but metadata-bound to `5cc0eaf19bb411f7f6de52ef1917fccf4af781f3`, not the current Product head.
+- Read-only protected Preview fetch reached Vercel SSO with HTTP 302 for both root and `/api/status`; the application response was not obtained. No temporary share/bypass URL was followed.
+- Exact deployed artifact/source byte provenance remains unproven. Vercel metadata alone is not artifact binding.
+- Current RC evidence classifier therefore remains BLOCKED only by Preview source mismatch, authenticated Preview app response, artifact binding, Founder Product Gate and HQ Evidence Gate.
+- Provider Live, Main feature merge, Production, Release and deployment remain NOT_RUN / NOT_AUTHORIZED in this refresh.
+
+## 2026-09-20 current-head Preview convergence
+
+Status: `TECHNICAL_EVIDENCE_COMPLETE / FOUNDER_AND_HQ_DECISIONS_PENDING`.
+
+- Product / PR #4 head remains `0bd7ae25596a3a02da156056890073d90fad2674`.
+- A new non-Production Preview was created from the clean current Product worktree: deployment `dpl_7235TybXTe8RBEuchcsSYUkQ4fUA`, URL `https://myott-h0225egzh-ndstudio.vercel.app`, target Preview, READY.
+- Connected Vercel deployment metadata binds that deployment to Git source `0bd7ae25596a3a02da156056890073d90fad2674` on `work/phase1-pre-rc-package-b-20260914`.
+- The connected-account Vercel fetch returned the real root application body with HTTP 200 and title `MyOTT - MovieMind DNA`. `/api/status` still returns the Vercel SSO redirect (HTTP 302); no temporary public share/bypass URL was followed.
+- Deployment-input dry-run recorded 175 files / 2,926,630 bytes with `.env.local`, `.git`, `.next`, `.vercel` and `node_modules` excluded. Canonical input manifest SHA-256 is `443b6f34ace4077fa93de4b978f70da592cfa2a7ba06435e3a03ccfa19723f75`.
+- Vercel inspect reports the Preview build READY and 22 inspected output entries with output-manifest SHA-256 `7d45c2f3a22e1e44e3b7fa0bb2baeaa0be9f665bf4c0d31612a8cc1d77bd168b` across two unique output digests.
+- Artifact binding is accepted for this RC evidence layer as equivalent provenance: exact clean source + bounded upload-input manifest + same-session CLI Preview deployment + source metadata + inspected remote build-output digests. This is not an independent re-download/byte-hash of every remote object and is not Release authority.
+- The bounded RC evidence classifier now returns `technicalEvidenceComplete=true`. The only blockers are `FOUNDER_PRODUCT_GATE_PENDING` and `HQ_EVIDENCE_GATE_PENDING`.
+- Main feature merge, Provider Live, Production and Release remain separately protected and are not authorized by this evidence refresh.
+
+## 2026-09-20 19:08 KST authentication freshness reconciliation
+
+- Deployment `dpl_7235TybXTe8RBEuchcsSYUkQ4fUA` remains READY and metadata-bound to Product head `0bd7ae25596a3a02da156056890073d90fad2674`.
+- Equivalent artifact provenance remains verified from the clean 175-file input manifest, same-session Preview deployment and inspected output digests.
+- The earlier connected-account root fetch returned application HTTP 200 and is retained as historical evidence.
+- A fresh connected Vercel fetch around 19:07 KST returned the Vercel SSO 302 again for the protected Preview root. This is an authentication-evidence freshness limitation, not proof of Product runtime failure.
+- `vercel curl` was not used because its documented automatic protection-bypass behavior overlaps the explicit no-bypass evidence boundary.
+- The fresh bounded RC classifier therefore returns `technicalEvidenceComplete=false` with exactly `PREVIEW_AUTHENTICATED_APP_RESPONSE_MISSING`, `FOUNDER_PRODUCT_GATE_PENDING`, and `HQ_EVIDENCE_GATE_PENDING`.
+- Preview source alignment and artifact provenance remain closed; only authenticated app-response freshness regressed.
+- Main merge, Provider Live, Production and Release remain separately protected.
