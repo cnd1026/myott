@@ -54,3 +54,17 @@ Status: `PARTIAL / CURRENT_HEAD_BUILD_CI_BROWSER_PROVEN_PREVIEW_SOURCE_AUTH_ARTI
 - Exact deployed artifact/source byte provenance remains unproven. Vercel metadata alone is not artifact binding.
 - Current RC evidence classifier therefore remains BLOCKED only by Preview source mismatch, authenticated Preview app response, artifact binding, Founder Product Gate and HQ Evidence Gate.
 - Provider Live, Main feature merge, Production, Release and deployment remain NOT_RUN / NOT_AUTHORIZED in this refresh.
+
+## 2026-09-20 current-head Preview convergence
+
+Status: `TECHNICAL_EVIDENCE_COMPLETE / FOUNDER_AND_HQ_DECISIONS_PENDING`.
+
+- Product / PR #4 head remains `0bd7ae25596a3a02da156056890073d90fad2674`.
+- A new non-Production Preview was created from the clean current Product worktree: deployment `dpl_7235TybXTe8RBEuchcsSYUkQ4fUA`, URL `https://myott-h0225egzh-ndstudio.vercel.app`, target Preview, READY.
+- Connected Vercel deployment metadata binds that deployment to Git source `0bd7ae25596a3a02da156056890073d90fad2674` on `work/phase1-pre-rc-package-b-20260914`.
+- The connected-account Vercel fetch returned the real root application body with HTTP 200 and title `MyOTT - MovieMind DNA`. `/api/status` still returns the Vercel SSO redirect (HTTP 302); no temporary public share/bypass URL was followed.
+- Deployment-input dry-run recorded 175 files / 2,926,630 bytes with `.env.local`, `.git`, `.next`, `.vercel` and `node_modules` excluded. Canonical input manifest SHA-256 is `443b6f34ace4077fa93de4b978f70da592cfa2a7ba06435e3a03ccfa19723f75`.
+- Vercel inspect reports the Preview build READY and 22 inspected output entries with output-manifest SHA-256 `7d45c2f3a22e1e44e3b7fa0bb2baeaa0be9f665bf4c0d31612a8cc1d77bd168b` across two unique output digests.
+- Artifact binding is accepted for this RC evidence layer as equivalent provenance: exact clean source + bounded upload-input manifest + same-session CLI Preview deployment + source metadata + inspected remote build-output digests. This is not an independent re-download/byte-hash of every remote object and is not Release authority.
+- The bounded RC evidence classifier now returns `technicalEvidenceComplete=true`. The only blockers are `FOUNDER_PRODUCT_GATE_PENDING` and `HQ_EVIDENCE_GATE_PENDING`.
+- Main feature merge, Provider Live, Production and Release remain separately protected and are not authorized by this evidence refresh.
