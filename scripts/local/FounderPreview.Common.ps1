@@ -1314,18 +1314,28 @@ function Merge-FounderProcessMetadataSources {
         return $null
       }
     }
-    if ($executablePaths.Count -eq 0) {
+    if ($executablePaths.Count -lt 2) {
       return $null
     }
-    $expectedExecutablePath = Normalize-FounderRepositoryPath -Path ([string]$executablePaths[0])
-    foreach ($executablePath in $executablePaths) {
-      if (-not [string]::Equals(
-          $expectedExecutablePath,
-          (Normalize-FounderRepositoryPath -Path ([string]$executablePath)),
-          [System.StringComparison]::OrdinalIgnoreCase
-        )) {
-        return $null
+    $normalizedExecutablePaths = @($executablePaths | ForEach-Object {
+        Normalize-FounderRepositoryPath -Path ([string]$_)
+      })
+    $expectedExecutablePath = $null
+    foreach ($candidateExecutablePath in $normalizedExecutablePaths) {
+      $matchingPathCount = @($normalizedExecutablePaths | Where-Object {
+          [string]::Equals(
+            [string]$_,
+            [string]$candidateExecutablePath,
+            [System.StringComparison]::OrdinalIgnoreCase
+          )
+        }).Count
+      if ($matchingPathCount -ge 2) {
+        $expectedExecutablePath = [string]$candidateExecutablePath
+        break
       }
+    }
+    if ([string]::IsNullOrWhiteSpace($expectedExecutablePath)) {
+      return $null
     }
 
     $name = if ($null -ne $CimProcess) {

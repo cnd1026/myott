@@ -312,6 +312,34 @@ Assert-FounderTest 'Metadata source command line disagreement fails closed' {
       -RuntimeProcess $runtimeMetadataSource `
       -NativeProcess $nativeMetadataSource)
 }
+Assert-FounderTest 'Two-source executable path consensus tolerates one relocated native image path' {
+  $pathConsensusCim = [pscustomobject]@{
+    ProcessId = 1234
+    ParentProcessId = 1000
+    Name = 'node.exe'
+    ExecutablePath = 'C:\Program Files\nodejs\node.exe'
+    CommandLine = $repoCommand
+    CreationDate = ConvertTo-FounderUtcDateTime -Value $startTime
+  }
+  $relocatedNative = $nativeMetadataSource.PSObject.Copy()
+  $relocatedNative.ExecutablePath = 'C:\Config.Msi\fixture.rbf'
+  $merged = Merge-FounderProcessMetadataSources `
+    -ExpectedProcessId 1234 `
+    -CimProcess $pathConsensusCim `
+    -RuntimeProcess $runtimeMetadataSource `
+    -NativeProcess $relocatedNative
+  $null -ne $merged -and
+    $merged.ExecutablePath -ieq 'C:\Program Files\nodejs\node.exe'
+}
+Assert-FounderTest 'Two-source executable disagreement without a third path consensus still fails closed' {
+  $relocatedNative = $nativeMetadataSource.PSObject.Copy()
+  $relocatedNative.ExecutablePath = 'C:\Config.Msi\fixture.rbf'
+  $null -eq (Merge-FounderProcessMetadataSources `
+      -ExpectedProcessId 1234 `
+      -CimProcess $null `
+      -RuntimeProcess $runtimeMetadataSource `
+      -NativeProcess $relocatedNative)
+}
 Assert-FounderTest 'Lower-precision CIM creation date cannot replace exact runtime-native identity' {
   $cimPrecisionSource = [pscustomobject]@{
     ProcessId = 1234
