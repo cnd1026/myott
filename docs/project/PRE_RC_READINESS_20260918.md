@@ -37,3 +37,20 @@ They were not rerun in this documentation refresh and are not relabeled as curre
 
 ## Next bounded step
 Establish an exact intended RC candidate and close Preview source alignment, authenticated app-response evidence and artifact/source provenance without weakening authentication, reading secret values, redeploying automatically or repeating completed tests for activity.
+
+
+## 2026-09-20 current-head evidence refresh
+
+Status: `PARTIAL / CURRENT_HEAD_BUILD_CI_BROWSER_PROVEN_PREVIEW_SOURCE_AUTH_ARTIFACT_OPEN`.
+
+- Product PR #4 current head is `0bd7ae25596a3a02da156056890073d90fad2674`.
+- Current-head local isolated evidence passed recommendation `275/275`, deterministic QA `107/107`, Next build, and Browser representative `24/24`.
+- Browser evidence includes controlled 503 error recovery and zero-result recovery across desktop/tablet/mobile; external/provider network calls were zero and Founder Preview PID remained unchanged.
+- GitHub Actions run `35486498441` completed successfully for current head. Jobs `106013746135` (`myott-core-offline`) and `106013747018` (`myott-targeted-offline`) both succeeded.
+- The run checked out PR merge ref `2d83bc1995a9223f2bff7fb5a53399c61e391ef3`, recorded as merging `0bd7ae2...` into current main `3e4fd50...`.
+- Founder Preview control-plane identity reporting was corrected without restarting the healthy :3000 runtime. Two-source executable-path consensus now tolerates one relocated native image path while PID, parent, command line and creation identity remain fail-closed. The patch added two passing self-tests; the same two environment-dependent baseline failures remained unchanged.
+- Latest Vercel Preview is still `dpl_CxmPxQmcvoWJj2jPhr4951WS6nsW`, READY but metadata-bound to `5cc0eaf19bb411f7f6de52ef1917fccf4af781f3`, not the current Product head.
+- Read-only protected Preview fetch reached Vercel SSO with HTTP 302 for both root and `/api/status`; the application response was not obtained. No temporary share/bypass URL was followed.
+- Exact deployed artifact/source byte provenance remains unproven. Vercel metadata alone is not artifact binding.
+- Current RC evidence classifier therefore remains BLOCKED only by Preview source mismatch, authenticated Preview app response, artifact binding, Founder Product Gate and HQ Evidence Gate.
+- Provider Live, Main feature merge, Production, Release and deployment remain NOT_RUN / NOT_AUTHORIZED in this refresh.
