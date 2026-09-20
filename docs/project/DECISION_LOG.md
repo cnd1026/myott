@@ -167,3 +167,75 @@ Commands that can perform localhost HTTP health checks, including
 Preview validation remains a separate QA layer and must not be silently used to
 close a Network-zero gate. Product behavior, port ownership, and existing
 Founder Preview lifecycle contracts are otherwise unchanged.
+
+## DL-029 Global-First Public Launch Foundation
+
+MyOTT public launch foundation은 `GLOBAL_FIRST / FREE_FIRST / GUEST_FIRST / OPTIONAL_ACCOUNT`를 채택하고 User Growth를 first-class architecture concern으로 관리합니다. UI locale, content-provider region과 legal jurisdiction은 서로 독립된 값이며, UI 언어만으로 관할 또는 compliance를 추론하지 않습니다.
+
+Privacy/legal 정책 metadata와 승인 lifecycle은 Product locale·growth 구현에서 분리합니다. Guest continuity는 최소 pseudonymous first-party 범위로 제한하고 account는 가치 경험 이후 선택 사항으로 유지합니다. 실제 locale, privacy, measurement, Security, Release와 Deployment는 각 후속 Gate 없이는 활성화하지 않습니다.
+
+## DL-030 Guest Continuity And Optional Account Data Boundary
+
+Core recommendation은 account-free로 유지하고 guest continuity는 무작위·비의미적 pseudonymous first-party ID와 목적에 필요한 bounded history만 사용합니다. Product continuity, analytics와 marketing은 별도 목적이며 한 목적의 identity나 consent를 다른 목적에 자동 재사용하지 않습니다.
+
+Guest data를 account에 연결하는 것은 login의 자동 효과가 아닙니다. 이동 범위를 설명하고 사용자가 명시적으로 확인한 뒤 canonical content identity를 dedupe하며, explicit save·feedback·correction을 inferred activity보다 우선합니다. Merge 후 불필요한 guest-account linkage는 retire하거나 최소화하고, 실제 storage/Auth/consent/retention 기간은 별도 Gate 전에는 구현 또는 법률 정책으로 간주하지 않습니다.
+
+## DL-031 SEO Indexability Launch Gate
+
+Search indexability는 canonical host, production parity, exact build/runtime, metadata, robots, sitemap, active-locale hreflang, noindex origin, Security/Release와 Founder approval이 모두 검증될 때까지 `INDEXABILITY_HOLD`를 유지합니다. 현재 Production의 `x-robots-tag: noindex`는 source가 정확히 증명되기 전에는 제거하지 않습니다.
+
+Indexable public host는 하나만 허용하며 preview와 noncanonical deployment는 duplicate index 대상이 되어서는 안 됩니다. Sitemap과 hreflang은 active, public, content-complete canonical locale만 광고하고, inactive English runtime이나 존재하지 않는 alternate를 노출하지 않습니다. 실제 activation과 rollback은 별도 Release/Production authority를 요구합니다.
+
+## DL-032 Vendor-Neutral Growth Measurement Contract
+
+Growth KPI의 목적, numerator, denominator, eligible population, identity와 UTC window를 Analytics vendor 선택 전에 Product contract로 고정합니다. Dashboard나 vendor default는 같은 KPI의 denominator를 조용히 바꿀 수 없으며 semantic/schema change는 versioned comparison boundary를 남깁니다.
+
+Product continuity, Analytics, account와 marketing identity는 서로 자동 호환되지 않습니다. Raw user free text, direct/sensitive identifiers, precise location, raw IP와 fingerprint는 baseline Growth event에서 제외하고, persistent identity가 승인되지 않은 retention metric은 fingerprint로 보충하지 않고 `NOT_MEASURABLE`로 분류합니다. 실제 instrumentation은 별도 Privacy/Consent/Legal/Product Gate를 요구합니다.
+
+## DL-033 Measurement Eligibility Is Resolved Before Dispatch
+
+Growth Analytics는 strictly necessary Product processing과 분리하며, jurisdiction/privacy 또는 consent eligibility가 unresolved·denied·withdrawn·unsupported이면 nonessential event를 dispatch 전에 억제합니다. Pre-consent event replay와 fingerprint 기반 identity 보충은 금지하고, persistent retention metric은 separately eligible한 cross-session measurement identity가 없으면 `NOT_MEASURABLE`로 유지합니다.
+
+Product continuity ID를 Analytics ID로, Analytics ID를 Product continuity ID로 자동 재사용하지 않습니다. Withdrawal은 future nonessential collection과 persistent Analytics identity refresh를 중지하며, Marketing identity/tracking은 current baseline 밖입니다. 실제 retention/deletion과 관할별 consent 처리는 별도 Policy/Legal/Implementation Gate를 요구합니다.
+
+## DL-034 PostHog Cloud Session-Only Measurement Architecture
+
+Founder가 Analytics provider로 `POSTHOG_CLOUD`, data region preference로 `EU_CLOUD_PREFERRED`를 선택했습니다. 이 결정은 provider selection과 docs-only architecture에 한정되며 account/project 생성, SDK 설치, runtime load, event transmission 또는 legal compliance를 승인하지 않습니다. Phase 1은 현재 loaded Product runtime에 한정된 session-only measurement이고 persistent Analytics ID, identify/person profiles, Product guest/account identity 재사용과 pre-consent SDK load/transmission을 금지합니다.
+
+MyOTT canonical event taxonomy와 KPI가 provider보다 우선하며 PostHog는 exact 5-event projection만 담당합니다. Automatic capture와 `/flags`, remote refresh, replay/survey/heatmap/error/performance capture는 명시적으로 차단하고 EU Cloud 선택을 legal PASS로 해석하지 않습니다. 현재 browser SDK에서 withdrawal 시 ordinary/retry pending request를 지원된 public API로 폐기하는 계약이 입증되지 않았으므로 account/project activation과 SDK/runtime implementation은 `MYOTT_POSTHOG_BROWSER_SDK_WITHDRAWAL_PENDING_QUEUE_PROOF_V1` 전까지 차단합니다.
+
+## DL-035 Phase 1 PostHog Transport는 MyOTT Direct Single-Event Capture를 사용
+
+PostHog Cloud provider 선택은 유지하지만 Browser SDK는 supported public queue/retry discard가 없어 Phase 1 strict withdrawal contract에 사용할 수 없습니다. Phase 1 transport architecture는 `MYOTT_DIRECT_SINGLE_EVENT_CAPTURE`로 정하고, MyOTT가 exact EU Capture endpoint에 한 event씩 직접 전송하며 SDK, internal queue, retry, persistence, keepalive, sendBeacon과 unload flush를 사용하지 않습니다.
+
+Eligibility는 identity/payload/network 전에 fail-closed로 확인하고, identity는 loaded runtime에만 존재하는 무작위 session ID로 제한합니다. 모든 event는 exact canonical five-event/property allowlist, `$process_person_profile: false`, `$geoip_disable: true`를 적용합니다. Withdrawal은 future dispatch를 차단한 뒤 MyOTT-owned active AbortController를 중단하지만 이미 dispatch된 bytes를 회수한다고 주장하지 않습니다.
+
+이 결정은 docs-level architecture 선택이며 Analytics activation은 아닙니다. Account/project/token, exact EU project의 IP discard 설정, source-IP 및 send commit point legal review, deterministic implementation test, isolated CORS/browser proof와 bounded live ingestion proof가 별도 Gate를 통과하기 전에는 SDK 설치, runtime load, event transmission, Release 또는 Production을 허용하지 않습니다.
+
+## DL-036 Phase 1 PostHog Transport는 MyOTT Same-Origin Privacy Relay를 사용
+
+PM LAB/HQ metric-integrity addendum에 따라 `DL-035`의 direct browser transport는 기술적으로 feasible한 역사적 후보로 보존하되 Phase 1 current selection에서는 supersede합니다. Public project token suitability는 event authenticity가 아니며 client validation만으로 arbitrary direct Capture submission, property fabrication 또는 metric poisoning을 통제할 수 없습니다.
+
+PostHog Cloud provider와 EU region preference는 유지하고, Phase 1 transport architecture로 `MYOTT_SAME_ORIGIN_PRIVACY_RELAY`를 선택합니다. Browser는 Product-owned consent/eligibility Gate 뒤 same-origin canonical endpoint만 호출하고, relay가 exact five-event/version/property schema를 최종 검증해 server-only token으로 PostHog EU single-event endpoint에 한 번만 전달합니다. Raw browser client IP는 PostHog에 의도적으로 전달하지 않으며 provider payload는 `$process_person_profile: false`와 `$geoip_disable: true`를 사용합니다.
+
+Phase 1은 session-only, no-SDK, no-queue, no-retry, no-background-delivery, no-persistent-identity를 유지합니다. Relay는 schema와 provider provenance를 강화하지만 human authenticity, public-endpoint bots와 cross-instance replay를 완전히 제거하지 않으므로 audited/fraud-proof metric을 주장하지 않습니다. 이 결정은 architecture selection일 뿐 account/project/token, relay implementation, event transmission, Analytics activation, Security, Release 또는 Production을 승인하지 않습니다.
+
+## DL-037 Phase 1 Consent Receipt와 Jurisdiction Signal은 Server에서 검증
+
+Phase 1 privacy-choice persistence의 기술 architecture로 최소 `SERVER_VERIFIABLE_SIGNED_FIRST_PARTY_CONSENT_RECEIPT`를 선택합니다. Receipt는 consent/policy version과 bounded lifecycle만 담고 Product guest/account identity 또는 Analytics identity가 되지 않으며 PostHog로 전송하지 않습니다. 별도 signing secret, exact expiry, cookie 속성, stale allow-receipt rollback/replay와 withdrawal 처리는 후속 Security/Policy Gate가 필요합니다.
+
+Jurisdiction input은 지원된 hosting request의 `SERVER_SIDE_TRANSIENT_COARSE_COUNTRY_HINT`만 기술 후보로 사용하고 raw IP, country hint, locale 또는 provider region을 Analytics eligibility나 법적 결론으로 직접 취급하지 않습니다. Country hint는 versioned provider-neutral policy registry를 거치며, 실제 country/legal mapping은 아직 0개입니다. Unknown, unsupported 또는 legal-review-required 상태는 nonessential Analytics를 fail-closed로 억제합니다.
+
+Privacy Center는 계속 unmounted이고 Analytics는 inactive입니다. 현재 relay는 receipt와 jurisdiction policy를 최종 재검증하지 않으므로 runtime implementation, Legal review, Security review, browser/network proof, Release와 Deployment는 모두 별도 Gate입니다.
+
+## DL-038 Phase 1 Legal Strategy는 Stateless Core와 Feature Reduction을 우선
+
+한국, 일본, EU 회원국과 미국의 공식 법령·규제기관 자료를 Product architecture에 대조한 Founder decision packet의 meta-strategy로 `FREE_FIRST_FEATURE_REDUCTION_BEFORE_PAID_COUNSEL`을 채택 후보로 기록합니다. Phase 1 scope는 `KR / JP / EU / US`이며 non-EU EEA 국가는 검토 범위 밖입니다. 불확실성이 있으면 nonessential Analytics, persistent guest continuity, account와 persistent personalization을 순서대로 활성화하지 않고, 필요하면 region을 제한합니다. Core recommendation은 data minimization, 정확한 notice와 security control을 전제로 `STATELESS_RECOMMENDATION_ONLY` mode를 우선합니다.
+
+이 기록은 개별 관할 compliance 결정이나 법률 인증이 아닙니다. 관할별 Analytics minimum, signed receipt 처리, PostHog processor/transfer, US state applicability와 Privacy Center notice는 계속 Legal/Founder Gate 대상이며, 다른 국가의 optional feature는 `REGION_DEFERRED`입니다. 유료 전문가 검토는 Analytics activation, persistent identity/account, profiling, 민감정보·아동·광고, regulator/acquisition/enterprise trigger 등 material scope가 생길 때 다시 엽니다. 실제 관할별 Product policy는 `MYOTT_PHASE1_JURISDICTION_POLICY_FOUNDER_DECISION_V1` 전까지 미선택입니다.
+
+## DL-039 Founder Approves the Stateless Global-First Phase 1 Core
+
+Founder는 2026-09-11 `OPTION_A_STATELESS_GLOBAL_FIRST_CORE`를 Phase 1 Product operating policy로 승인했습니다. 현재 검토 범위는 `KR / JP / EU / US`이고 non-EU EEA는 `OUT_OF_SCOPE / NOT_REVIEWED`입니다. Core stateless recommendation은 켜며 Analytics, persistent guest continuity, account, guest-to-account merge, persistent personalization과 Marketing은 끕니다.
+
+이 결정은 Phase 1에 한정되며 영구적인 Analytics, Account 또는 personalization 금지나 관할별 법률 인증이 아닙니다. Optional capability는 official-source evidence, material user traction, revenue, demonstrable Product value, provider/infrastructure necessity 또는 별도 승인된 business trigger가 있을 때 다시 검토할 수 있습니다. `DL-038`은 이 승인 전의 research와 recommendation으로 보존합니다.

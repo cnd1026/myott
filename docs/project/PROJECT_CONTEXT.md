@@ -2,6 +2,20 @@
 
 이 문서는 새 Codex 스레드나 새 작업자가 MyOTT를 바로 이어받기 위한 프로젝트 맥락 문서입니다.
 
+## Current Context / Current Authority
+
+MyOTT는 `PRE-PUBLIC-LAUNCH PRODUCT`이며 현재 Product operating policy는 `STATELESS GLOBAL-FIRST PHASE 1`입니다. Founder가 승인한 검토 범위는 `KR / JP / EU / US`이고 non-EU EEA는 `OUT_OF_SCOPE / NOT_REVIEWED`입니다.
+
+- Core stateless recommendation: ON
+- Analytics and Marketing: OFF
+- Persistent guest continuity: OFF
+- Account and guest-to-account merge: OFF
+- Persistent personalization: OFF
+
+이 상태는 Phase 1 범위이며 future guest/account/personalization architecture는 `PRESERVED / NOT CURRENT PHASE1 RUNTIME`입니다. 현재 상태는 [Project Status](PROJECT_STATUS.md), 결정은 [Decision Log](DECISION_LOG.md), 공식자료 기반 범위는 [Phase 1 Jurisdiction Matrix](PHASE1_JURISDICTION_OFFICIAL_SOURCE_POLICY_MATRIX.md), 미래 data boundary는 [Guest Account Data Continuity Architecture](GUEST_ACCOUNT_DATA_CONTINUITY_ARCHITECTURE.md)를 따릅니다.
+
+아래 기존 프로젝트 소개, 목표와 Sprint 5 내용은 `HISTORICAL SNAPSHOT / SUPERSEDED AS CURRENT STATE`입니다. 제품의 초기 목적과 구조 변화를 이해하기 위한 기록으로 보존하며 현재 Task 또는 현재 운영 상태로 해석하지 않습니다.
+
 ## 프로젝트 소개
 
 MyOTT는 사용자가 좋아하는 영화, 드라마, 애니를 입력하거나 Quick Pick 필터를 선택하면 취향에 맞는 작품을 추천받는 OTT 추천 서비스입니다. 현재 서비스 이름은 README에서 `SceneSense / MovieMind DNA`로도 표현되어 있으며, 프로젝트 내부에서는 `MyOTT`를 제품명으로 사용합니다.
@@ -15,7 +29,7 @@ MyOTT는 사용자가 좋아하는 영화, 드라마, 애니를 입력하거나 
 - TMDB, AI 추천, OTT 필터, 로그인, 취향 저장을 v1.0 출시 범위로 설계합니다.
 - 장기적으로 영상 콘텐츠를 넘어 만화, 웹툰, 소설, 게임, 음악 추천으로 확장합니다.
 
-## 현재 Sprint
+## Historical Sprint 5 Snapshot
 
 Sprint 5
 

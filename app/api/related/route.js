@@ -1,5 +1,14 @@
 import { getActiveProvider, getFallbackProvider, isTmdbProviderEnabled } from "../../../src/lib/providers/registry";
 
+function normalizeTmdbProviderContentId(value) {
+  const candidate = String(value || "").trim();
+  if (!/^\d+$/.test(candidate)) return "";
+
+  const parsed = Number(candidate);
+  if (!Number.isSafeInteger(parsed) || parsed <= 0) return "";
+  return String(parsed);
+}
+
 function recommendationUnavailable(cause) {
   return Response.json({
     source: "tmdb",
@@ -33,7 +42,8 @@ async function relatedWithProvider(provider, params, message) {
 }
 
 export async function GET(request) {
-  const providerContentId = request.nextUrl.searchParams.get("id")?.trim() || "";
+  const requestedProviderContentId = request.nextUrl.searchParams.get("id")?.trim() || "";
+  const providerContentId = normalizeTmdbProviderContentId(requestedProviderContentId);
   const contentType = request.nextUrl.searchParams.get("type")?.trim() || "movie";
   const providerMediaType = request.nextUrl.searchParams.get("mediaType")?.trim() || "";
   const title = request.nextUrl.searchParams.get("title")?.trim() || "";
@@ -50,6 +60,25 @@ export async function GET(request) {
   };
 
   if (!providerContentId) {
+    if (requestedProviderContentId) {
+      return Response.json(
+        {
+          source: "empty",
+          providerId: activeProvider.id,
+          tmdbEnabled: isTmdbProviderEnabled(),
+          results: [],
+          error: {
+            code: "INVALID_PROVIDER_CONTENT_ID",
+          },
+        },
+        {
+          status: 400,
+          headers: {
+            "Cache-Control": "no-store",
+          },
+        },
+      );
+    }
     return Response.json(
       {
         source: "empty",

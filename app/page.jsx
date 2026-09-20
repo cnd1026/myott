@@ -1,15 +1,14 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useReducer, useRef, useState } from "react";
+import { getMessage } from "../src/lib/i18n/messageCatalog.js";
 import { calculateRecommendationScore } from "../src/lib/recommendation/scoring/recommendationWeightEngine.js";
 import {
-  GENRE_CONTRACT,
   incompatibleTaxonomyValues,
   isTaxonomySelectionStateCompatible,
   isTaxonomyValueCompatibleWithContentTypes,
   sanitizeCompatibleTaxonomySelections,
   genreIdsForFilters,
-  genreOptionGroups,
   genreValuesForItem,
   prioritizeGenreOptions,
 } from "../src/lib/recommendation/genres/genreContract.js";
@@ -22,9 +21,15 @@ import {
   dedupePrimaryDisplayTitles,
   normalizeDisplayOttProviders,
   presentationGenreLabels,
-  recommendationOptionButtonLabel,
   resolveCanonicalReasonSeed,
 } from "../src/lib/recommendation/presentation/recommendationPresentation.js";
+import {
+  RESULT_SHORTLIST_ACTIONS,
+  createResultShortlistState,
+  presentResultNextAction,
+  presentResultShortlist,
+  reduceResultShortlist,
+} from "../src/lib/recommendation/presentation/resultShortlistPresentation.js";
 import {
   applySuggestionSelection,
   buildSeedCoverageMessage,
@@ -46,13 +51,25 @@ import {
 } from "../src/lib/recommendation/seeds/confirmedSeedState.js";
 import {
   PRIMARY_OTT_OPTIONS,
-  RUNTIME_FILTERS,
   evaluateHardFilters,
   evaluateRuntimeHardFilter,
   normalizeDisplayContentType,
   normalizeProviderMediaType,
   runtimeFilterValuesForItem,
 } from "../src/lib/recommendation/filters/hardFilterContract.js";
+import {
+  CONTENT_TYPE_VALUES,
+  COUNTRY_VALUES,
+  LANGUAGE_VALUES,
+  localizeTaxonomyOptionGroups,
+  taxonomyOptionGroupsForLocale,
+  taxonomyOptions,
+} from "../src/lib/i18n/taxonomyPresentation.js";
+import {
+  firstPickFallbackPresentation,
+  heroFallbackPresentation,
+  pageResultFallbackPresentation,
+} from "../src/lib/i18n/pageFallbackPresentation.js";
 import {
   createInitialPreferenceDraft,
   createRecommendationRequestId,
@@ -69,6 +86,9 @@ import {
   attachFounderDiagnostics,
   sanitizeFounderDiagnostics,
 } from "../src/lib/recommendation/qa/founderDiagnostics.js";
+
+const RUNTIME_UI_LOCALE = "ko-KR";
+const message = (key, values) => getMessage(RUNTIME_UI_LOCALE, key, values);
 
 const dummyRecommendations = [
   {
@@ -268,84 +288,34 @@ const dummyRecommendations = [
 const ottOptions = PRIMARY_OTT_OPTIONS;
 const ottLabelByValue = new Map(ottOptions);
 
-const contentTypeOptions = [
-  ["movie", "영화"],
-  ["drama", "드라마"],
-  ["animation", "애니"],
-];
-
-const expandedCountryOptions = [
-  ["country-kr", "한국"],
-  ["country-us", "미국"],
-  ["country-jp", "일본"],
-  ["country-gb", "영국"],
-  ["country-fr", "프랑스"],
-  ["country-de", "독일"],
-  ["country-cn", "중국"],
-  ["country-hk", "홍콩"],
-  ["country-tw", "대만"],
-  ["country-in", "인도"],
-  ["country-ca", "캐나다"],
-  ["country-au", "호주"],
-  ["country-es", "스페인"],
-  ["country-it", "이탈리아"],
-  ["country-th", "태국"],
-  ["country-br", "브라질"],
-  ["country-mx", "멕시코"],
-];
-
-const quickPickGroups = [
-  {
-    title: "장르",
-    options: GENRE_CONTRACT.map((entry) => [entry.value, entry.label]),
-    optionSections: genreOptionGroups(),
-  },
-  {
-    title: "국가",
-    options: expandedCountryOptions,
-  },
-  {
-    title: "분위기",
-    options: [
-      ["mood-light", "가볍게"],
-      ["mood-moving", "여운 있게"],
-      ["mood-tense", "긴장감"],
-    ],
-  },
-  {
-    title: "러닝타임",
-    options: Object.values(RUNTIME_FILTERS).map(({ value, label }) => [value, label]),
-  },
-];
+const contentTypeOptions = taxonomyOptions(CONTENT_TYPE_VALUES, RUNTIME_UI_LOCALE);
+const expandedCountryOptions = taxonomyOptions(COUNTRY_VALUES, RUNTIME_UI_LOCALE);
+const quickPickGroups = taxonomyOptionGroupsForLocale(RUNTIME_UI_LOCALE);
 
 const quickPickLabelByValue = new Map(quickPickGroups.flatMap((group) => group.options));
 const initialOptionMetadata = {
   genres: [],
   countries: expandedCountryOptions,
-  languages: [
-    ["language-ko", "한국어"],
-    ["language-en", "영어"],
-    ["language-ja", "일본어"],
-  ],
+  languages: taxonomyOptions(LANGUAGE_VALUES, RUNTIME_UI_LOCALE),
 };
 const targetProviderResultCount = 12;
 const relatedPickCount = 12;
 const relatedDragThreshold = 8;
 const relatedClickSuppressMs = 220;
-const unknownOttLabel = "OTT 정보 확인 필요";
+const unknownOttLabel = message("common.ottCheckRequired");
 const collapsedOptionCount = 8;
 const autocompleteDebounceMs = 150;
-const firstPickUnavailableMessage = "추천 정보를 불러오지 못했습니다. 잠시 후 다시 확인해 주세요.";
-const firstPickEmptyMessage = "지금 보여드릴 작품을 찾지 못했습니다.";
+const firstPickUnavailableMessage = message("hero.unavailable");
+const firstPickEmptyMessage = message("hero.empty");
 const recommendationInsightText = {
-  multipleSeed: "여러 입력 작품에서 함께 추천되었습니다.",
-  genreMatch: "입력한 작품들과 공통 장르가 많습니다.",
-  optionMatch: "선택한 추천 옵션과 잘 맞습니다.",
-  contentType: "선택한 콘텐츠 종류와 맞습니다.",
-  ottMatch: "선택한 OTT 정보와 연결됩니다.",
-  runtimeMatch: "선택한 러닝타임 조건과 맞습니다.",
-  relaxedFallback: "조건을 조금 넓혀 함께 추천합니다.",
-  metadataTieBreak: "평점과 인기도를 보조 기준으로 참고했습니다.",
+  multipleSeed: message("recommendationInsight.multipleSeed"),
+  genreMatch: message("recommendationInsight.genreMatch"),
+  optionMatch: message("recommendationInsight.optionMatch"),
+  contentType: message("recommendationInsight.contentType"),
+  ottMatch: message("recommendationInsight.ottMatch"),
+  runtimeMatch: message("recommendationInsight.runtimeMatch"),
+  relaxedFallback: message("recommendationInsight.relaxedFallback"),
+  metadataTieBreak: message("recommendationInsight.metadataTieBreak"),
 };
 
 const initialPreferenceDraft = createInitialPreferenceDraft();
@@ -353,7 +323,11 @@ const initialOtt = initialPreferenceDraft.ottProviders;
 const initialTypes = initialPreferenceDraft.contentTypes;
 const emptyPreferenceValues = Object.freeze([]);
 const emptyConfirmedSeeds = Object.freeze({});
-const titlePlaceholders = ["예: 인터스텔라", "예: 오징어 게임", "예: 너의 이름은"];
+const titlePlaceholders = [
+  message("favorite.placeholderFirst"),
+  message("favorite.placeholderSecond"),
+  message("favorite.placeholderThird"),
+];
 const showDevProviderStatus = process.env.NODE_ENV !== "production";
 const initialProviderStatus = {
   dataSource: "checking",
@@ -411,22 +385,10 @@ function loadFirstPicksOnce() {
 }
 
 const timeSlotContent = {
-  morning: {
-    title: "더 베어",
-    reason: "짧게 몰입하고 싶을 때 좋아요",
-  },
-  afternoon: {
-    title: "마션",
-    reason: "가볍게 시작하기 좋은 SF예요",
-  },
-  evening: {
-    title: "라라랜드",
-    reason: "하루 끝에 여운을 남기기 좋아요",
-  },
-  late: {
-    title: "세븐",
-    reason: "늦은 밤 몰입하기 좋은 스릴러예요",
-  },
+  morning: { title: "더 베어" },
+  afternoon: { title: "마션" },
+  evening: { title: "라라랜드" },
+  late: { title: "세븐" },
 };
 
 function thumbnailText(title) {
@@ -473,20 +435,20 @@ function rationalePreferences(titles, confirmedSeeds, selectedFilters, selectedT
 function trustSignals(item, titles) {
   return [
     {
-      label: "취향 연결",
-      value: item.firstPick ? "먼저 살펴보는 작품" : titles.length ? "입력 작품 기준" : "선택 옵션 기준",
+      label: message("trust.tasteConnection"),
+      value: item.firstPick ? message("trust.firstLook") : titles.length ? message("trust.inputTitles") : message("trust.selectedOptions"),
     },
     {
-      label: "대표 장르",
+      label: message("trust.primaryGenre"),
       value: item.genre.split(",")[0].trim(),
     },
     {
-      label: "콘텐츠 타입",
+      label: message("trust.contentType"),
       value: item.label,
     },
     {
-      label: "러닝타임",
-      value: item.runtime || "정보 확인 필요",
+      label: message("trust.runtime"),
+      value: item.runtime || message("common.infoCheckRequired"),
     },
   ];
 }
@@ -505,22 +467,25 @@ function getTimeSlot(date) {
 
 function buildHeroRecommendations(timeSlot) {
   const timePick = timeSlotContent[timeSlot] || timeSlotContent.evening;
+  const primaryCopy = heroFallbackPresentation("primary", {}, RUNTIME_UI_LOCALE);
+  const trendingCopy = heroFallbackPresentation("trending", {}, RUNTIME_UI_LOCALE);
+  const timeCopy = heroFallbackPresentation("time", { timeSlot }, RUNTIME_UI_LOCALE);
 
   return [
     {
-      badge: "오늘 바로 보기 좋은 작품",
+      badge: primaryCopy.badge,
       item: findRecommendation("인터스텔라"),
-      reason: "고민 없이 시작하기 좋은 대표 추천",
+      reason: primaryCopy.reason,
     },
     {
-      badge: "요즘 많이 고르는 작품",
+      badge: trendingCopy.badge,
       item: findRecommendation("오징어 게임"),
-      reason: "지금 대화에 바로 끼기 좋아요",
+      reason: trendingCopy.reason,
     },
     {
-      badge: "지금 시간에 어울리는 작품",
+      badge: timeCopy.badge,
       item: findRecommendation(timePick.title),
-      reason: timePick.reason,
+      reason: timeCopy.reason,
     },
   ].filter(({ item }) => Boolean(item));
 }
@@ -867,17 +832,22 @@ function normalizeProviderResult(
   selectedOtt = [],
   confirmedSeeds = {},
 ) {
-  const title = content.title || "제목 없음";
   const type = contentTypeForUi(content);
-  const genres = presentationGenreLabels(content);
-  const displayGenres = genres.length ? genres : ["장르 확인 필요"];
-  const ott = safeOttPlatforms(content);
-  const actors = Array.isArray(content.actors) && content.actors.length ? content.actors : ["정보 없음"];
   const runtime = Number(content.runtime);
   const rating = Number(content.rating);
-  const poster = content.backdrop || content.poster || thumbnailText(title);
   const optionSummary = quickPickSummary(quickPicks, labelByValue);
-  const reason = content.reason || (optionSummary ? `${optionSummary} 옵션까지 함께 참고한 실제 검색 결과입니다.` : "입력한 작품과 연결해 확인해볼 만한 실제 검색 결과입니다.");
+  const fallbackPresentation = pageResultFallbackPresentation({
+    contentType: type,
+    optionSummary,
+    runtimeMinutes: runtime,
+  }, RUNTIME_UI_LOCALE);
+  const title = content.title || fallbackPresentation.title;
+  const genres = presentationGenreLabels(content, RUNTIME_UI_LOCALE);
+  const displayGenres = genres.length ? genres : fallbackPresentation.genres;
+  const ott = safeOttPlatforms(content);
+  const actors = Array.isArray(content.actors) && content.actors.length ? content.actors : fallbackPresentation.actors;
+  const poster = content.backdrop || content.poster || thumbnailText(title);
+  const reason = content.reason || fallbackPresentation.reason;
 
   return {
     ...content,
@@ -896,17 +866,17 @@ function normalizeProviderResult(
     seedGenreIds: normalizedIdList(content.seedGenreIds),
     runtimeMinutes: Number.isFinite(runtime) && runtime > 0 ? runtime : content.runtimeMinutes,
     popularity: Number(content.popularity || 0),
-    label: content.label || (type === "animation" ? "애니" : type === "movie" ? "영화" : "드라마"),
+    label: content.label || fallbackPresentation.label,
     tags: tagsFromProviderContent(content),
     genres: displayGenres,
     genre: displayGenres.join(", "),
-    director: content.director || "정보 없음",
+    director: content.director || fallbackPresentation.director,
     actors,
-    rating: Number.isFinite(rating) && rating > 0 ? rating.toFixed(1) : "정보 없음",
-    runtime: Number.isFinite(runtime) && runtime > 0 ? `${runtime}분` : "정보 확인 필요",
+    rating: Number.isFinite(rating) && rating > 0 ? rating.toFixed(1) : fallbackPresentation.rating,
+    runtime: fallbackPresentation.runtime,
     ott,
     reason,
-    synopsis: content.synopsis || content.overview || "줄거리 정보가 아직 없습니다.",
+    synopsis: content.synopsis || content.overview || fallbackPresentation.synopsis,
     poster,
     detailPoster: content.poster || content.backdrop || thumbnailText(title),
     backdrop: content.backdrop || "",
@@ -920,21 +890,25 @@ function normalizeFirstPickResult(content = {}) {
   const runtime = Number(content.runtime);
   const rating = Number(content.rating);
   const platforms = Array.isArray(content.platforms) ? content.platforms.filter(Boolean) : [];
+  const fallbackPresentation = firstPickFallbackPresentation({
+    contentType: item.type,
+    runtimeMinutes: runtime,
+  }, RUNTIME_UI_LOCALE);
   return {
     ...item,
     firstPick: true,
     tags: [],
     genre: genres.join(", "),
     genres,
-    runtime: Number.isFinite(runtime) && runtime > 0 ? `${runtime}분` : "",
+    runtime: fallbackPresentation.runtime,
     rating: Number.isFinite(rating) && rating > 0 ? rating.toFixed(1) : "",
     ott: platforms,
-    director: content.director || "정보 확인 필요",
+    director: content.director || fallbackPresentation.director,
     actors: Array.isArray(content.actors) ? content.actors : [],
-    reason: "실제 TMDB 작품 정보입니다.",
+    reason: fallbackPresentation.reason,
     poster: content.poster || "",
     detailPoster: content.poster || content.backdrop || "",
-    synopsis: content.synopsis || "줄거리 정보는 아직 확인되지 않았습니다.",
+    synopsis: content.synopsis || fallbackPresentation.synopsis,
   };
 }
 
@@ -1349,22 +1323,22 @@ function DecisionCard({
   const rationale = rationalePreferences(enteredTitles, confirmedSeeds, selectedFilters, selectedTypes, selectedOtt);
   return (
     <article className={`result-card decision-card ${className}`.trim()}>
-      <button className="decision-card-open" type="button" onClick={(event) => onOpen(item, event.currentTarget)} aria-label={`${item.title} 상세 보기`}>
+      <button className="decision-card-open" type="button" onClick={(event) => onOpen(item, event.currentTarget)} aria-label={message("card.openDetails", { title: item.title })}>
       <div className="thumbnail poster" aria-hidden="true"><PosterVisual poster={item.poster} title={item.title} /></div>
       <div className="result-body">
         {badge ? <span className="card-context">{badge}</span> : null}
-        {!firstPick ? <p className="decision-reason">{reasonOverride || buildEvidenceGroundedDecisionReason(item, rationale)}</p> : null}
+        {!firstPick ? <p className="decision-reason">{reasonOverride || buildEvidenceGroundedDecisionReason(item, rationale, RUNTIME_UI_LOCALE)}</p> : null}
         <div className="decision-title-row">
           <h3>{item.title}</h3>
           <span className="type-badge">{item.label}</span>
         </div>
-        <div className="decision-facts" aria-label={`${item.title} 핵심 정보`}>
-          {item.genre ? <span><strong>장르</strong>{item.genre}</span> : null}
-          {item.runtime ? <span><strong>러닝타임</strong>{item.runtime}</span> : null}
-          {item.rating ? <span><strong>평점</strong>{item.rating}</span> : null}
-          <span><strong>OTT</strong>{normalizeDisplayOttProviders(item.ott).length
+        <div className="decision-facts" aria-label={message("card.keyFacts", { title: item.title })}>
+          {item.genre ? <span><strong>{message("card.genre")}</strong>{item.genre}</span> : null}
+          {item.runtime ? <span><strong>{message("card.runtime")}</strong>{item.runtime}</span> : null}
+          {item.rating ? <span><strong>{message("card.rating")}</strong>{item.rating}</span> : null}
+          <span><strong>{message("card.ott")}</strong>{normalizeDisplayOttProviders(item.ott).length
             ? normalizeDisplayOttProviders(item.ott).join(", ")
-            : "OTT 제공 정보는 아직 확인되지 않았습니다."}</span>
+            : message("card.ottUnavailable")}</span>
         </div>
       </div>
       </button>
@@ -1418,6 +1392,11 @@ export default function Home() {
   const [firstPicks, setFirstPicks] = useState([]);
   const [firstPickStatus, setFirstPickStatus] = useState("loading");
   const [results, setResults] = useState([]);
+  const [resultShortlistState, dispatchResultShortlist] = useReducer(
+    reduceResultShortlist,
+    undefined,
+    createResultShortlistState,
+  );
   const [recommendationStatus, setRecommendationStatus] = useState("idle");
   const [selectedDetail, setSelectedDetail] = useState(null);
   const [detailScrolled, setDetailScrolled] = useState(false);
@@ -1513,7 +1492,7 @@ export default function Home() {
       selectedFilters: submittedFilters,
       selectedTypes: submittedTypes,
       selectedOtt: submittedOtt,
-    }),
+    }, RUNTIME_UI_LOCALE),
     [submittedTitles, submittedConfirmedSeeds, submittedFilters, submittedTypes, submittedOtt],
   );
   const draftConditionLabels = useMemo(
@@ -1528,9 +1507,17 @@ export default function Home() {
   const visibleDecisionReasons = useMemo(() => buildEvidenceGroundedDecisionReasons(
     results,
     rationalePreferences(submittedTitles, submittedConfirmedSeeds, submittedFilters, submittedTypes, submittedOtt),
+    RUNTIME_UI_LOCALE,
   ), [results, submittedTitles, submittedConfirmedSeeds, submittedFilters, submittedTypes, submittedOtt]);
+  const resultShortlist = useMemo(
+    () => presentResultShortlist(results, resultShortlistState, {
+      shortlistEnabled: isMobileViewport,
+    }),
+    [isMobileViewport, results, resultShortlistState],
+  );
+  const resultNextAction = presentResultNextAction(recommendationStatus, resultShortlist);
   const relatedRecommendations = relatedStatus === "success" ? relatedItems : [];
-  const seedCoverageMessage = buildSeedCoverageMessage(seedDiagnostics);
+  const seedCoverageMessage = buildSeedCoverageMessage(seedDiagnostics, RUNTIME_UI_LOCALE);
   const visibleProviderStatus = recommendationSession ? providerStatus : environmentProviderStatus;
   const emptyStateMessage = resolveEmptyStateMessage({
     recommendationStatus,
@@ -1540,11 +1527,11 @@ export default function Home() {
     hasSeedInput: submittedPreferences ? submittedTitles.length > 0 : enteredTitles.length > 0,
     processedSeedCount: seedDiagnostics.processedSeedCount,
     unresolvedSeedCount: seedDiagnostics.unresolvedSeedCount,
-  });
+  }, RUNTIME_UI_LOCALE);
   const conditionSummary = [
-    selectedOtt.length ? `OTT ${selectedOtt.length}` : "OTT 미선택",
-    selectedTypes.length ? `종류 ${selectedTypes.length}` : "종류 미선택",
-    selectedQuickPicks.length ? `옵션 ${selectedQuickPicks.length}` : "옵션 없음",
+    selectedOtt.length ? message("conditions.ottCount", { count: selectedOtt.length }) : message("conditions.ottNone"),
+    selectedTypes.length ? message("conditions.contentTypeCount", { count: selectedTypes.length }) : message("conditions.contentTypeNone"),
+    selectedQuickPicks.length ? message("conditions.optionCount", { count: selectedQuickPicks.length }) : message("conditions.optionNone"),
   ].join(" · ");
   const showStickyRecommendation = canRecommend && !showConditions && !showQuickPick && !selectedDetail &&
     !["loading", "success", "empty"].includes(recommendationStatus);
@@ -1654,15 +1641,21 @@ export default function Home() {
         const payload = await response.json();
         if (!isMounted) return;
         if (Array.isArray(payload.groups) && payload.groups.length) {
-          setOptionGroups(payload.groups.map((group) => (
-            group.title === "장르" ? { ...group, options: prioritizeGenreOptions(group.options) } : group
+          setOptionGroups(localizeTaxonomyOptionGroups(payload.groups, RUNTIME_UI_LOCALE).map((group) => (
+            group.options.some(([value]) => String(value).startsWith("genre-"))
+              ? { ...group, options: prioritizeGenreOptions(group.options) }
+              : group
           )));
         }
         if (payload.metadata) {
           setOptionMetadata({
             genres: payload.metadata.genres || [],
-            countries: payload.metadata.countries || initialOptionMetadata.countries,
-            languages: payload.metadata.languages || initialOptionMetadata.languages,
+            countries: payload.metadata.countries
+              ? localizeTaxonomyOptionGroups([{ title: "country", options: payload.metadata.countries }], RUNTIME_UI_LOCALE)[0].options
+              : initialOptionMetadata.countries,
+            languages: payload.metadata.languages
+              ? localizeTaxonomyOptionGroups([{ title: "language", options: payload.metadata.languages }], RUNTIME_UI_LOCALE)[0].options
+              : initialOptionMetadata.languages,
           });
         }
       } catch {
@@ -1819,6 +1812,9 @@ export default function Home() {
         );
         if (!recommendationRequestGateRef.current.canCommit(request.sequence)) return;
         setResults(optionResults);
+        if (optionResults.length) {
+          dispatchResultShortlist({ type: RESULT_SHORTLIST_ACTIONS.RESULTS_COMMITTED });
+        }
         setRecommendationStatus(optionResults.length ? "success" : "empty");
         setProviderStatus(nextProviderStatus || initialProviderStatus);
         setRecommendationSession(createRecommendationSession({
@@ -1870,6 +1866,9 @@ export default function Home() {
       );
       if (!recommendationRequestGateRef.current.canCommit(request.sequence)) return;
       setResults(providerResults);
+      if (providerResults.length) {
+        dispatchResultShortlist({ type: RESULT_SHORTLIST_ACTIONS.RESULTS_COMMITTED });
+      }
       setSeedDiagnostics(nextSeedDiagnostics || initialSeedDiagnostics);
       setRecommendationStatus(providerResults.length ? "success" : "empty");
       setProviderStatus(nextProviderStatus || initialProviderStatus);
@@ -2184,6 +2183,7 @@ export default function Home() {
     setShowQuickPick(false);
     setShowConditions(false);
     setResults([]);
+    dispatchResultShortlist({ type: RESULT_SHORTLIST_ACTIONS.COLLAPSE });
     setRecommendationStatus("idle");
     setSelectedDetail(null);
     setRelatedItems([]);
@@ -2200,18 +2200,18 @@ export default function Home() {
       <section className="hero-recommendation" aria-labelledby="heroRecommendationTitle">
         <div className="hero-heading">
           <div>
-            <p className="eyebrow">먼저 보기</p>
-            <h1 id="heroRecommendationTitle">먼저 살펴볼 작품</h1>
+            <p className="eyebrow">{message("hero.eyebrow")}</p>
+            <h1 id="heroRecommendationTitle">{message("hero.title")}</h1>
           </div>
-          <p>취향을 입력하기 전에 몇 작품을 먼저 보여드립니다.</p>
+          <p>{message("hero.description")}</p>
         </div>
         {firstPickStatus === "loading" ? (
-          <div className="hero-grid first-pick-loading" aria-live="polite" aria-label="작품을 불러오는 중입니다.">
+          <div className="hero-grid first-pick-loading" aria-live="polite" aria-label={message("hero.loading")}>
             {Array.from({ length: 3 }).map((_, index) => <div className="first-pick-skeleton" key={`first-pick-loading-${index}`} />)}
           </div>
         ) : null}
         {firstPickStatus === "success" ? (
-          <div className="result-grid hero-grid" aria-label="먼저 살펴볼 작품">
+          <div className="result-grid hero-grid" aria-label={message("hero.listLabel")}>
           {firstPicks.map((item) => (
             <DecisionCard
               item={item}
@@ -2224,22 +2224,23 @@ export default function Home() {
           ))}
           </div>
         ) : null}
-        {firstPickStatus === "success" ? <p className="first-pick-browse-cue" aria-hidden="true">옆으로 넘겨 더 보기 <span>→</span></p> : null}
+        {firstPickStatus === "success" ? <p className="first-pick-browse-cue" aria-hidden="true">{message("hero.browseCue")} <span>→</span></p> : null}
         {firstPickStatus === "empty" ? <p className="first-pick-state" role="status">{firstPickEmptyMessage}</p> : null}
         {firstPickStatus === "unavailable" ? (
           <div className="first-pick-state" role="status">
             <span>{firstPickUnavailableMessage}</span>
-            <button className="first-pick-retry-button" type="button" onClick={requestFirstPicks}>다시 불러오기</button>
+            <button className="first-pick-retry-button" type="button" onClick={requestFirstPicks}>{message("hero.retry")}</button>
           </div>
         ) : null}
-        <button className="hero-next-step" type="button" onClick={focusPersonalization}>취향 알려주기</button>
+        <button className="hero-next-step" type="button" onClick={focusPersonalization}>{message("hero.nextAction")}</button>
       </section>
 
       <section className="recommendation-panel" aria-labelledby="pageTitle" ref={personalizationRef}>
         <div className="page-heading">
-          <p className="eyebrow">나만의 추천</p>
-          <h1 id="pageTitle">취향을 알려주세요</h1>
-          <p>이용 중인 OTT와 콘텐츠 종류, 좋아했던 작품을 바탕으로 추천합니다.</p>
+          <p className="eyebrow">{message("personalization.eyebrow")}</p>
+          <h1 id="pageTitle">{message("personalization.title")}</h1>
+          <p>{message("personalization.description")}</p>
+          <p className="section-copy">{message("personalization.optionalityHint")}</p>
           {showDevProviderStatus ? (
             <div className="provider-status" id="providerStatus" aria-label="Provider status" title={visibleProviderStatus.message}>
               <span>Data Source</span>
@@ -2258,13 +2259,13 @@ export default function Home() {
           aria-controls="conditionPanel"
           onClick={openConditions}
         >
-          <span className="condition-summary-copy"><strong>현재 조건</strong><span>{conditionSummary}</span></span>
-          <span className="condition-summary-action"><span>조건 바꾸기</span><span aria-hidden="true">›</span></span>
+          <span className="condition-summary-copy"><strong>{message("conditions.current")}</strong><span>{conditionSummary}</span></span>
+          <span className="condition-summary-action"><span>{message("conditions.change")}</span><span aria-hidden="true">›</span></span>
         </button>
 
         <form className="recommendation-form" id="recommendationForm" onSubmit={handleSubmit}>
           <div className={`condition-shell ${showConditions ? "is-open" : ""}`}>
-          <button className="condition-backdrop" type="button" aria-label="조건 선택 닫기" onClick={closeConditions} />
+          <button className="condition-backdrop" type="button" aria-label={message("conditions.backdropClose")} onClick={closeConditions} />
           <section
             ref={conditionPanelRef}
             className="condition-panel"
@@ -2272,20 +2273,20 @@ export default function Home() {
             role={showConditions ? "dialog" : undefined}
             aria-modal={showConditions ? "true" : undefined}
             aria-labelledby={showConditions ? "conditionPanelTitle" : undefined}
-            aria-label={showConditions ? undefined : "추천 조건"}
+            aria-label={showConditions ? undefined : message("conditions.panelLabel")}
             tabIndex={showConditions ? -1 : undefined}
             onKeyDown={handleConditionKeyDown}
           >
           <div className="condition-sheet-heading">
-            <div><p className="eyebrow">조건</p><h2 id="conditionPanelTitle">추천 조건</h2></div>
-            <button ref={conditionCloseButtonRef} className="close-button" type="button" onClick={closeConditions} aria-label="추천 조건 닫기">×</button>
+            <div><p className="eyebrow">{message("conditions.panelEyebrow")}</p><h2 id="conditionPanelTitle">{message("conditions.panelTitle")}</h2></div>
+            <button ref={conditionCloseButtonRef} className="close-button" type="button" onClick={closeConditions} aria-label={message("conditions.panelClose")}>×</button>
           </div>
           <fieldset className="option-section">
             <legend>
               <span>1</span>
-              OTT 선택
+              {message("conditions.ottTitle")}
             </legend>
-            <p className="section-copy">지금 이용 중인 서비스를 골라주세요.</p>
+            <p className="section-copy">{message("conditions.ottDescription")}</p>
             <div className="option-grid">
               {ottOptions.map(([value, label]) => (
                 <label className="check-option" key={value}>
@@ -2305,9 +2306,9 @@ export default function Home() {
           <fieldset className="option-section">
             <legend>
               <span>2</span>
-              콘텐츠 종류 선택
+              {message("conditions.contentTypeTitle")}
             </legend>
-            <p className="section-copy">추천받고 싶은 콘텐츠 유형을 선택하세요.</p>
+            <p className="section-copy">{message("conditions.contentTypeDescription")}</p>
             <div className="option-grid compact">
               {contentTypeOptions.map(([value, label]) => (
                 <label className="check-option" key={value}>
@@ -2326,8 +2327,8 @@ export default function Home() {
 
           <section className="recommendation-option-section" aria-labelledby="recommendationOptionTitle">
             <div className="recommendation-option-heading">
-              <h3 id="recommendationOptionTitle">추천 옵션</h3>
-              <p id="recommendationOptionDescription">장르 · 국가 · 분위기 · 러닝타임</p>
+              <h3 id="recommendationOptionTitle">{message("conditions.optionsTitle")}</h3>
+              <p id="recommendationOptionDescription">{message("conditions.optionsDescription")}</p>
             </div>
             <button
               className={`condition-option-button ${selectedQuickPicks.length ? "is-selected" : ""}`.trim()}
@@ -2338,11 +2339,13 @@ export default function Home() {
               aria-describedby="recommendationOptionDescription"
               onClick={() => setShowQuickPick(true)}
             >
-              <span>{recommendationOptionButtonLabel(selectedQuickPicks.length)}</span>
+              <span>{selectedQuickPicks.length
+                ? message("conditions.additionalOptionsSelected", { count: selectedQuickPicks.length })
+                : message("conditions.moreOptions")}</span>
               <span className="condition-option-arrow" aria-hidden="true">›</span>
             </button>
           </section>
-          <button className="condition-done-button" type="button" onClick={closeConditions}>조건 적용</button>
+          <button className="condition-done-button" type="button" onClick={closeConditions}>{message("conditions.apply")}</button>
           </section>
           </div>
 
@@ -2350,14 +2353,14 @@ export default function Home() {
             <div className="section-title">
               <span>3</span>
               <div>
-                <h2 id="inputSectionTitle">좋아하는 작품 입력</h2>
-                <p className="section-copy">작품을 검색하고 정확한 항목을 확인해 주세요.</p>
+                <h2 id="inputSectionTitle">{message("favorite.title")}</h2>
+                <p className="section-copy">{message("favorite.description")}</p>
               </div>
             </div>
             <div
               className="input-group"
               data-viewport-ready={isViewportReady ? "true" : "false"}
-              aria-label="좋아했던 작품 입력"
+              aria-label={message("favorite.groupLabel")}
             >
               {visibleSeedRows.map((row, index) => (
                 <div
@@ -2368,13 +2371,13 @@ export default function Home() {
                   data-mobile-initial-hidden={index === 2 ? "true" : undefined}
                   key={row.id}
                 >
-                  <label htmlFor={`titleInput${index + 1}`}>작품 {index + 1}</label>
+                  <label htmlFor={`titleInput${index + 1}`}>{message("favorite.itemLabel", { index: index + 1 })}</label>
                   <input
                     ref={(node) => node ? seedInputRefs.current.set(row.id, node) : seedInputRefs.current.delete(row.id)}
                     id={`titleInput${index + 1}`}
                     type="text"
                     name="title"
-                    placeholder={titlePlaceholders[index] || "예: 최근 좋았던 작품"}
+                    placeholder={titlePlaceholders[index] || message("favorite.placeholderFallback")}
                     autoComplete="off"
                     value={row.raw}
                     aria-controls={`suggestions-${row.id}`}
@@ -2386,12 +2389,12 @@ export default function Home() {
                   />
                   {row.confirmed ? (
                     <span className="confirmed-seed-chip">
-                      <span>✓ {row.confirmed.resolvedTitle} · {row.confirmed.year || "연도 확인"} · {row.confirmed.contentType === "movie" ? "영화" : row.confirmed.contentType === "animation" ? "애니" : "드라마"}</span>
-                      <button type="button" onClick={() => removeConfirmation(row)} aria-label={`${row.confirmed.resolvedTitle} 확인 해제`}>×</button>
+                      <span>✓ {row.confirmed.resolvedTitle} · {row.confirmed.year || message("favorite.yearUnknown")} · {row.confirmed.contentType === "movie" ? message("favorite.movie") : row.confirmed.contentType === "animation" ? message("favorite.animation") : message("favorite.drama")}</span>
+                      <button type="button" onClick={() => removeConfirmation(row)} aria-label={message("favorite.removeConfirmation", { title: row.confirmed.resolvedTitle })}>×</button>
                     </span>
                   ) : null}
                   {suggestions[row.id]?.length ? (
-                    <div className="suggestion-list" id={`suggestions-${row.id}`} role="listbox" aria-label={`작품 ${index + 1} 검색 후보`}>
+                    <div className="suggestion-list" id={`suggestions-${row.id}`} role="listbox" aria-label={message("favorite.searchCandidates", { index: index + 1 })}>
                       {suggestions[row.id].map((suggestion, suggestionIndex) => (
                         <button
                           className="suggestion-item"
@@ -2410,7 +2413,7 @@ export default function Home() {
                             <strong>{suggestion.title}</strong>
                             <span>
                               {suggestion.originalTitle && suggestion.originalTitle !== suggestion.title ? `${suggestion.originalTitle} · ` : ""}
-                              {suggestion.year || "연도 확인"} · {suggestion.label}
+                              {suggestion.year || message("favorite.yearUnknown")} · {suggestion.label}
                             </span>
                           </span>
                         </button>
@@ -2424,10 +2427,10 @@ export default function Home() {
 
           <div className="form-actions">
             <button className="secondary-button" id="resetAllButton" type="button" onClick={resetAll}>
-              전체 초기화
+              {message("actions.resetAll")}
             </button>
             <button className="primary-button" id="recommendButton" type="submit" disabled={!canRecommend}>
-              내 취향으로 추천받기
+              {message("actions.submit")}
             </button>
           </div>
         </form>
@@ -2435,7 +2438,7 @@ export default function Home() {
 
       {showStickyRecommendation ? (
         <div className="mobile-sticky-action">
-          <button className="primary-button" type="submit" form="recommendationForm">내 취향으로 추천받기</button>
+          <button className="primary-button" type="submit" form="recommendationForm">{message("actions.submit")}</button>
         </div>
       ) : null}
 
@@ -2452,14 +2455,14 @@ export default function Home() {
       <section className="results-panel" aria-labelledby="resultsTitle">
         <div className="section-heading">
           <div>
-            <p className="eyebrow">추천</p>
-            <h2 id="resultsTitle" ref={resultsHeadingRef} tabIndex={-1}>추천 결과</h2>
+            <p className="eyebrow">{message("results.eyebrow")}</p>
+            <h2 id="resultsTitle" ref={resultsHeadingRef} tabIndex={-1}>{message("results.title")}</h2>
           </div>
-          <p className="result-count" id="resultCount">{results.length}개</p>
+          <p className="result-count" id="resultCount">{message("results.count", { count: results.length })}</p>
         </div>
         {submittedPreferences ? (
-          <section className="applied-preferences" aria-label="적용된 추천 조건">
-            <p>적용된 조건</p>
+          <section className="applied-preferences" aria-label={message("results.appliedConditions")}>
+            <p>{message("results.appliedConditionsTitle")}</p>
             {submittedBaselineContext ? <p className="applied-preferences-context">{submittedBaselineContext}</p> : null}
             <div className="preference-chip-list">
               {appliedConditionLabels.map((label) => <span key={label}>{label}</span>)}
@@ -2469,14 +2472,14 @@ export default function Home() {
         {preferencesDirty ? (
           <section className="preferences-dirty-banner" role="status">
             <div>
-              <strong>조건이 바뀌었습니다. 다시 추천받아 주세요.</strong>
-              <p>현재 결과는 이전에 적용한 조건을 유지합니다.</p>
+              <strong>{message("results.dirtyTitle")}</strong>
+              <p>{message("results.dirtyDescription")}</p>
               <div className="preference-chip-list draft">
                 {draftConditionLabels.map((label) => <span key={label}>{label}</span>)}
               </div>
             </div>
             <button className="secondary-button" type="submit" form="recommendationForm" disabled={recommendationStatus === "loading"}>
-              새 조건으로 다시 추천
+              {message("results.rerun")}
             </button>
           </section>
         ) : null}
@@ -2484,15 +2487,15 @@ export default function Home() {
           <p className="seed-coverage" role="status">{seedCoverageMessage}</p>
         ) : null}
         {recommendationStatus === "loading" ? (
-          <div className="empty-state loading-state" id="loadingState">작품을 불러오는 중입니다.</div>
+          <div className="empty-state loading-state" id="loadingState">{message("results.loading")}</div>
         ) : null}
         {!results.length && recommendationStatus !== "loading" ? (
           <div className="empty-state" id="emptyState">
-            {recommendationStatus === "empty" ? "조건에 맞는 작품을 찾지 못했습니다." : emptyStateMessage}
+            {recommendationStatus === "empty" ? message("results.empty") : emptyStateMessage}
           </div>
         ) : null}
         <div className="result-grid" id="resultGrid">
-          {results.map((item, index) => (
+          {resultShortlist.visibleResults.map((item, index) => (
             <DecisionCard
               item={item}
               enteredTitles={submittedTitles}
@@ -2507,6 +2510,46 @@ export default function Home() {
             />
           ))}
         </div>
+        {resultShortlist.hasAdditionalResults ? (
+          <div className="form-actions result-shortlist-actions">
+            <button
+              className="secondary-button"
+              type="button"
+              aria-controls="resultGrid"
+              aria-expanded={resultShortlistState.expanded}
+              onClick={() => dispatchResultShortlist({
+                type: resultShortlistState.expanded
+                  ? RESULT_SHORTLIST_ACTIONS.COLLAPSE
+                  : RESULT_SHORTLIST_ACTIONS.REVEAL,
+              })}
+            >
+              {resultShortlistState.expanded
+                ? message("results.showFirstThree")
+                : message("results.showMore", {
+                  remainingCount: resultShortlist.remainingCount,
+                })}
+            </button>
+          </div>
+        ) : null}
+        {resultNextAction.show ? (
+          <div className="result-next-action">
+            <div>
+              {resultNextAction.recovery ? null : <h3>{message("results.refineTitle")}</h3>}
+              <p>
+                {recommendationStatus === "error"
+                  ? message("results.errorRecoveryDescription")
+                  : resultNextAction.recovery
+                  ? message("results.refineEmptyDescription")
+                  : message("results.refineDescription")}
+              </p>
+            </div>
+            <button className="secondary-button" type="button" onClick={focusPersonalization}>
+              {recommendationStatus === "error"
+                ? message("results.reviewCriteria")
+                : message("results.adjustCriteria")}
+            </button>
+          </div>
+        ) : null}
       </section>
 
       {showQuickPick ? (
@@ -2516,26 +2559,26 @@ export default function Home() {
             <div className="sheet-handle" aria-hidden="true" />
             <div className="sheet-heading">
               <div>
-                <p className="eyebrow">추천 옵션</p>
-                <h2 id="quickPickTitle">추천 옵션</h2>
-                <p className="sheet-count" id="quickPickCount">필터 {selectedQuickPicks.length}개 선택됨</p>
+                <p className="eyebrow">{message("quickPick.eyebrow")}</p>
+                <h2 id="quickPickTitle">{message("quickPick.title")}</h2>
+                <p className="sheet-count" id="quickPickCount">{message("quickPick.selectedCount", { count: selectedQuickPicks.length })}</p>
               </div>
               <div className="sheet-actions">
                 <button className="tertiary-button" type="button" onClick={() => setSelectedQuickPicks([])}>
-                  옵션 초기화
+                  {message("quickPick.reset")}
                 </button>
-                <button className="close-button" type="button" onClick={() => setShowQuickPick(false)} aria-label="추천 옵션 닫기">×</button>
+                <button className="close-button" type="button" onClick={() => setShowQuickPick(false)} aria-label={message("quickPick.close")}>×</button>
               </div>
             </div>
 
             <label className="option-search-field">
-              옵션 검색
+              {message("quickPick.searchLabel")}
               <span className="option-search-control">
                 <input
                   ref={quickPickSearchRef}
                   type="text"
                   value={quickPickSearch}
-                  placeholder="SF, 일본, 긴장감처럼 검색"
+                  placeholder={message("quickPick.searchPlaceholder")}
                   onChange={(event) => setQuickPickSearch(event.target.value)}
                   onKeyDown={(event) => {
                     if (event.key === "Escape") {
@@ -2552,7 +2595,7 @@ export default function Home() {
                       setQuickPickSearch("");
                       quickPickSearchRef.current?.focus();
                     }}
-                    aria-label="옵션 검색어 지우기"
+                    aria-label={message("quickPick.clearSearch")}
                   >
                     ×
                   </button>
@@ -2561,7 +2604,7 @@ export default function Home() {
             </label>
 
             <div className="selected-filter-panel" aria-live="polite">
-              <span>선택됨</span>
+              <span>{message("quickPick.selected")}</span>
               {selectedQuickPickChips.length ? (
                 <div className="selected-filter-list">
                   {selectedQuickPickChips.map(([value, label]) => (
@@ -2576,7 +2619,7 @@ export default function Home() {
                   ))}
                 </div>
               ) : (
-                <p>선택한 추천 옵션이 없습니다.</p>
+                <p>{message("quickPick.noneSelected")}</p>
               )}
             </div>
 
@@ -2587,12 +2630,12 @@ export default function Home() {
                     <span>{group.title}</span>
                     {group.totalOptions ? (
                       <button className="group-toggle-button" type="button" onClick={() => setOptionGroupExpanded(group.title, true)}>
-                        + 더보기
+                        {message("quickPick.more")}
                       </button>
                     ) : null}
                     {expandedOptionGroups[group.title] && group.options.length > collapsedOptionCount && !quickPickSearch ? (
                       <button className="group-toggle-button" type="button" onClick={() => setOptionGroupExpanded(group.title, false)}>
-                        접기
+                        {message("quickPick.collapse")}
                       </button>
                     ) : null}
                   </legend>
@@ -2621,7 +2664,7 @@ export default function Home() {
                   ))}
                 </fieldset>
               ))}
-              {!filteredOptionGroups.length ? <p className="option-empty">검색된 옵션이 없습니다.</p> : null}
+              {!filteredOptionGroups.length ? <p className="option-empty">{message("quickPick.noResults")}</p> : null}
             </div>
           </section>
         </div>
@@ -2639,24 +2682,25 @@ export default function Home() {
             aria-labelledby="detailTitle"
             onScroll={(event) => setDetailScrolled(event.currentTarget.scrollTop > 48)}
           >
-            <button ref={detailCloseButtonRef} className="close-button detail-close" type="button" onClick={() => setSelectedDetail(null)} aria-label="상세 정보 닫기">×</button>
+            <button ref={detailCloseButtonRef} className="close-button detail-close" type="button" onClick={() => setSelectedDetail(null)} aria-label={message("detail.close")}>×</button>
             <div className="detail-layout">
               <div className="detail-thumb poster" aria-hidden="true"><PosterVisual poster={selectedDetail.detailPoster || selectedDetail.poster} title={selectedDetail.title} /></div>
               <div className="detail-info">
                 <span className="type-badge">{selectedDetail.label}</span>
                 <h2 id="detailTitle">{selectedDetail.title}</h2>
                 <div className="meta-list">
-                  <span><strong>장르</strong> {selectedDetail.genre || "정보 확인 필요"}</span>
-                  <span><strong>감독</strong> {selectedDetail.director}</span>
-                  <span><strong>주요 배우</strong> {selectedDetail.actors.join(", ")}</span>
+                  <span><strong>{message("detail.genre")}</strong> {selectedDetail.genre || message("common.infoCheckRequired")}</span>
+                  <span><strong>{message("detail.director")}</strong> {selectedDetail.director}</span>
+                  <span><strong>{message("detail.cast")}</strong> {selectedDetail.actors.join(", ")}</span>
                 </div>
-                <p className="detail-reason"><strong>추천 이유</strong><br />{buildEvidenceGroundedRecommendationReason(
+                <p className="detail-reason"><strong>{message("detail.recommendReason")}</strong><br />{buildEvidenceGroundedRecommendationReason(
                   selectedDetail,
                   rationalePreferences(submittedTitles, submittedConfirmedSeeds, submittedFilters, submittedTypes, submittedOtt),
+                  RUNTIME_UI_LOCALE,
                 )}</p>
                 {selectedDetail.recommendationInsight?.length ? (
                   <section className="insight-panel" aria-labelledby="recommendationInsightTitle">
-                    <p className="trust-label" id="recommendationInsightTitle">추천 근거</p>
+                    <p className="trust-label" id="recommendationInsightTitle">{message("detail.evidence")}</p>
                     <ul className="insight-list">
                       {selectedDetail.recommendationInsight.map((insight) => (
                         <li key={insight}>{insight}</li>
@@ -2666,8 +2710,8 @@ export default function Home() {
                 ) : null}
                 <section className="trust-panel" aria-labelledby="trustSignalTitle">
                   <div>
-                    <p className="trust-label" id="trustSignalTitle">선택 기준</p>
-                    <p className="trust-copy">작품을 살펴볼 때 참고할 수 있는 정보입니다.</p>
+                    <p className="trust-label" id="trustSignalTitle">{message("detail.criteria")}</p>
+                    <p className="trust-copy">{message("detail.criteriaDescription")}</p>
                   </div>
                   <div className="trust-grid">
                     {trustSignals(selectedDetail, submittedTitles).map((signal) => (
@@ -2678,44 +2722,44 @@ export default function Home() {
                     ))}
                   </div>
                 </section>
-                <p><strong>줄거리</strong><br />{selectedDetail.synopsis}</p>
-                <div className="detail-next-step" aria-label={`${selectedDetail.title} OTT 확인`}>
-                  <span>볼 수 있는 OTT</span>
+                <p><strong>{message("detail.synopsis")}</strong><br />{selectedDetail.synopsis}</p>
+                <div className="detail-next-step" aria-label={message("detail.watchAvailability", { title: selectedDetail.title })}>
+                  <span>{message("detail.watchOn")}</span>
                   <strong>{normalizeDisplayOttProviders(selectedDetail.ott).length
                     ? normalizeDisplayOttProviders(selectedDetail.ott).join(", ")
-                    : "OTT 제공 정보는 아직 확인되지 않았습니다."}</strong>
+                    : message("card.ottUnavailable")}</strong>
                 </div>
               </div>
             </div>
           </section>
           <div className={`detail-scroll-cue ${detailScrolled ? "is-hidden" : ""}`} aria-hidden="true">
-            <span>상세 정보 · 비슷한 작품 더 보기</span><strong>↓</strong>
+            <span>{message("detail.expandRelated")}</span><strong>↓</strong>
           </div>
           </div>
           {relatedStatus !== "idle" ? (
             <section className="related-panel" aria-labelledby="relatedRecommendationTitle">
               <div className="related-heading">
                 <div>
-                  <p className="trust-label" id="relatedRecommendationTitle">비슷한 작품</p>
+                  <p className="trust-label" id="relatedRecommendationTitle">{message("related.title")}</p>
                   <p className="trust-copy">
                     {relatedStatus === "loading"
-                      ? "연관 추천을 불러오는 중입니다."
+                      ? message("related.loading")
                       : relatedStatus === "error"
-                        ? "연관 추천을 불러오지 못했습니다. 잠시 후 다시 시도해 주세요."
+                        ? message("related.error")
                         : relatedStatus === "empty"
-                          ? "지금은 이어서 볼 추천을 찾지 못했습니다."
-                          : "현재 작품을 기준으로 이어서 볼 만한 추천입니다."}
+                          ? message("related.empty")
+                          : message("related.description")}
                   </p>
                 </div>
                 {relatedRecommendations.length ? (
-                  <div className="related-controls" aria-label="비슷한 작품 이동">
-                    <button type="button" onClick={() => scrollRelated(-1)} aria-label="이전 비슷한 작품">‹</button>
-                    <button type="button" onClick={() => scrollRelated(1)} aria-label="다음 비슷한 작품">›</button>
+                  <div className="related-controls" aria-label={message("related.controls")}>
+                    <button type="button" onClick={() => scrollRelated(-1)} aria-label={message("related.previous")}>‹</button>
+                    <button type="button" onClick={() => scrollRelated(1)} aria-label={message("related.next")}>›</button>
                   </div>
                 ) : null}
               </div>
               {relatedStatus === "loading" ? (
-                <div className="related-strip related-strip-loading" aria-label="연관 추천 로딩 중" aria-live="polite">
+                <div className="related-strip related-strip-loading" aria-label={message("related.loadingLabel")} aria-live="polite">
                   {Array.from({ length: 4 }).map((_, index) => (
                     <div className="related-card related-card-skeleton" key={`related-loading-${index}`} aria-hidden="true">
                       <span className="related-thumb related-skeleton-block" />
@@ -2729,7 +2773,7 @@ export default function Home() {
               ) : relatedRecommendations.length ? (
                 <div
                   className="related-strip"
-                  aria-label="관련 추천"
+                  aria-label={message("related.listLabel")}
                   ref={relatedStripRef}
                   onMouseDown={startRelatedDrag}
                   onMouseMove={moveRelatedDrag}
@@ -2751,6 +2795,7 @@ export default function Home() {
                         <small>{buildEvidenceGroundedDecisionReason(
                           item,
                           rationalePreferences(submittedTitles, submittedConfirmedSeeds, submittedFilters, submittedTypes, submittedOtt),
+                          RUNTIME_UI_LOCALE,
                         )}</small>
                       </span>
                     </button>
@@ -2758,7 +2803,7 @@ export default function Home() {
                 </div>
               ) : (
                 <div className="related-empty" role="status">
-                  {relatedStatus === "error" ? "네트워크 상태를 확인한 뒤 다시 열어보세요." : "다른 추천 카드를 열면 새로운 연관 추천을 다시 확인할 수 있습니다."}
+                  {relatedStatus === "error" ? message("related.retryHint") : message("related.changeCardHint")}
                 </div>
               )}
             </section>
