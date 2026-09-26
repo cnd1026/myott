@@ -1,5 +1,19 @@
 # MyOTT Agent Working Agreement
 
+## 2026-09-26 Current Founder Direction
+
+현재 운영결정은 [MyOTT 우선순위 및 자율실행 운영계약](docs/project/HQ_EXECUTION_PRIORITY_20260926.md), ID `HQ_MYOTT_FOCUS_20260926_V1`이다.
+
+- MyOTT 제품 작업을 최우선으로 한다. 공유 엔진 자동수복·안전 resume 및 NSC 내부 브라우저는 차선 점검이며, MyOTT를 실제로 막는 장애만 긴급 의존성으로 승격한다.
+- 장기작업은 한 번 manifest/핸드오프 후 엔진이 백그라운드 자율 실행·관측·승인 수복·재개를 담당하고, 완료/HOLD 때만 채팅으로 복귀한다. 실제 consumer 접수와 Monitor 노출 없이 실행 중이라고 선언하지 않는다.
+- 본부 명칭은 MyOTT / ND Studio 총본부 — Integrated Executive / 실행 PM / CTO 파트너다. 채팅방 번호는 역할·조직·제품 버전이 아니다. NSC PM 및 독립 프로젝트의 단일 writer 경계를 유지한다.
+- 현재 Codex 사용은 금지한다. 아래 과거 Codex 역할·모드 서술은 역사적 참조이며 현재 실행 승인으로 사용하지 않는다.
+- 기존 제품·보안·Provider/Auth/DB gate는 유지한다. main/master merge·Production·Release는 Founder 승인 전 금지하며, 문서 갱신은 제품 PASS나 배포 승인이 아니다.
+
+아래 역사적 작업계약은 충돌하지 않는 범위에서 계속 적용한다. 새로운 운영결정은 역할·도구·실행방식에 우선하며 안전기준을 약화하지 않는다.
+
+---
+
 이 문서는 MyOTT Repository에서 사람과 Codex Agent가 공통으로 따라야 하는 최상위 작업 계약입니다.
 상세 제품 설계나 QA 절차를 복사하지 않고 정본 문서와 자동화 계약의 위치를 안내합니다.
 
