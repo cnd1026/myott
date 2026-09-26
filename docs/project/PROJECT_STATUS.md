@@ -2,6 +2,25 @@
 
 이 문서는 MyOTT의 현재 진행 상태를 빠르게 확인하기 위한 public-safe 상태판입니다.
 
+## 2026-09-26 Current Focus and Evidence Boundary
+
+**최우선: MyOTT 제품 작업. 차선: 공유 엔진 자동수복·안전 resume 및 NSC 내부 브라우저 점검.** 다른 일반 작업의 신규 착수·확대는 보류하되 독립 프로젝트의 기존 예약·소유권은 유지한다.
+
+운영 정본: [MyOTT 우선순위 및 자율실행 운영계약](HQ_EXECUTION_PRIORITY_20260926.md), `HQ_MYOTT_FOCUS_20260926_V1`.
+
+- 문서 갱신 전 제품 작업 기준: `work/phase1-pre-rc-package-b-20260914` / `0bd7ae25596a3a02da156056890073d90fad2674`. 로컬·원격 일치와 clean을 확인했다.
+- 이번에 조회한 remote main: `daca03c11c915b8759efd2b187e49abe8cd9a787`. 작업 브랜치, main, Production은 별개다.
+- 다음 작업: 현재 HEAD baseline·열린 제품 결함·기존 승인 범위·dependency/build·실제 Preview/browser·Live TMDB 필요 검증을 대조한 뒤 작은 MyOTT 실행 패키지를 만든다.
+- 이번 갱신은 문서 변경뿐이다. 현재 HEAD 제품 테스트·브라우저·Production·Release PASS를 새로 발급하지 않았다.
+- 아래 checkpoint·테스트 수치·Production source·옛 remote main은 보존된 역사 기록이며 현재 값으로 자동 승계하지 않는다. Security Seal 등 미해결 gate는 새로운 근거 없이 해제하지 않는다.
+- 장기작업은 한 번 manifest/핸드오프 후 엔진 자율실행·승인 수복·안전 재개로 운영하며 실제 consumer 접수/Monitor 노출을 확인한 뒤 채팅에서 물러난다.
+
+---
+
+## Preserved Product Scope and Historical Checkpoint
+
+다음은 이전 정본 내용을 보존한 것이다. 현재 scope와 미해결 gate의 근거로 읽되, 날짜·소스에 결합된 PASS와 실행 상태는 실행 전 다시 확인한다.
+
 ## Current Product Phase
 
 `PRE-PUBLIC-LAUNCH / STATELESS GLOBAL-FIRST PHASE 1`
