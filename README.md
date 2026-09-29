@@ -1,11 +1,11 @@
 <!-- ND_PROGRESS_START -->
-## 최근 개발 현황 — 2026-09-19 21:00 KST
+## 최근 개발 현황 — 2026-09-30 03:58 KST
 
-현재 Product 후보의 검증 근거와 Pre-RC 차단 조건을 다시 분리해 기록했습니다.
-**검증 근거:** GitHub Actions run `35400294943`의 core/targeted 두 작업은 성공했고, Product PR4 head는 `5037970...`입니다.
-**현재 Preview:** 최신 READY Preview 메타데이터 source는 `5cc0eaf...`로 현재 Product head보다 뒤처져 있어 동일 산출물로 보지 않습니다.
-**남은 Gate:** 인증된 앱 응답, exact artifact/source binding, Founder Product Gate, HQ evidence review가 남아 있어 RC는 아직 `BLOCKED`입니다.
-Product main 기능 병합·Provider Live·Production/Release 재배포는 수행하지 않았습니다.
+MyOTT는 **개발 중**이며, 최근 작업은 제품 코드를 성급히 main에 합치기보다 제품이 의존하는 실행·복구 플랫폼의 안정성을 먼저 높이는 데 집중했습니다.
+**오늘 공개 가능한 진행:** 제품 main/Production은 그대로 보존했고, 장시간 작업·복구·브라우저 실행 기반의 안정화와 증거 정리를 계속했습니다.
+**현재 상태:** 미검증 Product 변경을 main에 합치지 않았기 때문에 제품 동작은 의도적으로 고정되어 있습니다. 이는 개발 중단이 아니라 검증 경계 유지입니다.
+**다음 단계:** 플랫폼 연결 안정화가 끝나는 즉시 Pre-RC 제품 QA와 다음 Product 후보 검증을 이어갑니다.
+오늘 Product 기능 main merge·Provider Live·Production/Release 변경은 없습니다.
 
 [상세 개발 현황](DEVELOPMENT_STATUS.md) · [개발 일지](docs/dev-log.md)
 <!-- ND_PROGRESS_END -->
