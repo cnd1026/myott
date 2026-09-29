@@ -1,3 +1,13 @@
+## 최근 개발 현황 — 2026-09-30 03:58 KST
+
+- MyOTT 개발은 계속 진행 중이며, 최근 며칠은 제품이 의존하는 공용 실행·복구 플랫폼의 안정화가 우선 작업이었습니다.
+- 제품 main과 Production은 검증되지 않은 후보를 섞지 않기 위해 의도적으로 고정했습니다.
+- 장시간 작업 수명주기, 복구, 브라우저 기반 실행, 상태 증거 정리가 진행됐고 Product 소스 변경으로 가장하지 않습니다.
+- 플랫폼 연결 안정화 acceptance 이후 Pre-RC 제품 QA와 다음 Product 후보를 재개합니다.
+- 이번 공개 기록은 개발 활동 가시성을 위한 docs-only main 갱신이며 Product 기능 merge·Provider Live·Production/Release 변경은 없습니다.
+
+---
+
 ## 최근 개발 현황 — 2026-09-19 21:00 KST
 
 현재 추천·다국어 Product 후보의 CI와 Preview 증거를 다시 대조해 Pre-RC 상태를 갱신했습니다.
