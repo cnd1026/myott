@@ -1,3 +1,14 @@
+## 최근 개발 현황 — 2026-10-01 Codex Model Catalog V4
+
+Founder current Codex catalog를 `GPT-6.0 Luna -> GPT-6.0 Sol -> GPT-6.1 Sol -> GPT-6.0 Astra`로 갱신하고 Daybreak Blue를 별도 defensive-security specialist track으로 유지했습니다.
+
+- GPT-5.6 및 GPT-6 Terra projection은 current routing에서 제거했습니다.
+- 과거 V3/V2/5.6/Terra/Ultra 기록은 삭제하지 않고 historical/superseded evidence로 보존합니다.
+- Model/Reasoning/Orchestration 분리, lowest-sufficient selection, Requested/Actual 분리, previous-task inheritance 금지는 유지합니다.
+- Continuity와 Git은 동일한 history rule인 `ORIGIN -> CHANGE -> CURRENT`를 따라야 합니다.
+
+---
+
 ## 최근 개발 현황 — 2026-09-19 21:00 KST
 
 현재 추천·다국어 Product 후보의 CI와 Preview 증거를 다시 대조해 Pre-RC 상태를 갱신했습니다.
