@@ -19,14 +19,16 @@ contracts:
 # Use NOT_APPLICABLE only when the task does not invoke Codex.
 codexMode:
   policySource: "docs/project/CODEX_MODE_SELECTION_POLICY.md"
-  policyVersion: "1.0"
+  policyVersion: "4.0"
   model: "NOT_APPLICABLE"
   reasoning: "NOT_APPLICABLE"
   rationale: "NOT_APPLICABLE"
+  orchestration: "NOT_APPLICABLE"
   autoChange: false
   changeAuthority: "HQ / Founder"
   actualModel: "NOT_REPORTED"
   actualReasoning: "NOT_REPORTED"
+  actualOrchestration: "NOT_REPORTED"
 
 changeProfile:
   production: false

@@ -1,5 +1,13 @@
 # Task History
 
+## 2026-10-01 Governance
+
+| Task ID | Task | Commit | Review | 상태 |
+| --- | --- | --- | --- | --- |
+| MYOTT-GOV-20261001-01 | Codex Model Catalog V4 + history-preserving supersession | 이번 커밋 | Current routing을 GPT-6.0 Luna / GPT-6.0 Sol / GPT-6.1 Sol / GPT-6.0 Astra + Daybreak Blue로 갱신. V3/V2/5.6/Terra/Ultra evidence는 historical로 보존. | 완료 |
+
+
+
 이 문서는 Sprint별 Task, Commit, Review, 상태를 기록합니다.
 
 ## Security Maintenance

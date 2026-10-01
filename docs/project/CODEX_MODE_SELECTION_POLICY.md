@@ -1,8 +1,10 @@
 # Codex Mode Selection Policy
 
-Version: 3.0
+Version: 4.0
 
 Status: ACTIVE
+
+Founder Decision Date: 2026-10-01
 
 ## Purpose
 
@@ -14,7 +16,8 @@ This document is the Git-canonical authority for selecting a Codex Model Family 
 - Selection principle: **LOWEST SUFFICIENT MODEL + LOWEST SUFFICIENT REASONING**
 - Previous task mode inheritance: **PROHIBITED**
 - Mode auto-change: **PROHIBITED**
-- Model choice and reasoning choice are independent decisions.
+- Mode change authority: **HQ / Founder only**
+- Model choice, reasoning choice, and orchestration choice are separate decisions.
 - A task Return Packet must separately record `REQUESTED_MODEL`, `REQUESTED_REASONING`, and `REQUESTED_ORCHESTRATION` from `ACTUAL_MODEL`, `ACTUAL_REASONING`, and `ACTUAL_ORCHESTRATION`.
 - Record actual values only from explicit UI or trusted execution evidence. Otherwise record `NOT REPORTED / NOT INFERRED`; never infer actual values from requested values.
 - For a task that invokes Codex, model, reasoning, and rationale must be explicit and nonblank. Use `NOT_APPLICABLE` only when the task does not invoke Codex.
@@ -26,49 +29,57 @@ When policy sources conflict, use this order:
 2. This Git canonical policy
 3. Conversation memory
 
-## GPT-6 Model Routing Ladder
+## Current General Routing Ladder
 
-Use the lowest sufficient model and the lowest sufficient reasoning for the actual task. `ASTRA_BY_DEFAULT` is prohibited.
+Use the lowest sufficient model and lowest sufficient reasoning for the actual task. `ASTRA_BY_DEFAULT` is prohibited.
 
-| Model Family | Availability | Role |
+| Model Family | State | ND Studio routing role |
 | --- | --- | --- |
-| GPT-6 Luna | CURRENT | Mechanical, cost-sensitive, high-volume, routine bounded work, narrow repository mapping, and fast support work. |
-| GPT-6 Terra | PENDING_AVAILABILITY | Standard engineering and balanced implementation/review work once current UI/runtime evidence confirms availability. Do not invent an actual Terra execution before that evidence exists. |
-| GPT-6 Sol | CURRENT | Complex engineering, multi-module implementation, advanced judgment, and higher-complexity work where Astra is not necessary. |
-| GPT-6 Astra | CURRENT | Frontier, consequential, end-to-end, highest-general-capability, architecture, or difficult cross-domain work when the task actually requires it. |
+| GPT-6.0 Luna | CURRENT | Mechanical, routine, bounded, high-volume, deterministic verification, narrow support work. |
+| GPT-6.0 Sol | CURRENT | Standard engineering, normal implementation/review, bounded multi-file work. |
+| GPT-6.1 Sol | CURRENT | Complex engineering, difficult cross-file root cause, advanced judgment, higher-complexity implementation/review. |
+| GPT-6.0 Astra | CURRENT | Frontier, consequential, end-to-end, architecture, difficult cross-domain recovery or highest-general-capability work when justified. |
 
-The active routing policy is GPT-6-family-first. Pre-GPT-6 model families are historical execution evidence only and are not selected for new work under this policy.
+The current operating ladder is:
 
-Select both model and reasoning from task complexity, read/write scope, reversibility, external mutation, security boundary, evidence-synthesis burden, cost, and latency. A model family does not imply a fixed reasoning level.
+`GPT-6.0 Luna -> GPT-6.0 Sol -> GPT-6.1 Sol -> GPT-6.0 Astra`
 
-## Availability Evidence
+GPT-5.6 families and GPT-6 Terra are **not current selectable routes under this V4 policy**. They remain historical evidence where they were actually used or previously projected.
 
-The current public OpenAI model guidance identifies the GPT-6 family as Astra, Sol, and Luna. Founder has separately confirmed GPT-6 Terra is expected to join the operating menu soon.
+A model family does not imply a fixed reasoning level.
 
-Therefore:
-
-- Luna / Sol / Astra may be requested when exposed by the current product/runtime.
-- Terra remains `PENDING_AVAILABILITY` until the current Codex/Work UI, execution metadata, or other trusted product evidence shows GPT-6 Terra is actually selectable.
-- A stale UI entry or historical receipt does not restore a deprecated operating route.
-- Catalog changes update this projection; they do not change the stable lowest-sufficient selection principle.
-
-## Reasoning and Orchestration
+## Reasoning And Orchestration
 
 Canonical reasoning ladder:
 
 `LOW -> MEDIUM -> HIGH -> XHIGH -> MAX`
 
-`Ultra` is excluded from the normal reasoning ladder. If a product later exposes a separate orchestration preset with a similar name, it must be treated as orchestration rather than silently promoted to a reasoning level.
+Select the lowest sufficient reasoning independently from model family.
 
-A task may request only a reasoning level supported by the selected model/runtime. Do not infer a complete per-model menu from another model's UI.
+`Ultra` is excluded from the current operating reasoning catalog. Historical UI observations that included Ultra remain historical evidence and must not be rewritten.
+
+Orchestration is separate from native reasoning. Parallel/delegated execution must be recorded separately and must not be inferred from the model or reasoning choice.
 
 ## Daybreak Blue
 
-Daybreak Blue is a defensive-security specialist track orthogonal to the GPT-6 general engineering ladder. It is neither above nor below Astra, is not a normal ladder step or quota fallback, and does not itself resolve an Execution Security Gate.
+Daybreak Blue is a defensive-security specialist track orthogonal to the general routing ladder.
 
-Appropriate uses include vulnerability analysis, threat modeling, sandbox or trust-boundary review, security-control analysis, and defensive security review. It is not for ordinary Product implementation, routine Git persistence, generic documentation, or general architecture without focused security value.
+It is neither above nor below Astra, is not a normal ladder step, and is not a quota fallback.
 
-Use the currently supported GPT-6 backing model only when trusted product evidence confirms it. Do not assume future Terra support until exposed.
+Appropriate uses include focused defensive-security work such as:
+
+- vulnerability analysis;
+- threat modeling;
+- sandbox / containment review;
+- filesystem trust-boundary analysis;
+- canonical-path / reparse / TOCTOU defense review;
+- authentication / authorization review;
+- secret-handling review;
+- defensive hardening and security regression validation.
+
+Do not use Daybreak Blue for ordinary Product implementation, routine bug fixes, UI/UX, generic documentation, ordinary Git persistence, or general architecture without focused defensive-security Decision Value.
+
+Selecting Daybreak Blue does not expand Founder authority, filesystem authority, Network authority, credential authority, Release authority, Production authority, or any Execution Security Gate.
 
 ## Requested And Actual
 
@@ -92,18 +103,40 @@ If execution metadata is unavailable:
 
 Never rewrite a historical receipt to a newer model family. Historical execution records preserve what actually ran at that time.
 
-## Policy History
+## History Preservation And Supersession
 
-V3 supersedes V2's active model catalog while preserving the durable rules:
+Model policy history is append-preserving, not destructively rewritten.
 
-- no universal default model;
-- no prior-task inheritance;
-- lowest sufficient model and reasoning;
-- Requested/Actual separation;
-- Daybreak as a specialist track;
-- evidence-based actual-mode reporting.
+Preserve:
 
-Past append-only logs may retain historical model names because they are execution evidence, not current routing authority.
+`ORIGIN -> CHANGE -> CURRENT`
+
+Rules:
+
+- A current catalog change supersedes earlier routing authority but does not erase earlier decisions, UI observations, receipts, or execution evidence.
+- Historical text must be explicitly marked historical/superseded when needed so it cannot override newer current authority.
+- Past receipts keep the model/reasoning that actually ran.
+- Current prompts/templates must use the current V4 catalog only.
+
+### V4 — CURRENT — 2026-10-01
+
+Founder current catalog:
+
+- GPT-6.0 Luna
+- GPT-6.0 Sol
+- GPT-6.1 Sol
+- GPT-6.0 Astra
+- Daybreak Blue specialist track
+
+### V3 — SUPERSEDED / HISTORICAL
+
+V3 projected GPT-6 Luna, GPT-6 Terra (pending), GPT-6 Sol, GPT-6 Astra, with Daybreak Blue as the specialist track.
+
+That projection is preserved as historical policy state. It is no longer current routing authority.
+
+### V2 And Earlier — SUPERSEDED / HISTORICAL
+
+Earlier GPT-5.6 Luna/Terra/Sol labels, earlier Astra/Daybreak UI snapshots, and older Ultra observations remain historical evidence where originally recorded. They are not selectable defaults for new work.
 
 ## Mandatory Reread
 
@@ -111,9 +144,11 @@ Reread `AGENTS.md` and this policy before:
 
 - the first Codex execution of every new task;
 - a new HQ chat or HQ migration;
-- continuity recovery or context restoration;
+- Continuity recovery or context restoration;
 - a requested mode that appears copied from the previous task without task-specific rationale;
 - any mode-policy uncertainty or conflict; and
 - a Founder question about the mode choice.
 
 Recent repetition is not policy.
+
+END

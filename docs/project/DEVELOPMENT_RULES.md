@@ -20,14 +20,21 @@
 
 ## 2.1 Codex Mode 기준
 
-Codex Mode는 작업 위험도와 검증 수준을 나타냅니다.
+Codex Mode는 위험도 라벨이 아니라 **Model Family + Reasoning Level + 별도 Orchestration 기록**으로 관리합니다.
 
-- LOW: 단순 문서 수정이나 작은 UI 조정
-- MEDIUM: 제한적 UI/UX 변경이나 상태 로직 조정
-- HIGH: 구조 변경 준비, PMS 동기화, API 영향 가능성이 있는 작업
-- VERY HIGH: 아키텍처, 개인정보, DB, 운영체계, 장기 정책에 영향을 주는 작업
+현재 선택 정본은 `docs/project/CODEX_MODE_SELECTION_POLICY.md`입니다.
 
-DB, 개인정보, Provider, 인증, AI 추천, 운영체계 작업은 기본적으로 HIGH 이상으로 판단합니다.
+- Universal default model: NONE
+- Selection: LOWEST SUFFICIENT MODEL + LOWEST SUFFICIENT REASONING
+- Previous Task Mode inheritance: PROHIBITED
+- Mode Auto-change: PROHIBITED
+- Mode Change Authority: HQ / Founder only
+- Requested != Actual
+- Actual은 UI 또는 trusted execution evidence가 없으면 NOT REPORTED / NOT INFERRED
+
+현재 general routing ladder는 GPT-6.0 Luna -> GPT-6.0 Sol -> GPT-6.1 Sol -> GPT-6.0 Astra이며, Daybreak Blue는 defensive-security specialist track입니다.
+
+과거 LOW/MEDIUM/HIGH/VERY HIGH 위험도 표기와 GPT-5.6/Terra/Ultra model catalog는 historical evidence로 남을 수 있으나 현재 Codex Mode authority가 아닙니다. 위험도와 Mode를 혼용하지 않습니다.
 
 Public MyOTT에는 APS의 존재와 운영 참조만 남기며, APS 상세 운영 방식은 Nd_core를 Source of Truth로 둡니다.
 
