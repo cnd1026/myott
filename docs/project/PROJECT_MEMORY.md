@@ -2,7 +2,7 @@
 
 Version: 1.0
 
-Last Updated: 2026-08-30
+Last Updated: 2026-10-01
 
 Status: ACTIVE
 
@@ -50,6 +50,7 @@ Project Memory의 목적:
 | MEM-0008 | 2026-07-04 | Development Governance | MyOTT는 Prompt, Documentation, Workflow, QA, Lessons Learned를 코드와 동일한 프로젝트 자산으로 관리한다. | 장기 프로젝트에서는 코드뿐 아니라 개발 문화가 프로젝트 경쟁력이 되기 때문이다. | Core Operating Documents 체계 수립, Prompt Version 관리, Documentation Sprint 운영. | Active |
 | MEM-0009 | 2026-07-04 | Company Vision | MyOTT의 최종 목표는 다른 기업들이 "저 회사의 아이템과 개발 문화를 갖고 싶다."라고 느끼는 수준의 제품과 운영 체계를 만드는 것이다. | 좋은 서비스는 좋은 코드만으로 만들어지지 않고 좋은 개발 문화와 운영 체계가 함께 만들어야 하기 때문이다. | 제품 품질과 개발 문화 모두를 경쟁력으로 관리하는 기준 확립. | Active |
 | PM-009 | 2026-08-30 | Codex Mode Selection Governance | Universal default model은 NONE이며, 모든 Task는 lowest sufficient Model Family와 Reasoning Level을 별도로 선택한다. 이전 Task Mode 상속은 금지하고 정본 정책을 Task/context reset 경계에서 reread한다. | 장기 대화와 반복된 최근 pattern이 실제 운영 정책에서 drift할 수 있다. | Codex Mode 선택은 conversation memory가 아니라 `docs/project/CODEX_MODE_SELECTION_POLICY.md`의 Git-canonical 정책을 따른다. | Active |
+| PM-010 | 2026-10-01 | Codex Model Catalog V4 And History Preservation | 현재 routing catalog는 GPT-6.0 Luna -> GPT-6.0 Sol -> GPT-6.1 Sol -> GPT-6.0 Astra이며 Daybreak Blue는 별도 defensive-security specialist track이다. GPT-5.6, Terra, 과거 Ultra 관측은 현재 선택지에서 제거하되 historical evidence로 보존한다. | Founder가 current catalog를 갱신했고 Continuity/Git 모두 ORIGIN -> CHANGE -> CURRENT를 보존해야 한다고 재확인했다. | 새 Task는 V4 catalog만 사용하고, 과거 receipt/decision/UI observation은 당시 실제 상태를 유지하며 destructive rewrite하지 않는다. | Active |
 
 ---
 

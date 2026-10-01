@@ -1,6 +1,14 @@
 # Changelog
 
 프로젝트의 주요 변경 사항을 날짜별로 기록합니다.
+## 2026-10-01 - Codex Model Catalog V4 And History Preservation
+
+- 현재 Codex general routing을 `GPT-6.0 Luna -> GPT-6.0 Sol -> GPT-6.1 Sol -> GPT-6.0 Astra`로 갱신했습니다.
+- Daybreak Blue는 general ladder 밖의 defensive-security specialist track으로 유지합니다.
+- GPT-5.6, GPT-6 Terra projection, 과거 Ultra UI 관측은 current routing에서 제거하되 historical evidence로 보존합니다.
+- Codex Mode policy를 v4.0으로 올리고 Prompt Guide, Development Rules, Task Manifest, Project Memory를 같은 authority에 정렬했습니다.
+- 역사 기록은 삭제/재작성 대신 `ORIGIN -> CHANGE -> CURRENT` supersession으로 보존합니다.
+
 ## 2026-08-21 - Founder Preview Worktree Runtime Support
 
 - Git linked worktree에 독립 `node_modules`가 없어도 같은 Git common repository와 origin, 호환 `next/react/react-dom` 계약이 확인되면 primary worktree의 기존 runtime을 안전하게 재사용합니다.

@@ -1,8 +1,8 @@
 # Prompt Guide
 
-Version: 1.6.0
+Version: 1.7.0
 
-Last Updated: 2026-08-30
+Last Updated: 2026-10-01
 
 Status: ACTIVE
 
@@ -56,16 +56,16 @@ Codex Mode Policy Source:
 docs/project/CODEX_MODE_SELECTION_POLICY.md
 
 Codex Mode Policy Version:
-1.0
+4.0
 
 Model:
-5.6 <family>
+<GPT-6.0 Luna | GPT-6.0 Sol | GPT-6.1 Sol | GPT-6.0 Astra | Daybreak Blue>
 
 Reasoning Level:
 <supported level>
 
 Codex Mode:
-5.6 <family> / <reasoning>
+<model> / <reasoning>
 
 Mode Rationale:
 <why this is the lowest sufficient selection>
@@ -174,7 +174,7 @@ Codex Model Family와 Reasoning Level의 현재 선택 기준은 [Codex Mode Sel
 
 Task Prompt는 정책 source/version, Model Family, Reasoning Level, lowest-sufficient rationale, auto-change prohibition, change authority, 그리고 Requested/Actual 구분을 모두 기록합니다.
 
-아래 과거 5단계 Codex Mode 표와 예시는 historical/deprecated guidance입니다. 현재 Task의 완전한 Mode system으로 사용하지 않습니다.
+현재 general routing ladder는 `GPT-6.0 Luna -> GPT-6.0 Sol -> GPT-6.1 Sol -> GPT-6.0 Astra`이며 Daybreak Blue는 별도 defensive-security specialist track입니다. 과거 GPT-5.6/Terra/Ultra 표와 예시는 historical/deprecated guidance로 보존하며 현재 Task의 Mode system으로 사용하지 않습니다.
 
 ---
 
