@@ -97,6 +97,7 @@ const DEDUPE_DECISIONS = new Set([
   "duplicate-content",
   "duplicate-display-title",
   "duplicate-franchise",
+  "cross-surface-first-pick",
   "not-reached",
 ]);
 const RESULT_TIERS = new Set(["exact", "same-country-relaxed", "country-relaxed"]);
@@ -118,6 +119,7 @@ const SAFE_CANDIDATE_REASONS = new Set([
   "duplicate-content",
   "duplicate-display-title",
   "duplicate-franchise",
+  "cross-surface-first-pick",
   "primary-limit-not-selected",
   "relaxed-limit-not-selected",
 ]);

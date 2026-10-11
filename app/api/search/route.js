@@ -13,6 +13,23 @@ function sourceMetadata(provider, { message = "", fallbackUsed = false, fallback
   };
 }
 
+function searchUnavailable(reason) {
+  // Production must never describe invented Mock Provider rows as real search results.
+  return Response.json({
+    source: "unavailable",
+    dataSource: "error",
+    providerId: "tmdb",
+    tmdbEnabled: isTmdbProviderEnabled(),
+    fallbackUsed: false,
+    fallbackReason: reason,
+    results: [],
+    relaxedResults: [],
+  }, {
+    status: 503,
+    headers: { "Cache-Control": "no-store" },
+  });
+}
+
 async function searchProvider(provider, query, contentTypes, filters, seedTitles, sourceOptions = {}) {
   const providerPayload = await provider.search({ query, contentTypes, filters, seedTitles });
   const results = Array.isArray(providerPayload) ? providerPayload : providerPayload.results || [];
@@ -65,6 +82,7 @@ export async function GET(request) {
   }
 
   if (activeProvider.id === "mock") {
+    if (process.env.NODE_ENV === "production") return searchUnavailable("tmdb-not-configured");
     return Response.json(await searchProvider(activeProvider, query, contentTypes, filters, seedTitles, {
       dataSource: "fallback",
       fallbackUsed: true,
@@ -84,6 +102,7 @@ export async function GET(request) {
       },
     });
   } catch (error) {
+    if (process.env.NODE_ENV === "production") return searchUnavailable("tmdb-request-failed");
     const fallbackProvider = getFallbackProvider();
     const message = error instanceof Error ? error.message : "TMDb search failed.";
     return Response.json(await searchProvider(fallbackProvider, query, contentTypes, filters, seedTitles, {

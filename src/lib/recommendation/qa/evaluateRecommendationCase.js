@@ -711,6 +711,51 @@ export function evaluateRecommendationCase(testCase, recommendationResults = [],
   };
 
   const failedReasons = [];
+  // A QA threshold is not proof when its underlying provider diagnostic is
+  // absent. Preserve optional metrics, but fail closed for explicitly asserted
+  // counters/flags before comparing the derived metrics.
+  const requiredCounters = [
+    ["maximumTmdbRequestCount", ["aggregateRequestsUsed", "requestsUsed"]],
+    ["maximumListRequestCount", ["listRequestsUsed"]],
+    ["maximumDetailRequestCount", ["detailRequestsUsed"]],
+    ["requestContextCount", ["requestContextCount"]],
+    ["maximumElapsedMs", ["elapsedMs"]],
+  ];
+  for (const [assertion, sourceFields] of requiredCounters) {
+    if (!Number.isFinite(expected[assertion])) continue;
+    const field = sourceFields.find((name) => Object.hasOwn(diagnostics, name));
+    if (!field) {
+      failedReasons.push(`MISSING_DIAGNOSTIC:${assertion}`);
+    } else if (typeof diagnostics[field] !== "number" ||
+        !Number.isFinite(diagnostics[field]) || diagnostics[field] < 0) {
+      failedReasons.push(`INVALID_DIAGNOSTIC:${assertion}`);
+    }
+  }
+  const requiredFlags = [
+    ["deadlineExceeded", "deadlineExceeded"],
+    ["requestBudgetExceeded", "budgetExhausted"],
+    ["inputLanguagePreserved", "inputLanguagePreserved"],
+    ["genreOptionOrderMatched", "genreOptionOrderMatched"],
+    ["emptyStateMessageMatched", "emptyStateMessageMatched"],
+  ];
+  for (const [assertion, field] of requiredFlags) {
+    if (typeof expected[assertion] !== "boolean") continue;
+    if (!Object.hasOwn(diagnostics, field)) {
+      failedReasons.push(`MISSING_DIAGNOSTIC:${assertion}`);
+    } else if (typeof diagnostics[field] !== "boolean") {
+      failedReasons.push(`INVALID_DIAGNOSTIC:${assertion}`);
+    }
+  }
+  if (expected.aggregateRequestsMustEqualRequests === true) {
+    for (const field of ["aggregateRequestsUsed", "requestsUsed"]) {
+      if (!Object.hasOwn(diagnostics, field)) {
+        failedReasons.push(`MISSING_DIAGNOSTIC:${field}`);
+      } else if (typeof diagnostics[field] !== "number" ||
+          !Number.isFinite(diagnostics[field]) || diagnostics[field] < 0) {
+        failedReasons.push(`INVALID_DIAGNOSTIC:${field}`);
+      }
+    }
+  }
   if (totalCount === 0) failedReasons.push("no-results");
   if (matchRatio < minimumMatchRatio) failedReasons.push(`match-ratio-below-minimum:${matchRatio.toFixed(2)}<${minimumMatchRatio}`);
   if (Number.isFinite(expected.minimumResultCount) && totalCount < expected.minimumResultCount) {
