@@ -4,6 +4,7 @@ import { readFile } from "node:fs/promises";
 import { tmdbProvider } from "../src/lib/providers/tmdb/provider.js";
 import { clearTmdbRequestCache } from "../src/lib/providers/tmdb/requestContext.js";
 import { evaluateRecommendationCase } from "../src/lib/recommendation/qa/evaluateRecommendationCase.js";
+import { selectLiveQaCases } from "../src/lib/recommendation/qa/liveCaseSelection.js";
 
 if (!tmdbProvider.isEnabled()) {
   console.log("SKIP Live TMDB Recommendation QA: TMDB_API_KEY/TMDB_BEARER_TOKEN is not configured.");
