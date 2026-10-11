@@ -56,10 +56,16 @@ const supplementalLiveCases = [
     minimumMatchRatio: 0,
   },
 ];
-const liveCases = [
-  ...dataset.filter((testCase) => testCase.scope?.includes("tmdb")),
-  ...supplementalLiveCases,
-].filter((testCase) => !requestedCaseIds.size || requestedCaseIds.has(testCase.id));
+let liveCases;
+try {
+  liveCases = selectLiveQaCases([
+    ...dataset.filter((testCase) => testCase.scope?.includes("tmdb")),
+    ...supplementalLiveCases,
+  ], requestedCaseIds);
+} catch {
+  console.error("FAIL Live TMDB Recommendation QA: INVALID_SELECTION; cases NOT_RUN.");
+  process.exit(2);
+}
 const output = [];
 let hasFailure = false;
 
