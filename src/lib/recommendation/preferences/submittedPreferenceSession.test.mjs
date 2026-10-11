@@ -7,6 +7,7 @@ import {
   createSubmittedPreferences,
   preferencesChanged,
 } from "./submittedPreferenceSession.js";
+import { buildSeedRequestPayload } from "../seeds/seedRequest.js";
 
 test("initial and reset preference drafts do not activate an OTT hard filter", () => {
   const initial = createInitialPreferenceDraft();
