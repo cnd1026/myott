@@ -24,9 +24,21 @@ export function createSubmittedPreferences({
   filters = [],
   ottProviders = [],
 } = {}) {
+  // Submitted titles and their confirmation keys must be compacted together.
+  // A confirmation is attached to an input row, not the next surviving title.
+  const submittedTitles = [];
+  const submittedSeeds = {};
+  (Array.isArray(titles) ? titles : []).forEach((title, sourceIndex) => {
+    if (typeof title === "string" && !title.trim()) return;
+    const submittedIndex = submittedTitles.length;
+    submittedTitles.push(String(title));
+    if (Object.hasOwn(confirmedSeeds || {}, sourceIndex)) {
+      submittedSeeds[submittedIndex] = clone(confirmedSeeds[sourceIndex]);
+    }
+  });
   return Object.freeze({
-    titles: Object.freeze(cleanArray(titles).map((title) => String(title))),
-    confirmedSeeds: Object.freeze(clone(confirmedSeeds || {})),
+    titles: Object.freeze(submittedTitles),
+    confirmedSeeds: Object.freeze(submittedSeeds),
     contentTypes: Object.freeze([...new Set(cleanArray(contentTypes))]),
     filters: Object.freeze([...new Set(cleanArray(filters))]),
     ottProviders: Object.freeze([...new Set(cleanArray(ottProviders))]),
