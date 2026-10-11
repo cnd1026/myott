@@ -289,6 +289,58 @@ test("observer preserves main request-slot release while response body parsing i
   assert.equal(observed.maxConcurrentObserved, baseline.maxConcurrentObserved);
 });
 
+test("body timeout remains bounded after headers without occupying the request slot", async () => {
+  let aborted = 0;
+  const observer = createTmdbObservabilitySession();
+  const context = createTmdbRequestContext({
+    observer,
+    limits: { retries: 0 },
+    fetchTimeoutMs: 15,
+    recommendationDeadlineMs: 250,
+    fetchImpl: async (url, { signal }) => {
+      signal.addEventListener("abort", () => { aborted += 1; }, { once: true });
+      return { ...response(200), json: () => new Promise(() => {}) };
+    },
+  });
+
+  await assert.rejects(
+    context.get("/discover/movie", { page: 1 }),
+    (error) => error instanceof TmdbFetchTimeoutError,
+  );
+  assert.equal(aborted, 1);
+  assert.equal(context.diagnostics().failedRequestCount, 1);
+  assert.equal(context.diagnostics().deadlineExceeded, false);
+  const evidence = finalizeRequestOnlySession(observer, context.diagnostics());
+  assert.equal(evidence.events.filter((event) => event.type === "request-failed").length, 1);
+  assert.equal(evidence.events.find((event) => event.type === "request-failed").statusClass, "fetch-timeout");
+  assert.equal(evidence.events.filter((event) => event.type === "request-complete").length, 0);
+});
+
+test("body stall bounded by action deadline reports one terminal without retry", async () => {
+  let fetchCount = 0;
+  const observer = createTmdbObservabilitySession();
+  const context = createTmdbRequestContext({
+    observer,
+    limits: { retries: 2 },
+    fetchTimeoutMs: 250,
+    recommendationDeadlineMs: 15,
+    fetchImpl: async () => {
+      fetchCount += 1;
+      return { ...response(200), json: () => new Promise(() => {}) };
+    },
+  });
+
+  await assert.rejects(
+    context.get("/discover/tv", { page: 1 }),
+    (error) => error instanceof TmdbDeadlineError,
+  );
+  assert.equal(fetchCount, 1);
+  assert.equal(context.diagnostics().deadlineExceeded, true);
+  const evidence = finalizeRequestOnlySession(observer, context.diagnostics());
+  assert.equal(evidence.events.filter((event) => event.type === "request-failed").length, 1);
+  assert.equal(evidence.events.find((event) => event.type === "request-failed").statusClass, "deadline-exceeded");
+});
+
 test("individual fetch timeout aborts a stalled request", async () => {
   const session = createTmdbObservabilitySession();
   const context = createTmdbRequestContext({
