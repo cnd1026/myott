@@ -438,6 +438,7 @@ export function createTmdbRequestContext({
     let terminalEmitted = false;
     let responseReached = false;
     let requestId = "";
+    let bodyCompletionOwnsTimer = false;
     const endpointClass = observer === undefined ? "" : safeEndpointClass(path);
     try {
       if (!hasTimeRemaining()) throw new TmdbDeadlineError();
@@ -492,7 +493,18 @@ export function createTmdbRequestContext({
         operation.lastFailureTerminal = "decode-failure";
         throw error;
       }
-      return Promise.resolve(payload).then(
+      // Release the header request slot as before, but keep the deadline alive
+      // through the body. An abort-aware race also bounds custom JSON decoders
+      // that ignore the AbortSignal after headers have arrived.
+      let removeBodyAbortListener = () => {};
+      const abortedBody = new Promise((_, reject) => {
+        const onAbort = () => reject(new TmdbFetchTimeoutError());
+        controller.signal.addEventListener("abort", onAbort, { once: true });
+        removeBodyAbortListener = () => controller.signal.removeEventListener("abort", onAbort);
+        if (controller.signal.aborted) onAbort();
+      });
+      bodyCompletionOwnsTimer = true;
+      return Promise.race([Promise.resolve(payload), abortedBody]).then(
         (value) => {
           if (requestId) {
             emitObservation("request-complete", {
@@ -507,23 +519,39 @@ export function createTmdbRequestContext({
           return value;
         },
         (error) => {
-          operation.lastFailureTerminal = "decode-failure";
+          let failure = error;
+          if (timedOut) {
+            if (deadlineBound || remainingDeadlineMs() <= 0) {
+              state.deadlineExceeded = true;
+              if (!earlyStopReason) earlyStopReason = "recommendation-deadline-exceeded";
+              operation.lastFailureTerminal = "resource-stop-post-issue";
+              failure = new TmdbDeadlineError();
+            } else {
+              operation.lastFailureTerminal = "transport-failure";
+              failure = new TmdbFetchTimeoutError();
+            }
+          } else {
+            operation.lastFailureTerminal = "decode-failure";
+          }
           state.failedRequestCount += 1;
           if (requestId) {
-            const statusClass = requestFailureStatus(error, false, deadlineBound);
+            const statusClass = requestFailureStatus(failure, timedOut, failure instanceof TmdbDeadlineError);
             emitObservation("request-failed", {
               requestId,
               requestKind: kind,
               endpointClass,
               retryIndex,
               statusClass,
-              ...transportFailureObservation(error, responseReached, statusClass),
+              ...transportFailureObservation(failure, responseReached, statusClass),
             });
             terminalEmitted = true;
           }
-          throw error;
+          throw failure;
         },
-      );
+      ).finally(() => {
+        removeBodyAbortListener();
+        clearTimeout(timeoutId);
+      });
     } catch (error) {
       if (!(error instanceof TmdbHttpError)) state.failedRequestCount += 1;
       if (timedOut) {
@@ -579,7 +607,9 @@ export function createTmdbRequestContext({
       }
       throw error;
     } finally {
-      if (timeoutId) clearTimeout(timeoutId);
+      // Header-stage failures own their timeout; the returned body promise
+      // owns it after successful headers, without occupying a request slot.
+      if (timeoutId && !bodyCompletionOwnsTimer) clearTimeout(timeoutId);
       releaseSlot();
     }
   }
