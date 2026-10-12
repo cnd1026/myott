@@ -2458,7 +2458,7 @@ export default function Home() {
             <p className="eyebrow">{message("results.eyebrow")}</p>
             <h2 id="resultsTitle" ref={resultsHeadingRef} tabIndex={-1}>{message("results.title")}</h2>
           </div>
-          <p className="result-count" id="resultCount">{message("results.count", { count: results.length })}</p>
+          <p className="result-count" id="resultCount" role="status" aria-live="polite" aria-atomic="true">{message("results.count", { count: results.length })}</p>
         </div>
         {submittedPreferences ? (
           <section className="applied-preferences" aria-label={message("results.appliedConditions")}>
